@@ -24,7 +24,7 @@
   };
   
   programs = {
-    dconf.enable = true
+    dconf.enable = true;
   };
   
   hardware.pulseaudio.enable = false;
