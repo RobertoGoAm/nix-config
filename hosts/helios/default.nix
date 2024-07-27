@@ -10,7 +10,6 @@
   networking = {
     hostName = "helios";
     networkmanager.enable = true;
-    useDHCP = true;
     # wireless.enable = true;  # Enables wireless support via wpa_supplicant.
     # proxy = {
     #   default = "http://user:password@proxy:port/";
