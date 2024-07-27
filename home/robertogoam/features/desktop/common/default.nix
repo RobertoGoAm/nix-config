@@ -23,5 +23,5 @@
   };
     
   xdg.portal.enable = true;
-  
+}
  
