@@ -3,11 +3,9 @@
 
   nixConfig = {
     extra-substituters = [
-      "https://cache.m7.rs"
       "https://nix-gaming.cachix.org"
     ];
     extra-trusted-public-keys = [
-      "cache.m7.rs:kszZ/NSwE/TjhOcPPQ16IuUiuRSisdiIwhKZCxguaWg="
       "nix-gaming.cachix.org-1:nbjlureqMbRAxR1gJ/f3hxemL9svXaZF/Ees8vCUUs4="
     ];
   };
@@ -19,6 +17,8 @@
     systems.url = "github:nix-systems/default-linux";
 
     hardware.url = "github:nixos/nixos-hardware";
+
+    nix-colors.url = "github:misterio77/nix-colors";
 
     # Home manager
     home-manager = {
@@ -52,9 +52,9 @@
     overlays = import ./overlays {inherit inputs outputs;};
 
     packages = forEachSystem (pkgs: import ./pkgs {inherit pkgs;});
-    #devShells = forEachSystem (pkgs: import ./shell.nix {inherit pkgs;});
+    devShells = forEachSystem (pkgs: import ./shell.nix {inherit pkgs;});
     formatter = forEachSystem (pkgs: pkgs.alejandra);
-    
+
     nixosConfigurations = {
       # MacBook Pro 2017 (Intel)
       helios = lib.nixosSystem {

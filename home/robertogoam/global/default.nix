@@ -1,8 +1,16 @@
 {
+  inputs,
   lib,
   pkgs,
   ...
 }: {
+  imports =
+    [
+      ../features/cli
+      ../features/nvim
+    ]
+    ++ (builtins.attrValues outputs.homeManagerModules);
+
   nix = {
     package = lib.mkDefault pkgs.nix;
     settings = {
@@ -14,6 +22,8 @@
       warn-dirty = false;
     };
   };
+
+  systemd.user.startServices = "sd-switch";
 
   programs = {
     home-manager.enable = true;
