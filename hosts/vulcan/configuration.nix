@@ -29,8 +29,10 @@
 
       };
 
-      CustomUserPreferences = {
+      # Disable mouse acceleration
+      ".GlobalPreferences"."com.apple.mouse.scaling" = -1.0;
 
+      CustomUserPreferences = {
         NSGlobalDomain = {
           # Disable natural scrolling
           "com.apple.swipescrolldirection" = false;
