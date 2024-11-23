@@ -23,12 +23,13 @@
     };
 
     defaults = {
-      alf = {
-        # Enable Firewall
-        globalstate = 1;
-      };
 
       CustomUserPreferences = {
+        alf = {
+          # Enable Firewall
+          globalstate = 1;
+        };
+
         NSGlobalDomain = {
           # Disable natural scrolling
           "com.apple.swipescrolldirection" = false;
