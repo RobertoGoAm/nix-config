@@ -7,7 +7,7 @@ Multiplatform nix configuration to handle installing applications, configuring t
 Install dependencies
 
 ```bash
-xcode-select --install
+xcode-select --install && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile && eval "$(/opt/homebrew/bin/brew shellenv)" && brew install git
 ```
 
 Install the Nix package manager
@@ -16,10 +16,10 @@ Install the Nix package manager
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
 
-Download from the repo without git
+Clone this repo
 
 ```bash
-curl -L https://github.com/RobertoGoAm/nix-config/archive/refs/heads/master.zip -o repository.zip && unzip repository.zip && rm repository.zip && mv nix-config-master nix-config
+git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
 ```
 
 Go to the `nix` folder and run:
