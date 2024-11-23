@@ -11,9 +11,16 @@
   nixpkgs.config.allowUnfree = true;
 
   system = {
-    activationScripts.extraActivation.text = ''
-      softwareupdate --install-rosetta --agree-to-license
-    '';
+    activationScripts = {
+      extraActivation.text = ''
+        softwareupdate --install-rosetta --agree-to-license
+      '';
+
+      postUserActivation.text = ''
+        # Following line should allow us to avoid a logout/login cycle
+        /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+      '';
+    };
 
     defaults.CustomUserPreferences = {
       NSGlobalDomain = {
