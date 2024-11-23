@@ -22,9 +22,17 @@
       '';
     };
 
-    defaults.CustomUserPreferences = {
-      NSGlobalDomain = {
-        "com.apple.swipescrolldirection" = false;
+    defaults = {
+      CustomUserPreferences = {
+        alf = {
+          # Enable Firewall
+          globalstate = 1;
+        };
+
+        NSGlobalDomain = {
+          # Disable natural scrolling
+          "com.apple.swipescrolldirection" = false;
+        };
       };
     };
 
