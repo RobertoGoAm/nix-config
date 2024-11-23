@@ -34,6 +34,9 @@
 
       CustomUserPreferences = {
         NSGlobalDomain = {
+          # Dark theme for OS
+          AppleInterfaceStyle = "Dark";
+
           # Disable natural scrolling
           "com.apple.swipescrolldirection" = false;
 
