@@ -33,7 +33,7 @@
           {
             users.users.robertogoam = {
               home = "/Users/robertogoam";
-              packages = with nixpkgs; [
+              packages = with nixpkgs.legacyPackages.aarch64-darwin; [
                 git
               ];
             };
