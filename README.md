@@ -19,7 +19,7 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 Download from the repo without git
 
 ```bash
-curl -L https://github.com/robertogoam/nix-config/archive/refs/heads/main.zip -o - | unzip > repository.zip
+curl -L https://github.com/RobertoGoAm/nix-config/archive/refs/heads/master.zip -o repository.zip && unzip repository.zip && rm repository.zip && mv nix-config-master nix-config
 ```
 
 Go to the `nix` folder and run:
