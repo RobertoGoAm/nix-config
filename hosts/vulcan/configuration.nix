@@ -9,10 +9,18 @@
   networking.hostName = "vulcan";
 
   nixpkgs.config.allowUnfree = true;
-  
-  system.activationScripts.extraActivation.text = ''
-    softwareupdate --install-rosetta --agree-to-license
-  '';
 
-  system.stateVersion = 5;
+  system = {
+    activationScripts.extraActivation.text = ''
+      softwareupdate --install-rosetta --agree-to-license
+    '';
+
+    defaults.CustomUserPreferences = {
+      NSGlobalDomain = {
+        "com.apple.swipescrolldirection" = false;
+      };
+    };
+
+    stateVersion = 5;
+  };
 }
