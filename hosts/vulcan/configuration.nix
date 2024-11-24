@@ -44,7 +44,61 @@
 
           # 120, 94, 68, 35, 25, 15
           InitialKeyRepeat = 25;
+
+          # Add a context menu item for showing the Web Inspector in web views
+          WebKitDeveloperExtras = true;
         };
+
+        "com.apple.AdLib" = {
+          allowApplePersonalizedAdvertising = false;
+        };
+
+        # Turn on app auto-update
+        "com.apple.commerce".AutoUpdate = true;
+
+        "com.apple.finder" = {
+          FXDefaultSearchScope = "SCcf";
+          FXPreferredViewStyle = "Nlsv";
+          NewWindowTarget = "Home";
+        };
+
+        # Prevent Photos from opening automatically when devices are plugged in
+        "com.apple.ImageCapture".disableHotPlug = true;
+
+        "com.apple.Safari" = {
+          # Prevent Safari from opening ‘safe’ files automatically after downloading
+          AutoOpenSafeDownloads = false;
+          ShowFavoritesBar = false;
+          IncludeInternalDebugMenu = true;
+          IncludeDevelopMenu = true;
+          WebKitDeveloperExtrasEnabledPreferenceKey = true;
+          WebContinuousSpellCheckingEnabled = true;
+          WebAutomaticSpellingCorrectionEnabled = false;
+          AutoFillFromAddressBook = false;
+          AutoFillCreditCardData = false;
+          AutoFillMiscellaneousForms = false;
+          WarnAboutFraudulentWebsites = true;
+          "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" = true;
+          "com.apple.Safari.ContentPageGroupIdentifier.WebKit2BackspaceKeyNavigationEnabled" = false;
+        };
+
+        "com.apple.screensaver" = {
+          # Require password immediately after sleep or screen saver begins
+          askForPassword = 1;
+          askForPasswordDelay = 0;
+        };
+
+        "com.apple.SoftwareUpdate" = {
+          AutomaticCheckEnabled = true;
+          # Check for software updates daily, not just once per week
+          ScheduleFrequency = 1;
+          # Download newly available updates in background
+          AutomaticDownload = 1;
+          # Install System data files & security updates
+          CriticalUpdateInstall = 1;
+        };
+
+        "com.apple.TimeMachine".DoNotOfferNewDisksForBackup = true;
       };
 
       dock = {
@@ -56,7 +110,6 @@
 
         # Permanent apps on dock
         persistent-apps = [
-          "/System/Library/CoreServices/Finder.app"
           "/System/Applications/Calendar.app"
           "/Applications/Safari.app"
           "/Applications/Chromium.app"
