@@ -16,7 +16,6 @@
 
     zsh = {
       enable = true;
-      enableBashCompletion = true;
       enableCompletion = true;
       enableFastSyntaxHighlighting = true;
       enableSyntaxHighlighting = true;
