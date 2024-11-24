@@ -65,23 +65,6 @@
         # Prevent Photos from opening automatically when devices are plugged in
         "com.apple.ImageCapture".disableHotPlug = true;
 
-        "com.apple.Safari" = {
-          # Prevent Safari from opening ‘safe’ files automatically after downloading
-          AutoOpenSafeDownloads = false;
-          ShowFavoritesBar = false;
-          IncludeInternalDebugMenu = true;
-          IncludeDevelopMenu = true;
-          WebKitDeveloperExtrasEnabledPreferenceKey = true;
-          WebContinuousSpellCheckingEnabled = true;
-          WebAutomaticSpellingCorrectionEnabled = false;
-          AutoFillFromAddressBook = false;
-          AutoFillCreditCardData = false;
-          AutoFillMiscellaneousForms = false;
-          WarnAboutFraudulentWebsites = true;
-          "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" = true;
-          "com.apple.Safari.ContentPageGroupIdentifier.WebKit2BackspaceKeyNavigationEnabled" = false;
-        };
-
         "com.apple.screensaver" = {
           # Require password immediately after sleep or screen saver begins
           askForPassword = 1;
