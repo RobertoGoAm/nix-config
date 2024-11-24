@@ -48,6 +48,7 @@
 
             imports = [
               ./hosts/vulcan/configuration.nix
+              ./hosts/vulcan/software.nix
             ];
 
             _module.args.self = self;
