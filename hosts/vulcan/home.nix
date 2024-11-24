@@ -17,7 +17,6 @@
     zsh = {
       enable = true;
       enableCompletion = true;
-      enableFastSyntaxHighlighting = true;
       enableSyntaxHighlighting = true;
       oh-my-zsh = {
         enable = true;
