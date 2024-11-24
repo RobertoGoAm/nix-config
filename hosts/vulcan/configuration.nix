@@ -106,8 +106,8 @@
 
         # Permanent folders on dock
         persistent-others = [
-          "~/Downloads"
-          "~/Development"
+          "/Users/robertogoam/Downloads"
+          "/Users/robertogoam/Development"
         ];
 
         # Don't show recent apps
