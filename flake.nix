@@ -23,7 +23,7 @@
 
   outputs = { self, nixpkgs, home-manager, nix-darwin, mac-app-util, ... } @ inputs: {
     darwinConfigurations = {
-      # Desktop Mac
+      # Desktop Mac (Apple Silicon)
       vulcan = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
 
