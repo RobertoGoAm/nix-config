@@ -44,8 +44,8 @@
       "font-jetbrains-mono-nerd-font"
 
       # Internet
-      "brave-browser"
-      "chromium"
+      # "brave-browser"
+      # "chromium"
       "firefox"
       "google-chrome"
 

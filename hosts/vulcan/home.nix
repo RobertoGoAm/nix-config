@@ -5,6 +5,10 @@
   };
 
   programs = {
+    chromium = {
+      enable = true;
+    };
+
     home-manager = {
       enable = true;
     };

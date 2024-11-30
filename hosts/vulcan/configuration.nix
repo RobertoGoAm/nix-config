@@ -9,6 +9,7 @@
   networking.hostName = "vulcan";
 
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.overlays = [ (import ../../overlays/apple-silicon-chromium.nix) ];
 
   system = {
     activationScripts = {
