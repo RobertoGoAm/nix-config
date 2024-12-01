@@ -7,8 +7,8 @@ self: super: {
     sourceRoot = ".";
     phases = [ "unpackPhase" "installPhase" ];
     installPhase = ''
-      mkdir -p "$out/Applications/Chromium.app"
-      cp -pR * "$out/Applications/Chromium.app"
+      mkdir -p "$out/Applications"
+      cp -r Chromium.app "$out/Applications/Chromium.app"
     '';
 
     src = super.fetchurl {
