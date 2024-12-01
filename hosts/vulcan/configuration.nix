@@ -24,7 +24,7 @@
 
   system = {
     activationScripts = {
-      extraActivation.text = ''
+      preActivation.text = ''
         softwareupdate --install-rosetta --agree-to-license
       '';
 
