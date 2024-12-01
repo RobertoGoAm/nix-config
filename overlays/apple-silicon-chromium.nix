@@ -1,8 +1,8 @@
 self: super: {
   chromium = super.stdenv.mkDerivation rec {
-    version = "131.0.6778.85-1.1";
+    version = "M126.0.6478.231";
 
-    name = "Ungoogled-chromium-${version}";
+    name = "Thorium-${version}";
     buildInputs = [ super.undmg super.unzip ];
     sourceRoot = ".";
     phases = [ "unpackPhase" "installPhase" ];
@@ -12,14 +12,14 @@ self: super: {
     '';
 
     src = super.fetchurl {
-      name = "ungoogled-chromium_${version}_arm64-macos.dmg";
-      url = "https://github.com/ungoogled-software/ungoogled-chromium-macos/releases/download/${version}/ungoogled-chromium_${version}_arm64-macos.dmg";
-      sha256 = "b84e27affc40ce2999c1990b231552e4f9c45f6f09f5255879127e99d3a4aebd";
+      name = "Thorium_MacOS_ARM64.dmg";
+      url = "https://github.com/Alex313031/Thorium-MacOS/releases/download/${version}/Thorium_MacOS_ARM64.dmg";
+      sha256 = "041aa435b43b42308c7d4f32424891a95de0f62a63728d572b147b5585568628";
     };
 
     meta = with super.stdenv.lib; {
-      description = "The chromium browser, ungoogled";
-      homepage = "https://github.com/ungoogled-software/ungoogled-chromium-macos";
+      description = "Thorium - The fastest browser on Earth.";
+      homepage = "https://thorium.rocks/";
       maintainers = with super.maintainers; [ robertogoam ];
       platforms = [ "aarch64-darwin" ];
     };

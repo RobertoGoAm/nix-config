@@ -30,7 +30,7 @@
     };
   };
 
-  import = [
+  imports = [
     ../../programs/chromium.nix
   ];
 }
