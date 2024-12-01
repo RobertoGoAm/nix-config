@@ -31,6 +31,11 @@
           mac-app-util.darwinModules.default
           home-manager.darwinModules.home-manager
           {
+            imports = [
+              ./hosts/vulcan/configuration.nix
+              ./hosts/vulcan/software.nix
+            ];
+
             users.users.robertogoam = {
               home = "/Users/robertogoam";
               packages = with nixpkgs.legacyPackages.aarch64-darwin; [
@@ -45,11 +50,6 @@
                 ./hosts/vulcan/home.nix
               ];
             };
-
-            imports = [
-              ./hosts/vulcan/configuration.nix
-              ./hosts/vulcan/software.nix
-            ];
 
             _module.args.self = self;
           }
