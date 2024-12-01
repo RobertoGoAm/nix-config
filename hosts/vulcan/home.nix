@@ -5,10 +5,6 @@
   };
 
   programs = {
-    import = [
-      ../../programs/chromium.nix
-    ];
-
     home-manager = {
       enable = true;
     };
@@ -33,4 +29,8 @@
       };
     };
   };
+
+  import = [
+    ../../programs/chromium.nix
+  ];
 }
