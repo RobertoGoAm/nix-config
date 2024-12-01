@@ -5,9 +5,9 @@
   };
 
   programs = {
-    chromium = {
-      enable = true;
-    };
+    import = [
+      ../../programs/chromium.nix
+    ];
 
     home-manager = {
       enable = true;
