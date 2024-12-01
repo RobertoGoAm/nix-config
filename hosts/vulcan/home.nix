@@ -30,7 +30,9 @@
     };
   };
 
+  # App settings
   imports = [
     ../../programs/chromium.nix
+    ../../programs/vscode.nix
   ];
 }
