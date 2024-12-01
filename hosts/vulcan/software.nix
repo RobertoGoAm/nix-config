@@ -22,6 +22,7 @@
     # `brew list <>` can help pinpoint package name
     # for both ordinary packages and casks
     brews = [
+      "d12frosted/emacs-plus/emacs-plus"
       "go"
       "curl"
       "mas"
