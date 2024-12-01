@@ -4,6 +4,16 @@ Multiplatform nix configuration to handle installing applications, configuring t
 
 ## MacOS steps
 
+(Optional) Disable and re-enable password for sudo
+
+```bash
+echo "$(whoami) ALL=(ALL) NOPASSWD:ALL" | sudo tee -a /etc/sudoers
+```
+
+```bash
+sudo sed -i '' "/$(whoami) ALL=(ALL) NOPASSWD:ALL/d" /etc/sudoers
+```
+
 Install dependencies
 
 ```bash
