@@ -1,15 +1,26 @@
 { ... }:
 {
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-  };
-
-  services.nix-daemon.enable = true;
-
   networking.hostName = "vulcan";
+
+  nix = {
+    gc = {
+      user = "root";
+      automatic = true;
+      interval = { Weekday = 0; Hour = 2; Minute = 0; };
+      options = "--delete-older-than 7d";
+    };
+
+    optimise.automatic = true;
+
+    settings = {
+      experimental-features = [ "nix-command" "flakes" ];
+    };
+  };
 
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [ (import ../../overlays/apple-silicon-chromium.nix) ];
+
+  services.nix-daemon.enable = true;
 
   system = {
     activationScripts = {
@@ -96,7 +107,7 @@
         persistent-apps = [
           "/System/Applications/Calendar.app"
           "/Applications/Safari.app"
-          "/Applications/Chromium.app"
+          "/Users/robertogoam/Applications/Home Manager Apps/Chromium.app"
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
