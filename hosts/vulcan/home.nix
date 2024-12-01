@@ -13,6 +13,10 @@
       enable = true;
     };
 
+    starship = {
+      enable = true;
+    };
+
     vim = {
       enable = true;
       defaultEditor = true;
