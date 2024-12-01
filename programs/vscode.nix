@@ -1,10 +1,118 @@
-{ ... }:
+{ pkgs, ... }:
 {
   programs.vscode = {
     enable = true;
+    mutableExtensionsDir = false;
 
-    extensions = [
-
+    extensions = with pkgs.vscode-extensions; [
+      aaron-bond.better-comments
+      bbenoist.nix
+      bodil.file-browser
+      christian-kohler.npm-intellisense
+      christian-kohler.path-intellisense
+      davidanson.vscode-markdownlint
+      dbaeumer.vscode-eslint
+      donjayamanne.githistory
+      editorconfig.editorconfig
+      eamodio.gitlens
+      ecmel.vscode-html-css
+      enkia.tokyo-night
+      esbenp.prettier-vscode
+      formulahendry.auto-close-tag
+      formulahendry.auto-rename-tag
+      hbenl.vscode-test-explorer
+      jnoortheen.nix-ide
+      kahole.magit
+      mikestead.dotenv
+      ms-vscode.test-adapter-converter
+      naumovs.color-highlight
+      prisma.prisma
+      sonarsource.sonarlint-vscode
+      vscodevim.vim
+      vspacecode.vspacecode
+      vspacecode.whichkey
+      vue.volar
+      wix.vscode-import-cost
+      xadillax.viml
+    ] ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [
+      {
+        name = "advanced-new-file";
+        publisher = "patbenatar";
+        version = "1.2.2";
+        sha256 = "sha256-z1QYlYn0RSy2FWCZBYYHbN5BTWp4cp/sOy19tRr1RiU=";
+      }
+      {
+        publisher = "vitest";
+        name = "explorer";
+        version = "1.8.1";
+        sha256 = "sha256-IhixVldt4XqS6OvcCpE5pBx05/es/UZ2wXyd7PqEWmw=";
+      }
+      {
+        name = "format-code-action";
+        publisher = "rohit-gohri";
+        version = "0.1.0";
+        sha256 = "sha256-j60fZVJ83Ngpgaha9I3CVoIccwng2vlub7fiKnciP6w=";
+      }
+      {
+        name = "fuzzy-search";
+        publisher = "jacobdufault";
+        version = "0.0.3";
+        sha256 = "sha256-oN1SzXypjpKOTUzPbLCTC+H3I/40LMVdjbW3T5gib0M=";
+      }
+      {
+        name = "postman-for-vscode";
+        publisher = "postman";
+        version = "1.5.0";
+        sha256 = "sha256-9H4mCFY07jHMq9OVVjaKYDACTqyNld20odkbPdn7l0Q=";
+      }
+      {
+        name = "snippet-creator";
+        publisher = "wware";
+        version = "1.1.3";
+        sha256 = "sha256-e5QpJAlnykIB0UyC5UXib2IYjvvMuihuorWQrZxLVbo=";
+      }
+      {
+        name = "tabout";
+        publisher = "albert";
+        version = "0.2.2";
+        sha256 = "sha256-s306AHMkUFPaG7ISIr0RscK/k6OVtniIG1CQprBx+cY=";
+      }
+      {
+        name = "ts-error-translator";
+        publisher = "mattpocock";
+        version = "0.10.1";
+        sha256 = "sha256-WBdtRFaGKUmsriwUgNRToaqGJ6sdzrvOMs/fhEQFmws=";
+      }
+      {
+        name = "turbo-console-log";
+        publisher = "chakrounanas";
+        version = "2.10.5";
+        sha256 = "sha256-3FP9NWoOh0Em5R1kYkfEOEYxxlyjnMaYIiCti6YdDdI=";
+      }
+      {
+        name = "vite";
+        publisher = "antfu";
+        version = "0.2.5";
+        sha256 = "sha256-F3uaqoaLXLE7M8OPzNIIUSraTBeRMwtjxrbgQyMIyZE=";
+      }
+      {
+        name = "vscode-conventional-commits";
+        publisher = "vivaxy";
+        version = "1.26.0";
+        sha256 = "sha256-Lj2+rlrKm9h21zEoXwa2TeGFNKBmlQKr7MRX0zgngdg=";
+      }
+      {
+        name = "vscode-fileutils";
+        publisher = "sleistner";
+        version = "3.10.3";
+        sha256 = "sha256-v9oyoqqBcbFSOOyhPa4dUXjA2IVXlCTORs4nrFGSHzE=";
+      }
+      {
+        name = "vscode-jest";
+        publisher = "orta";
+        version = "6.4.0";
+        sha256 = "sha256-RB+V7MzoEfEx8ANwDbmsCOQltKp2+e6/eBgIzLx4Uis=";
+      }
     ];
 
     keybindings = [
@@ -280,269 +388,267 @@
       }
     ];
 
-    userSettings = [
-      {
-        # Appearance
-        "editor.rulers" = [ 100 ];
-        "editor.fontFamily" = "'JetBrainsMono Nerd Font Mono'; Menlo; Monaco; 'Courier New'; monospace";
-        "editor.minimap.enabled" = false;
-        "workbench.colorTheme" = "Tokyo Night Storm";
+    userSettings = {
+      # Appearance
+      "editor.rulers" = [ 100 ];
+      "editor.fontFamily" = "'JetBrainsMono Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace";
+      "editor.minimap.enabled" = false;
+      "workbench.colorTheme" = "Tokyo Night Storm";
 
-        # Extensions
-        "nix.formatterPath" = "/Users/robertogoam/.nix-profile/bin/nixpkgs-fmt";
-        "nix.enableLanguageServer" = true;
-        "nix.serverSettings" = {
-          "nil" = {
-            "formatting" = {
-              "command" = [ "nixpkgs-fmt" ];
-            };
+      # Extensions
+      "nix.formatterPath" = "/Users/robertogoam/.nix-profile/bin/nixpkgs-fmt";
+      "nix.enableLanguageServer" = true;
+      "nix.serverSettings" = {
+        "nil" = {
+          "formatting" = {
+            "command" = [ "nixpkgs-fmt" ];
           };
         };
+      };
 
-        # Formatting
-        "[javascript]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
-        "[json]" = { "editor.defaultFormatter" = "vscode.json-language-features"; };
-        "[typescript]" = { "editor.defaultFormatter" = "vscode.typescript-language-features"; };
-        "[typescriptreact]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
-        "[vue]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
-        "editor.formatOnSave" = true;
-        "editor.formatOnPaste" = true;
-        "editor.tabSize" = 2;
+      # Formatting
+      "[javascript]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
+      "[json]" = { "editor.defaultFormatter" = "vscode.json-language-features"; };
+      "[typescript]" = { "editor.defaultFormatter" = "vscode.typescript-language-features"; };
+      "[typescriptreact]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
+      "[vue]" = { "editor.defaultFormatter" = "esbenp.prettier-vscode"; };
+      "editor.formatOnSave" = true;
+      "editor.formatOnPaste" = true;
+      "editor.tabSize" = 2;
 
-        # Git
-        "diffEditor.ignoreTrimWhitespace" = true;
-        "diffEditor.renderSideBySide" = false;
-        "git.autofetch" = true;
-        "git.confirmSync" = false;
-        "git.enableSmartCommit" = true;
-        "git.ignoreRebaseWarning" = true;
+      # Git
+      "diffEditor.ignoreTrimWhitespace" = true;
+      "diffEditor.renderSideBySide" = false;
+      "git.autofetch" = true;
+      "git.confirmSync" = false;
+      "git.enableSmartCommit" = true;
+      "git.ignoreRebaseWarning" = true;
 
-        # i18n-ally
-        "i18n-ally.dirStructure" = "auto";
-        "i18n-ally.displayLanguage" = "es";
+      # i18n-ally
+      "i18n-ally.dirStructure" = "auto";
+      "i18n-ally.displayLanguage" = "es";
 
-        # Prisma
-        "prisma.showPrismaDataPlatformNotification" = false;
+      # Prisma
+      "prisma.showPrismaDataPlatformNotification" = false;
 
-        # Sonarlint
-        "sonarlint.pathToNodeExecutable" = "/Users/roberto/.nvm/versions/node/v18.19.0/bin/node";
-        "sonarlint.rules" = {
-          "Web =TableWithoutCaptionCheck" = {
-            "level" = "off";
-          };
-          "Web =S5256" = {
-            "level" = "off";
-          };
+      # Sonarlint
+      "sonarlint.pathToNodeExecutable" = "/Users/roberto/.nvm/versions/node/v18.19.0/bin/node";
+      "sonarlint.rules" = {
+        "Web =TableWithoutCaptionCheck" = {
+          "level" = "off";
         };
+        "Web =S5256" = {
+          "level" = "off";
+        };
+      };
 
-        # TotalTypescript
-        "totalTypeScript.hideAllTips" = false;
-        "totalTypeScript.hideBasicTips" = false;
+      # TotalTypescript
+      "totalTypeScript.hideAllTips" = false;
+      "totalTypeScript.hideBasicTips" = false;
 
-        # Vim 
-        "vim.easymotion" = true;
-        "vim.easymotionMarkerForegroundColorOneChar" = "#FF0000";
-        "vim.easymotionMarkerForegroundColorTwoCharFirst" = "#FFFF00";
-        "vim.easymotionMarkerForegroundColorTwoCharSecond" = "#FFFF00";
-        "vim.useSystemClipboard" = true;
+      # Vim 
+      "vim.easymotion" = true;
+      "vim.easymotionMarkerForegroundColorOneChar" = "#FF0000";
+      "vim.easymotionMarkerForegroundColorTwoCharFirst" = "#FFFF00";
+      "vim.easymotionMarkerForegroundColorTwoCharSecond" = "#FFFF00";
+      "vim.useSystemClipboard" = true;
 
-        # Vim COLEMAK remaps
-        "vim.normalModeKeyBindingsNonRecursive" = [
-          {
-            "before" = [ " " ];
-            "commands" = [ "vspacecode.space" ];
-          }
-          {
-            "before" = [ "<space>" ];
-            "commands" = [ "vspacecode.space" ];
-          }
-          {
-            "before" = [ "n" ];
-            "after" = [ "j" ];
-          }
-          {
-            "before" = [ "j" ];
-            "after" = [ "n" ];
-          }
-          {
-            "before" = [ "N" ];
-            "after" = [ "J" ];
-          }
-          {
-            "before" = [ "J" ];
-            "after" = [ "N" ];
-          }
-          {
-            "before" = [ "e" ];
-            "after" = [ "k" ];
-          }
-          {
-            "before" = [ "k" ];
-            "after" = [ "e" ];
-          }
-          {
-            "before" = [ "E" ];
-            "after" = [ "K" ];
-          }
-          {
-            "before" = [ "K" ];
-            "after" = [ "E" ];
-          }
-          {
-            "before" = [ "i" ];
-            "after" = [ "l" ];
-          }
-          {
-            "before" = [ "l" ];
-            "after" = [ "i" ];
-          }
-          {
-            "before" = [ "I" ];
-            "after" = [ "L" ];
-          }
-          {
-            "before" = [ "L" ];
-            "after" = [ "I" ];
-          }
-        ];
-        "vim.operatorPendingModeKeyBindingsNonRecursive" = [
-          {
-            "before" = [ "n" ];
-            "after" = [ "j" ];
-          }
-          {
-            "before" = [ "j" ];
-            "after" = [ "n" ];
-          }
-          {
-            "before" = [ "N" ];
-            "after" = [ "J" ];
-          }
-          {
-            "before" = [ "J" ];
-            "after" = [ "N" ];
-          }
-          {
-            "before" = [ "e" ];
-            "after" = [ "k" ];
-          }
-          {
-            "before" = [ "k" ];
-            "after" = [ "e" ];
-          }
-          {
-            "before" = [ "E" ];
-            "after" = [ "K" ];
-          }
-          {
-            "before" = [ "K" ];
-            "after" = [ "E" ];
-          }
-          {
-            "before" = [ "i" ];
-            "after" = [ "l" ];
-          }
-          {
-            "before" = [ "l" ];
-            "after" = [ "i" ];
-          }
-          {
-            "before" = [ "I" ];
-            "after" = [ "L" ];
-          }
-          {
-            "before" = [ "L" ];
-            "after" = [ "I" ];
-          }
-        ];
-        "vim.visualModeKeyBindingsNonRecursive" = [
-          {
-            "before" = [ " " ];
-            "commands" = [ "vspacecode.space" ];
-          }
-          {
-            "before" = [ "<space>" ];
-            "commands" = [ "vspacecode.space" ];
-          }
-          {
-            "before" = [ "n" ];
-            "after" = [ "j" ];
-          }
-          {
-            "before" = [ "j" ];
-            "after" = [ "n" ];
-          }
-          {
-            "before" = [ "N" ];
-            "after" = [ "J" ];
-          }
-          {
-            "before" = [ "J" ];
-            "after" = [ "N" ];
-          }
-          {
-            "before" = [ "e" ];
-            "after" = [ "k" ];
-          }
-          {
-            "before" = [ "k" ];
-            "after" = [ "e" ];
-          }
-          {
-            "before" = [ "E" ];
-            "after" = [ "K" ];
-          }
-          {
-            "before" = [ "K" ];
-            "after" = [ "E" ];
-          }
-          {
-            "before" = [ "i" ];
-            "after" = [ "l" ];
-          }
-          {
-            "before" = [ "l" ];
-            "after" = [ "i" ];
-          }
-          {
-            "before" = [ "I" ];
-            "after" = [ "L" ];
-          }
-          {
-            "before" = [ "L" ];
-            "after" = [ "I" ];
-          }
-        ];
+      # Vim COLEMAK remaps
+      "vim.normalModeKeyBindingsNonRecursive" = [
+        {
+          "before" = [ " " ];
+          "commands" = [ "vspacecode.space" ];
+        }
+        {
+          "before" = [ "<space>" ];
+          "commands" = [ "vspacecode.space" ];
+        }
+        {
+          "before" = [ "n" ];
+          "after" = [ "j" ];
+        }
+        {
+          "before" = [ "j" ];
+          "after" = [ "n" ];
+        }
+        {
+          "before" = [ "N" ];
+          "after" = [ "J" ];
+        }
+        {
+          "before" = [ "J" ];
+          "after" = [ "N" ];
+        }
+        {
+          "before" = [ "e" ];
+          "after" = [ "k" ];
+        }
+        {
+          "before" = [ "k" ];
+          "after" = [ "e" ];
+        }
+        {
+          "before" = [ "E" ];
+          "after" = [ "K" ];
+        }
+        {
+          "before" = [ "K" ];
+          "after" = [ "E" ];
+        }
+        {
+          "before" = [ "i" ];
+          "after" = [ "l" ];
+        }
+        {
+          "before" = [ "l" ];
+          "after" = [ "i" ];
+        }
+        {
+          "before" = [ "I" ];
+          "after" = [ "L" ];
+        }
+        {
+          "before" = [ "L" ];
+          "after" = [ "I" ];
+        }
+      ];
+      "vim.operatorPendingModeKeyBindingsNonRecursive" = [
+        {
+          "before" = [ "n" ];
+          "after" = [ "j" ];
+        }
+        {
+          "before" = [ "j" ];
+          "after" = [ "n" ];
+        }
+        {
+          "before" = [ "N" ];
+          "after" = [ "J" ];
+        }
+        {
+          "before" = [ "J" ];
+          "after" = [ "N" ];
+        }
+        {
+          "before" = [ "e" ];
+          "after" = [ "k" ];
+        }
+        {
+          "before" = [ "k" ];
+          "after" = [ "e" ];
+        }
+        {
+          "before" = [ "E" ];
+          "after" = [ "K" ];
+        }
+        {
+          "before" = [ "K" ];
+          "after" = [ "E" ];
+        }
+        {
+          "before" = [ "i" ];
+          "after" = [ "l" ];
+        }
+        {
+          "before" = [ "l" ];
+          "after" = [ "i" ];
+        }
+        {
+          "before" = [ "I" ];
+          "after" = [ "L" ];
+        }
+        {
+          "before" = [ "L" ];
+          "after" = [ "I" ];
+        }
+      ];
+      "vim.visualModeKeyBindingsNonRecursive" = [
+        {
+          "before" = [ " " ];
+          "commands" = [ "vspacecode.space" ];
+        }
+        {
+          "before" = [ "<space>" ];
+          "commands" = [ "vspacecode.space" ];
+        }
+        {
+          "before" = [ "n" ];
+          "after" = [ "j" ];
+        }
+        {
+          "before" = [ "j" ];
+          "after" = [ "n" ];
+        }
+        {
+          "before" = [ "N" ];
+          "after" = [ "J" ];
+        }
+        {
+          "before" = [ "J" ];
+          "after" = [ "N" ];
+        }
+        {
+          "before" = [ "e" ];
+          "after" = [ "k" ];
+        }
+        {
+          "before" = [ "k" ];
+          "after" = [ "e" ];
+        }
+        {
+          "before" = [ "E" ];
+          "after" = [ "K" ];
+        }
+        {
+          "before" = [ "K" ];
+          "after" = [ "E" ];
+        }
+        {
+          "before" = [ "i" ];
+          "after" = [ "l" ];
+        }
+        {
+          "before" = [ "l" ];
+          "after" = [ "i" ];
+        }
+        {
+          "before" = [ "I" ];
+          "after" = [ "L" ];
+        }
+        {
+          "before" = [ "L" ];
+          "after" = [ "I" ];
+        }
+      ];
 
-        # VSpaceCode
-        "vspacecode.bindingOverrides" = [
-          {
-            "keys" = "w.n";
-            "name" = "Focus window down";
-            "type" = "command";
-            "command" = "workbench.action.focusBelowGroup";
-          }
-          {
-            "keys" = "w.e";
-            "name" = "Focus window up";
-            "type" = "command";
-            "command" = "workbench.action.focusAboveGroup";
-          }
-          {
-            "keys" = "w.i";
-            "name" = "Focus window right";
-            "type" = "command";
-            "command" = "workbench.action.focusNextGroup";
-          }
-          {
-            "keys" = "i.c";
-            "name" = "Console log";
-            "type" = "command";
-            "command" = "turboConsoleLog.displayLogMessage";
-          }
-        ];
-        "whichkey.delay" = 700;
-      }
-    ];
+      # VSpaceCode
+      "vspacecode.bindingOverrides" = [
+        {
+          "keys" = "w.n";
+          "name" = "Focus window down";
+          "type" = "command";
+          "command" = "workbench.action.focusBelowGroup";
+        }
+        {
+          "keys" = "w.e";
+          "name" = "Focus window up";
+          "type" = "command";
+          "command" = "workbench.action.focusAboveGroup";
+        }
+        {
+          "keys" = "w.i";
+          "name" = "Focus window right";
+          "type" = "command";
+          "command" = "workbench.action.focusNextGroup";
+        }
+        {
+          "keys" = "i.c";
+          "name" = "Console log";
+          "type" = "command";
+          "command" = "turboConsoleLog.displayLogMessage";
+        }
+      ];
+      "whichkey.delay" = 700;
+    };
   };
 }
