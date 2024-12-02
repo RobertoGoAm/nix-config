@@ -41,6 +41,9 @@
 
       CustomUserPreferences = {
         NSGlobalDomain = {
+          # Disable press and hold for keyboard keys
+          ApplePressAndHoldEnabled = false;
+
           # Dark theme for OS
           AppleInterfaceStyle = "Dark";
 
