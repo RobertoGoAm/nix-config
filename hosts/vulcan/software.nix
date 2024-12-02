@@ -2,6 +2,8 @@
   environment = {
     systemPackages = with pkgs; [
       (pkgs.nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+      nil
+      nixpkgs-fmt
     ];
   };
 

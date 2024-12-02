@@ -9,13 +9,12 @@
       enable = true;
     };
 
-    starship = {
+    java = {
       enable = true;
     };
 
-    vim = {
+    starship = {
       enable = true;
-      defaultEditor = true;
     };
 
     zsh = {
