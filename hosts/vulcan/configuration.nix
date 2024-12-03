@@ -18,7 +18,10 @@
   };
 
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [ (import ../../overlays/apple-silicon-chromium.nix) ];
+  nixpkgs.overlays = [
+    (import ../../overlays/apple-silicon-chromium.nix)
+    (import ../../overlays/apple-silicon-firefox.nix)
+  ];
 
   services.nix-daemon.enable = true;
 
@@ -106,6 +109,7 @@
         persistent-apps = [
           "/System/Applications/Calendar.app"
           "/Applications/Safari.app"
+          "/Users/robertogoam/Applications/Home Manager Apps/Firefox.app"
           "/Users/robertogoam/Applications/Home Manager Apps/Chromium.app"
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"

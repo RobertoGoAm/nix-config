@@ -46,8 +46,6 @@
 
       # Internet
       # "brave-browser"
-      # "chromium"
-      "firefox"
       "google-chrome"
 
       # Media
