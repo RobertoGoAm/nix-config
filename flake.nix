@@ -16,12 +16,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixvim = {
+      url = "github:nix-community/nixvim";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     mac-app-util = {
       url = "github:hraban/mac-app-util";
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, nix-darwin, mac-app-util, ... } @ inputs: {
+  outputs = { self, nixpkgs, home-manager, nix-darwin, nixvim, mac-app-util, ... } @ inputs: {
     darwinConfigurations = {
       # Desktop Mac (Apple Silicon)
       vulcan = nix-darwin.lib.darwinSystem {
@@ -29,6 +34,7 @@
 
         modules = [
           mac-app-util.darwinModules.default
+          nixvim.nixDarwinModules.nixvim
           home-manager.darwinModules.home-manager
           {
             imports = [
@@ -47,6 +53,7 @@
             home-manager.users.robertogoam = {
               imports = [
                 mac-app-util.homeManagerModules.default
+                nixvim.homeManagerModules.nixvim
                 ./hosts/vulcan/home.nix
               ];
             };

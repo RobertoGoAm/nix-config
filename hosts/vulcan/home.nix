@@ -20,9 +20,11 @@
     zsh = {
       enable = true;
       enableCompletion = true;
+
       syntaxHighlighting = {
         enable = true;
       };
+
       oh-my-zsh = {
         enable = true;
       };
@@ -32,6 +34,8 @@
   # App settings
   imports = [
     ../../programs/chromium.nix
+    ../../programs/firefox.nix
+    ../../programs/vim.nix
     ../../programs/vscode.nix
   ];
 }
