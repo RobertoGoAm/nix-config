@@ -1,14 +1,25 @@
 {
-  description = "RobertoGoAm's nix configuration";
+  description = "Your new nix config";
 
   inputs = {
-    nixpkgs = {
-      url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    blink-cmp = {
+      url = "github:saghen/blink.cmp";
+    };
+
+    firefox-addons = {
+      url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager/master";
+      url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    mac-app-util = {
+      url = "github:hraban/mac-app-util";
     };
 
     nix-darwin = {
@@ -20,46 +31,64 @@
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    mac-app-util = {
-      url = "github:hraban/mac-app-util";
-    };
   };
 
-  outputs = { self, nixpkgs, home-manager, nix-darwin, nixvim, mac-app-util, ... } @ inputs: {
+  outputs = {
+    self,
+    nixpkgs,
+    home-manager,
+    mac-app-util,
+    nix-darwin,
+    nixvim,
+    ...
+  } @ inputs: let
+    inherit (self) outputs;
+    systems = [
+      "aarch64-linux"
+      "i686-linux"
+      "x86_64-linux"
+      "aarch64-darwin"
+      "x86_64-darwin"
+    ];
+    forAllSystems = nixpkgs.lib.genAttrs systems;
+  in {
+    formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
+    overlays = import ./overlays {inherit inputs;};
+
+    # MacOS configuration entrypoint
+    # Available through nix run nix-darwin -- switch --flake .
     darwinConfigurations = {
-      # Desktop Mac (Apple Silicon)
+      # Desktop mac (Apple Silicon)
       vulcan = nix-darwin.lib.darwinSystem {
-        system = "aarch64-darwin";
+        specialArgs = {inherit inputs outputs;};
 
         modules = [
-          mac-app-util.darwinModules.default
-          nixvim.nixDarwinModules.nixvim
-          home-manager.darwinModules.home-manager
-          {
-            imports = [
-              ./hosts/vulcan/configuration.nix
-              ./hosts/vulcan/software.nix
-            ];
+          ./macos/vulcan.nix
+        ];
+      };
+    };
 
-            users.users.robertogoam = {
-              home = "/Users/robertogoam";
-              packages = with nixpkgs.legacyPackages.aarch64-darwin; [
-                git
-              ];
-            };
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.robertogoam = {
-              imports = [
-                mac-app-util.homeManagerModules.default
-                nixvim.homeManagerModules.nixvim
-                ./hosts/vulcan/home.nix
-              ];
-            };
+    # NixOS configuration entrypoint
+    # Available through 'nixos-rebuild --flake .#your-hostname'
+    nixosConfigurations = {
+      your-hostname = nixpkgs.lib.nixosSystem {
+        specialArgs = {inherit inputs outputs;};
+        modules = [
+          # > Our main nixos configuration file <
+          ./nixos/configuration.nix
+        ];
+      };
+    };
 
-            _module.args.self = self;
-          }
+    # Standalone home-manager configuration entrypoint
+    # Available through 'home-manager --flake .#your-username@your-hostname'
+    homeConfigurations = {
+      "robertogoam@vulcan" = home-manager.lib.homeManagerConfiguration {
+        pkgs = nixpkgs.legacyPackages.aarch64-darwin;
+        extraSpecialArgs = {inherit inputs outputs;};
+
+        modules = [
+          ./home-manager/vulcan.nix
         ];
       };
     };

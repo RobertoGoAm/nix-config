@@ -1,8 +1,23 @@
-{ ... }:
 {
+  inputs,
+  outputs,
+  lib,
+  config,
+  pkgs,
+  ...
+}: {
+  imports = [
+    inputs.mac-app-util.darwinModules.default
+    inputs.home-manager.darwinModules.home-manager
+  ];
+
   networking.hostName = "vulcan";
 
-  nix = {
+  nix = let
+    flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
+  in {
+    channel.enable = false;
+
     gc = {
       user = "root";
       automatic = true;
@@ -10,18 +25,31 @@
       options = "--delete-older-than 7d";
     };
 
+    nixPath = lib.mapAttrsToList (n: _: "${n}=flake:${n}") flakeInputs;
+
     optimise.automatic = true;
 
+    registry = lib.mapAttrs (_: flake: {inherit flake;}) flakeInputs;
+
     settings = {
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = "nix-command flakes";
+      flake-registry = "";
+      nix-path = config.nix.nixPath;
     };
   };
 
-  nixpkgs.config.allowUnfree = true;
-  nixpkgs.overlays = [
-    (import ../../overlays/apple-silicon-chromium.nix)
-    (import ../../overlays/apple-silicon-firefox.nix)
-  ];
+  nixpkgs = {
+    overlays = [
+      outputs.overlays.apple-silicon
+    ];
+
+    config = {
+      allowUnfree = true;
+      allowUnfreePredicate = (_: true);
+    };
+
+    hostPlatform = "aarch64-darwin";
+  };
 
   services.nix-daemon.enable = true;
 
@@ -141,4 +169,17 @@
 
     stateVersion = 5;
   };
+
+  users.users.robertogoam = {
+    packages = [pkgs.home-manager];
+    home = "/Users/robertogoam";
+  };
+
+  home-manager.extraSpecialArgs = {
+    inherit inputs outputs;
+
+    system = "aarch64-darwin";
+  };
+
+  home-manager.users.robertogoam = import ../home-manager/vulcan.nix;
 }
