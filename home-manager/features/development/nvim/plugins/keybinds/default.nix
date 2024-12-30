@@ -193,6 +193,11 @@
       options.desc = "toggle terminal";
     }
     {
+      key = "<leader>/";
+      action = "<cmd>ToggleTerm2 size=10 direction=horizontal<CR>";
+      options.desc = "toggle extra terminal";
+    }
+    {
       key = "<leader>c";
       action = "<cmd>MCstart<CR>";
       options.desc = "add cursor";
@@ -299,7 +304,7 @@
     # Git
     {
       key = "<leader>ga";
-      action = "<cmd>git add .<CR>";
+      action = "<cmd>Git add .<CR>";
       options.desc = "add .";
     }
     {
