@@ -1,7 +1,8 @@
-{ inputs
-, lib
-, pkgs
-, ...
+{
+  inputs,
+  lib,
+  pkgs,
+  ...
 }:
 {
   programs.firefox = {
@@ -15,35 +16,6 @@
 
     policies = {
       "3rdparty".Extensions = {
-        "CookieAutoDelete@kennydo.com".adminSettings = {
-          activeMode = true;
-          delayBeforeClean = 15;
-          discardedCleanup = false;
-          domainChangeCleanup = false;
-          enableGreyListCleanup = true;
-          cleanCookiesFromOpenTabsOnStartup = false;
-          cleanExpiredCookies = false;
-          siteDataEmptyOnEnable = true;
-          cacheCleanup = true;
-          indexedDBCleanup = false;
-          localStorageCleanup = false;
-          pluginDataCleanup = false;
-          serviceWorkersCleanup = false;
-          contextualIdentities = false;
-          contextualIdentitiesAutoRemove = true;
-          statLogging = true;
-          showNumOfCookiesInIcon = true;
-          keepDefaultIcon = false;
-          showNotificationAfterCleanup = false;
-          manualNotifications = true;
-          notificationOnScreen = 3;
-          enableNewVersionPopup = false;
-          sizePopup = 16;
-          sizeSetting = 16;
-          contextMenus = true;
-          debugMode = false;
-        };
-
         "uBlock@raymondhill.net".adminSettings = {
           dynamicFilteringString = "behind-the-scene * * noop\nbehind-the-scene * inline-script noop\nbehind-the-scene * 1p-script noop\nbehind-the-scene * 3p-script noop\nbehind-the-scene * 3p-frame noop\nbehind-the-scene * image noop\nbehind-the-scene * 3p noop";
           hostnameSwitchesString = "no-large-media: behind-the-scene false\nno-csp-reports: * true";
@@ -172,8 +144,7 @@
           "K00ILysCaEq8+bEqV/3nuw=="
           # Twitter
           "T9nJot5PurhJSy8n038xGA=="
-        ]
-          (_: 1);
+        ] (_: 1);
 
         # Disable some telemetry
         "app.shield.optoutstudies.enabled" = false;
