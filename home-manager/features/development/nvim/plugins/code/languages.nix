@@ -1,0 +1,7 @@
+{
+  plugins = {
+    schemastore = {
+      enable = true;
+    };
+  };
+}
