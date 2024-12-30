@@ -16,4 +16,8 @@
       enable = true;
     };
   };
+
+  home.file.".hushlogin" = {
+    text = "";
+  };
 }
