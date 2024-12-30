@@ -1,4 +1,9 @@
-{ inputs, lib, pkgs, ... }:
+{
+  inputs,
+  lib,
+  pkgs,
+  ...
+}:
 {
   programs.firefox = {
     enable = true;
@@ -8,6 +13,49 @@
       "es-ES"
       "de"
     ];
+
+    policies = {
+      "3rdparty".Extensions = {
+        "uBlock@raymondhill.net".adminSettings = {
+          dynamicFilteringString = "behind-the-scene * * noop\nbehind-the-scene * inline-script noop\nbehind-the-scene * 1p-script noop\nbehind-the-scene * 3p-script noop\nbehind-the-scene * 3p-frame noop\nbehind-the-scene * image noop\nbehind-the-scene * 3p noop";
+          hostnameSwitchesString = "no-large-media: behind-the-scene false\nno-csp-reports: * true";
+
+          selectedFilterlist = [
+            "user-filters"
+            "ublock-filters"
+            "ublock-badware"
+            "ublock-privacy"
+            "ublock-quick-fixes"
+            "ublock-unbreak"
+            "easylist"
+            "adguard-generic"
+            "adguard-mobile"
+            "easyprivacy"
+            "urlhaus-1"
+            "plowe-0"
+            "fanboy-cookiemonster"
+            "ublock-cookies-easylist"
+            "adguard-cookies"
+            "ublock-cookies-adguard"
+            "easylist-chat"
+            "easylist-newsletters"
+            "easylist-notifications"
+            "easylist-annoyances"
+            "adguard-mobile-app-banners"
+            "adguard-other-annoyances"
+            "adguard-popup-overlays"
+            "adguard-widgets"
+            "ublock-annoyances"
+            "spa-1"
+            "spa-0"
+          ];
+
+          userSettings = rec {
+            uiTheme = "dark";
+          };
+        };
+      };
+    };
 
     profiles.robertogoam = {
       id = 0;
@@ -23,12 +71,18 @@
             }
             {
               name = "Nix Wiki";
-              tags = [ "wiki" "nix" ];
+              tags = [
+                "wiki"
+                "nix"
+              ];
               url = "https://wiki.nixos.org/";
             }
             {
               name = "Nixpkgs";
-              tags = [ "packages" "nix" ];
+              tags = [
+                "packages"
+                "nix"
+              ];
               url = "https://search.nixos.org/packages";
             }
           ];
@@ -90,8 +144,7 @@
           "K00ILysCaEq8+bEqV/3nuw=="
           # Twitter
           "T9nJot5PurhJSy8n038xGA=="
-        ]
-          (_: 1);
+        ] (_: 1);
 
         # Disable some telemetry
         "app.shield.optoutstudies.enabled" = false;
@@ -128,19 +181,43 @@
         "browser.uiCustomization.state" = builtins.toJSON {
           currentVersion = 20;
           newElementCount = 5;
-          dirtyAreaCache = [ "nav-bar" "PersonalToolbar" "toolbar-menubar" "TabsToolbar" "widget-overflow-fixed-list" ];
+          dirtyAreaCache = [
+            "nav-bar"
+            "PersonalToolbar"
+            "toolbar-menubar"
+            "TabsToolbar"
+            "widget-overflow-fixed-list"
+          ];
           placements = {
             PersonalToolbar = [ "personal-bookmarks" ];
-            TabsToolbar = [ "tabbrowser-tabs" "new-tab-button" "alltabs-button" ];
-            nav-bar = [ "back-button" "forward-button" "stop-reload-button" "urlbar-container" "downloads-button" "ublock0_raymondhill_net-browser-action" "_testpilot-containers-browser-action" "reset-pbm-toolbar-button" "unified-extensions-button" ];
+            TabsToolbar = [
+              "tabbrowser-tabs"
+              "new-tab-button"
+              "alltabs-button"
+            ];
+            nav-bar = [
+              "back-button"
+              "forward-button"
+              "stop-reload-button"
+              "urlbar-container"
+              "downloads-button"
+              "ublock0_raymondhill_net-browser-action"
+              "_testpilot-containers-browser-action"
+              "reset-pbm-toolbar-button"
+              "unified-extensions-button"
+            ];
             toolbar-menubar = [ "menubar-items" ];
             unified-extensions-area = [ ];
             widget-overflow-fixed-list = [ ];
           };
-          seen = [ "save-to-pocket-button" "developer-button" "ublock0_raymondhill_net-browser-action" "_testpilot-containers-browser-action" ];
+          seen = [
+            "save-to-pocket-button"
+            "developer-button"
+            "ublock0_raymondhill_net-browser-action"
+            "_testpilot-containers-browser-action"
+          ];
         };
       };
     };
   };
 }
-
