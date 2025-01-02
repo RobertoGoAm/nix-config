@@ -7,8 +7,8 @@
       pull = {
         rebase = false;
       };
-    } // (if pkgs.stdenv.isLinux then {
+    } // (if pkgs.stdenv.hostPlatform.isLinux then {
       credential.helper = "libsecret";
-    } else {});
+    } else { });
   };
 }
