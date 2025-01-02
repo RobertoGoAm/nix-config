@@ -77,11 +77,11 @@ git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
 Go to the `nix-config` folder and run:
 
 ```bash
-nix run home-manager --flake .
+home-manager switch --flake .
 ```
 
 if that doesn't work, it is probably because your hostname and/or username does not match with any of the configurations specified in `flake.nix`. If that is the case, use this instead replacing `{your-username@your-hostname}` with one the available combinations in `flake.nix`:
 
 ```bash
-nix run home-manager --flake .#{your-username@your-hostname}
+home-manager switch --flake .#{your-username@your-hostname}
 ```
