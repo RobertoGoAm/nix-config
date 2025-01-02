@@ -1,11 +1,10 @@
-{
-  inputs,
-  outputs,
-  lib,
-  config,
-  pkgs,
-  system,
-  ...
+{ inputs
+, outputs
+, lib
+, config
+, pkgs
+, system
+, ...
 }: {
   nixpkgs = {
     config = {
@@ -17,9 +16,9 @@
   fonts.fontconfig.enable = true;
 
   home = {
-    username = "robertogoam";
     homeDirectory = "/home/robertogoam";
     stateVersion = "24.11";
+    username = "robertogoam";
 
     activation = {
       linkDesktopApplications = {
@@ -32,6 +31,45 @@
         '';
       };
     };
+
+    packages = with pkgs; [
+      # Internet
+      google-chrome
+
+      # Development
+      nixd
+
+      # Media
+      spotify
+      vlc
+
+      # Productivity
+      gnomeExtensions.forge
+      gnomeExtensions.spotify-tray
+      remnote
+      ulauncher
+
+      # Security
+      bitwarden
+
+      # Social
+      discord
+      telegram-desktop
+
+      # Tool
+      fasd
+      gnutar
+      nanum
+      nerd-fonts.jetbrains-mono
+      qbittorrent
+      xclip
+
+      # Work
+      git-credential-manager
+      postman
+      teams-for-linux
+      vmware-horizon-client
+    ];
   };
 
   programs.home-manager.enable = true;
@@ -45,6 +83,7 @@
     ./features/development/vscode
     ./features/internet/chromium.nix
     ./features/internet/firefox.nix
+    ./features/media/yt-dlp.nix
     ./services/productivity
   ];
 }

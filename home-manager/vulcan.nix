@@ -1,11 +1,10 @@
-{
-  inputs,
-  outputs,
-  lib,
-  config,
-  pkgs,
-  system,
-  ...
+{ inputs
+, outputs
+, lib
+, config
+, pkgs
+, system
+, ...
 }: {
   nixpkgs = {
     overlays = [
@@ -19,9 +18,9 @@
   };
 
   home = {
-    username = "robertogoam";
     homeDirectory = "/Users/robertogoam";
     stateVersion = "24.11";
+    username = "robertogoam";
   };
 
   programs.home-manager.enable = true;
@@ -35,5 +34,6 @@
     ./features/development/vscode
     ./features/internet/chromium.nix
     ./features/internet/firefox.nix
+    ./features/media/yt-dlp.nix
   ];
 }
