@@ -6,7 +6,6 @@
 
     extensions = with pkgs.vscode-extensions; [
       aaron-bond.better-comments
-      bbenoist.nix
       bodil.file-browser
       christian-kohler.npm-intellisense
       christian-kohler.path-intellisense
@@ -119,18 +118,42 @@
       {
         "key" = "cmd+1";
         "command" = "workbench.action.toggleSidebarVisibility";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+b";
         "command" = "-workbench.action.toggleSidebarVisibility";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+r";
         "command" = "workbench.action.gotoSymbol";
+        "when" = "isMac";
       }
       {
         "key" = "shift+cmd+o";
         "command" = "-workbench.action.gotoSymbol";
+        "when" = "isMac";
+      }
+      {
+        "key" = "ctrl+1";
+        "command" = "workbench.action.toggleSidebarVisibility";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+b";
+        "command" = "-workbench.action.toggleSidebarVisibility";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+r";
+        "command" = "workbench.action.gotoSymbol";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "shift+ctrl+o";
+        "command" = "-workbench.action.gotoSymbol";
+        "when" = "isLinux || isWindows";
       }
       {
         "key" = "ctrl+'";
@@ -144,26 +167,62 @@
       {
         "key" = "shift+cmd+r";
         "command" = "workbench.action.showAllSymbols";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+t";
         "command" = "-workbench.action.showAllSymbols";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+t";
         "command" = "better-phpunit.run";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+k cmd+r";
         "command" = "-better-phpunit.run";
+        "when" = "isMac";
       }
       {
         "key" = "shift+cmd+t";
         "command" = "better-phpunit.run-previous";
+        "when" = "isMac";
       }
       {
         "key" = "cmd+k cmd+p";
         "command" = "-better-phpunit.run-previous";
+        "when" = "isMac";
+      }
+      {
+        "key" = "shift+ctrl+r";
+        "command" = "workbench.action.showAllSymbols";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+t";
+        "command" = "-workbench.action.showAllSymbols";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+t";
+        "command" = "better-phpunit.run";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+k ctrl+r";
+        "command" = "-better-phpunit.run";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "shift+ctrl+t";
+        "command" = "better-phpunit.run-previous";
+        "when" = "isLinux || isWindows";
+      }
+      {
+        "key" = "ctrl+k ctrl+p";
+        "command" = "-better-phpunit.run-previous";
+        "when" = "isLinux || isWindows";
       }
       {
         "key" = "ctrl+enter";
@@ -178,12 +237,22 @@
       {
         "key" = "shift+cmd+g";
         "command" = "editor.action.selectHighlights";
-        "when" = "editorFocus";
+        "when" = "editorFocus && isMac";
       }
       {
         "key" = "shift+cmd+l";
         "command" = "-editor.action.selectHighlights";
-        "when" = "editorFocus";
+        "when" = "editorFocus && isMac";
+      }
+      {
+        "key" = "shift+ctrl+g";
+        "command" = "editor.action.selectHighlights";
+        "when" = "editorFocus && (isLinux || isWindows)";
+      }
+      {
+        "key" = "shift+ctrl+l";
+        "command" = "-editor.action.selectHighlights";
+        "when" = "editorFocus && (isLinux || isWindows)";
       }
       {
         "key" = "ctrl+n";
@@ -192,6 +261,12 @@
       {
         "key" = "alt+cmd+n";
         "command" = "-extension.advancedNewFile";
+        "when" = "isMac";
+      }
+      {
+        "key" = "alt+ctrl+n";
+        "command" = "-extension.advancedNewFile";
+        "when" = "isLinux || isWindows";
       }
       {
         "key" = "ctrl+r";
@@ -385,6 +460,51 @@
         "key" = "ctrl+i";
         "command" = "acceptSelectedCodeAction";
         "when" = "codeActionMenuVisible";
+      }
+      {
+        "key" = "ctrl+c";
+        "command" = "-extension.vim_ctrl+c";
+        "when" = "editorTextFocus && vim.active && vim.overrideCtrlC && vim.use<C-c> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+v";
+        "command" = "-extension.vim_ctrl+v";
+        "when" = "editorTextFocus && vim.active && vim.use<C-v> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+f";
+        "command" = "-extension.vim_ctrl+f";
+        "when" = "editorTextFocus && vim.active && vim.use<C-f> && !inDebugRepl && vim.mode != 'Insert'";
+      }
+      {
+        "key" = "ctrl+s";
+        "command" = "-extension.vim_ctrl+s";
+        "when" = "editorTextFocus && vim.active && vim.use<C-s> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+z";
+        "command" = "-extension.vim_ctrl+z";
+        "when" = "editorTextFocus && vim.active && vim.use<C-z> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+w";
+        "command" = "-extension.vim_ctrl+w";
+        "when" = "editorTextFocus && vim.active && vim.use<C-w> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+t";
+        "command" = "-extension.vim_ctrl+t";
+        "when" = "editorTextFocus && vim.active && vim.use<C-t> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+g";
+        "command" = "-extension.vim_ctrl+g";
+        "when" = "editorTextFocus && vim.active && vim.use<C-g> && !inDebugRepl";
+      }
+      {
+        "key" = "ctrl+n";
+        "command" = "-extension.vim_ctrl+n";
+        "when" = "editorTextFocus && vim.active && vim.use<C-n> && !inDebugRepl || vim.active && vim.use<C-n> && !inDebugRepl && vim.mode == 'CommandlineInProgress' || vim.active && vim.use<C-n> && !inDebugRepl && vim.mode == 'SearchInProgressMode'";
       }
     ];
 
