@@ -1,8 +1,7 @@
-{
-  inputs,
-  lib,
-  pkgs,
-  ...
+{ inputs
+, lib
+, pkgs
+, ...
 }:
 {
   programs.firefox = {
@@ -50,7 +49,7 @@
             "spa-0"
           ];
 
-          userSettings = rec {
+          userSettings = {
             uiTheme = "dark";
           };
         };
@@ -144,7 +143,8 @@
           "K00ILysCaEq8+bEqV/3nuw=="
           # Twitter
           "T9nJot5PurhJSy8n038xGA=="
-        ] (_: 1);
+        ]
+          (_: 1);
 
         # Disable some telemetry
         "app.shield.optoutstudies.enabled" = false;
