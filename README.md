@@ -59,7 +59,7 @@ sudo sed -i "/$(whoami) ALL=(ALL) NOPASSWD:ALL/d" /etc/sudoers
 Install dependencies (example for ubuntu)
 
 ```bash
-sudo apt update && sudo apt install -y git
+sudo apt update && sudo apt install -y git curl
 ```
 
 Install the Nix package manager
@@ -72,6 +72,12 @@ Clone this repo
 
 ```bash
 git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
+```
+
+The first time, we also need to install home-manager:
+
+```bash
+nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager && nix-channel --update && nix-shell '<home-manager>' -A install
 ```
 
 Go to the `nix-config` folder and run:
