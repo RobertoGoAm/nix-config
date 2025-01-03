@@ -3,9 +3,15 @@ self: super: {
     version = "133.0";
 
     name = "Firefox";
-    buildInputs = [ super.undmg super.unzip ];
+    buildInputs = [
+      super.undmg
+      super.unzip
+    ];
     sourceRoot = ".";
-    phases = [ "unpackPhase" "installPhase" ];
+    phases = [
+      "unpackPhase"
+      "installPhase"
+    ];
     installPhase = ''
       mkdir -p "$out/Applications"
       cp -r Firefox.app "$out/Applications/Firefox.app"

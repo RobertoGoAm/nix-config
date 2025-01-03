@@ -1,11 +1,13 @@
-{ inputs
-, outputs
-, lib
-, config
-, pkgs
-, system
-, ...
-}: {
+{
+  inputs,
+  outputs,
+  lib,
+  config,
+  pkgs,
+  system,
+  ...
+}:
+{
   nixpkgs = {
     overlays = [
       outputs.overlays.apple-silicon

@@ -5,7 +5,10 @@ self: super: {
     name = "Chromium-${version}";
     buildInputs = [ super.unzip ];
     sourceRoot = ".";
-    phases = [ "unpackPhase" "installPhase" ];
+    phases = [
+      "unpackPhase"
+      "installPhase"
+    ];
     installPhase = ''
       mkdir -p "$out/Applications"
       cp -r chrome-mac/Chromium.app "$out/Applications/Chromium.app"
