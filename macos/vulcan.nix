@@ -5,7 +5,8 @@
   config,
   pkgs,
   ...
-}: {
+}:
+{
   imports = [
     inputs.mac-app-util.darwinModules.default
     inputs.home-manager.darwinModules.home-manager
@@ -13,30 +14,36 @@
 
   networking.hostName = "vulcan";
 
-  nix = let
-    flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
-  in {
-    channel.enable = false;
+  nix =
+    let
+      flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
+    in
+    {
+      channel.enable = false;
 
-    gc = {
-      user = "root";
-      automatic = true;
-      interval = { Weekday = 0; Hour = 2; Minute = 0; };
-      options = "--delete-older-than 7d";
+      gc = {
+        user = "root";
+        automatic = true;
+        interval = {
+          Weekday = 0;
+          Hour = 2;
+          Minute = 0;
+        };
+        options = "--delete-older-than 7d";
+      };
+
+      nixPath = lib.mapAttrsToList (n: _: "${n}=flake:${n}") flakeInputs;
+
+      optimise.automatic = true;
+
+      registry = lib.mapAttrs (_: flake: { inherit flake; }) flakeInputs;
+
+      settings = {
+        experimental-features = "nix-command flakes";
+        flake-registry = "";
+        nix-path = config.nix.nixPath;
+      };
     };
-
-    nixPath = lib.mapAttrsToList (n: _: "${n}=flake:${n}") flakeInputs;
-
-    optimise.automatic = true;
-
-    registry = lib.mapAttrs (_: flake: {inherit flake;}) flakeInputs;
-
-    settings = {
-      experimental-features = "nix-command flakes";
-      flake-registry = "";
-      nix-path = config.nix.nixPath;
-    };
-  };
 
   nixpkgs = {
     overlays = [
@@ -171,7 +178,7 @@
   };
 
   users.users.robertogoam = {
-    packages = [pkgs.home-manager];
+    packages = [ pkgs.home-manager ];
     home = "/Users/robertogoam";
   };
 
