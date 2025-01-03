@@ -11,7 +11,10 @@
         rebase = false;
       };
     } // (if pkgs.stdenv.hostPlatform.isLinux then {
-      credential.helper = "libsecret";
+      credential = {
+        credentialStore = "cache";
+        helper = "manager";
+      };
     } else { });
   };
 }
