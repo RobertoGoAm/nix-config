@@ -150,6 +150,7 @@
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
           "/Applications/Visual Studio Code.app"
+          "/Users/robertogoam/Applications/Home Manager Apps/Alacritty.app"
           "/Applications/iTerm.app"
           "/Applications/Telegram.app"
         ];
