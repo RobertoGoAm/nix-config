@@ -83,10 +83,7 @@
     inputs.nixvim.homeManagerModules.nixvim
     ./features/cli
     ./features/desktop/gnome
-    ./features/development/git.nix
-    ./features/development/java.nix
-    ./features/development/nvim
-    ./features/development/vscode
+    ./features/development
     ./features/internet/chromium.nix
     ./features/internet/firefox.nix
     ./features/media/yt-dlp.nix
