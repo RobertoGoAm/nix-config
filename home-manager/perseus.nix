@@ -32,7 +32,7 @@
         data = ''
           rm -rf $HOME/.home-manager-share
           mkdir -p $HOME/.home-manager-share
-          cp -Lr --no-preserve=mode,ownership ${config.home.homeDirectory}/.nix-profile/share/* $HOME/.home-manager-share
+          cp -Lr --no-preserve=mode,ownership $HOME/.nix-profile/share/* $HOME/.home-manager-share
         '';
       };
     };
