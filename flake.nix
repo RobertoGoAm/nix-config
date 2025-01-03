@@ -14,6 +14,21 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    homebrew-bundle = {
+      url = "github:homebrew/homebrew-bundle";
+      flake = false;
+    };
+
+    homebrew-cask = {
+      url = "github:homebrew/homebrew-cask";
+      flake = false;
+    };
+
+    homebrew-core = {
+      url = "github:homebrew/homebrew-core";
+      flake = false;
+    };
+
     mac-app-util = {
       url = "github:hraban/mac-app-util";
     };
@@ -21,6 +36,10 @@
     nix-darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-homebrew = {
+      url = "github:zhaofengli-wip/nix-homebrew";
     };
 
     nixvim = {
@@ -34,13 +53,18 @@
       self,
       nixpkgs,
       home-manager,
+      homebrew-bundle,
+      homebrew-cask,
+      homebrew-core,
       mac-app-util,
       nix-darwin,
+      nix-homebrew,
       nixvim,
       ...
     }@inputs:
     let
       inherit (self) outputs;
+      user = "robertogoam";
     in
     {
       overlays = import ./overlays { inherit inputs; };
@@ -50,22 +74,10 @@
       darwinConfigurations = {
         # Desktop mac (Apple Silicon)
         vulcan = nix-darwin.lib.darwinSystem {
-          specialArgs = { inherit inputs outputs; };
+          specialArgs = { inherit inputs outputs user; };
 
           modules = [
-            ./macos/vulcan.nix
-          ];
-        };
-      };
-
-      # NixOS configuration entrypoint
-      # Available through 'nixos-rebuild --flake .#your-hostname'
-      nixosConfigurations = {
-        your-hostname = nixpkgs.lib.nixosSystem {
-          specialArgs = { inherit inputs outputs; };
-          modules = [
-            # > Our main nixos configuration file <
-            ./nixos/configuration.nix
+            ./modules/macos/vulcan/vulcan.nix
           ];
         };
       };
@@ -73,21 +85,23 @@
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager switch --flake .#your-username@your-hostname'
       homeConfigurations = {
-        "robertogoam@vulcan" = home-manager.lib.homeManagerConfiguration {
+        # Desktop mac (Apple Silicon)
+        "${user}@vulcan" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = { inherit inputs outputs; };
+          extraSpecialArgs = { inherit inputs outputs user; };
 
           modules = [
-            ./home-manager/vulcan.nix
+            ./modules/home-manager/hosts/vulcan/vulcan.nix
           ];
         };
 
-        "robertogoam@perseus" = home-manager.lib.homeManagerConfiguration {
+        # Work laptop
+        "${user}@perseus" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          extraSpecialArgs = { inherit inputs outputs; };
+          extraSpecialArgs = { inherit inputs outputs user; };
 
           modules = [
-            ./home-manager/perseus.nix
+            ./modules/home-manager/hosts/perseus/perseus.nix
           ];
         };
       };

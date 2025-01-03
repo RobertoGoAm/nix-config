@@ -1,15 +1,19 @@
 {
-  inputs,
-  outputs,
-  lib,
   config,
+  inputs,
+  lib,
+  outputs,
   pkgs,
+  user,
   ...
 }:
 {
   imports = [
     inputs.mac-app-util.darwinModules.default
     inputs.home-manager.darwinModules.home-manager
+    inputs.nix-homebrew.darwinModules.nix-homebrew
+    ../../homebrew/homebrew.nix
+    ./casks.nix
   ];
 
   networking.hostName = "vulcan";
@@ -144,21 +148,21 @@
         persistent-apps = [
           "/System/Applications/Calendar.app"
           "/Applications/Safari.app"
-          "/Users/robertogoam/Applications/Home Manager Apps/Firefox.app"
-          "/Users/robertogoam/Applications/Home Manager Apps/Chromium.app"
+          "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
+          "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
           "/Applications/Visual Studio Code.app"
-          "/Users/robertogoam/Applications/Home Manager Apps/Alacritty.app"
+          "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
           "/Applications/iTerm.app"
           "/Applications/Telegram.app"
         ];
 
         # Permanent folders on dock
         persistent-others = [
-          "/Users/robertogoam/Downloads"
-          "/Users/robertogoam/Development"
+          "/Users/${user}/Downloads"
+          "/Users/${user}/Development"
         ];
 
         # Don't show recent apps
@@ -178,16 +182,16 @@
     stateVersion = 5;
   };
 
-  users.users.robertogoam = {
+  users.users.${user} = {
     packages = [ pkgs.home-manager ];
-    home = "/Users/robertogoam";
+    home = "/Users/${user}";
   };
 
   home-manager.extraSpecialArgs = {
-    inherit inputs outputs;
+    inherit inputs outputs user;
 
     system = "aarch64-darwin";
   };
 
-  home-manager.users.robertogoam = import ../home-manager/vulcan.nix;
+  home-manager.users.${user} = import ../../home-manager/hosts/vulcan/vulcan.nix;
 }
