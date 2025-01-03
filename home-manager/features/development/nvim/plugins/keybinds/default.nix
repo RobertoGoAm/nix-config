@@ -2,6 +2,12 @@
   plugins = {
     toggleterm = {
       enable = true;
+
+      settings = {
+        winbar = {
+          enable = false;
+        };
+      };
     };
 
     which-key = {
