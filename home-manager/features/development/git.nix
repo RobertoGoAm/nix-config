@@ -3,6 +3,9 @@
   programs.git = {
     enable = true;
     package = pkgs.gitFull;
+    userEmail = "RobertoGoAm@disroot.org";
+    userName = "Roberto Gomez Amores";
+
     extraConfig = {
       pull = {
         rebase = false;
