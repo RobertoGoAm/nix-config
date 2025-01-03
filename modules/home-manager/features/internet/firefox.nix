@@ -2,6 +2,7 @@
   inputs,
   lib,
   pkgs,
+  user,
   ...
 }:
 {
@@ -57,9 +58,9 @@
       };
     };
 
-    profiles.robertogoam = {
+    profiles.${user} = {
       id = 0;
-      name = "robertogoam";
+      name = user;
       bookmarks = [
         {
           name = "Nix sites";
