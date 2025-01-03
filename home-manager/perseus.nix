@@ -38,6 +38,7 @@
 
       # Development
       nixd
+      nixfmt-rfc-style
 
       # Media
       spotify

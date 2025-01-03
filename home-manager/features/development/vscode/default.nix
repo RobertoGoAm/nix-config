@@ -1,4 +1,7 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+let
+  nixpkgsFmtPath = pkgs.nixfmt-rfc-style.override { };
+in
 {
   programs.vscode = {
     enable = true;
@@ -516,12 +519,12 @@
       "workbench.colorTheme" = "Tokyo Night Storm";
 
       # Extensions
-      "nix.formatterPath" = "/Users/robertogoam/.nix-profile/bin/nixpkgs-fmt";
+      "nix.formatterPath" = nixpkgsFmtPath + "/bin/nixpkgs-fmt";
       "nix.enableLanguageServer" = true;
       "nix.serverSettings" = {
-        "nil" = {
+        "nid" = {
           "formatting" = {
-            "command" = [ "nixpkgs-fmt" ];
+            "command" = [ "${lib.getExe pkgs.nixfmt-rfc-style}" ];
           };
         };
       };
