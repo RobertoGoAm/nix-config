@@ -34,14 +34,15 @@
   };
 
   outputs =
-    { self
-    , nixpkgs
-    , home-manager
-    , mac-app-util
-    , nix-darwin
-    , nixvim
-    , ...
-    } @ inputs:
+    {
+      self,
+      nixpkgs,
+      home-manager,
+      mac-app-util,
+      nix-darwin,
+      nixvim,
+      ...
+    }@inputs:
     let
       inherit (self) outputs;
     in

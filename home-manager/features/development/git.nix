@@ -6,15 +6,22 @@
     userEmail = "RobertoGoAm@disroot.org";
     userName = "Roberto Gomez Amores";
 
-    extraConfig = {
-      pull = {
-        rebase = false;
-      };
-    } // (if pkgs.stdenv.hostPlatform.isLinux then {
-      credential = {
-        credentialStore = "cache";
-        helper = "manager";
-      };
-    } else { });
+    extraConfig =
+      {
+        pull = {
+          rebase = false;
+        };
+      }
+      // (
+        if pkgs.stdenv.hostPlatform.isLinux then
+          {
+            credential = {
+              credentialStore = "cache";
+              helper = "manager";
+            };
+          }
+        else
+          { }
+      );
   };
 }

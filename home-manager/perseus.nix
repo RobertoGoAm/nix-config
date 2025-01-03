@@ -1,11 +1,13 @@
-{ inputs
-, outputs
-, lib
-, config
-, pkgs
-, system
-, ...
-}: {
+{
+  inputs,
+  outputs,
+  lib,
+  config,
+  pkgs,
+  system,
+  ...
+}:
+{
   nixpkgs = {
     config = {
       allowUnfree = true;
@@ -22,7 +24,10 @@
 
     activation = {
       linkDesktopApplications = {
-        after = [ "writeBoundary" "createXdgUserDirectories" ];
+        after = [
+          "writeBoundary"
+          "createXdgUserDirectories"
+        ];
         before = [ ];
         data = ''
           rm -rf $HOME/.home-manager-share

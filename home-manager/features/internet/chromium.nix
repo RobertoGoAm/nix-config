@@ -10,10 +10,10 @@
       { id = "blipmdconlkpinefehnmjammfjpmpbjk"; } # Lighthouse
       { id = "hniebljpgcogalllopnjokppmgbhaden"; } # Scre.io
       { id = "mooikfkahbdckldjjndioackbalphokd"; } # Selenium IDE
-      { id = "fmkadmapgofadopljbjfkapdkoienihi"; } # React Developer Tools 
-      { id = "dbepggeogbaibhgnhhndojpepiihcmeb"; } # Vimium 
-      { id = "nhdogjmejiglipccpnnnanhbledajbpd"; } # Vue.js devtools 
-      { id = "iaajmlceplecbljialhhkmedjlpdblhp"; } # Vue.js devtools (legacy) 
+      { id = "fmkadmapgofadopljbjfkapdkoienihi"; } # React Developer Tools
+      { id = "dbepggeogbaibhgnhhndojpepiihcmeb"; } # Vimium
+      { id = "nhdogjmejiglipccpnnnanhbledajbpd"; } # Vue.js devtools
+      { id = "iaajmlceplecbljialhhkmedjlpdblhp"; } # Vue.js devtools (legacy)
       { id = "ahfhijdlegdabablpippeagghigmibma"; } # Web Vitals
     ];
   };
