@@ -47,7 +47,6 @@
       gnomeExtensions.forge
       gnomeExtensions.spotify-tray
       remnote
-      ulauncher
 
       # Security
       bitwarden
@@ -85,6 +84,6 @@
     ./features/internet/chromium.nix
     ./features/internet/firefox.nix
     ./features/media/yt-dlp.nix
-    ./services/productivity
+    ./features/productivity/ulauncher.nix
   ];
 }

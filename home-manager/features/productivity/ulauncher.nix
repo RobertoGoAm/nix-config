@@ -1,8 +1,11 @@
-{
-  pkgs,
-  ...
+{ pkgs
+, ...
 }:
 {
+  home.packages = with pkgs; [
+    ulauncher
+  ];
+
   systemd.user.services.ulauncher = {
     Unit = {
       Description = "ulauncher application launcher service";
