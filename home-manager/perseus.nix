@@ -77,6 +77,7 @@
   imports = [
     inputs.nixvim.homeManagerModules.nixvim
     ./features/cli
+    ./features/desktop/gnome
     ./features/development/git.nix
     ./features/development/java.nix
     ./features/development/nvim
