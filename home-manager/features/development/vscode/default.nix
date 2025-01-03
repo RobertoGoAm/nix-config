@@ -769,6 +769,7 @@
         }
       ];
       "whichkey.delay" = 700;
+      "window.titleBarStyle" = "custom";
     };
   };
 }
