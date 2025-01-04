@@ -9,7 +9,6 @@
       "discord"
       "notion"
       "slack"
-      "telegram"
       "zoom"
 
       # Utility Tools

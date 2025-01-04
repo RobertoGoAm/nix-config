@@ -13,6 +13,7 @@
     inputs.home-manager.darwinModules.home-manager
     inputs.nix-homebrew.darwinModules.nix-homebrew
     ../../homebrew/homebrew.nix
+    ../services/aerospace
     ./casks.nix
   ];
 
