@@ -16,6 +16,7 @@
     vlc
 
     # Productivity
+    gnome-calendar
     gnome-extension-manager
     gnomeExtensions.forge
     gnomeExtensions.spotify-tray
