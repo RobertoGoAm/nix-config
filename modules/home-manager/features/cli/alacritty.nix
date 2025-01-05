@@ -1,11 +1,25 @@
 {
+  config,
   lib,
+  nixgl,
   pkgs,
   ...
 }:
+let
+  nixGLConfig = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    packages = nixgl.packages;
+    defaultWrapper = "mesa";
+    installScripts = [ "mesa" ];
+  };
+in
 {
+  nixGL = nixGLConfig;
+
   programs.alacritty = {
     enable = true;
+    package = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+      config.lib.nixGL.wrap pkgs.alacritty or pkgs.alacritty
+    );
 
     settings = {
       colors = {
