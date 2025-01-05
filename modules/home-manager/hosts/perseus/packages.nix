@@ -21,6 +21,7 @@
     gnomeExtensions.forge
     gnomeExtensions.spotify-tray
     remnote
+    thunderbird
 
     # Security
     bitwarden

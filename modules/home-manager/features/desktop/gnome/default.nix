@@ -24,6 +24,7 @@ with lib.hm.gvariant;
         "firefox.desktop"
         "chromium-browser.desktop"
         "google-chrome.desktop"
+        "thunderbird.desktop"
         "spotify.desktop"
         "Alacritty.desktop"
         "code.desktop"
