@@ -42,6 +42,11 @@
       url = "github:zhaofengli-wip/nix-homebrew";
     };
 
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nixvim = {
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -59,6 +64,7 @@
       mac-app-util,
       nix-darwin,
       nix-homebrew,
+      nixgl,
       nixvim,
       ...
     }@inputs:
@@ -74,7 +80,13 @@
       darwinConfigurations = {
         # Desktop mac (Apple Silicon)
         vulcan = nix-darwin.lib.darwinSystem {
-          specialArgs = { inherit inputs outputs user; };
+          specialArgs = {
+            inherit
+              inputs
+              outputs
+              user
+              ;
+          };
 
           modules = [
             ./modules/macos/vulcan/vulcan.nix
@@ -88,7 +100,13 @@
         # Desktop mac (Apple Silicon)
         "${user}@vulcan" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = { inherit inputs outputs user; };
+          extraSpecialArgs = {
+            inherit
+              inputs
+              outputs
+              user
+              ;
+          };
 
           modules = [
             ./modules/home-manager/hosts/vulcan/vulcan.nix
@@ -98,7 +116,14 @@
         # Work laptop
         "${user}@perseus" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          extraSpecialArgs = { inherit inputs outputs user; };
+          extraSpecialArgs = {
+            inherit
+              inputs
+              nixgl
+              outputs
+              user
+              ;
+          };
 
           modules = [
             ./modules/home-manager/hosts/perseus/perseus.nix

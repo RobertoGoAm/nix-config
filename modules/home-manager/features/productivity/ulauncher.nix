@@ -1,10 +1,16 @@
 {
+  config,
+  nixgl,
   pkgs,
   ...
 }:
 {
+  nixGL.packages = nixgl.packages;
+  nixGL.defaultWrapper = "mesa";
+  nixGL.installScripts = [ "mesa" ];
+
   home.packages = with pkgs; [
-    ulauncher
+    (config.lib.nixGL.wrap ulauncher)
   ];
 
   systemd.user.services.ulauncher = {
