@@ -1,6 +1,6 @@
 {
   imports = [
     ./thunderbird.nix
-    ./ulauncher.nix
+    ./ulauncher
   ];
 }
