@@ -158,6 +158,7 @@
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
           "/Applications/iTerm.app"
           "/Applications/Telegram.app"
+          "/Applications/VLC.app"
         ];
 
         # Permanent folders on dock
