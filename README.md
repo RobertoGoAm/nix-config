@@ -32,16 +32,22 @@ Clone this repo
 git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
 ```
 
-Go to the `nix-config` folder and run:
+The first time, we also need to install nix-darwin:
 
 ```bash
 nix run nix-darwin -- switch --flake .
 ```
 
+Go to the `nix-config` folder and run:
+
+```bash
+darwin-rebuild switch --flake .
+```
+
 if that doesn't work, it is probably because your hostname does not match with any of the configurations specified in `flake.nix`. If that is the case, use this instead replacing `{configurationName}` with one the available ones in `flake.nix`:
 
 ```bash
-nix run nix-darwin -- switch --flake .#{configurationName}
+darwin-rebuild switch --flake .#{configurationName}
 ```
 
 ## Linux steps (non-NixOS)
