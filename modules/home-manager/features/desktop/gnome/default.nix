@@ -21,6 +21,7 @@ with lib.hm.gvariant;
 
       favorite-apps = [
         "org.gnome.Nautilus.desktop"
+        "org.gnome.Settings.desktop"
         "org.gnome.Calendar.desktop"
         "firefox.desktop"
         "chromium-browser.desktop"
@@ -31,6 +32,7 @@ with lib.hm.gvariant;
         "code.desktop"
         "org.telegram.desktop.desktop"
         "vlc.desktop"
+        "remnote.desktop"
         "vmware-view.desktop"
       ];
     };
