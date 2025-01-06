@@ -17,8 +17,8 @@
 
     # Productivity
     gnome-calendar
-    gnome-extension-manager
     gnomeExtensions.forge
+    gnomeExtensions.space-bar
     gnomeExtensions.spotify-tray
     remnote
     thunderbird
