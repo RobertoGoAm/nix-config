@@ -55,6 +55,6 @@
     ../../features/internet/chromium.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
-    ../../features/productivity/ulauncher.nix
+    ../../features/productivity
   ];
 }
