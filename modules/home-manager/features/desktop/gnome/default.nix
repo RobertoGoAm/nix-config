@@ -15,6 +15,7 @@ with lib.hm.gvariant;
 
       enabled-extensions = [
         "forge@jmmaranan.com"
+        "space-bar@luchrioh"
         "sp-tray@sp-tray.esenliyim.github.com"
       ];
 
@@ -29,6 +30,7 @@ with lib.hm.gvariant;
         "Alacritty.desktop"
         "code.desktop"
         "org.telegram.desktop.desktop"
+        "vlc.desktop"
         "vmware-view.desktop"
       ];
     };
