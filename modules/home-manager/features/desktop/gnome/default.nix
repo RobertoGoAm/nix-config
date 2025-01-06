@@ -97,20 +97,20 @@ with lib.hm.gvariant;
       hidden-when-paused = false;
       hidden-when-stopped = true;
       logo-position = 0;
-      loop-playlist = "\128257";
-      loop-track = "\128258";
+      loop-playlist = "🔂";
+      loop-track = "🔁";
       marquee-interval = 1000;
       marquee-length = 50;
       marquee-tail = " --- ";
       metadata-when-paused = true;
-      off = "\128164\65039";
-      paused = "\9208\65039";
+      off = "💤️";
+      paused = "⏸️";
       podcast-format = ''
         {album} | {track}
       '';
       position = 2;
-      shuffle = "\128256\65039";
-      stopped = "\9209\65039";
+      shuffle = "🔀";
+      stopped = "⏹️";
       title-max-length = 35;
     };
 
