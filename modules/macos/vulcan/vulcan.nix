@@ -148,7 +148,6 @@
         # Permanent apps on dock
         persistent-apps = [
           "/System/Applications/Calendar.app"
-          "/Applications/Safari.app"
           "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
           "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
           "/Applications/Google Chrome.app"
@@ -156,7 +155,6 @@
           "/Applications/Spotify.app"
           "/Applications/Visual Studio Code.app"
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
-          "/Applications/iTerm.app"
           "/Applications/Telegram.app"
           "/Applications/VLC.app"
         ];
