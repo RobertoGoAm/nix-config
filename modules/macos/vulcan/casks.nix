@@ -2,26 +2,53 @@
   homebrew = {
     enable = true;
     casks = [
-      # Development Tools
-      "homebrew/cask/docker"
+      # Development
+      "docker"
+      "imageoptim"
+      "ngrok"
+      "postman"
 
-      # Communication Tools
-      "discord"
-      "notion"
-      "slack"
-      "zoom"
+      # Internet
+      "google-chrome"
+      "qbittorrent"
 
-      # Utility Tools
-      "syncthing"
-
-      # Entertainment Tools
+      # Media
+      "iina"
+      "macmediakeyforwarder"
+      "spotify"
       "vlc"
 
-      # Productivity Tools
-      "raycast"
+      # Office
+      "pdf-expert"
 
-      # Browsers
-      "google-chrome"
+      # Productivity
+      "anki"
+      "notion"
+      "obsidian"
+      "raycast"
+      "remnote"
+
+      # Security
+      "bitwarden"
+      "blockblock"
+      "gpg-suite"
+      "oversight"
+      "ransomwhere"
+
+      # Social
+      "discord"
+
+      # Tool
+      "calibre"
+      "cyberduck"
+      "filen"
+      "omnidisksweeper"
+      "qmk-toolbox"
+      "the-unarchiver"
+      "via"
+
+      # Work
+      "vmware-horizon-client"
     ];
 
     # These app IDs are from using the mas CLI app
