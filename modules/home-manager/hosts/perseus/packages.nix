@@ -4,12 +4,17 @@
 }:
 {
   home.packages = with pkgs; [
-    # Internet
-    google-chrome
+    # Desktop
+    gnomeExtensions.forge
+    gnomeExtensions.space-bar
+    gnomeExtensions.spotify-tray
 
     # Development
     nixd
     nixfmt-rfc-style
+
+    # Internet
+    google-chrome
 
     # Media
     spotify
@@ -17,11 +22,7 @@
 
     # Productivity
     gnome-calendar
-    gnomeExtensions.forge
-    gnomeExtensions.space-bar
-    gnomeExtensions.spotify-tray
     remnote
-    thunderbird
 
     # Security
     bitwarden
