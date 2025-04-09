@@ -97,3 +97,22 @@ if that doesn't work, it is probably because your hostname and/or username does 
 ```bash
 home-manager switch --flake .#{your-username@your-hostname}
 ```
+
+## Troubleshooting
+
+If you find either of these errors (or a similar one) in MacOS when trying to run nix-darwin for the first time:
+
+```bash
+error: unable to download 'https://channels.nixos.org/flake-registry.json': Problem with the SSL CA cert (path? access rights?) (77) error setting certificate file: /etc/ssl/certs/ca-certificates.crt
+```
+
+```bash
+error: unable to download 'https://cache.nixos.org/cwp1rc3rbkib6qswi4zv6xy5dhd0h8x7.narinfo': Problem with the SSL CA cert (path? access rights?) (77) error setting certificate file: /etc/ssl/certs/ca-certificates.crt
+```
+
+It might be because the symlink to the `ca-certificates.crt` file is broken, to fix that run:
+
+```bash
+sudo rm /etc/ssl/certs/ca-certificates.crt
+sudo ln -s /nix/var/nix/profiles/default/etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt
+```
