@@ -33,6 +33,9 @@
             alt-shift-0 = "balance-sizes";
             alt-shift-equal = "resize smart +50";
             alt-shift-minus = "resize smart -50";
+
+            alt-slash = "layout tiles horizontal vertical";
+            alt-comma = "layout accordion horizontal vertical";
           };
         };
       };

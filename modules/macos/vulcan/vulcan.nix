@@ -148,7 +148,7 @@
         # Permanent apps on dock
         persistent-apps = [
           "/System/Applications/Calendar.app"
-          "/Applications/System Settings.app"
+          "/System/Applications/System Settings.app"
           "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
           "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
           "/Applications/Google Chrome.app"
@@ -158,8 +158,9 @@
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
           "/Applications/Telegram.app"
           "/Applications/VLC.app"
+          "/Applications/Obsidian.app"
           "/Applications/Remnote.app"
-          "/Applications/VMware Horizon Client.app"
+          "/Applications/Omnissa Horizon Client.app"
         ];
 
         # Permanent folders on dock
