@@ -7,9 +7,7 @@
         change_to_vcs_root = true;
         config = {
           footer = [
-            "
-              Made with ❤️
-            "
+            "Made with ❤️"
           ];
           header = [
             "███╗   ██╗██╗██╗  ██╗██╗   ██╗██╗███╗   ███╗"

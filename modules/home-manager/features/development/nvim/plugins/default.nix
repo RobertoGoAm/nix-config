@@ -5,6 +5,7 @@
     ./files
     ./keybinds
     ./lsp
+    ./notes
     ./ui
     ./version-control
     ./vim

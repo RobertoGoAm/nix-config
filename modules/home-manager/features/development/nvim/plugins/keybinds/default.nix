@@ -104,6 +104,11 @@
             icon = "";
           }
           {
+            __unkeyed-1 = "<leader>n";
+            group = "notes";
+            icon = "";
+          }
+          {
             __unkeyed-1 = "<leader>p";
             group = "projects";
             icon = "";
@@ -496,6 +501,28 @@
       key = "<leader>lS";
       action = "<cmd>Telescope lsp_dynamic_workspace_symbols<CR>";
       options.desc = "workspace symbols";
+    }
+
+    # Notes
+    {
+      key = "<leader>nn";
+      action = "<cmd>ObsidianNew<CR>";
+      options.desc = "new note";
+    }
+    {
+      key = "<leader>nN";
+      action = "<cmd>ObsidianNewFromTemplate<CR>";
+      options.desc = "new note with template";
+    }
+    {
+      key = "<leader>no";
+      action = "<cmd>ObsidianQuickSwitch<CR>";
+      options.desc = "open note";
+    }
+    {
+      key = "<leader>nO";
+      action = "<cmd>ObsidianOpen<CR>";
+      options.desc = "open app";
     }
 
     # Project

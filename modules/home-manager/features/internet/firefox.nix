@@ -15,9 +15,59 @@
       "de"
     ];
 
-    policies = {
-      "3rdparty".Extensions = {
-        "uBlock@raymondhill.net".adminSettings = {
+    profiles.${user} = {
+      id = 0;
+      name = user;
+      bookmarks = {
+        force = true;
+        settings = [
+          {
+            name = "Nix sites";
+            toolbar = true;
+            bookmarks = [
+              {
+                name = "Nix";
+                url = "https://nixos.org/";
+              }
+              {
+                name = "Nix Wiki";
+                tags = [
+                  "wiki"
+                  "nix"
+                ];
+                url = "https://wiki.nixos.org/";
+              }
+              {
+                name = "Nixpkgs";
+                tags = [
+                  "packages"
+                  "nix"
+                ];
+                url = "https://search.nixos.org/packages";
+              }
+            ];
+          }
+        ];
+      };
+
+      extensions = {
+        force = true;
+
+        packages = with inputs.firefox-addons.packages.${pkgs.system}; [
+          bitwarden
+          cookie-autodelete
+          darkreader
+          decentraleyes
+          firenvim
+          image-search-options
+          lingq-importer2
+          sponsorblock
+          ublock-origin
+          umatrix
+          vimium
+        ];
+
+        settings."uBlock0@raymondhill.net".settings = {
           dynamicFilteringString = "behind-the-scene * * noop\nbehind-the-scene * inline-script noop\nbehind-the-scene * 1p-script noop\nbehind-the-scene * 3p-script noop\nbehind-the-scene * 3p-frame noop\nbehind-the-scene * image noop\nbehind-the-scene * 3p noop";
           hostnameSwitchesString = "no-large-media: behind-the-scene false\nno-csp-reports: * true";
 
@@ -56,53 +106,6 @@
           };
         };
       };
-    };
-
-    profiles.${user} = {
-      id = 0;
-      name = user;
-      bookmarks = [
-        {
-          name = "Nix sites";
-          toolbar = true;
-          bookmarks = [
-            {
-              name = "Nix";
-              url = "https://nixos.org/";
-            }
-            {
-              name = "Nix Wiki";
-              tags = [
-                "wiki"
-                "nix"
-              ];
-              url = "https://wiki.nixos.org/";
-            }
-            {
-              name = "Nixpkgs";
-              tags = [
-                "packages"
-                "nix"
-              ];
-              url = "https://search.nixos.org/packages";
-            }
-          ];
-        }
-      ];
-
-      extensions = with inputs.firefox-addons.packages.${pkgs.system}; [
-        bitwarden
-        cookie-autodelete
-        darkreader
-        decentraleyes
-        firenvim
-        image-search-options
-        lingq-importer2
-        sponsorblock
-        ublock-origin
-        umatrix
-        vimium
-      ];
 
       settings = {
         # Don't disable auto installed addons
