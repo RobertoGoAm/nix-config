@@ -526,6 +526,9 @@
         ];
 
         userSettings = {
+          # Accesibility
+          "editor.accessibilitySupport" = "off";
+
           # Appearance
           "editor.rulers" = [ 100 ];
           "editor.fontFamily" = "'JetBrainsMono Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace";

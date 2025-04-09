@@ -37,6 +37,7 @@
 
       # Social
       "discord"
+      "telegram"
 
       # Tool
       "calibre"
@@ -48,7 +49,7 @@
       "via"
 
       # Work
-      "vmware-horizon-client"
+      "omnissa-horizon-client"
     ];
 
     # These app IDs are from using the mas CLI app
