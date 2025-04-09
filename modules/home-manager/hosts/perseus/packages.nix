@@ -10,6 +10,10 @@
     gnomeExtensions.spotify-tray
 
     # Development
+    ghc
+    gcc
+    gnumake
+    haskell-language-server
     nixd
     nixfmt-rfc-style
 
@@ -22,10 +26,12 @@
 
     # Productivity
     gnome-calendar
+    obsidian
     remnote
 
     # Security
     bitwarden
+    libsecret
 
     # Social
     discord
@@ -40,7 +46,9 @@
     xclip
 
     # Work
+    code-cursor
     git-credential-manager
+    lmstudio
     postman
     teams-for-linux
     vmware-horizon-client

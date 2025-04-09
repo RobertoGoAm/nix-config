@@ -16,8 +16,11 @@
         if pkgs.stdenv.hostPlatform.isLinux then
           {
             credential = {
-              credentialStore = "cache";
-              helper = "manager";
+              credentialStore = "secretservice";
+              helper = [
+                "manager"
+                "cache --timeout 21600"
+              ];
             };
           }
         else

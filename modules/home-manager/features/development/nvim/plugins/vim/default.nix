@@ -4,6 +4,10 @@
       enable = true;
     };
 
+    firenvim = {
+      enable = true;
+    };
+
     hardtime = {
       enable = true;
 
