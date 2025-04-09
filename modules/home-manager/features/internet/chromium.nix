@@ -5,6 +5,7 @@
     extensions = [
       { id = "nngceckbapebfimnlniiiahkandclblb"; } # Bitwarden
       { id = "lfhmikememgdcahcdlaciloancbhjino"; } # CORS Unblock
+      { id = "egpjdkipkomnmjhjmdamaniclmdlobbo"; } # Firenvim
       { id = "fdpohaocaechififmbbbbbknoalclacl"; } # GoFullPage
       { id = "amknoiejhlmhancpahfcfcfhllgkpbld"; } # Hoppscotch Browser Extension
       { id = "blipmdconlkpinefehnmjammfjpmpbjk"; } # Lighthouse
