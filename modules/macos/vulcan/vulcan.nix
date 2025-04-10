@@ -27,7 +27,6 @@
       channel.enable = false;
 
       gc = {
-        user = "root";
         automatic = true;
         interval = {
           Weekday = 0;
@@ -62,8 +61,6 @@
 
     hostPlatform = "aarch64-darwin";
   };
-
-  services.nix-daemon.enable = true;
 
   system = {
     activationScripts = {
