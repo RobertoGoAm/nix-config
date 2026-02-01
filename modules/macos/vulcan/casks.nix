@@ -5,27 +5,19 @@
       # Development
       "docker"
       "imageoptim"
-      "ngrok"
-      "postman"
+      "rancher"
 
       # Internet
       "google-chrome"
-      "qbittorrent"
 
       # Media
-      "iina"
       "macmediakeyforwarder"
-      "spotify"
-      "vlc"
 
       # Office
       "pdf-expert"
 
       # Productivity
-      "anki"
       "notion"
-      "obsidian"
-      "raycast"
       "remnote"
 
       # Security
@@ -35,17 +27,11 @@
       "oversight"
       "ransomwhere"
 
-      # Social
-      "discord"
-      "telegram"
-
       # Tool
       "calibre"
-      "cyberduck"
       "filen"
       "omnidisksweeper"
       "qmk-toolbox"
-      "the-unarchiver"
       "via"
 
       # Work
