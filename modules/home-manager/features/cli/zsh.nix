@@ -53,17 +53,20 @@
 
       # Claude wrapper to ensure persistence
       claude() {
+        local current_dir="$PWD"
         if [[ -n "$TMUX" ]]; then
           command claude "$@"
         else
           # Check if session exists
           if tmux has-session -t remote 2>/dev/null; then
+            # Create a new window for the task to avoid interrupting existing work
+            # and ensure we are in the correct directory
+            tmux new-window -t remote -n "claude" -c "$current_dir"
             tmux send-keys -t remote "claude $*" C-m
             tmux attach-session -t remote
           else
-            # Create new session and run claude
-            # We use 'zsh -i' to keep the session open after claude exits
-            tmux new-session -s remote "claude $*; zsh -i"
+            # Create new session starting in the current directory
+            tmux new-session -s remote -c "$current_dir" "claude $*; zsh -i"
           fi
         fi
       }
