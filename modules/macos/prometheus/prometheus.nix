@@ -85,11 +85,6 @@
     activationScripts.postUserActivation.text = ''
       # Activate settings
       /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-      
-      # FORCE STAY AWAKE (Lid Closed Mode)
-      # This allows SSH access even with the lid closed and no monitor connected.
-      # Only works if connected to power.
-      sudo pmset -a disablesleep 1
     '';
 
     defaults = {
