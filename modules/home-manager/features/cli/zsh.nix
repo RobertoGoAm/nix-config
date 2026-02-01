@@ -47,6 +47,26 @@
       if [[ -n "$SSH_CONNECTION" && -z "$TMUX" ]]; then
         tmux attach-session -t remote || tmux new-session -s remote
       fi
+
+      # Quick tmux remote session access
+      alias tm='tmux attach-session -t remote || tmux new-session -s remote'
+
+      # Claude wrapper to ensure persistence
+      claude() {
+        if [[ -n "$TMUX" ]]; then
+          command claude "$@"
+        else
+          # Check if session exists
+          if tmux has-session -t remote 2>/dev/null; then
+            tmux send-keys -t remote "claude $*" C-m
+            tmux attach-session -t remote
+          else
+            # Create new session and run claude
+            # We use 'zsh -i' to keep the session open after claude exits
+            tmux new-session -s remote "claude $*; zsh -i"
+          fi
+        fi
+      }
     '';
 
     oh-my-zsh = {
