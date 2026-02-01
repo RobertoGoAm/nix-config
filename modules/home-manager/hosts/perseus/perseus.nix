@@ -9,13 +9,6 @@
   ...
 }:
 {
-  nixpkgs = {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = (_: true);
-    };
-  };
-
   fonts.fontconfig.enable = true;
 
   home = {
@@ -48,8 +41,10 @@
 
   imports = [
     inputs.nixvim.homeModules.nixvim
+    inputs.sops-nix.homeManagerModules.sops
     ./packages.nix
     ../../features/cli
+    ../../features/security
     ../../features/desktop/gnome
     ../../features/development
     ../../features/internet/chromium.nix
