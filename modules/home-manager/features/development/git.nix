@@ -10,6 +10,15 @@
         name = "Roberto Gomez Amores";
       };
 
+      alias = {
+        co = "checkout";
+        st = "status";
+        br = "branch";
+        last = "log -1 HEAD";
+        unstage = "reset HEAD --";
+        dc = "diff --cached";
+      };
+
       pull = {
         rebase = false;
       };
