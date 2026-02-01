@@ -65,7 +65,6 @@
     ./packages.nix
     ../../features/cli
     ../../features/cli/iterm2.nix
-    ../../features/cli/karabiner.nix
     ../../features/development
     ../../features/development/emacs-mac.nix
     ../../features/internet/chromium.nix
