@@ -29,9 +29,4 @@
   };
 
   programs.jq.enable = true;
-
-  programs.java = {
-    enable = true;
-    package = pkgs.zulu;
-  };
 }
