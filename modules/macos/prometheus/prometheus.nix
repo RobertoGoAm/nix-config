@@ -35,6 +35,7 @@
 
   security.pam.services.sudo_local = {
     touchIdAuth = true;
+    watchIdAuth = true;
     reattach = true;
   };
 
@@ -164,6 +165,10 @@
         # Require password immediately after sleep or screen saver begins
         askForPassword = true;
         askForPasswordDelay = 0;
+      };
+
+      SoftwareUpdate = {
+        AutomaticallyInstallMacOSUpdates = true;
       };
 
       CustomUserPreferences = {
