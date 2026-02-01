@@ -5,25 +5,27 @@
 
       cmp = {
         enable = true;
-
-        menu = {
-          buffer = "";
-          calc = "";
-          cmdline = "";
-          codeium = "󱜙";
-          emoji = "󰞅";
-          git = "";
-          luasnip = "󰩫";
-          neorg = "";
-          nvim_lsp = "";
-          nvim_lua = "";
-          path = "";
-          spell = "";
-          treesitter = "󰔱";
-        };
       };
 
-      extraOptions = {
+      settings = {
+        cmp = {
+          menu = {
+            buffer = "";
+            calc = "";
+            cmdline = "";
+            codeium = "󱜙";
+            emoji = "󰞅";
+            git = "";
+            luasnip = "󰩫";
+            neorg = "";
+            nvim_lsp = "";
+            nvim_lua = "";
+            path = "";
+            spell = "";
+            treesitter = "󰔱";
+          };
+        };
+
         maxwidth = 50;
         ellipsis_char = "...";
       };

@@ -30,7 +30,7 @@
   programs.home-manager.enable = true;
 
   imports = [
-    inputs.nixvim.homeManagerModules.nixvim
+    inputs.nixvim.homeModules.nixvim
     ./packages.nix
     ../../features/cli
     ../../features/development

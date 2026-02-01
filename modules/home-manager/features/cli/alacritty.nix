@@ -62,7 +62,7 @@ in
 
         size = lib.mkMerge [
           (lib.mkIf pkgs.stdenv.hostPlatform.isLinux 10)
-          (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin 12)
+          (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin 14)
         ];
       };
 

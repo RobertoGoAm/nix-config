@@ -18,11 +18,18 @@
   ];
 
   networking = {
-    hostName = "vulcan";
+    hostName = "prometheus";
     applicationFirewall = {
       blockAllIncoming = true;
       enable = true;
     };
+  };
+  services.openssh = {
+    enable = true;
+    extraConfig = ''
+      PasswordAuthentication no
+      PermitRootLogin no
+    '';
   };
 
   nix =
@@ -94,6 +101,12 @@
 
           # Add a context menu item for showing the Web Inspector in web views
           WebKitDeveloperExtras = true;
+
+          # Disable mouse acceleration
+          "com.apple.mouse.linear" = true;
+
+          # Mouse speed
+          "com.apple.mouse.scaling" = 1;
         };
 
         "com.apple.AdLib" = {
@@ -147,8 +160,9 @@
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
-          "/Applications/Visual Studio Code.app"
+          "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
+          "/Users/${user}/Applications/iTerm2.app"
           "/Applications/Telegram.app"
           "/Applications/VLC.app"
           "/Applications/Obsidian.app"
@@ -176,6 +190,11 @@
       };
     };
 
+    keyboard = {
+      enableKeyMapping = true;
+      remapCapsLockToEscape = true;
+    };
+
     stateVersion = 5;
   };
 
@@ -184,11 +203,13 @@
     home = "/Users/${user}";
   };
 
+  home-manager.backupFileExtension = "backup";
+
   home-manager.extraSpecialArgs = {
     inherit inputs outputs user;
 
     system = "aarch64-darwin";
   };
 
-  home-manager.users.${user} = import ../../home-manager/hosts/vulcan/vulcan.nix;
+  home-manager.users.${user} = import ../../home-manager/hosts/prometheus/prometheus.nix;
 }
