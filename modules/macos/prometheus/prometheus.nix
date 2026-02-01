@@ -76,6 +76,9 @@
     hostPlatform = "aarch64-darwin";
   };
 
+  power.sleep.computer = "never";
+  power.sleep.display = "never";
+
   system = {
     primaryUser = user;
 
