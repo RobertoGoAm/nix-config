@@ -17,7 +17,13 @@
     ./casks.nix
   ];
 
-  networking.hostName = "vulcan";
+  networking = {
+    hostName = "vulcan";
+    applicationFirewall = {
+      blockAllIncoming = true;
+      enable = true;
+    };
+  };
 
   nix =
     let
@@ -63,21 +69,11 @@
   };
 
   system = {
-    activationScripts = {
-      postUserActivation.text = ''
-        # Following line should allow us to avoid a logout/login cycle
-        /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-      '';
-    };
+    primaryUser = user;
 
     defaults = {
       # Disable mouse acceleration
       ".GlobalPreferences"."com.apple.mouse.scaling" = -1.0;
-
-      alf = {
-        # Enable Firewall
-        globalstate = 1;
-      };
 
       CustomUserPreferences = {
         NSGlobalDomain = {
