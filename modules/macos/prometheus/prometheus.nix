@@ -93,26 +93,37 @@
     '';
 
     defaults = {
-      # Disable mouse acceleration
-      ".GlobalPreferences"."com.apple.mouse.scaling" = -1.0;
+      NSGlobalDomain = {
+        # Disable press and hold for keyboard keys
+        ApplePressAndHoldEnabled = false;
+
+        # Dark theme for OS
+        AppleInterfaceStyle = "Dark";
+
+        # Disable natural scrolling
+        "com.apple.swipescrolldirection" = false;
+
+        # 120, 90, 60, 30, 12, 6, 2
+        KeyRepeat = 2;
+
+        # 120, 94, 68, 35, 25, 15
+        InitialKeyRepeat = 25;
+      };
+
+      finder = {
+        FXDefaultSearchScope = "SCcf";
+        FXPreferredViewStyle = "Nlsv";
+        NewWindowTarget = "Home";
+      };
+
+      screensaver = {
+        # Require password immediately after sleep or screen saver begins
+        askForPassword = true;
+        askForPasswordDelay = 0;
+      };
 
       CustomUserPreferences = {
         NSGlobalDomain = {
-          # Disable press and hold for keyboard keys
-          ApplePressAndHoldEnabled = false;
-
-          # Dark theme for OS
-          AppleInterfaceStyle = "Dark";
-
-          # Disable natural scrolling
-          "com.apple.swipescrolldirection" = false;
-
-          # 120, 90, 60, 30, 12, 6, 2
-          KeyRepeat = 2;
-
-          # 120, 94, 68, 35, 25, 15
-          InitialKeyRepeat = 25;
-
           # Add a context menu item for showing the Web Inspector in web views
           WebKitDeveloperExtras = true;
 
@@ -130,20 +141,8 @@
         # Turn on app auto-update
         "com.apple.commerce".AutoUpdate = true;
 
-        "com.apple.finder" = {
-          FXDefaultSearchScope = "SCcf";
-          FXPreferredViewStyle = "Nlsv";
-          NewWindowTarget = "Home";
-        };
-
         # Prevent Photos from opening automatically when devices are plugged in
         "com.apple.ImageCapture".disableHotPlug = true;
-
-        "com.apple.screensaver" = {
-          # Require password immediately after sleep or screen saver begins
-          askForPassword = 1;
-          askForPasswordDelay = 0;
-        };
 
         "com.apple.SoftwareUpdate" = {
           AutomaticCheckEnabled = true;
