@@ -55,6 +55,11 @@
       url = "github:nix-community/nixvim/nixos-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -71,6 +76,7 @@
       nix-homebrew,
       nixgl,
       nixvim,
+      sops-nix,
       ...
     }@inputs:
     let
@@ -117,22 +123,6 @@
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager switch --flake .#your-username@your-hostname'
       homeConfigurations = {
-        # Desktop mac (Apple Silicon)
-        "${user}@vulcan" = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = {
-            inherit
-              inputs
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/home-manager/hosts/vulcan/vulcan.nix
-          ];
-        };
-
         # Work laptop
         "${user}@perseus" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
@@ -147,22 +137,6 @@
 
           modules = [
             ./modules/home-manager/hosts/perseus/perseus.nix
-          ];
-        };
-
-        # Work mac (Apple Silicon)
-        "${user}@prometheus" = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = {
-            inherit
-              inputs
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/home-manager/hosts/prometheus/prometheus.nix
           ];
         };
       };
