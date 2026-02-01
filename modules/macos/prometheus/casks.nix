@@ -4,7 +4,6 @@
     casks = [
       # Development
       "imageoptim"
-      "postman"
       "rancher"
       "springtoolsforeclipse"
 

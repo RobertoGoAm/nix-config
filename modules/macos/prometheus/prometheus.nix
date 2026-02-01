@@ -108,12 +108,23 @@
 
         # 120, 94, 68, 35, 25, 15
         InitialKeyRepeat = 25;
+
+        # Show all extensions
+        AppleShowAllExtensions = true;
+
+        # Expand save panel by default
+        NSNavPanelExpandedStateForSaveMode = true;
+        NSNavPanelExpandedStateForSaveMode2 = true;
       };
 
       finder = {
         FXDefaultSearchScope = "SCcf";
         FXPreferredViewStyle = "Nlsv";
         NewWindowTarget = "Home";
+        AppleShowAllExtensions = true;
+        ShowPathbar = true;
+        ShowStatusBar = true;
+        _FXShowPosixPathInTitle = true;
       };
 
       screensaver = {

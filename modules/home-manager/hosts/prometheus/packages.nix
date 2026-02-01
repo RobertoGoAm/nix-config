@@ -22,6 +22,7 @@
     ngrok
     nixd
     nixfmt-rfc-style
+    postman
     stack
     zulu
 
