@@ -85,6 +85,11 @@
     activationScripts.postActivation.text = ''
       # Activate settings
       /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+      
+      # Reload UI to apply changes immediately
+      killall SystemUIServer || true
+      killall Finder || true
+      killall Dock || true
     '';
 
     defaults = {
