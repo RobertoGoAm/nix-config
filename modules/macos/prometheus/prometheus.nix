@@ -33,6 +33,11 @@
     '';
   };
 
+  security.pam.services.sudo_local = {
+    touchIdAuth = true;
+    reattach = true;
+  };
+
   nix =
     let
       flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
@@ -115,6 +120,9 @@
         # Expand save panel by default
         NSNavPanelExpandedStateForSaveMode = true;
         NSNavPanelExpandedStateForSaveMode2 = true;
+
+        # Show scrollbars always
+        AppleShowScrollBars = "Always";
       };
 
       finder = {
@@ -125,6 +133,7 @@
         ShowPathbar = true;
         ShowStatusBar = true;
         _FXShowPosixPathInTitle = true;
+        QuitMenuItem = true;
       };
 
       screensaver = {
@@ -216,7 +225,6 @@
 
     keyboard = {
       enableKeyMapping = true;
-      remapCapsLockToEscape = true;
     };
 
     stateVersion = 5;

@@ -18,7 +18,6 @@
     glab
     haskell-language-server
     jq
-    karabiner-elements
     ngrok
     nixd
     nixfmt-rfc-style
