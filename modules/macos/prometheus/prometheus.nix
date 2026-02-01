@@ -80,6 +80,11 @@
     primaryUser = user;
 
     defaults = {
+      # Prevent computer from sleeping automatically when the display is off
+      # This is critical for "Clamshell Mode" / SSH access
+      "com.apple.EnergySaver".desktop.Sleep = 0;
+      "com.apple.EnergySaver".portable.Sleep = 0;
+
       # Disable mouse acceleration
       ".GlobalPreferences"."com.apple.mouse.scaling" = -1.0;
 
