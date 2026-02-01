@@ -25,6 +25,7 @@
 
     # Productivity
     anki-bin
+    obsidian
     raycast
 
     # Social
