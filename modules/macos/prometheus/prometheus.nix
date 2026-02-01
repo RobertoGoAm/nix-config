@@ -86,6 +86,10 @@
       # Activate settings
       /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
       
+      # FORCE standard scrolling (Natural Scrolling = OFF)
+      defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
+      defaults write .GlobalPreferences com.apple.swipescrolldirection -bool false
+
       # Reload UI to apply changes immediately
       killall SystemUIServer || true
       killall Finder || true
@@ -104,8 +108,8 @@
           # Dark theme for OS
           AppleInterfaceStyle = "Dark";
 
-          # Enable natural scrolling
-          "com.apple.swipescrolldirection" = true;
+          # Disable natural scrolling
+          "com.apple.swipescrolldirection" = false;
 
           # 120, 90, 60, 30, 12, 6, 2
           KeyRepeat = 2;
