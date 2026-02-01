@@ -19,12 +19,20 @@
     haskell-language-server
     jq
     karabiner-elements
+    ngrok
     nixd
     nixfmt-rfc-style
     stack
+    zulu
 
     # Productivity
+    anki-bin
+    obsidian
     raycast
+
+    # Social
+    discord
+    telegram-desktop
 
     # Tool
     ansible
@@ -32,6 +40,9 @@
     nerd-fonts.jetbrains-mono
     procps
     ripgrep
+    vlc-bin
+
+    # Work
 
     # Work
     git-credential-manager
