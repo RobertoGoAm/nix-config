@@ -82,7 +82,7 @@
   system = {
     primaryUser = user;
 
-    activationScripts.postUserActivation.text = ''
+    activationScripts.postActivation.text = ''
       # Activate settings
       /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
     '';
