@@ -152,12 +152,13 @@
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
-          "/Applications/Visual Studio Code.app"
+          "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
+          "/Applications/Cursor.app"
+          "/Applications/Antigravity.app"
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
+          "/Users/${user}/Applications/iTerm2.app"
           "/Applications/Telegram.app"
-          "/Applications/VLC.app"
           "/Applications/Obsidian.app"
-          "/Applications/Remnote.app"
           "/Applications/Omnissa Horizon Client.app"
         ];
 
