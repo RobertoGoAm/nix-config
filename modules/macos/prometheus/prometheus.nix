@@ -90,7 +90,7 @@
     activationScripts.postActivation.text = ''
       # Activate settings as the primary user to apply to the correct home directory
       sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-      
+
       # Reload UI to apply changes immediately
       killall SystemUIServer || true
       killall Finder || true
@@ -147,10 +147,10 @@
         FXDefaultSearchScope = "SCcf";
         FXPreferredViewStyle = "Nlsv";
         NewWindowTarget = "Home";
-        AppleShowAllExtensions = true;
+        AppleShowAllExtensions = false;
         ShowPathbar = true;
         ShowStatusBar = true;
-        _FXShowPosixPathInTitle = true;
+        _FXShowPosixPathInTitle = false;
         QuitMenuItem = true;
         FXEnableExtensionChangeWarning = false;
       };

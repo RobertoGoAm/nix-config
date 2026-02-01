@@ -20,9 +20,22 @@
   networking = {
     hostName = "vulcan";
     applicationFirewall = {
-      blockAllIncoming = true;
+      blockAllIncoming = false;
       enable = true;
     };
+  };
+  services.tailscale.enable = true;
+  services.openssh = {
+    enable = true;
+    extraConfig = ''
+      PasswordAuthentication no
+      PermitRootLogin no
+    '';
+  };
+
+  security.pam.services.sudo_local = {
+    touchIdAuth = true;
+    reattach = true;
   };
 
   nix =
@@ -68,32 +81,101 @@
     hostPlatform = "aarch64-darwin";
   };
 
+  power.sleep.computer = "never";
+  power.sleep.display = 10;
+
   system = {
     primaryUser = user;
 
+    activationScripts.postActivation.text = ''
+      # Activate settings as the primary user to apply to the correct home directory
+      sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+
+      # Reload UI to apply changes immediately
+      killall SystemUIServer || true
+      killall Finder || true
+      killall Dock || true
+    '';
+
     defaults = {
-      # Disable mouse acceleration
-      ".GlobalPreferences"."com.apple.mouse.scaling" = -1.0;
+      NSGlobalDomain = {
+        # Disable press and hold for keyboard keys
+        ApplePressAndHoldEnabled = false;
+
+        # Dark theme for OS
+        AppleInterfaceStyle = "Dark";
+
+        # Disable natural scrolling
+        "com.apple.swipescrolldirection" = false;
+
+        # 120, 90, 60, 30, 12, 6, 2
+        KeyRepeat = 2;
+
+        # 120, 94, 68, 35, 25, 15
+        InitialKeyRepeat = 25;
+
+        # Show all extensions
+        AppleShowAllExtensions = true;
+
+        # Expand save panel by default
+        NSNavPanelExpandedStateForSaveMode = true;
+        NSNavPanelExpandedStateForSaveMode2 = true;
+
+        # Show scrollbars always
+        AppleShowScrollBars = "Always";
+
+        # Disable automatic capitalization as it's annoying for developers
+        NSAutomaticCapitalizationEnabled = false;
+
+        # Disable smart dashes as they mess up CLI commands copied from web
+        NSAutomaticDashSubstitutionEnabled = false;
+
+        # Disable automatic period substitution as it's annoying for developers
+        NSAutomaticPeriodSubstitutionEnabled = false;
+
+        # Disable smart quotes as they mess up code snippets
+        NSAutomaticQuoteSubstitutionEnabled = false;
+
+        # Disable auto-correct
+        NSAutomaticSpellingCorrectionEnabled = false;
+
+        # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
+        AppleKeyboardUIMode = 3;
+      };
+
+      finder = {
+        FXDefaultSearchScope = "SCcf";
+        FXPreferredViewStyle = "Nlsv";
+        NewWindowTarget = "Home";
+        AppleShowAllExtensions = true;
+        ShowPathbar = true;
+        ShowStatusBar = true;
+        _FXShowPosixPathInTitle = true;
+        QuitMenuItem = true;
+        FXEnableExtensionChangeWarning = false;
+      };
+
+      loginwindow = {
+        GuestEnabled = false;
+        SHOWFULLNAME = true;
+      };
+
+      screensaver = {
+        # Require password immediately after sleep or screen saver begins
+        askForPassword = true;
+        askForPasswordDelay = 0;
+      };
 
       CustomUserPreferences = {
         NSGlobalDomain = {
-          # Disable press and hold for keyboard keys
-          ApplePressAndHoldEnabled = false;
-
-          # Dark theme for OS
-          AppleInterfaceStyle = "Dark";
-
-          # Disable natural scrolling
-          "com.apple.swipescrolldirection" = false;
-
-          # 120, 90, 60, 30, 12, 6, 2
-          KeyRepeat = 2;
-
-          # 120, 94, 68, 35, 25, 15
-          InitialKeyRepeat = 25;
-
           # Add a context menu item for showing the Web Inspector in web views
           WebKitDeveloperExtras = true;
+
+          # Disable mouse acceleration
+          "com.apple.mouse.linear" = true;
+
+          # Mouse speed
+          "com.apple.mouse.scaling" = 1;
         };
 
         "com.apple.AdLib" = {
@@ -103,20 +185,8 @@
         # Turn on app auto-update
         "com.apple.commerce".AutoUpdate = true;
 
-        "com.apple.finder" = {
-          FXDefaultSearchScope = "SCcf";
-          FXPreferredViewStyle = "Nlsv";
-          NewWindowTarget = "Home";
-        };
-
         # Prevent Photos from opening automatically when devices are plugged in
         "com.apple.ImageCapture".disableHotPlug = true;
-
-        "com.apple.screensaver" = {
-          # Require password immediately after sleep or screen saver begins
-          askForPassword = 1;
-          askForPasswordDelay = 0;
-        };
 
         "com.apple.SoftwareUpdate" = {
           AutomaticCheckEnabled = true;
@@ -147,12 +217,13 @@
           "/Applications/Google Chrome.app"
           "/System/Applications/Mail.app"
           "/Applications/Spotify.app"
-          "/Applications/Visual Studio Code.app"
+          "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
+          "/Applications/Cursor.app"
+          "/Applications/Antigravity.app"
           "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
+          "/Users/${user}/Applications/iTerm2.app"
           "/Applications/Telegram.app"
-          "/Applications/VLC.app"
           "/Applications/Obsidian.app"
-          "/Applications/Remnote.app"
           "/Applications/Omnissa Horizon Client.app"
         ];
 
@@ -176,13 +247,22 @@
       };
     };
 
+    keyboard = {
+      enableKeyMapping = true;
+    };
+
     stateVersion = 5;
   };
 
   users.users.${user} = {
     packages = [ pkgs.home-manager ];
     home = "/Users/${user}";
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq Generated By Termius"
+    ];
   };
+
+  home-manager.backupFileExtension = "backup";
 
   home-manager.extraSpecialArgs = {
     inherit inputs outputs user;
