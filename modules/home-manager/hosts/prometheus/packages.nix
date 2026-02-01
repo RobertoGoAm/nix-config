@@ -17,13 +17,11 @@
     gemini-cli
     glab
     haskell-language-server
-    jq
     ngrok
     nixd
     nixfmt-rfc-style
     postman
     stack
-    zulu
 
     # Productivity
     anki-bin
