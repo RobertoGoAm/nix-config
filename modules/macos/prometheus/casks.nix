@@ -3,7 +3,6 @@
     enable = true;
     casks = [
       # Development
-      "cursor"
       "imageoptim"
       "postman"
       "rancher"
@@ -16,14 +15,12 @@
       # Media
       "iina"
       "macmediakeyforwarder"
-      "spotify"
 
       # Office
       "pdf-expert"
 
       # Productivity
       "notion"
-      "raycast"
       "remnote"
 
       # Security
@@ -35,12 +32,10 @@
 
       # Tool
       "calibre"
-      "cyberduck"
       "filen"
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
-      "the-unarchiver"
       "via"
 
       # Work

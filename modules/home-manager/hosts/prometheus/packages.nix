@@ -34,13 +34,22 @@
     discord
     telegram-desktop
 
+    # Media
+    spotify
+
     # Tool
     ansible
     coreutils
+    cyberduck
     nerd-fonts.jetbrains-mono
     procps
     ripgrep
+    the-unarchiver
     vlc-bin
+
+    # Work
+
+    # Work
 
     # Work
 
