@@ -17,7 +17,7 @@ sudo sed -i '' "/$(whoami) ALL=(ALL) NOPASSWD:ALL/d" /etc/sudoers
 Install dependencies
 
 ```bash
-softwareupdate --install-rosetta --agree-to-license && xcode-select --install ; yes "" | INTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile && eval "$(/opt/homebrew/bin/brew shellenv)" && brew install git
+softwareupdate --install-rosetta --agree-to-license && xcode-select --install ; yes "" | INTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile && eval "$(/opt/homebrew/bin/brew shellenv)" && brew install git sops age age-plugin-yubikey
 ```
 
 Install the Nix package manager
@@ -32,6 +32,37 @@ Clone this repo
 git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
 ```
 
+### Secrets Setup (Optional)
+
+This configuration uses `sops-nix` by default. If you don't want to use secret handling, you can disable it by setting `features.security.sops.enable = false;` in your host-specific configuration file (e.g., `modules/macos/prometheus/prometheus.nix`).
+
+If you **do** want to use it, follow these steps before switching:
+
+1. **Setup Age Key or YubiKey**:
+   ```bash
+   # For standard age key:
+   mkdir -p ~/.config/sops/age/
+   age-keygen -o ~/.config/sops/age/keys.txt
+   age-keygen -y ~/.config/sops/age/keys.txt # Copy this public key
+   
+   # For YubiKey:
+   age-plugin-yubikey setup
+   age-plugin-yubikey list # Copy the identity (age1yubikey...)
+   ```
+
+2. **Configure `.sops.yaml`**: Update the `.sops.yaml` in the repo root with your public key.
+
+3. **Prepare secrets directory**:
+   ```bash
+   mkdir -p ~/.config/nix-secrets
+   ln -s $(pwd)/.sops.yaml ~/.config/nix-secrets/.sops.yaml
+   ```
+
+4. **Create/Restore secrets**:
+   ```bash
+   sops ~/.config/nix-secrets/secrets.yaml
+   ```
+
 The first time, we also need to install nix-darwin:
 
 ```bash
@@ -42,12 +73,6 @@ Go to the `nix-config` folder and run:
 
 ```bash
 darwin-rebuild switch --flake .
-```
-
-if that doesn't work, it is probably because your hostname does not match with any of the configurations specified in `flake.nix`. If that is the case, use this instead replacing `{configurationName}` with one the available ones in `flake.nix`:
-
-```bash
-darwin-rebuild switch --flake .#{configurationName}
 ```
 
 ## Linux steps (non-NixOS)
@@ -65,7 +90,8 @@ sudo sed -i "/$(whoami) ALL=(ALL) NOPASSWD:ALL/d" /etc/sudoers
 Install dependencies (example for ubuntu)
 
 ```bash
-sudo apt update && sudo apt install -y git curl
+sudo apt update && sudo apt install -y git curl sops age
+# For YubiKey support on Linux, follow your distribution's guide to install age-plugin-yubikey
 ```
 
 Install the Nix package manager
@@ -80,6 +106,37 @@ Clone this repo
 git clone https://github.com/RobertoGoAm/nix-config.git && cd nix-config
 ```
 
+### Secrets Setup (Optional)
+
+This configuration uses `sops-nix` by default. If you don't want to use secret handling, you can disable it by setting `features.security.sops.enable = false;` in your host-specific configuration file (e.g., `modules/home-manager/hosts/perseus/perseus.nix`).
+
+If you **do** want to use it, follow these steps before switching:
+
+1. **Setup Age Key or YubiKey**:
+   ```bash
+   # For standard age key:
+   mkdir -p ~/.config/sops/age/
+   age-keygen -o ~/.config/sops/age/keys.txt
+   age-keygen -y ~/.config/sops/age/keys.txt # Copy this public key
+   
+   # For YubiKey:
+   age-plugin-yubikey setup
+   age-plugin-yubikey list # Copy the identity (age1yubikey...)
+   ```
+
+2. **Configure `.sops.yaml`**: Update the `.sops.yaml` in the repo root with your public key.
+
+3. **Prepare secrets directory**:
+   ```bash
+   mkdir -p ~/.config/nix-secrets
+   ln -s $(pwd)/.sops.yaml ~/.config/nix-secrets/.sops.yaml
+   ```
+
+4. **Create/Restore secrets**:
+   ```bash
+   sops ~/.config/nix-secrets/secrets.yaml
+   ```
+
 The first time, we also need to install home-manager:
 
 ```bash
@@ -90,12 +147,6 @@ Go to the `nix-config` folder and run:
 
 ```bash
 home-manager switch --flake .
-```
-
-if that doesn't work, it is probably because your hostname and/or username does not match with any of the configurations specified in `flake.nix`. If that is the case, use this instead replacing `{your-username@your-hostname}` with one the available combinations in `flake.nix`:
-
-```bash
-home-manager switch --flake .#{your-username@your-hostname}
 ```
 
 ## Troubleshooting
