@@ -10,10 +10,8 @@
 
       # Internet
       "google-chrome"
-      "qbittorrent"
 
       # Media
-      "iina"
       "macmediakeyforwarder"
 
       # Office

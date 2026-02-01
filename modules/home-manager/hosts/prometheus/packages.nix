@@ -35,6 +35,7 @@
     telegram-desktop
 
     # Media
+    iina
     spotify
 
     # Tool
@@ -43,6 +44,7 @@
     cyberduck
     nerd-fonts.jetbrains-mono
     procps
+    qbittorrent
     ripgrep
     the-unarchiver
     vlc-bin
