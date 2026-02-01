@@ -2,7 +2,7 @@
   description = "Your new nix config";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
 
     firefox-addons = {
       url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
@@ -10,7 +10,7 @@
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -34,8 +34,12 @@
     };
 
     nix-darwin = {
-      url = "github:LnL7/nix-darwin";
+      url = "github:LnL7/nix-darwin/nix-darwin-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-doom-emacs-unstraightened = {
+      url = "github:marienz/nix-doom-emacs-unstraightened";
     };
 
     nix-homebrew = {
@@ -48,7 +52,7 @@
     };
 
     nixvim = {
-      url = "github:nix-community/nixvim";
+      url = "github:nix-community/nixvim/nixos-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -63,6 +67,7 @@
       homebrew-core,
       mac-app-util,
       nix-darwin,
+      nix-doom-emacs-unstraightened,
       nix-homebrew,
       nixgl,
       nixvim,
@@ -90,6 +95,21 @@
 
           modules = [
             ./modules/macos/vulcan/vulcan.nix
+          ];
+        };
+
+        # Work mac (Apple Silicon)
+        prometheus = nix-darwin.lib.darwinSystem {
+          specialArgs = {
+            inherit
+              inputs
+              outputs
+              user
+              ;
+          };
+
+          modules = [
+            ./modules/macos/prometheus/prometheus.nix
           ];
         };
       };
@@ -127,6 +147,22 @@
 
           modules = [
             ./modules/home-manager/hosts/perseus/perseus.nix
+          ];
+        };
+
+        # Work mac (Apple Silicon)
+        "${user}@prometheus" = home-manager.lib.homeManagerConfiguration {
+          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
+          extraSpecialArgs = {
+            inherit
+              inputs
+              outputs
+              user
+              ;
+          };
+
+          modules = [
+            ./modules/home-manager/hosts/prometheus/prometheus.nix
           ];
         };
       };

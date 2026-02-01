@@ -1,1 +1,7 @@
-.DS_Store
+# Secrets
+secrets/
+*.age
+*.sops.yaml
+*.sops.json
+private/
+*.env

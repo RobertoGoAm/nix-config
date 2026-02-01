@@ -18,10 +18,6 @@
           enable = true;
         };
 
-        dockerls = {
-          enable = true;
-        };
-
         eslint = {
           enable = true;
         };
@@ -160,88 +156,90 @@
     lspsaga = {
       enable = true;
 
-      beacon = {
-        enable = true;
-      };
-
-      codeAction = {
-        extendGitSigns = false;
-        numShortcut = true;
-        onlyInCursor = true;
-        showServerName = true;
-
-        keys = {
-          exec = "<CR>";
-
-          quit = [
-            "<Esc>"
-            "q"
-          ];
+      settings = {
+        beacon = {
+          enable = true;
         };
-      };
 
-      diagnostic = {
-        borderFollow = true;
-        diagnosticOnlyCurrent = false;
-        showCodeAction = true;
-      };
+        code_action = {
+          extend_git_signs = false;
+          num_shortcut = true;
+          only_in_cursor = true;
+          show_server_name = true;
 
-      hover = {
-        openCmd = "!floorp";
-        openLink = "<localleader>gx";
-      };
+          keys = {
+            exec = "<CR>";
 
-      implement = {
-        enable = false;
-      };
-
-      lightbulb = {
-        enable = false;
-        sign = false;
-        virtualText = true;
-      };
-
-      outline = {
-        autoClose = true;
-        autoPreview = true;
-        closeAfterJump = true;
-        layout = "normal";
-        winPosition = "right";
-
-        keys = {
-          jump = "e";
-          quit = "q";
-          toggleOrJump = "o";
+            quit = [
+              "<Esc>"
+              "q"
+            ];
+          };
         };
-      };
 
-      rename = {
-        autoSave = false;
-
-        keys = {
-          exec = "<CR>";
-
-          quit = [
-            "<C-k>"
-            "<Esc>"
-          ];
-
-          select = "x";
+        diagnostic = {
+          border_follow = true;
+          diagnostic_only_current = false;
+          show_code_action = true;
         };
-      };
 
-      scrollPreview = {
-        scrollDown = "<C-t>";
-        scrollUp = "<C-b>";
-      };
+        hover = {
+          open_cmd = "!floorp";
+          open_link = "<localleader>gx";
+        };
 
-      symbolInWinbar = {
-        enable = true;
-      };
+        implement = {
+          enable = false;
+        };
 
-      ui = {
-        border = "rounded";
-        codeAction = "💡";
+        lightbulb = {
+          enable = false;
+          sign = false;
+          virtual_text = true;
+        };
+
+        outline = {
+          auto_close = true;
+          auto_preview = true;
+          close_after_jump = true;
+          layout = "normal";
+          win_position = "right";
+
+          keys = {
+            jump = "e";
+            quit = "q";
+            toggle_or_jump = "o";
+          };
+        };
+
+        rename = {
+          auto_save = false;
+
+          keys = {
+            exec = "<CR>";
+
+            quit = [
+              "<C-k>"
+              "<Esc>"
+            ];
+
+            select = "x";
+          };
+        };
+
+        scroll_preview = {
+          scroll_down = "<C-t>";
+          scroll_up = "<C-b>";
+        };
+
+        symbol_in_winbar = {
+          enable = true;
+        };
+
+        ui = {
+          border = "rounded";
+          code_action = "💡";
+        };
       };
     };
 

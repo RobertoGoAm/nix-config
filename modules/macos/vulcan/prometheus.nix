@@ -18,7 +18,7 @@
   ];
 
   networking = {
-    hostName = "vulcan";
+    hostName = "prometheus";
     applicationFirewall = {
       blockAllIncoming = true;
       enable = true;
@@ -69,7 +69,12 @@
   };
 
   system = {
-    primaryUser = user;
+    activationScripts = {
+      postUserActivation.text = ''
+        # Following line should allow us to avoid a logout/login cycle
+        /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+      '';
+    };
 
     defaults = {
       # Disable mouse acceleration
@@ -190,5 +195,5 @@
     system = "aarch64-darwin";
   };
 
-  home-manager.users.${user} = import ../../home-manager/hosts/vulcan/vulcan.nix;
+  home-manager.users.${user} = import ../../home-manager/hosts/prometheus/prometheus.nix;
 }
