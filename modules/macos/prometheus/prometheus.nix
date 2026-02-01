@@ -104,8 +104,8 @@
           # Dark theme for OS
           AppleInterfaceStyle = "Dark";
 
-          # Disable natural scrolling
-          "com.apple.swipescrolldirection" = false;
+          # Enable natural scrolling
+          "com.apple.swipescrolldirection" = true;
 
           # 120, 90, 60, 30, 12, 6, 2
           KeyRepeat = 2;
