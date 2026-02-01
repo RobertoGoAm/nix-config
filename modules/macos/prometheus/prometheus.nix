@@ -77,7 +77,7 @@
   };
 
   power.sleep.computer = "never";
-  power.sleep.display = "never";
+  power.sleep.display = 10;
 
   system = {
     primaryUser = user;
