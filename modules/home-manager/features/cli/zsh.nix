@@ -43,6 +43,10 @@
 
       # Wrapper to notify when a long-running Claude task finishes
 
+      # Auto-attach tmux on SSH login
+      if [[ -n "$SSH_CONNECTION" && -z "$TMUX" ]]; then
+        tmux attach-session -t remote || tmux new-session -s remote
+      fi
     '';
 
     oh-my-zsh = {
