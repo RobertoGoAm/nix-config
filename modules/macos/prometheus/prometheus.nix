@@ -83,13 +83,9 @@
     primaryUser = user;
 
     activationScripts.postActivation.text = ''
-      # Activate settings
-      /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+      # Activate settings as the primary user to apply to the correct home directory
+      sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
       
-      # FORCE standard scrolling (Natural Scrolling = OFF)
-      defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
-      defaults write .GlobalPreferences com.apple.swipescrolldirection -bool false
-
       # Reload UI to apply changes immediately
       killall SystemUIServer || true
       killall Finder || true
