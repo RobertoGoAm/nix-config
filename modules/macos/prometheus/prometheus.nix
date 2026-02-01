@@ -123,6 +123,24 @@
 
         # Show scrollbars always
         AppleShowScrollBars = "Always";
+
+        # Disable automatic capitalization as it's annoying for developers
+        NSAutomaticCapitalizationEnabled = false;
+
+        # Disable smart dashes as they mess up CLI commands copied from web
+        NSAutomaticDashSubstitutionEnabled = false;
+
+        # Disable automatic period substitution as it's annoying for developers
+        NSAutomaticPeriodSubstitutionEnabled = false;
+
+        # Disable smart quotes as they mess up code snippets
+        NSAutomaticQuoteSubstitutionEnabled = false;
+
+        # Disable auto-correct
+        NSAutomaticSpellingCorrectionEnabled = false;
+
+        # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
+        AppleKeyboardUIMode = 3;
       };
 
       finder = {
@@ -134,6 +152,12 @@
         ShowStatusBar = true;
         _FXShowPosixPathInTitle = true;
         QuitMenuItem = true;
+        FXEnableExtensionChangeWarning = false;
+      };
+
+      loginwindow = {
+        GuestEnabled = false;
+        SHOWFULLNAME = true;
       };
 
       screensaver = {

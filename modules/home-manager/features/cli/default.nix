@@ -1,6 +1,7 @@
 {
   imports = [
     ./alacritty.nix
+    ./cli-tools.nix
     ./gh.nix
     ./gpg.nix
     ./ripgrep.nix
