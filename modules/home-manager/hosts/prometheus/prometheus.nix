@@ -68,6 +68,7 @@
     ../../features/development
     ../../features/development/emacs-mac.nix
     ../../features/internet/chromium.nix
+    ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
   ];

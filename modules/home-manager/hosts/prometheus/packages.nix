@@ -27,11 +27,9 @@
 
     # Productivity
     anki-bin
-    obsidian
     raycast
 
     # Social
-    discord
     telegram-desktop
 
     # Media
