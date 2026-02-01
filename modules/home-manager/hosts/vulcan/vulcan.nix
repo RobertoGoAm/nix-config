@@ -31,11 +31,17 @@
 
   imports = [
     inputs.nixvim.homeModules.nixvim
+    inputs.nix-doom-emacs-unstraightened.homeModule
+    ../../modules/iterm2.nix
     ./packages.nix
     ../../features/cli
+    ../../features/cli/iterm2.nix
     ../../features/development
+    ../../features/development/emacs-mac.nix
     ../../features/internet/chromium.nix
+    ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
+    ../../features/productivity
   ];
 }
