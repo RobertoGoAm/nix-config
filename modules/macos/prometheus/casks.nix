@@ -5,11 +5,9 @@
       # Development
       "cursor"
       "imageoptim"
-      "ngrok"
       "postman"
       "rancher"
       "springtoolsforeclipse"
-      "zulu"
 
       # Internet
       "google-chrome"
@@ -19,15 +17,12 @@
       "iina"
       "macmediakeyforwarder"
       "spotify"
-      "vlc"
 
       # Office
       "pdf-expert"
 
       # Productivity
-      "anki"
       "notion"
-      "obsidian"
       "raycast"
       "remnote"
 
@@ -37,10 +32,6 @@
       "gpg-suite"
       "oversight"
       "ransomwhere"
-
-      # Social
-      "discord"
-      "telegram"
 
       # Tool
       "calibre"
