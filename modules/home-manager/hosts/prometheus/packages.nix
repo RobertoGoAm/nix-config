@@ -25,7 +25,6 @@
 
     # Productivity
     anki-bin
-    obsidian
     raycast
 
     # Social
@@ -45,12 +44,6 @@
     ripgrep
     the-unarchiver
     vlc-bin
-
-    # Work
-
-    # Work
-
-    # Work
 
     # Work
     git-credential-manager

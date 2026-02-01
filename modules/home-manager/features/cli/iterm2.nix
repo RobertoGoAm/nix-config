@@ -4,7 +4,7 @@
 {
   programs.iterm2 = {
     enable = true;
-    copyApplications = true;
+    copyApplications = false;
 
     settings = {
       appearance.theme = "minimal";

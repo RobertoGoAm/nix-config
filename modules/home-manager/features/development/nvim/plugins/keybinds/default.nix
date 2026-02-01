@@ -506,22 +506,22 @@
     # Notes
     {
       key = "<leader>nn";
-      action = "<cmd>ObsidianNew<CR>";
+      action = "<cmd>Obsidian new<CR>";
       options.desc = "new note";
     }
     {
       key = "<leader>nN";
-      action = "<cmd>ObsidianNewFromTemplate<CR>";
+      action = "<cmd>Obsidian new_from_template<CR>";
       options.desc = "new note with template";
     }
     {
       key = "<leader>no";
-      action = "<cmd>ObsidianQuickSwitch<CR>";
+      action = "<cmd>Obsidian quick_switch<CR>";
       options.desc = "open note";
     }
     {
       key = "<leader>nO";
-      action = "<cmd>ObsidianOpen<CR>";
+      action = "<cmd>Obsidian open<CR>";
       options.desc = "open app";
     }
 

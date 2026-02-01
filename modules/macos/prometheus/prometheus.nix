@@ -1,279 +1,29 @@
-{
-  config,
-  inputs,
-  lib,
-  outputs,
-  pkgs,
-  user,
-  ...
-}:
+{ user, ... }:
 {
   imports = [
-    inputs.mac-app-util.darwinModules.default
-    inputs.home-manager.darwinModules.home-manager
-    inputs.nix-homebrew.darwinModules.nix-homebrew
-    ../../homebrew/homebrew.nix
-    ../services/aerospace
+    ../default.nix
     ./casks.nix
   ];
 
-  networking = {
-    hostName = "prometheus";
-    applicationFirewall = {
-      blockAllIncoming = false;
-      enable = true;
-    };
-  };
-  services.tailscale.enable = true;
-  services.openssh = {
-    enable = true;
-    extraConfig = ''
-      PasswordAuthentication no
-      PermitRootLogin no
-    '';
-  };
+  networking.hostName = "prometheus";
 
-  security.pam.services.sudo_local = {
-    touchIdAuth = true;
-    watchIdAuth = true;
-    reattach = true;
-  };
-
-  nix =
-    let
-      flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
-    in
-    {
-      channel.enable = false;
-
-      gc = {
-        automatic = true;
-        interval = {
-          Weekday = 0;
-          Hour = 2;
-          Minute = 0;
-        };
-        options = "--delete-older-than 7d";
-      };
-
-      nixPath = lib.mapAttrsToList (n: _: "${n}=flake:${n}") flakeInputs;
-
-      optimise.automatic = true;
-
-      registry = lib.mapAttrs (_: flake: { inherit flake; }) flakeInputs;
-
-      settings = {
-        experimental-features = "nix-command flakes";
-        flake-registry = "";
-        nix-path = config.nix.nixPath;
-      };
-    };
-
-  nixpkgs = {
-    overlays = [
-      outputs.overlays.apple-silicon
-    ];
-
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = (_: true);
-    };
-
-    hostPlatform = "aarch64-darwin";
-  };
-
-  power.sleep.computer = "never";
-  power.sleep.display = 10;
-
-  system = {
-    primaryUser = user;
-
-    activationScripts.postActivation.text = ''
-      # Activate settings as the primary user to apply to the correct home directory
-      sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-
-      # Reload UI to apply changes immediately
-      killall SystemUIServer || true
-      killall Finder || true
-      killall Dock || true
-    '';
-
-    defaults = {
-      NSGlobalDomain = {
-        # Disable press and hold for keyboard keys
-        ApplePressAndHoldEnabled = false;
-
-        # Dark theme for OS
-        AppleInterfaceStyle = "Dark";
-
-        # Disable natural scrolling
-        "com.apple.swipescrolldirection" = false;
-
-        # 120, 90, 60, 30, 12, 6, 2
-        KeyRepeat = 2;
-
-        # 120, 94, 68, 35, 25, 15
-        InitialKeyRepeat = 25;
-
-        # Show all extensions
-        AppleShowAllExtensions = true;
-
-        # Expand save panel by default
-        NSNavPanelExpandedStateForSaveMode = true;
-        NSNavPanelExpandedStateForSaveMode2 = true;
-
-        # Show scrollbars always
-        AppleShowScrollBars = "Always";
-
-        # Disable automatic capitalization as it's annoying for developers
-        NSAutomaticCapitalizationEnabled = false;
-
-        # Disable smart dashes as they mess up CLI commands copied from web
-        NSAutomaticDashSubstitutionEnabled = false;
-
-        # Disable automatic period substitution as it's annoying for developers
-        NSAutomaticPeriodSubstitutionEnabled = false;
-
-        # Disable smart quotes as they mess up code snippets
-        NSAutomaticQuoteSubstitutionEnabled = false;
-
-        # Disable auto-correct
-        NSAutomaticSpellingCorrectionEnabled = false;
-
-        # Enable full keyboard access for all controls (e.g. enable Tab in modal dialogs)
-        AppleKeyboardUIMode = 3;
-      };
-
-      finder = {
-        FXDefaultSearchScope = "SCcf";
-        FXPreferredViewStyle = "Nlsv";
-        NewWindowTarget = "Home";
-        AppleShowAllExtensions = false;
-        ShowPathbar = true;
-        ShowStatusBar = true;
-        _FXShowPosixPathInTitle = false;
-        QuitMenuItem = true;
-        FXEnableExtensionChangeWarning = false;
-      };
-
-      loginwindow = {
-        GuestEnabled = false;
-        SHOWFULLNAME = true;
-      };
-
-      screensaver = {
-        # Require password immediately after sleep or screen saver begins
-        askForPassword = true;
-        askForPasswordDelay = 0;
-      };
-
-      SoftwareUpdate = {
-        AutomaticallyInstallMacOSUpdates = true;
-      };
-
-      CustomUserPreferences = {
-        NSGlobalDomain = {
-          # Add a context menu item for showing the Web Inspector in web views
-          WebKitDeveloperExtras = true;
-
-          # Disable mouse acceleration
-          "com.apple.mouse.linear" = true;
-
-          # Mouse speed
-          "com.apple.mouse.scaling" = 1;
-        };
-
-        "com.apple.AdLib" = {
-          allowApplePersonalizedAdvertising = false;
-        };
-
-        # Turn on app auto-update
-        "com.apple.commerce".AutoUpdate = true;
-
-        # Prevent Photos from opening automatically when devices are plugged in
-        "com.apple.ImageCapture".disableHotPlug = true;
-
-        "com.apple.SoftwareUpdate" = {
-          AutomaticCheckEnabled = true;
-          # Check for software updates daily, not just once per week
-          ScheduleFrequency = 1;
-          # Download newly available updates in background
-          AutomaticDownload = 1;
-          # Install System data files & security updates
-          CriticalUpdateInstall = 1;
-        };
-
-        "com.apple.TimeMachine".DoNotOfferNewDisksForBackup = true;
-      };
-
-      dock = {
-        # Rearrange Spaces based on most recent use
-        mru-spaces = false;
-
-        # Dock position
-        orientation = "left";
-
-        # Permanent apps on dock
-        persistent-apps = [
-          "/System/Applications/Calendar.app"
-          "/System/Applications/System Settings.app"
-          "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
-          "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
-          "/Applications/Google Chrome.app"
-          "/System/Applications/Mail.app"
-          "/Applications/Spotify.app"
-          "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
-          "/Applications/Cursor.app"
-          "/Applications/Antigravity.app"
-          "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
-          "/Users/${user}/Applications/iTerm2.app"
-          "/Applications/Telegram.app"
-          "/Applications/Obsidian.app"
-          "/Applications/Omnissa Horizon Client.app"
-        ];
-
-        # Permanent folders on dock
-        persistent-others = [
-          "/Users/${user}/Downloads"
-          "/Users/${user}/Development"
-        ];
-
-        # Don't show recent apps
-        show-recents = false;
-
-        # Icon size
-        tilesize = 42;
-
-        # Hot corners https://daiderd.com/nix-darwin/manual/index.html#opt-system.defaults.dock.wvous-bl-corner
-        wvous-bl-corner = 1;
-        wvous-br-corner = 1;
-        wvous-tl-corner = 1;
-        wvous-tr-corner = 1;
-      };
-    };
-
-    keyboard = {
-      enableKeyMapping = true;
-    };
-
-    stateVersion = 5;
-  };
-
-  users.users.${user} = {
-    packages = [ pkgs.home-manager ];
-    home = "/Users/${user}";
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq Generated By Termius"
-    ];
-  };
-
-  home-manager.backupFileExtension = "backup";
-
-  home-manager.extraSpecialArgs = {
-    inherit inputs outputs user;
-
-    system = "aarch64-darwin";
-  };
+  system.defaults.dock.persistent-apps = [
+    "/System/Applications/Calendar.app"
+    "/System/Applications/System Settings.app"
+    "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
+    "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
+    "/Applications/Google Chrome.app"
+    "/System/Applications/Mail.app"
+    "/Applications/Spotify.app"
+    "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
+    "/Applications/Cursor.app"
+    "/Applications/Antigravity.app"
+    "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
+    "/Users/${user}/Applications/iTerm2.app"
+    "/Applications/Telegram.app"
+    "/Applications/Obsidian.app"
+    "/Applications/Omnissa Horizon Client.app"
+  ];
 
   home-manager.users.${user} = import ../../home-manager/hosts/prometheus/prometheus.nix;
 }
