@@ -139,6 +139,40 @@
             ./modules/home-manager/hosts/perseus/perseus.nix
           ];
         };
+
+        # Work mac (Apple Silicon)
+        "${user}@prometheus" = home-manager.lib.homeManagerConfiguration {
+          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
+          extraSpecialArgs = {
+            inherit
+              inputs
+              nixgl
+              outputs
+              user
+              ;
+          };
+
+          modules = [
+            ./modules/home-manager/hosts/prometheus/prometheus.nix
+          ];
+        };
+
+        # Desktop mac (Apple Silicon)
+        "${user}@vulcan" = home-manager.lib.homeManagerConfiguration {
+          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
+          extraSpecialArgs = {
+            inherit
+              inputs
+              nixgl
+              outputs
+              user
+              ;
+          };
+
+          modules = [
+            ./modules/home-manager/hosts/vulcan/vulcan.nix
+          ];
+        };
       };
     };
 }
