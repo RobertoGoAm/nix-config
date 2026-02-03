@@ -47,7 +47,7 @@ If you **do** want to use it, follow these steps before switching:
    
    # For YubiKey:
    age-plugin-yubikey setup
-   age-plugin-yubikey list # Copy the identity (age1yubikey...)
+   age-plugin-yubikey --list # Copy the identity (age1yubikey...)
    ```
 
 2. **Configure `.sops.yaml`**: Update the `.sops.yaml` in the repo root with your public key.
@@ -121,7 +121,7 @@ If you **do** want to use it, follow these steps before switching:
    
    # For YubiKey:
    age-plugin-yubikey setup
-   age-plugin-yubikey list # Copy the identity (age1yubikey...)
+   age-plugin-yubikey --list # Copy the identity (age1yubikey...)
    ```
 
 2. **Configure `.sops.yaml`**: Update the `.sops.yaml` in the repo root with your public key.

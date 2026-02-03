@@ -6,6 +6,8 @@
   ...
 }:
 {
+  imports = [ ./vimium.nix ];
+
   programs.firefox = {
     enable = true;
 

@@ -1,4 +1,6 @@
 {
+  imports = [ ./vimium.nix ];
+
   programs.chromium = {
     enable = true;
 
