@@ -38,10 +38,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-doom-emacs-unstraightened = {
-      url = "github:marienz/nix-doom-emacs-unstraightened";
-    };
-
     nix-homebrew = {
       url = "github:zhaofengli-wip/nix-homebrew";
     };
@@ -72,7 +68,6 @@
       homebrew-core,
       mac-app-util,
       nix-darwin,
-      nix-doom-emacs-unstraightened,
       nix-homebrew,
       nixgl,
       nixvim,

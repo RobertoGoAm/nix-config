@@ -13,7 +13,7 @@
 
   home = {
     homeDirectory = "/home/${user}";
-    stateVersion = "24.11";
+    stateVersion = "25.11";
     username = user;
 
     activation = {
