@@ -1,6 +1,6 @@
 self: super: {
   chromium = super.stdenv.mkDerivation rec {
-    version = "1368521";
+    version = "1585201";
 
     name = "Chromium-${version}";
     buildInputs = [ super.unzip ];
@@ -16,8 +16,8 @@ self: super: {
 
     src = super.fetchurl {
       name = "Mac_Arm_${version}_chrome-mac.zip";
-      url = "https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Mac_Arm%2F${version}%2Fchrome-mac.zip?generation=1728953032008580&alt=media";
-      sha256 = "86ed1b3b90886c3ba0666b8e330681f77fe5240aa49da1375059029e9b58f12b";
+      url = "https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Mac_Arm%2F${version}%2Fchrome-mac.zip?generation=1771134849659379&alt=media";
+      sha256 = "0kzswr5qij69i5gfxy72cqfly5j50xa1cw8nhxsmbfbdgizyxfnl";
     };
 
     meta = with super.stdenv.lib; {

@@ -12,7 +12,7 @@
 {
   home = {
     homeDirectory = "/Users/${user}";
-    stateVersion = "24.11";
+    stateVersion = "25.11";
     username = user;
   };
 
@@ -21,14 +21,12 @@
   imports = [
     inputs.nixvim.homeModules.nixvim
     inputs.sops-nix.homeManagerModules.sops
-    inputs.nix-doom-emacs-unstraightened.homeModule
     ../../modules/iterm2.nix
     ./packages.nix
     ../../features/cli
     ../../features/security
     ../../features/cli/iterm2.nix
     ../../features/development
-    ../../features/development/emacs-mac.nix
     ../../features/internet/chromium.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
