@@ -1,9 +1,7 @@
 { config, lib, pkgs, ... }:
 
-{
-  home.packages = [ pkgs.karabiner-elements ];
-  
-  xdg.configFile."karabiner/karabiner.json".text = builtins.toJSON {
+let
+  karabinerJson = {
     global = { show_in_menu_bar = false; };
     profiles = [
       {
@@ -699,4 +697,13 @@
       }
     ];
   };
+  karabinerDir = pkgs.runCommand "karabiner-config" {} ''
+    mkdir -p $out
+    cp ${pkgs.writeText "karabiner.json" (builtins.toJSON karabinerJson)} $out/karabiner.json
+    cp ${pkgs.writeText "karabiner.json.backup" (builtins.toJSON karabinerJson)} $out/karabiner.json.backup
+  '';
+in
+{
+  home.packages = [ pkgs.karabiner-elements ];
+  home.file.".config/karabiner".source = karabinerDir;
 }

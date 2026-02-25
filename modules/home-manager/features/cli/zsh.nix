@@ -43,6 +43,59 @@
           fi
         fi
       }
+
+      # Update nix packages and show diff between generations
+      nix-update() {
+        CONFIG_DIR="$HOME/nix-config"
+
+        if [[ ! -d "$CONFIG_DIR" ]]; then
+          echo "Config directory not found: $CONFIG_DIR"
+          return 1
+        fi
+
+        echo "🔐 Requesting sudo authentication..."
+        if ! sudo -v; then
+          echo "Sudo authentication failed."
+          return 1
+        fi
+
+        (
+          cd "$CONFIG_DIR" || exit 1
+
+          echo "🔄 Updating flake inputs..."
+          nix flake update || exit 1
+
+          echo "⚙️ Rebuilding nix-darwin..."
+          sudo nix run nix-darwin -- switch --flake . || exit 1
+        )
+
+        echo "🔍 Calculating generation diff..."
+
+        current="$(basename "$(readlink /nix/var/nix/profiles/system)")"
+
+        prev="$(find /nix/var/nix/profiles \
+          -maxdepth 1 \
+          -type l \
+          -name 'system-*-link' \
+          ! -name "$current" \
+          -print \
+          | sort -V \
+          | tail -n 1 \
+          | xargs basename)"
+
+        if [[ -z "$prev" ]]; then
+          echo "No previous generation found."
+          return 0
+        fi
+
+        echo
+        echo "Diffing: $prev → $current"
+        echo
+
+        nix store diff-closures \
+          "/nix/var/nix/profiles/$prev" \
+          "/nix/var/nix/profiles/$current"
+      };
     '';
 
     oh-my-zsh = {
