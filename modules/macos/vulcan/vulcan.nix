@@ -1,4 +1,14 @@
 { user, ... }:
+let
+  privatePath = "/Users/${user}/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { }
+    else
+      {
+        macDockApps = [ ];
+      };
+in
 {
   imports = [
     ../default.nix
@@ -21,8 +31,8 @@
     "/Users/${user}/Applications/iTerm2.app"
     "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
     "/Applications/Obsidian.app"
-    "/Applications/Omnissa Horizon Client.app"
-  ];
+  ]
+  ++ private.macDockApps;
 
   home-manager.users.${user} = import ../../home-manager/hosts/vulcan/vulcan.nix;
 }

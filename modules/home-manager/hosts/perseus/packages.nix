@@ -2,55 +2,60 @@
   pkgs,
   ...
 }:
+let
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { inherit pkgs; }
+    else
+      {
+        linuxPackages = [ ];
+      };
+in
 {
-  home.packages = with pkgs; [
-    # Desktop
-    gnomeExtensions.forge
-    gnomeExtensions.space-bar
-    gnomeExtensions.spotify-tray
+  home.packages =
+    (with pkgs; [
+      # Desktop
+      gnomeExtensions.forge
+      gnomeExtensions.space-bar
 
-    # Development
-    ghc
-    gcc
-    gnumake
-    haskell-language-server
-    nixd
-    nixfmt-rfc-style
+      # Development
+      ghc
+      gcc
+      gnumake
+      haskell-language-server
+      nixd
+      nixfmt
 
-    # Internet
-    google-chrome
+      # Internet
+      google-chrome
 
-    # Media
-    spotify
-    vlc
+      # Media
+      spotify
+      vlc
 
-    # Productivity
-    gnome-calendar
-    obsidian
-    remnote
+      # Productivity
+      gnome-calendar
+      obsidian
+      remnote
 
-    # Security
-    bitwarden
-    libsecret
+      # Security
+      bitwarden-desktop
+      libsecret
 
-    # Social
-    discord
-    telegram-desktop
+      # Social
+      discord
+      telegram-desktop
 
-    # Tool
-    fasd
-    gnutar
-    nanum
-    nerd-fonts.jetbrains-mono
-    qbittorrent
-    xclip
+      # Tool
+      fasd
+      gnutar
+      nanum
+      nerd-fonts.jetbrains-mono
+      qbittorrent
+      xclip
 
-    # Work
-    code-cursor
-    git-credential-manager
-    lmstudio
-    postman
-    teams-for-linux
-    vmware-horizon-client
-  ];
+      # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+    ])
+    ++ private.linuxPackages;
 }

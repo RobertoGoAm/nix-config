@@ -1,8 +1,7 @@
 {
   imports = [
     ./karabiner.nix
-    ./obsidian.nix
+    ./obsidian
     ./thunderbird.nix
-    ./ulauncher
   ];
 }

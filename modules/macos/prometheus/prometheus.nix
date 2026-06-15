@@ -1,4 +1,14 @@
 { user, ... }:
+let
+  privatePath = "/Users/${user}/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { }
+    else
+      {
+        macDockApps = [ ];
+      };
+in
 {
   imports = [
     ../default.nix
@@ -14,15 +24,15 @@
     "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
     "/Users/${user}/Applications/Home Manager Apps/Chromium Dev.app"
     "/System/Applications/Mail.app"
-    "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
+    "/Applications/Spotify.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
-    "/Users/${user}/Applications/Home Manager Apps/Antigravity.app"
-    "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
+    "/Applications/Antigravity IDE.app"
+    "/Applications/Cursor.app"
     "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
     "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
     "/Applications/Obsidian.app"
-    "/Applications/Omnissa Horizon Client.app"
-  ];
+  ]
+  ++ private.macDockApps;
 
   home-manager.users.${user} = import ../../home-manager/hosts/prometheus/prometheus.nix;
 }

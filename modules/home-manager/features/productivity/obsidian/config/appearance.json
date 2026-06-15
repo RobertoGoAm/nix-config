@@ -1,0 +1,9 @@
+{
+  "cssTheme": "Border",
+  "baseFontSizeAction": true,
+  "theme": "obsidian",
+  "accentColor": "",
+  "enabledCssSnippets": [
+    "dashboard"
+  ]
+}

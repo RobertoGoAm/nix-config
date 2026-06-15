@@ -1,6 +1,12 @@
 # This file defines overlays
 { inputs, ... }:
 {
+  # Direnv overlay: fix build by removing fish from check inputs
+  direnv = import ./direnv.nix;
+
+  # Helm 4.x: skip broken checkPhase until nixpkgs updates test patches
+  kubernetes-helm = import ./kubernetes-helm.nix;
+
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays

@@ -2,24 +2,31 @@
   pkgs,
   ...
 }:
+let
+  # Employer-revealing nixpkgs derivations live in the gitignored private file
+  # (work-extras.nix) so the public repo doesn't reveal corporate tooling.
+  # Read only under --impure.
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { inherit pkgs; }
+    else
+      { macPackages = [ ]; };
+in
 {
 
   home.packages = with pkgs; [
     # Development
-    antigravity
     cabal-install
     claude-code
     chatgpt
-    code-cursor
-    cursor-cli
-    fnm
     ghc
     gemini-cli
     glab
     haskell-language-server
     ngrok
     nixd
-    nixfmt-rfc-style
+    nixfmt
     postman
     stack
 
@@ -47,6 +54,6 @@
 
     # Work
     git-credential-manager
-    openfortivpn
-  ];
+  ]
+  ++ private.macPackages;
 }

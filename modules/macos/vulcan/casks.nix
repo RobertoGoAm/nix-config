@@ -1,3 +1,13 @@
+let
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { }
+    else
+      {
+        macCasks = [ ];
+      };
+in
 {
   homebrew = {
     enable = true;
@@ -5,7 +15,7 @@
       # Development
       "docker"
       "imageoptim"
-      "rancher"
+      "orbstack"
 
       # Internet
       "google-chrome"
@@ -34,9 +44,9 @@
       "qmk-toolbox"
       "via"
 
-      # Work
-      "omnissa-horizon-client"
-    ];
+      # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+    ]
+    ++ private.macCasks;
 
     # These app IDs are from using the mas CLI app
     # mas = mac app store

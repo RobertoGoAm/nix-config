@@ -18,6 +18,8 @@
 
   programs.home-manager.enable = true;
 
+  features.development.antigravity.appPath = "/Users/${user}/Applications/Home Manager Apps/Antigravity.app";
+
   imports = [
     inputs.nixvim.homeModules.nixvim
     inputs.sops-nix.homeManagerModules.sops
@@ -27,6 +29,8 @@
     ../../features/security
     ../../features/cli/iterm2.nix
     ../../features/development
+    ../../features/development/cursor.nix
+    ../../features/development/antigravity.nix
     ../../features/internet/chromium.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix

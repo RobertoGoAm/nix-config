@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   programs.vscode = {
     enable = true;
@@ -28,8 +33,12 @@
             jnoortheen.nix-ide
             justusadam.language-haskell
             kahole.magit
+            lokalise.i18n-ally
             mikestead.dotenv
+            ms-azuretools.vscode-containers
+            ms-azuretools.vscode-docker
             ms-vscode.test-adapter-converter
+            ms-vscode-remote.remote-containers
             naumovs.color-highlight
             prisma.prisma
             sonarsource.sonarlint-vscode
@@ -82,6 +91,13 @@
               publisher = "albert";
               version = "0.2.2";
               sha256 = "sha256-s306AHMkUFPaG7ISIr0RscK/k6OVtniIG1CQprBx+cY=";
+            }
+            {
+              name = "terraform";
+              publisher = "hashicorp";
+              version = "2.39.2";
+              sha256 = "sha256-Lb20IdQcroJ/9Jn+epcIDvciFb/GDmklR9pDzrC5JbQ=";
+
             }
             {
               name = "ts-error-translator";
@@ -536,7 +552,7 @@
           "workbench.colorTheme" = "Tokyo Night Storm";
 
           # Extensions
-          "nix.formatterPath" = "${lib.getExe pkgs.nixfmt-rfc-style}";
+          "nix.formatterPath" = "${lib.getExe pkgs.nixfmt}";
           "nix.enableLanguageServer" = true;
           "nix.serverPath" = "${lib.getExe pkgs.nixd}";
           "nix.serverSettings" = {
@@ -806,4 +822,5 @@
       };
     };
   };
+
 }
