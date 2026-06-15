@@ -67,8 +67,18 @@
           echo "🔄 Updating flake inputs..."
           nix flake update || exit 1
 
-          echo "⚙️ Rebuilding nix-darwin..."
-          sudo nix run nix-darwin -- switch --flake . --impure || exit 1
+          # Build as the invoking user (not root) with --impure, so the
+          # private files in ~/.config/nix-secrets are readable at eval time.
+          # Running the whole thing under sudo evaluates as root, whose $HOME
+          # falls back to /var/root and silently drops those files.
+          echo "⚙️ Building system (impure, as you)..."
+          sys=$(nix build --impure --no-link --print-out-paths ".#darwinConfigurations.$(hostname -s).system") || exit 1
+
+          # Activation must run as root; set the profile then activate the
+          # prebuilt system (no re-eval, so it stays the impure build).
+          echo "⚙️ Activating (sudo)..."
+          sudo nix-env -p /nix/var/nix/profiles/system --set "$sys" || exit 1
+          sudo "$sys/sw/bin/darwin-rebuild" activate || exit 1
         )
 
         echo "🔍 Calculating generation diff..."
