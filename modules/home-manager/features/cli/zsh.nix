@@ -46,8 +46,13 @@
         fi
       }
 
-      # Update nix packages and show diff between generations
-      nix-update() {
+      # Rebuild from the committed flake.lock (reproducible, no input bumps) and
+      # show the generation diff. Everyday command. Builds as the invoking user
+      # with --impure so the private files in ~/.config/nix-secrets are read at
+      # eval (running the whole rebuild under sudo evaluates as root, whose $HOME
+      # falls back to /var/root and silently drops them); only activation is
+      # escalated.
+      nix-build() {
         CONFIG_DIR="$HOME/nix-config"
 
         if [[ ! -d "$CONFIG_DIR" ]]; then
@@ -64,22 +69,13 @@
         (
           cd "$CONFIG_DIR" || exit 1
 
-          echo "🔄 Updating flake inputs..."
-          nix flake update || exit 1
-
-          # Build as the invoking user (not root) with --impure, so the
-          # private files in ~/.config/nix-secrets are readable at eval time.
-          # Running the whole thing under sudo evaluates as root, whose $HOME
-          # falls back to /var/root and silently drops those files.
           echo "⚙️ Building system (impure, as you)..."
           sys=$(nix build --impure --no-link --print-out-paths ".#darwinConfigurations.$(hostname -s).system") || exit 1
 
-          # Activation must run as root; set the profile then activate the
-          # prebuilt system (no re-eval, so it stays the impure build).
           echo "⚙️ Activating (sudo)..."
           sudo nix-env -p /nix/var/nix/profiles/system --set "$sys" || exit 1
           sudo "$sys/sw/bin/darwin-rebuild" activate || exit 1
-        )
+        ) || return 1
 
         echo "🔍 Calculating generation diff..."
 
@@ -107,6 +103,23 @@
         nix store diff-closures \
           "/nix/var/nix/profiles/$prev" \
           "/nix/var/nix/profiles/$current"
+      }
+
+      # Bump flake inputs, then rebuild. Deliberate: upstream churn can break the
+      # build (an input not yet caught up to a nixpkgs change). If that happens,
+      # run `git restore flake.lock` and use `nix-build` until it's resolved.
+      nix-update() {
+        CONFIG_DIR="$HOME/nix-config"
+
+        if [[ ! -d "$CONFIG_DIR" ]]; then
+          echo "Config directory not found: $CONFIG_DIR"
+          return 1
+        fi
+
+        echo "🔄 Updating flake inputs..."
+        ( cd "$CONFIG_DIR" && nix flake update ) || return 1
+
+        nix-build
       };
     '';
 
