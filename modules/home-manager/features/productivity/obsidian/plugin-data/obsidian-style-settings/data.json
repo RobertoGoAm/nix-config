@@ -1,0 +1,18 @@
+{
+  "catppuccin-theme-settings@@catppuccin-theme-dark": "ctp-mocha",
+  "catppuccin-theme-settings@@catppuccin-theme-accents": "ctp-full-palette",
+  "anuppuccin-theme-settings@@anp-alt-rainbow-style": "anp-simple-rainbow-color-toggle",
+  "anuppuccin-theme-settings@@anp-rainbow-file-toggle": true,
+  "anuppuccin-theme-settings@@anp-simple-rainbow-title-toggle": true,
+  "anuppuccin-theme-settings@@anp-simple-rainbow-collapse-icon-toggle": true,
+  "anuppuccin-theme-settings@@anp-simple-rainbow-indentation-toggle": true,
+  "anuppuccin-theme-settings@@anp-rainbow-subfolder-color-toggle": true,
+  "Components@@tab-autohide": false,
+  "Components@@status-bar-autohide": false,
+  "Components@@Ribbon-autohide": true,
+  "Components@@tab-title-bar-autohide": false,
+  "Appearance-dark@@card-layout-open-dark": false,
+  "Appearance-dark@@theme-dark-style-select": "theme-dark-background-default",
+  "Editor@@line-hover-indicator": false,
+  "pdf-plus@@pdf-plus-vim-hint-inverted": false
+}

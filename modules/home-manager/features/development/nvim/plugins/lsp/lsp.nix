@@ -53,7 +53,7 @@
 
           settings = {
             formatting = {
-              command = [ "${lib.getExe pkgs.nixfmt-rfc-style}" ];
+              command = [ "${lib.getExe pkgs.nixfmt}" ];
             };
           };
         };
@@ -272,7 +272,7 @@
 
           nixfmt = {
             enable = true;
-            package = pkgs.nixfmt-rfc-style;
+            package = pkgs.nixfmt;
           };
 
           prettier = {
@@ -295,24 +295,22 @@
   extraConfigLua = ''
     local _border = "rounded"
 
-    vim.lsp.handlers["textDocument/hover"] = vim.lsp.with(
-      vim.lsp.handlers.hover, {
-        border = _border
-      }
-    )
-
-    vim.lsp.handlers["textDocument/signatureHelp"] = vim.lsp.with(
-      vim.lsp.handlers.signature_help, {
-        border = _border
-      }
-    )
-
     vim.diagnostic.config{
-      float={border=_border}
-    };
-
-    require('lspconfig.ui.windows').default_options = {
-      border = _border
+      float = { border = _border },
     }
+
+    vim.api.nvim_create_autocmd("LspAttach", {
+      group = vim.api.nvim_create_augroup("lsp_border", { clear = true }),
+      callback = function(args)
+        local bufopts = { buffer = args.buf, silent = true }
+        vim.keymap.set({ "n", "i" }, "<C-k>", function()
+          vim.lsp.buf.signature_help({ border = _border })
+        end, bufopts)
+      end,
+    })
+
+    pcall(function()
+      require("lspconfig.ui.windows").default_options.border = _border
+    end)
   '';
 }

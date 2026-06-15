@@ -1,0 +1,69 @@
+{
+  "activePreset": "Default",
+  "activeFullscreenPreset": "Default",
+  "separateFullscreenPreset": false,
+  "presets": {
+    "Default": {
+      "plugin-backlink;1": {
+        "position": 1,
+        "visible": true
+      },
+      "plugin-editor-status;1": {
+        "position": 2,
+        "visible": true
+      },
+      "plugin-sync;1": {
+        "position": 3,
+        "visible": true
+      },
+      "plugin-obsidian-spaced-repetition-sr-status-bar-item;1": {
+        "position": 4,
+        "visible": true
+      },
+      "plugin-obsidian-spaced-repetition-sr-status-bar-item;2": {
+        "position": 5,
+        "visible": false
+      },
+      "plugin-obsidian-spaced-repetition-sr-status-bar-item-sr-is-hidden;1": {
+        "position": 6,
+        "visible": true
+      },
+      "plugin-obsidian-incremental-writing;1": {
+        "position": 7,
+        "visible": false
+      },
+      "plugin-word-count;1": {
+        "position": 8,
+        "visible": true
+      },
+      "plugin-obsidian-spaced-repetition-sr-status-bar-item-sr-is-hidden;2": {
+        "position": 9,
+        "visible": false
+      },
+      "plugin-obsidian-spaced-repetition-sr-status-bar-item-sr-is-hidden;3": {
+        "position": 10,
+        "visible": false
+      },
+      "plugin-snipd-official;1": {
+        "position": 11,
+        "visible": false
+      },
+      "plugin-obsidian-spaced-repetition-card-review-sr-status-bar-item-sr-is-hidden;1": {
+        "position": 12,
+        "visible": true
+      },
+      "plugin-obsidian-spaced-repetition-note-review-sr-status-bar-item-sr-is-hidden;1": {
+        "position": 13,
+        "visible": true
+      },
+      "plugin-obsidian-spaced-repetition-update-available-sr-status-bar-item-sr-is-hidden;1": {
+        "position": 14,
+        "visible": true
+      }
+    }
+  },
+  "presetsOrder": [
+    "Default"
+  ],
+  "version": "2.1.4"
+}

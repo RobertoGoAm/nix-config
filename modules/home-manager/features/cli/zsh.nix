@@ -2,6 +2,8 @@
   programs.zsh = {
     enable = true;
 
+    autocd = true;
+
     autosuggestion = {
       enable = true;
     };
@@ -9,10 +11,10 @@
     enableCompletion = true;
 
     initContent = ''
-      eval "$(fnm env --use-on-cd)"
-
       export PATH="$HOME/.rd/bin:$PATH"
       export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+      export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/clusters/snippets-hetzner"
+      export DOCKERHUB_USERNAME=robertogoam
 
       # Wrapper to notify when a long-running Claude task finishes
 
@@ -66,7 +68,7 @@
           nix flake update || exit 1
 
           echo "⚙️ Rebuilding nix-darwin..."
-          sudo nix run nix-darwin -- switch --flake . || exit 1
+          sudo nix run nix-darwin -- switch --flake . --impure || exit 1
         )
 
         echo "🔍 Calculating generation diff..."
@@ -100,6 +102,24 @@
 
     oh-my-zsh = {
       enable = true;
+      plugins = [
+        "bgnotify"
+        "colorize"
+        "direnv"
+        "docker"
+        "docker-compose"
+        "gh"
+        "git"
+        "git-commit"
+        "kubectl"
+        "mise"
+        "ngrok"
+        "pm2"
+        "sudo"
+        "tailscale"
+        "terraform"
+        "tmux"
+      ];
     };
 
     syntaxHighlighting = {

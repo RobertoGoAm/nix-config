@@ -90,9 +90,7 @@
     # Limit popup suggestion
     pumheight = 10;
 
-    # Folding based on indentation
-    foldmethod = "indent";
-    foldenable = false;
+    # Folding is configured in plugins/code/navigation.nix (nvim-ufo)
 
     # Search as characters are entered
     incsearch = true;

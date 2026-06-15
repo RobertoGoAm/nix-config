@@ -1,4 +1,18 @@
 {
+  pkgs,
+  ...
+}:
+{
+  # nvim-ufo requires promise-async; nixvim does not pull it in automatically.
+  extraPlugins = [ pkgs.vimPlugins.promise-async ];
+
+  opts = {
+    foldcolumn = "1";
+    foldenable = true;
+    foldlevel = 99;
+    foldlevelstart = 99;
+  };
+
   plugins = {
     aerial = {
       enable = true;
@@ -58,6 +72,20 @@
 
     nvim-ufo = {
       enable = true;
+
+      # refactoring.nvim pulls in async.nvim, which registers a conflicting
+      # require("async") before nvim-ufo loads (needs promise-async).
+      luaConfig.pre = ''
+        for _, rtp in ipairs(vim.api.nvim_list_runtime_paths()) do
+          if rtp:match("promise%-async$") then
+            package.loaded.async = nil
+            package.loaded.promise = nil
+            package.loaded.async = assert(loadfile(rtp .. "/lua/async.lua"))()
+            package.loaded.promise = assert(loadfile(rtp .. "/lua/promise.lua"))()
+            break
+          end
+        end
+      '';
     };
 
     precognition = {

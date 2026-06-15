@@ -6,6 +6,17 @@
 
     emmet = {
       enable = true;
+      settings = {
+        leader_key = ",";
+        settings = {
+          javascript = {
+            extends = "jsx";
+          };
+          typescript = {
+            extends = "jsx";
+          };
+        };
+      };
     };
 
     multicursors = {

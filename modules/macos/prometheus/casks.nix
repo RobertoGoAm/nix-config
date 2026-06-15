@@ -1,11 +1,21 @@
+let
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { }
+    else
+      {
+        macCasks = [ ];
+      };
+in
 {
   homebrew = {
     enable = true;
     casks = [
       # Development
+      "dbeaver-community"
       "imageoptim"
-      "rancher"
-      "springtoolsforeclipse"
+      "orbstack"
 
       # Internet
       "google-chrome"
@@ -17,6 +27,7 @@
       "pdf-expert"
 
       # Productivity
+      "claude"
       "notion"
       "remnote"
 
@@ -31,14 +42,14 @@
       "calibre"
       "filen"
       "multipass"
+      "notch-pilot"
       "omnidisksweeper"
       "qmk-toolbox"
       "via"
 
-      # Work
-      "omnissa-horizon-client"
-      "microsoft-teams"
-    ];
+      # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+    ]
+    ++ private.macCasks;
 
     # These app IDs are from using the mas CLI app
     # mas = mac app store

@@ -18,6 +18,7 @@
       { id = "nhdogjmejiglipccpnnnanhbledajbpd"; } # Vue.js devtools
       { id = "iaajmlceplecbljialhhkmedjlpdblhp"; } # Vue.js devtools (legacy)
       { id = "ahfhijdlegdabablpippeagghigmibma"; } # Web Vitals
+      { id = "cnjifjpddelmedmihgijeibhnjfabmlf"; } # Obsidian Web Clipper
     ];
   };
 }
