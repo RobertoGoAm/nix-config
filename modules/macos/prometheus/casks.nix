@@ -42,7 +42,6 @@ in
       "calibre"
       "filen"
       "multipass"
-      "notch-pilot"
       "omnidisksweeper"
       "qmk-toolbox"
       "via"
