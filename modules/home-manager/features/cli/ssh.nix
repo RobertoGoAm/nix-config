@@ -1,16 +1,6 @@
 {
-  pkgs,
-  config,
   ...
 }:
-let
-  # ─── Client/work-specific SSH hosts (machine-local) ──────────────────────
-  # Loaded from ~/.config/nix-secrets/ssh-hosts.nix if present (kept out of
-  # the public nix-config repo). When missing, ssh.nix configures only the
-  # generic personal hosts below.
-  clientHostsPath = "${config.home.homeDirectory}/.config/nix-secrets/ssh-hosts.nix";
-  clientHosts = if builtins.pathExists clientHostsPath then import clientHostsPath else { };
-in
 {
   programs.ssh = {
     enable = true;
@@ -18,6 +8,10 @@ in
     # Disable the deprecated default config to suppress warning
     # and manually define what we need in settings.
     enableDefaultConfig = false;
+
+    # Client/work hosts are rendered to ~/.ssh/config_clients by sops at
+    # activation (kept out of plaintext Nix); definitions live in secrets.yaml.
+    includes = [ "config_clients" ];
 
     settings = {
       "*" = {
@@ -60,8 +54,7 @@ in
         IdentityFile = "~/.ssh/hetzner";
         User = "root";
       };
-    }
-    // clientHosts;
+    };
 
     extraConfig = ''
       # Use macOS keychain for SSH key passphrases
