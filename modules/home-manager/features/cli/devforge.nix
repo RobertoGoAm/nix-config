@@ -1,21 +1,20 @@
-{ config, lib, pkgs, ... }:
-let
-  # Dev Forge lives inside a work project whose directory name identifies the
-  # client/project, so its location is kept in the gitignored private secrets
-  # dir rather than committed here. On machines without that file (or non-work
-  # hosts) the df() helper is simply not defined.
-  privatePath = "${config.home.homeDirectory}/.config/nix-secrets/devforge.nix";
-  devForgeDir = if builtins.pathExists privatePath then (import privatePath).dir else null;
-  enabled = devForgeDir != null;
-in
+{ lib, pkgs, ... }:
 {
   # envsubst (Dev Forge prompt templates)
-  home.packages = lib.optional enabled pkgs.gettext;
+  home.packages = [ pkgs.gettext ];
 
-  # Function (not shellAliases): macOS /bin/df shadows a plain alias for many users.
-  programs.zsh.initContent = lib.mkIf enabled (lib.mkAfter ''
+  # The Dev Forge location is a sops secret (its path names a work project),
+  # read at runtime. df() no-ops cleanly when the secret isn't present
+  # (non-work hosts, or before it materializes). Function (not alias) because
+  # macOS /bin/df shadows a plain alias for many users.
+  programs.zsh.initContent = lib.mkAfter ''
     df() {
-      "${devForgeDir}/bin/devforge" "$@"
+      local _dir
+      _dir=$(cat /var/run/secrets/devforge_dir 2>/dev/null) || {
+        echo "df: devforge_dir secret not available on this host" >&2
+        return 1
+      }
+      "$_dir/bin/devforge" "$@"
     }
-  '');
+  '';
 }
