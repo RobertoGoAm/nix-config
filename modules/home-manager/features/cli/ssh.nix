@@ -32,28 +32,6 @@
         #
         # identityAgent = "~/.bitwarden-ssh-agent.sock";
       };
-
-      # ─── Generic public hosts ──────────────────────────────────────────
-      "github.com" = {
-        IdentityFile = "~/.ssh/id_ed25519";
-        IdentitiesOnly = true;
-      };
-
-      "gitlab.com" = {
-        IdentityFile = "~/.ssh/id_ed25519";
-      };
-
-      # ─── Personal infra (Hetzner cluster nodes) ────────────────────────
-      "hetzner-host" = {
-        HostName = "*.hetzner.com";
-        IdentityFile = "~/.ssh/hetzner";
-      };
-      # Direct connections to the snippets cluster by Tailscale name.
-      # IP-based and Tailscale-name-based access both go through this key.
-      "snippets-*" = {
-        IdentityFile = "~/.ssh/hetzner";
-        User = "root";
-      };
     };
 
     extraConfig = ''
