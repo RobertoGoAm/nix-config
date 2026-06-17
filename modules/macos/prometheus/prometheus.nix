@@ -13,6 +13,7 @@ in
   imports = [
     ../default.nix
     ./casks.nix
+    ../services/paneru
   ];
 
   networking.hostName = "prometheus";
