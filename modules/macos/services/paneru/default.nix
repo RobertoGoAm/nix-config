@@ -7,6 +7,13 @@
   # paneru's model allows: alt + Colemak h/n/e/i = left/down/up/right.
   services.paneru = {
     enable = true;
+    # paneru 0.4.2 requires an [options] table even though newer docs call it
+    # optional. These are its documented defaults — flip focus_follows_mouse to
+    # false if hover-to-focus feels off coming from aerospace.
+    settings.options = {
+      focus_follows_mouse = true;
+      mouse_follows_focus = true;
+    };
     settings.bindings = {
       # Focus
       window_focus_west = "alt - h";
