@@ -52,5 +52,7 @@
     ../../features/media/yt-dlp.nix
     ../../features/productivity
     ../../features/productivity/ulauncher
+    ../../features/productivity/keyboard
+    ../../features/productivity/wallpaper
   ];
 }
