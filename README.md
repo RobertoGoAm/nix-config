@@ -2,6 +2,22 @@
 
 Multiplatform nix configuration to handle installing applications, configuring them and setting up the system for MacOS and Linux-based systems.
 
+## Quick start (automated)
+
+`bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi.
+
+1. **Get your secrets onto the machine** — either:
+   - **Place them yourself**: `~/.config/sops/age/system_keys.txt` (your age key) and `~/.config/nix-secrets/secrets.yaml` (plus optional `~/.config/nix-secrets/{sops-secrets.nix,work-extras.nix}`); **or**
+   - **Pull them from Bitwarden** with `--bw`: on one item named `nix-config`, store the **age key** as an attachment `system_keys.txt` *or* a custom field of that name, and **secrets.yaml** as an attachment *or* the item's **Note**. (Attachments need Bitwarden Premium; the field+note path works on the free tier.) If you keep machine-local `sops-secrets.nix` / `work-extras.nix`, attach those to the same item too — they're restored when present. The script fetches the `bw` CLI from Nix, prompts for your login, downloads everything, and places it. Override with `BW_ITEM` / `AGE_KEY_ATTACHMENT` / `SECRETS_ATTACHMENT` / `BW_SERVER`.
+2. **Run one line** — it clones itself and does everything (`<host>` = `prometheus`, `vulcan`, or `perseus`; drop `--bw` if you placed the secrets yourself):
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw
+   ```
+   (Already have the repo checked out? Just run `./bootstrap.sh <host> [--bw]` from it.)
+3. **Enter your Bitwarden login (if using `--bw`) and your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for paneru, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
+
+Bluetooth devices still need re-pairing by hand. The step-by-step sections below are exactly what the script automates — use them to do it manually or to debug.
+
 ## MacOS steps
 
 (Optional) Disable and re-enable password for sudo
@@ -74,6 +90,29 @@ Go to the `nix-config` folder and run:
 ```bash
 darwin-rebuild switch --flake .
 ```
+
+### Wi-Fi (optional)
+
+Store your networks in the secrets file (`sops ~/.config/nix-secrets/secrets.yaml`):
+
+```yaml
+wifi_names: home_2g home_5g work          # space-separated labels to register
+wifi_home_2g_ssid: "MyHomeWiFi_2G"
+wifi_home_2g_psk: "your-home-password"
+wifi_home_5g_ssid: "MyHomeWiFi_5G"
+wifi_home_5g_psk: "your-home-password"   # 2.4G & 5G are separate SSIDs, same router → same password
+wifi_work_ssid: "YourWorkSSID"
+wifi_work_psk: "your-work-password"
+# optional per-label security (default WPA2): wifi_work_security: "WPA3"
+```
+
+Then register them all at once — the `wifi-setup` command ships with the config, so run it after the rebuild above:
+
+```bash
+wifi-setup
+```
+
+It adds them as preferred networks (you'll be asked for your password once); macOS auto-joins them when in range. No `sops.secrets` entry is needed — it decrypts on demand with your local age key.
 
 ## Linux steps (non-NixOS)
 
@@ -148,6 +187,16 @@ Go to the `nix-config` folder and run:
 ```bash
 home-manager switch --flake .
 ```
+
+### Wi-Fi (optional)
+
+Same as macOS — set `wifi_names` and the matching `wifi_<label>_ssid` / `wifi_<label>_psk` keys in `secrets.yaml` (`sops ~/.config/nix-secrets/secrets.yaml`), then run:
+
+```bash
+wifi-setup
+```
+
+This registers them as NetworkManager connections.
 
 ## Troubleshooting
 
