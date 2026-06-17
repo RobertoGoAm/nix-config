@@ -11,6 +11,7 @@
     ./ssh.nix
     ./starship.nix
     ./tmux.nix
+    ./wifi.nix
     ./zsh.nix
   ];
 }
