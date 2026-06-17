@@ -14,7 +14,6 @@
     inputs.nix-homebrew.darwinModules.nix-homebrew
     inputs.sops-nix.darwinModules.sops
     ../homebrew/homebrew.nix
-    ./services/aerospace
   ]
   ++ (
     # Machine-local sops secrets (client/work SSH keys). Kept out of the
@@ -85,6 +84,9 @@
     };
 
     services.tailscale.enable = true;
+    # Application firewall — currently on; lock it on (the old system.defaults.alf
+    # was removed upstream in favour of this option).
+    networking.applicationFirewall.enable = true;
     services.openssh = {
       enable = true;
       extraConfig = ''
@@ -167,6 +169,33 @@
           NSAutomaticQuoteSubstitutionEnabled = false;
           NSAutomaticSpellingCorrectionEnabled = false;
           AppleKeyboardUIMode = 3;
+          # Pinned to documented macOS defaults (were unset) for full reproducibility.
+          # NOT pinned, deliberately: AppleFontSmoothing (harms Retina text),
+          # Apple{ICUForce24HourTime,MeasurementUnits,MetricUnits,TemperatureUnit}
+          # (locale-driven), com.apple.mouse.tapBehavior (no clean off value).
+          AppleEnableMouseSwipeNavigateWithScrolls = true;
+          AppleEnableSwipeNavigateWithScrolls = true;
+          AppleScrollerPagingBehavior = false;
+          AppleSpacesSwitchOnActivate = true;
+          AppleWindowTabbingMode = "fullscreen";
+          NSAutomaticInlinePredictionEnabled = true;
+          NSAutomaticWindowAnimationsEnabled = true;
+          NSDisableAutomaticTermination = false;
+          NSDocumentSaveNewDocumentsToCloud = true;
+          NSScrollAnimationEnabled = true;
+          NSTableViewDefaultSizeMode = 2;
+          NSTextShowsControlCharacters = false;
+          NSUseAnimatedFocusRing = true;
+          NSWindowResizeTime = 0.2;
+          _HIHideMenuBar = false;
+          "com.apple.keyboard.fnState" = false;
+          "com.apple.sound.beep.feedback" = 1;
+          "com.apple.sound.beep.volume" = 0.6784667;
+          "com.apple.springing.delay" = 0.5;
+          "com.apple.springing.enabled" = true;
+          "com.apple.trackpad.enableSecondaryClick" = true;
+          "com.apple.trackpad.forceClick" = true;
+          "com.apple.trackpad.scaling" = 0.875;
         };
         finder = {
           FXDefaultSearchScope = "SCcf";
@@ -176,6 +205,54 @@
           ShowStatusBar = true;
           QuitMenuItem = true;
           FXEnableExtensionChangeWarning = false;
+          # Desktop icons — locked to current state.
+          ShowExternalHardDrivesOnDesktop = true;
+          ShowHardDrivesOnDesktop = false;
+          ShowRemovableMediaOnDesktop = true;
+          ShowMountedServersOnDesktop = false;
+          _FXShowPosixPathInTitle = false;
+          # Pinned to macOS defaults (were unset).
+          AppleShowAllFiles = false;
+          CreateDesktop = true;
+          FXRemoveOldTrashItems = false;
+          _FXSortFoldersFirst = false;
+        };
+        dock = {
+          autohide = false;
+          tilesize = 38;
+          orientation = "left";
+          mru-spaces = false; # don't auto-rearrange Spaces by most-recent use
+          show-recents = false;
+          # Hot corners all disabled (1 = no action).
+          wvous-tl-corner = 1;
+          wvous-tr-corner = 1;
+          wvous-bl-corner = 1;
+          wvous-br-corner = 1;
+          # Right-side folder stacks. Downloads sorted most-recent-first; the
+          # ~/Development stack is created by features/development on activation.
+          persistent-others = [
+            {
+              folder = {
+                path = "/Users/${user}/Downloads";
+                arrangement = "date-modified";
+              };
+            }
+            { folder = "/Users/${user}/Development"; }
+          ];
+          # Pinned to macOS defaults (were unset).
+          appswitcher-all-displays = false;
+          autohide-delay = 0.24;
+          autohide-time-modifier = 1.0;
+          expose-group-apps = false;
+          launchanim = true;
+          magnification = false;
+          mineffect = "genie";
+          minimize-to-application = false;
+          mouse-over-hilite-stack = false;
+          scroll-to-open = false;
+          show-process-indicators = true;
+          showhidden = false;
+          static-only = false;
         };
         loginwindow.GuestEnabled = false;
         loginwindow.SHOWFULLNAME = true;
@@ -184,6 +261,55 @@
           askForPasswordDelay = 0;
         };
         SoftwareUpdate.AutomaticallyInstallMacOSUpdates = true;
+
+        # Control Center / menu-bar items. Were OS-managed (unset); pinned to the
+        # standard macOS layout — flip any bool if your menu bar differs.
+        controlcenter = {
+          AirDrop = false;
+          BatteryShowPercentage = false;
+          Bluetooth = true;
+          Display = false;
+          FocusModes = true;
+          NowPlaying = true;
+          Sound = true;
+        };
+
+        # Stage Manager off (current); standard edge-tiling on (macOS defaults).
+        WindowManager = {
+          GloballyEnabled = false;
+          AutoHide = false;
+          AppWindowGroupingBehavior = true;
+          EnableTiledWindowMargins = false;
+          HideDesktop = true;
+          EnableStandardClickToShowDesktop = true;
+          EnableTilingByEdgeDrag = true;
+          EnableTopTilingByEdgeDrag = true;
+          StandardHideDesktopIcons = false;
+        };
+
+        # Screenshots — PNG to Desktop (current behaviour, now explicit).
+        screencapture = {
+          target = "file";
+          type = "png";
+          disable-shadow = false;
+          show-thumbnail = true;
+          location = "~/Desktop";
+        };
+
+        spaces.spans-displays = false; # displays keep separate Spaces (default)
+        magicmouse.MouseButtonMode = "OneButton";
+
+        # Trackpad — locked to current state (tap-to-click off, two-finger right-click).
+        trackpad = {
+          Clicking = false;
+          Dragging = false;
+          TrackpadRightClick = true;
+          TrackpadThreeFingerDrag = false;
+          ActuationStrength = 1;
+          FirstClickThreshold = 1;
+          SecondClickThreshold = 1;
+          TrackpadMomentumScroll = true;
+        };
       };
       keyboard.enableKeyMapping = true;
       stateVersion = 5;
