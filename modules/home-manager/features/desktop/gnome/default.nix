@@ -37,7 +37,42 @@ with lib.hm.gvariant;
       ];
     };
 
-    "org/gnome/shell/extensions/forge/keybindings" = {
+    # --- Mirror the macOS interface prefs from modules/macos/default.nix ---
+    "org/gnome/desktop/interface" = {
+      color-scheme = "prefer-dark"; # ≈ AppleInterfaceStyle = "Dark"
+      enable-hot-corners = false; # ≈ mac hot corners disabled
+    };
+    "org/gnome/desktop/peripherals/mouse".natural-scroll = false; # ≈ swipescrolldirection = false
+    "org/gnome/desktop/peripherals/touchpad" = {
+      natural-scroll = false;
+      tap-to-click = false; # ≈ mac trackpad Clicking = false
+    };
+    "org/gnome/desktop/peripherals/keyboard" = {
+      repeat = true;
+      repeat-interval = mkUint32 20; # fast key repeat (≈ mac KeyRepeat)
+      delay = mkUint32 250; # short initial delay (≈ mac InitialKeyRepeat)
+    };
+
+    # Workspace switching aligned with aerospace/paneru on the macs: Alt+1-6 to
+    # switch, Shift+Alt+1-6 to send the window there.
+    "org/gnome/desktop/wm/keybindings" = {
+      switch-to-workspace-1 = [ "<Alt>1" ];
+      switch-to-workspace-2 = [ "<Alt>2" ];
+      switch-to-workspace-3 = [ "<Alt>3" ];
+      switch-to-workspace-4 = [ "<Alt>4" ];
+      switch-to-workspace-5 = [ "<Alt>5" ];
+      switch-to-workspace-6 = [ "<Alt>6" ];
+      move-to-workspace-1 = [ "<Shift><Alt>1" ];
+      move-to-workspace-2 = [ "<Shift><Alt>2" ];
+      move-to-workspace-3 = [ "<Shift><Alt>3" ];
+      move-to-workspace-4 = [ "<Shift><Alt>4" ];
+      move-to-workspace-5 = [ "<Shift><Alt>5" ];
+      move-to-workspace-6 = [ "<Shift><Alt>6" ];
+    };
+
+    # Forge general settings live under .../forge (NOT .../forge/keybindings) —
+    # otherwise the gap settings are written to the wrong path and ignored.
+    "org/gnome/shell/extensions/forge" = {
       window-gap-hidden-on-single = true;
       window-gap-size = mkUint32 6;
     };
