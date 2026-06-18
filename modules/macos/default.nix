@@ -7,6 +7,27 @@
   user,
   ...
 }:
+let
+  # Regenerate ~/.ssh/*.pub from the sops-rendered private keys at activation.
+  # Public keys aren't secrets, so they're derived (always valid) rather than
+  # stored in sops. Iterates every private-key symlink — no hardcoded names, so
+  # nothing client-specific leaks here; non-key files are skipped.
+  derivePubkeys = pkgs.writeShellScript "derive-ssh-pubkeys" ''
+    set -u
+    for k in /Users/${user}/.ssh/*; do
+      case "$k" in
+        *.pub | */config | */config_clients | */known_hosts* | */authorized_keys | */agent) continue ;;
+      esac
+      [ -e "$k" ] || continue
+      if ${pkgs.openssh}/bin/ssh-keygen -y -f "$k" > "$k.pub.tmp" 2>/dev/null; then
+        mv -f "$k.pub.tmp" "$k.pub"
+        chmod 644 "$k.pub"
+      else
+        rm -f "$k.pub.tmp"
+      fi
+    done
+  '';
+in
 {
   imports = [
     inputs.mac-app-util.darwinModules.default
@@ -60,26 +81,16 @@
           owner = user;
           path = "/Users/${user}/.ssh/id_ed25519";
         };
-        ssh_id_ed25519_pub = {
-          owner = user;
-          path = "/Users/${user}/.ssh/id_ed25519.pub";
-        };
         ssh_id_ed25519_robertogoam = {
           owner = user;
           path = "/Users/${user}/.ssh/id_ed25519_robertogoam";
-        };
-        ssh_id_ed25519_robertogoam_pub = {
-          owner = user;
-          path = "/Users/${user}/.ssh/id_ed25519_robertogoam.pub";
         };
         ssh_id_rsa = {
           owner = user;
           path = "/Users/${user}/.ssh/id_rsa";
         };
-        ssh_id_rsa_pub = {
-          owner = user;
-          path = "/Users/${user}/.ssh/id_rsa.pub";
-        };
+        # *.pub files are derived from the private keys above at activation
+        # (derivePubkeys, called from postActivation) — not stored in sops.
       };
     };
 
@@ -147,6 +158,9 @@
       primaryUser = user;
       activationScripts.postActivation.text = ''
         sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+        # Regenerate ~/.ssh/*.pub from the sops-rendered private keys. Runs late
+        # (postActivation) so sops has already installed the private keys.
+        sudo -u ${user} ${derivePubkeys}
         killall SystemUIServer || true
         killall Finder || true
         killall Dock || true
