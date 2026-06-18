@@ -27,10 +27,17 @@
         dc = "diff --cached";
       };
 
-      pull.rebase = false;
+      pull.rebase = true;
       init.defaultBranch = "main";
       push.autoSetupRemote = true;
       fetch.prune = true;
+
+      # SSH commit signing — generic plumbing only. The per-identity signingkey
+      # and commit.gpgsign / tag.gpgsign live in the sops-rendered config_clients,
+      # so client keys/emails stay out of this public repo and signing is coupled
+      # with a key (commits never fail for lack of one).
+      gpg.format = "ssh";
+      gpg.ssh.allowedSignersFile = "~/.config/git/allowed_signers";
     }
     // (
       if pkgs.stdenv.hostPlatform.isLinux then
