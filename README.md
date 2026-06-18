@@ -8,16 +8,16 @@ Multiplatform nix configuration to handle installing applications, configuring t
 
 1. **Have your secrets in Bitwarden** (the default) — on one item named `nix-config`, store the **age key** as an attachment `system_keys.txt` *or* a custom field of that name, and **secrets.yaml** as an attachment *or* the item's **Note**; optionally attach machine-local `sops-secrets.nix` / `work-extras.nix` too (restored when present). See **First-time Bitwarden setup** below to create the item. (Attachments use Bitwarden Premium; the field+note path works on the free tier.) Override names with `BW_ITEM` / `AGE_KEY_ATTACHMENT` / `SECRETS_ATTACHMENT`.
    - *No password manager?* Place `~/.config/sops/age/system_keys.txt` + `~/.config/nix-secrets/secrets.yaml` yourself and pass `--no-bw` (see **Free alternative to Bitwarden**).
-2. **Run one line** — it clones itself and does everything (`<host>` = `prometheus`, `vulcan`, or `perseus`):
+2. **Run one line** — it clones itself, then shows a menu: pick an existing host (`prometheus`, `vulcan`, `perseus`), or **"Create a new host"** (choose one to duplicate + a name).
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
+   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash
    ```
    No `curl`? Use `wget` (some minimal Linux images ship it instead); the script then uses whichever you have for the rest too:
    ```bash
-   wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
+   wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash
    ```
-   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. Already checked out? Run `./bootstrap.sh <host>` from it. Flags: `--no-bw` (you placed the secrets yourself) or `--bw-server=<url>` (self-hosted Vaultwarden).
-3. **Log in to Bitwarden, enter your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for paneru, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
+   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. To **skip the menu**, append a host (`… | bash -s -- prometheus`); from a checkout it's `./bootstrap.sh [host]`. Flags: `--no-bw` (you placed the secrets yourself) or `--bw-server=<url>` (self-hosted Vaultwarden). Creating a new host scaffolds its module files + flake entry and stages them — review and `git commit` it after the run.
+3. **Log in to Bitwarden, enter your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for warpd + your window manager, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
 
 Bluetooth devices still need re-pairing by hand. The manual sections below are exactly what the script automates — use them only to do it by hand or to debug.
 
