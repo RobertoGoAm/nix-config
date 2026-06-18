@@ -16,7 +16,7 @@ Multiplatform nix configuration to handle installing applications, configuring t
    ```bash
    wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash
    ```
-   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. To **skip the menu**, append a host (`… | bash -s -- prometheus`); from a checkout it's `./bootstrap.sh [host]`. Flags: `--no-bw` (you placed the secrets yourself) or `--bw-server=<url>` (self-hosted Vaultwarden). Creating a new host scaffolds its module files + flake entry and stages them — review and `git commit` it after the run.
+   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. To **skip the menu**, append a host (`… | bash -s -- prometheus`); from a checkout it's `./bootstrap.sh [host]`. Flags: `--no-bw` (you placed the secrets yourself), `--bw-server=<url>` (self-hosted Vaultwarden), or `--no-secrets` (build with none — handy for adopting this config; sops auto-disables). Creating a new host scaffolds its module files + flake entry and stages them — review and `git commit` it after the run.
 3. **Log in to Bitwarden, enter your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for warpd + your window manager, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
 
 Bluetooth devices still need re-pairing by hand. The manual sections below are exactly what the script automates — use them only to do it by hand or to debug.
