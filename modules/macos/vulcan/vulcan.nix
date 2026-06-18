@@ -14,6 +14,7 @@ in
     ../default.nix
     ./casks.nix
     ../services/aerospace
+    ../services/warpd
   ];
 
   networking.hostName = "vulcan";

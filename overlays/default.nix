@@ -7,6 +7,9 @@
   # Helm 4.x: skip broken checkPhase until nixpkgs updates test patches
   kubernetes-helm = import ./kubernetes-helm.nix;
 
+  # warpd: nixpkgs ships it Linux-only; build it from source on darwin.
+  warpd = import ./warpd.nix;
+
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays

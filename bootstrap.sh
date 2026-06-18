@@ -240,7 +240,7 @@ cat <<EOF
 Almost there — the bits macOS won't let a script do:
   • Grant any permission prompts, then re-run the same command if it stopped:
       App Management → your terminal   (activation)
-      Accessibility  → paneru          (window manager)
+      Accessibility  → warpd + your WM (pointer control, window manager)
       Automation     → "System Events" (wallpaper)
   • Re-pair Bluetooth devices by hand.
   • If 'wifi-setup' or 'pubkey-setup' didn't run above, open a new shell and run them

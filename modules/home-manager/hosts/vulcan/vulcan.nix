@@ -38,5 +38,6 @@
     ../../features/productivity
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
+    ../../features/desktop/warpd
   ];
 }

@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 
 with lib.hm.gvariant;
 
@@ -68,6 +68,30 @@ with lib.hm.gvariant;
       move-to-workspace-4 = [ "<Shift><Alt>4" ];
       move-to-workspace-5 = [ "<Shift><Alt>5" ];
       move-to-workspace-6 = [ "<Shift><Alt>6" ];
+    };
+
+    # warpd pointer control — Wayland can't grab global hotkeys, so bind GNOME
+    # custom shortcuts to invoke warpd directly (mirrors the macs' Alt+Cmd as
+    # Alt+Super). In-mode movement is Colemak h/n/e/i (features/desktop/warpd).
+    "org/gnome/settings-daemon/plugins/media-keys".custom-keybindings = [
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal/"
+    ];
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint" = {
+      name = "warpd hint";
+      command = "${pkgs.warpd}/bin/warpd --hint";
+      binding = "<Alt><Super>x";
+    };
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid" = {
+      name = "warpd grid";
+      command = "${pkgs.warpd}/bin/warpd --grid";
+      binding = "<Alt><Super>g";
+    };
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal" = {
+      name = "warpd normal";
+      command = "${pkgs.warpd}/bin/warpd --normal";
+      binding = "<Alt><Super>c";
     };
 
     # Forge general settings live under .../forge (NOT .../forge/keybindings) —
