@@ -14,6 +14,22 @@
       focus_follows_mouse = true;
       mouse_follows_focus = true;
     };
+    # Outer (screen-edge) gaps, matching aerospace's gaps.outer = 10. paneru has
+    # no separate between-window/inner gap setting.
+    settings.padding = {
+      top = 10;
+      bottom = 10;
+      left = 10;
+      right = 10;
+    };
+    # Keep iTerm2 (the quake/hotkey window) floating — excluded from tiling,
+    # like the aerospace on-window-detected float rule. title is required (regex),
+    # bundle_id narrows it to iTerm2.
+    settings.windows.iterm2 = {
+      title = ".*";
+      bundle_id = "com.googlecode.iterm2";
+      floating = true;
+    };
     settings.bindings = {
       # Focus
       window_focus_west = "alt - h";
