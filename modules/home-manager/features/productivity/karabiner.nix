@@ -713,6 +713,21 @@ let
             }
           ];
         };
+        devices = [
+          {
+            # The QMK Bridge75 (Shortcut, 3141:65278) does its own Colemak +
+            # layers in firmware — tell Karabiner to ignore it so it isn't
+            # double-processed. The built-in + Apple keyboards still get all the
+            # modifications above. (nix owns karabiner.json, so this scoping must
+            # live here, not in the Karabiner Devices GUI which gets overwritten.)
+            identifiers = {
+              vendor_id = 3141;
+              product_id = 65278;
+              is_keyboard = true;
+            };
+            ignore = true;
+          }
+        ];
         name = "Default profile";
         selected = true;
         virtual_hid_keyboard = { keyboard_type_v2 = "ansi"; };
