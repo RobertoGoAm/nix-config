@@ -44,10 +44,13 @@
     inputs.sops-nix.homeManagerModules.sops
     ./packages.nix
     ../../features/cli
+    ../../features/cli/k9s.nix
     ../../features/security
     ../../features/desktop/gnome
     ../../features/development
+    ../../features/development/cursor.nix
     ../../features/internet/chromium.nix
+    ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
     ../../features/productivity

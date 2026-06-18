@@ -28,10 +28,12 @@
     ../../features/cli
     ../../features/security
     ../../features/cli/iterm2.nix
+    ../../features/cli/k9s.nix
     ../../features/development
     ../../features/development/cursor.nix
     ../../features/development/antigravity.nix
     ../../features/internet/chromium.nix
+    ../../features/internet/chromium-dev.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
