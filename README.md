@@ -4,7 +4,7 @@ Multiplatform nix configuration to handle installing applications, configuring t
 
 ## Quick start (automated)
 
-`bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi.
+`bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi + SSH public keys.
 
 1. **Get your secrets onto the machine** — either:
    - **Place them yourself**: `~/.config/sops/age/system_keys.txt` (your age key) and `~/.config/nix-secrets/secrets.yaml` (plus optional `~/.config/nix-secrets/{sops-secrets.nix,work-extras.nix}`); **or**
@@ -114,6 +114,16 @@ wifi-setup
 
 It adds them as preferred networks (you'll be asked for your password once); macOS auto-joins them when in range. No `sops.secrets` entry is needed — it decrypts on demand with your local age key.
 
+### SSH public keys
+
+Public keys aren't stored in `secrets.yaml` — they're derived from your private keys. After the rebuild (and any time you add or rotate a key), run:
+
+```bash
+ssh-pubkeys
+```
+
+It regenerates `~/.ssh/*.pub` for every private key. Unencrypted keys (the sops-rendered ones) derive silently; passphrase-protected keys prompt for the passphrase. `bootstrap.sh` runs this for you on a fresh install.
+
 ## Linux steps (non-NixOS)
 
 (Optional) Disable and re-enable password for sudo
@@ -197,6 +207,10 @@ wifi-setup
 ```
 
 This registers them as NetworkManager connections.
+
+### SSH public keys
+
+Same as macOS — run `ssh-pubkeys` to regenerate `~/.ssh/*.pub` from your private keys (it prompts for any passphrase-protected key).
 
 ## Troubleshooting
 
