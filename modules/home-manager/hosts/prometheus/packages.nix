@@ -15,93 +15,100 @@ let
 in
 {
 
-  home.packages = with pkgs; [
-    # Development
-    cabal-install
-    claude-code
-    chatgpt
-    codex-acp
-    ghc
-    gemini-cli
-    glab
-    haskell-language-server
-    ngrok
-    nixd
-    nixfmt
-    postman
-    stack
-    uv
+  home.packages =
+    with pkgs;
+    [
+      # Development
+      cabal-install
+      claude-code
+      chatgpt
+      codex-acp
+      ghc
+      gemini-cli
+      glab
+      haskell-language-server
+      ngrok
+      nixd
+      nixfmt
+      postman
+      stack
+      uv
 
-    # DevOps
-    actionlint
-    age
-    ansible
-    argocd
-    bitwarden-cli
-    checkov
-    cosign
-    docker
-    docker-buildx
-    docker-compose
-    dive
-    gitleaks
-    grype
-    hadolint
-    hcloud
-    httpie
-    jq
-    k6
-    kind
-    kubeconform
-    kube-linter
-    kubectl
-    kubectx
-    kubernetes-helm
-    kustomize
-    pre-commit
-    semgrep
-    sops
-    stern
-    syft
-    terraform
-    tflint
-    trivy
-    vault
-    velero
-    yamllint
-    yq-go
+      # DevOps
+      actionlint
+      age
+      ansible
+      argocd
+      bitwarden-cli
+      checkov
+      cilium-cli
+      cosign
+      devcontainer
+      docker
+      docker-buildx
+      docker-compose
+      dive
+      gitleaks
+      grype
+      hadolint
+      hcloud
+      httpie
+      jq
+      k6
+      kind
+      kubeconform
+      kube-linter
+      kubectl
+      kubectx
+      kubernetes-helm
+      kustomize
+      pre-commit
+      semgrep
+      sops
+      step-cli
+      stern
+      syft
+      terraform
+      testssl
+      tflint
+      trivy
+      vault
+      velero
+      yamllint
+      yq-go
+      yubikey-manager
 
-    # Productivity
-    anki-bin
-    raycast
+      # Productivity
+      anki-bin
+      raycast
 
-    # Social
-    telegram-desktop
+      # Social
+      telegram-desktop
 
-    # Media
-    ffmpeg
-    iina
-    spotify
+      # Media
+      ffmpeg
+      iina
+      spotify
 
-    # Tool
-    coreutils
-    cyberduck
-    graphviz
-    mdfried
-    mozjpeg
-    nerd-fonts.jetbrains-mono
-    oxipng
-    poppler-utils
-    procps
-    qbittorrent
-    syncthing
-    the-unarchiver
-    tree
-    vlc-bin
-    yubikey-manager
+      # Tool
+      coreutils
+      cyberduck
+      graphviz
+      mdfried
+      mozjpeg
+      nerd-fonts.jetbrains-mono
+      oxipng
+      poppler-utils
+      procps
+      qbittorrent
+      syncthing
+      the-unarchiver
+      tree
+      vlc-bin
+      yubikey-manager
 
-    # Work
-    git-credential-manager
-  ]
-  ++ private.macPackages;
+      # Work
+      git-credential-manager
+    ]
+    ++ private.macPackages;
 }
