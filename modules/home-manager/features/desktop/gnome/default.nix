@@ -72,7 +72,8 @@ with lib.hm.gvariant;
 
     # warpd pointer control — Wayland can't grab global hotkeys, so bind GNOME
     # custom shortcuts to invoke warpd directly (mirrors the macs' Alt+Cmd as
-    # Alt+Super). In-mode movement is Colemak h/n/e/i (features/desktop/warpd).
+    # Alt+Super), on the same PHYSICAL keys as QWERTY warpd: hint = x, grid =
+    # QWERTY-g position = Colemak d, normal = c. In-mode keys: features/desktop/warpd.
     "org/gnome/settings-daemon/plugins/media-keys".custom-keybindings = [
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid/"
@@ -86,7 +87,7 @@ with lib.hm.gvariant;
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid" = {
       name = "warpd grid";
       command = "${pkgs.warpd}/bin/warpd --grid";
-      binding = "<Alt><Super>g";
+      binding = "<Alt><Super>d";
     };
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal" = {
       name = "warpd normal";
