@@ -121,6 +121,7 @@
         outputs.overlays.apple-silicon
         outputs.overlays.direnv
         outputs.overlays.kubernetes-helm
+        outputs.overlays.warpd
       ];
       config = {
         allowUnfree = true;

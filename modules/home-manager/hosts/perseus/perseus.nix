@@ -54,5 +54,6 @@
     ../../features/productivity/ulauncher
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
+    ../../features/desktop/warpd
   ];
 }
