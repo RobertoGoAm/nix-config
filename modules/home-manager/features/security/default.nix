@@ -5,6 +5,8 @@
   ...
 }:
 {
+  imports = [ ./ssh-pubkeys.nix ];
+
   options.features.security.sops.enable = lib.mkOption {
     type = lib.types.bool;
     default = true;
