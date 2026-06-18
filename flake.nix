@@ -80,98 +80,51 @@
     }@inputs:
     let
       inherit (self) outputs;
+      inherit (nixpkgs) lib;
       user = "robertogoam";
+
+      # Per-machine platform. Hosts whose system ends in "darwin" get a nix-darwin
+      # system (built from modules/macos/<host>/<host>.nix); every host also gets a
+      # standalone home-manager config "<user>@<host>" (built from
+      # modules/home-manager/hosts/<host>/<host>.nix). To add a machine, add a line
+      # here and copy an existing host's module dir(s) — bootstrap.sh's "create a
+      # new host" does both. Keep the marker line; the script inserts new hosts
+      # directly above it.
+      hosts = {
+        prometheus = "aarch64-darwin";
+        vulcan = "aarch64-darwin";
+        perseus = "x86_64-linux";
+        # bootstrap-hosts-marker (do not remove)
+      };
+
+      mkDarwin =
+        host: _system:
+        nix-darwin.lib.darwinSystem {
+          specialArgs = { inherit inputs outputs user; };
+          modules = [ ./modules/macos/${host}/${host}.nix ];
+        };
+
+      mkHome =
+        host: system:
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = nixpkgs.legacyPackages.${system};
+          extraSpecialArgs = { inherit inputs nixgl outputs user; };
+          modules = [ ./modules/home-manager/hosts/${host}/${host}.nix ];
+        };
     in
     {
       overlays = import ./overlays { inherit inputs; };
 
       # MacOS configuration entrypoint
       # Available through nix run nix-darwin -- switch --flake .
-      darwinConfigurations = {
-        # Desktop mac (Apple Silicon)
-        vulcan = nix-darwin.lib.darwinSystem {
-          specialArgs = {
-            inherit
-              inputs
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/macos/vulcan/vulcan.nix
-          ];
-        };
-
-        # Work mac (Apple Silicon)
-        prometheus = nix-darwin.lib.darwinSystem {
-          specialArgs = {
-            inherit
-              inputs
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/macos/prometheus/prometheus.nix
-          ];
-        };
-      };
+      darwinConfigurations = lib.mapAttrs mkDarwin (
+        lib.filterAttrs (_: system: lib.hasSuffix "darwin" system) hosts
+      );
 
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager switch --flake .#your-username@your-hostname'
-      homeConfigurations = {
-        # Work laptop
-        "${user}@perseus" = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          extraSpecialArgs = {
-            inherit
-              inputs
-              nixgl
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/home-manager/hosts/perseus/perseus.nix
-          ];
-        };
-
-        # Work mac (Apple Silicon)
-        "${user}@prometheus" = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = {
-            inherit
-              inputs
-              nixgl
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/home-manager/hosts/prometheus/prometheus.nix
-          ];
-        };
-
-        # Desktop mac (Apple Silicon)
-        "${user}@vulcan" = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.aarch64-darwin;
-          extraSpecialArgs = {
-            inherit
-              inputs
-              nixgl
-              outputs
-              user
-              ;
-          };
-
-          modules = [
-            ./modules/home-manager/hosts/vulcan/vulcan.nix
-          ];
-        };
-      };
+      homeConfigurations = lib.mapAttrs' (
+        host: system: lib.nameValuePair "${user}@${host}" (mkHome host system)
+      ) hosts;
     };
 }
