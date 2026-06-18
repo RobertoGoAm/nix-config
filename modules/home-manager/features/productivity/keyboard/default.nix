@@ -13,7 +13,9 @@
   #                           (verified: builds a ~45 KB shortcut_bridge75_via.bin).
   #   - via-definition.json : load in usevia.app's Design tab to edit on the fly.
   #   - firmware.bin        : stock vendor firmware (factory restore).
-  #   - layout.json         : legacy VIA keymap export (the pre-firmware approach).
+  #   - layout.json         : VIA layout matching this firmware (Colemak + SYM/NAV,
+  #                           BT as CUSTOM(0/1/2/3/6)); import in usevia.app to
+  #                           restore the full keymap, or keep as a tweak backup.
   # Flash: hold Esc while plugging in USB (wb32-dfu bootloader), then QMK Toolbox.
   home.file = {
     "keyboards/bridge75/colemak-keymap.c".source = ./bridge75-colemak-keymap.c;
