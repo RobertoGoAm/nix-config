@@ -3,7 +3,11 @@ let
   cfg = config.features.development.antigravity;
   binDir = "${cfg.appPath}/Contents/Resources/app/bin";
   ideCli =
-    if builtins.pathExists "${binDir}/antigravity-ide" then
+    # Linux: the IDE comes from the nix package (no macOS .app layout), so point
+    # the agy/agy-ide shims straight at its binary. macOS: resolve inside the .app.
+    if !pkgs.stdenv.hostPlatform.isDarwin then
+      lib.getExe pkgs.antigravity
+    else if builtins.pathExists "${binDir}/antigravity-ide" then
       "${binDir}/antigravity-ide"
     else if builtins.pathExists "${binDir}/antigravity" then
       "${binDir}/antigravity"
