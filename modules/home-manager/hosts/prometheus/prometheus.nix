@@ -37,6 +37,7 @@
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
+    ../../features/productivity/karabiner.nix
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
