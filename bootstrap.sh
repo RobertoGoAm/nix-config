@@ -7,21 +7,20 @@
 # From an existing checkout:
 #   ./bootstrap.sh <host>                 # host = prometheus | vulcan | perseus
 #
-# SECRETS — two ways to provide them:
-#   a) Place them yourself beforehand:
-#        ~/.config/sops/age/system_keys.txt   your age key
-#        ~/.config/nix-secrets/secrets.yaml   your encrypted secrets
-#   b) Pull them from Bitwarden — add `--bw`:
-#        curl -fsSL .../bootstrap.sh | bash -s -- <host> --bw
+# SECRETS — Bitwarden is the DEFAULT source. Two ways:
+#   a) DEFAULT — pull from Bitwarden (no flag needed):
+#        curl -fsSL .../bootstrap.sh | bash -s -- <host>
 #      On one item named "nix-config" (override via BW_ITEM) provide:
 #        - age key : attachment "system_keys.txt", or a custom field of that name
 #        - secrets : attachment "secrets.yaml",    or the item's Note
 #        - optional: attachments "sops-secrets.nix" / "work-extras.nix"
 #      (Attachments need Bitwarden Premium; the field+note path works on free.)
 #      Vaultwarden / self-hosted? add `--bw-server https://your.vault` (or export BW_SERVER).
-#   No password manager at all? Use (a) — drop `--bw`; the script reads the two
-#   files straight from disk. secrets.yaml is sops-encrypted, so it's safe to keep
-#   in a private git repo / cloud; move only the small age key out-of-band.
+#   b) No password manager — place them yourself + add `--no-bw`:
+#        ~/.config/sops/age/system_keys.txt   your age key
+#        ~/.config/nix-secrets/secrets.yaml   your encrypted secrets (sops-encrypted,
+#                                             so safe in a private repo / cloud)
+#      (If both files already exist they're used even without --no-bw.)
 set -euo pipefail
 
 REPO_URL="https://github.com/RobertoGoAm/nix-config.git"
@@ -116,10 +115,11 @@ fetch_from_bitwarden() {
 
 # --- arguments ---
 HOST=""
-USE_BW=0
+USE_BW=1   # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
 while [ $# -gt 0 ]; do
   case "$1" in
     --bw|--bitwarden) USE_BW=1; shift ;;
+    --no-bw|--local)  USE_BW=0; shift ;;
     # Vaultwarden / any self-hosted Bitwarden server (implies --bw). Both forms work.
     --bw-server) USE_BW=1; BW_SERVER="${2:-}"; [ -n "$BW_SERVER" ] || die "--bw-server needs a URL"; shift 2 ;;
     --bw-server=*) USE_BW=1; BW_SERVER="${1#*=}"; shift ;;
@@ -127,7 +127,7 @@ while [ $# -gt 0 ]; do
     *) if [ -z "$HOST" ]; then HOST="$1"; else die "unexpected argument: $1"; fi; shift ;;
   esac
 done
-[ -n "$HOST" ] || die "usage: bootstrap.sh <host> [--bw] [--bw-server <url>]   (host: prometheus | vulcan | perseus)"
+[ -n "$HOST" ] || die "usage: bootstrap.sh <host> [--no-bw] [--bw-server <url>]   (host: prometheus | vulcan | perseus)"
 
 # 1. Secrets: already present, or pull from Bitwarden, or fail fast.
 if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
@@ -135,7 +135,7 @@ if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
 elif [ "$USE_BW" = 1 ]; then
   fetch_from_bitwarden
 else
-  die "missing $AGE_KEY and/or $SECRETS — place them first, or re-run with --bw to pull them from Bitwarden"
+  die "missing $AGE_KEY and/or $SECRETS — place them first (README 'Secrets Setup'), or drop --no-bw to pull from Bitwarden"
 fi
 
 # 2. Locate (or fetch) the repo. Piped via curl with no checkout? Clone it —

@@ -4,23 +4,22 @@ Multiplatform nix configuration to handle installing applications, configuring t
 
 ## Quick start (automated)
 
-`bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi + SSH public keys.
+`bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi + SSH public keys. It pulls your secrets from **Bitwarden by default**.
 
-1. **Get your secrets onto the machine** — either:
-   - **Place them yourself**: `~/.config/sops/age/system_keys.txt` (your age key) and `~/.config/nix-secrets/secrets.yaml` (plus optional `~/.config/nix-secrets/{sops-secrets.nix,work-extras.nix}`); **or**
-   - **Pull them from Bitwarden** with `--bw`: on one item named `nix-config`, store the **age key** as an attachment `system_keys.txt` *or* a custom field of that name, and **secrets.yaml** as an attachment *or* the item's **Note**. (Attachments need Bitwarden Premium; the field+note path works on the free tier.) If you keep machine-local `sops-secrets.nix` / `work-extras.nix`, attach those to the same item too — they're restored when present. The script fetches the `bw` CLI from Nix, prompts for your login, downloads everything, and places it. Override with `BW_ITEM` / `AGE_KEY_ATTACHMENT` / `SECRETS_ATTACHMENT` / `BW_SERVER`.
-2. **Run one line** — it clones itself and does everything (`<host>` = `prometheus`, `vulcan`, or `perseus`; drop `--bw` if you placed the secrets yourself):
+1. **Have your secrets in Bitwarden** (the default) — on one item named `nix-config`, store the **age key** as an attachment `system_keys.txt` *or* a custom field of that name, and **secrets.yaml** as an attachment *or* the item's **Note**; optionally attach machine-local `sops-secrets.nix` / `work-extras.nix` too (restored when present). See **First-time Bitwarden setup** below to create the item. (Attachments use Bitwarden Premium; the field+note path works on the free tier.) Override names with `BW_ITEM` / `AGE_KEY_ATTACHMENT` / `SECRETS_ATTACHMENT`.
+   - *No password manager?* Place `~/.config/sops/age/system_keys.txt` + `~/.config/nix-secrets/secrets.yaml` yourself and pass `--no-bw` (see **Free alternative to Bitwarden**).
+2. **Run one line** — it clones itself and does everything (`<host>` = `prometheus`, `vulcan`, or `perseus`):
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw
+   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
    ```
    No `curl`? Use `wget` (some minimal Linux images ship it instead); the script then uses whichever you have for the rest too:
    ```bash
-   wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw
+   wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
    ```
-   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. Already have the repo checked out? Just run `./bootstrap.sh <host> [--bw]` from it.
-3. **Enter your Bitwarden login (if using `--bw`) and your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for paneru, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
+   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. Already checked out? Run `./bootstrap.sh <host>` from it. Flags: `--no-bw` (you placed the secrets yourself) or `--bw-server=<url>` (self-hosted Vaultwarden).
+3. **Log in to Bitwarden, enter your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for paneru, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
 
-Bluetooth devices still need re-pairing by hand. The step-by-step sections below are exactly what the script automates — use them to do it manually or to debug.
+Bluetooth devices still need re-pairing by hand. The manual sections below are exactly what the script automates — use them only to do it by hand or to debug.
 
 ### First-time Bitwarden setup
 
@@ -48,11 +47,13 @@ Free tier without attachments? Put the age key in a **custom field** named `syst
   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw-server=https://your.vault
   ```
   (`BW_SERVER=https://your.vault` as an env var works too.) Populate the `nix-config` item exactly as in **First-time Bitwarden setup** above — attachments are free here, so no note-size limit. Best if you want the `--bw` flow without paying.
-- **No password manager at all** — skip `--bw` and use the *place-them-yourself* path. Create the two files once (see **Secrets Setup** below), then put them on each machine and run `bootstrap.sh <host>`:
+- **No password manager at all** — add `--no-bw` and use the *place-them-yourself* path. Create the two files once (see **Secrets Setup** below), then put them on each machine and run `bootstrap.sh <host> --no-bw`:
   - `~/.config/sops/age/system_keys.txt` — your age key (tiny; move it out-of-band, e.g. USB/scp).
   - `~/.config/nix-secrets/secrets.yaml` — already sops-encrypted, so it's safe to keep in a private git repo or any cloud and just `git pull`/download it.
 
-## MacOS steps
+## Manual install (macOS)
+
+> The **Quick start** above automates all of this. These steps are the manual / debug equivalent.
 
 (Optional) Disable and re-enable password for sudo
 
@@ -158,7 +159,9 @@ pubkey-setup
 
 It regenerates `~/.ssh/*.pub` for every private key. Unencrypted keys (the sops-rendered ones) derive silently; passphrase-protected keys prompt for the passphrase. `bootstrap.sh` runs this for you on a fresh install.
 
-## Linux steps (non-NixOS)
+## Manual install (Linux, non-NixOS)
+
+> The **Quick start** above automates all of this. These steps are the manual / debug equivalent.
 
 (Optional) Disable and re-enable password for sudo
 
