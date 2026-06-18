@@ -741,6 +741,10 @@ let
   '';
 in
 {
-  home.packages = [ pkgs.karabiner-elements ];
-  home.file.".config/karabiner".source = karabinerDir;
+  # macOS only — Linux uses keyd (features/productivity/keyd). karabiner-elements
+  # isn't available off darwin, so an ungated import would break perseus's build.
+  config = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+    home.packages = [ pkgs.karabiner-elements ];
+    home.file.".config/karabiner".source = karabinerDir;
+  };
 }
