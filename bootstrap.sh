@@ -203,9 +203,13 @@ else
   fi
 fi
 
-# 7. Wi-Fi.
+# 7. Post-activation user commands: SSH public keys + Wi-Fi.
 export PATH="/etc/profiles/per-user/$USER/bin:$HOME/.nix-profile/bin:$PATH"
 hash -r 2>/dev/null || true
+if command -v ssh-pubkeys >/dev/null 2>&1; then
+  bold "Deriving ~/.ssh/*.pub from your private keys"
+  ssh-pubkeys || true
+fi
 if command -v wifi-setup >/dev/null 2>&1; then
   bold "Seeding Wi-Fi from secrets"
   wifi-setup || true
@@ -220,5 +224,6 @@ Almost there — the bits macOS won't let a script do:
       Accessibility  → paneru          (window manager)
       Automation     → "System Events" (wallpaper)
   • Re-pair Bluetooth devices by hand.
-  • If 'wifi-setup' didn't run above, open a new shell and run it.
+  • If 'wifi-setup' or 'ssh-pubkeys' didn't run above, open a new shell and run them
+    ('ssh-pubkeys' prompts for any passphrase-protected key — that's expected).
 EOF
