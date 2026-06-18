@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # One-shot bootstrap for this nix-config. Idempotent — safe to re-run.
 #
-# Fresh machine, one line (it clones itself):
+# Fresh machine, one line (it clones itself) — curl, or wget if that's what you have:
 #   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
+#   wget -qO-  https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
 # From an existing checkout:
 #   ./bootstrap.sh <host>                 # host = prometheus | vulcan | perseus
 #
@@ -30,9 +31,21 @@ SECRETS_ATTACHMENT="${SECRETS_ATTACHMENT:-secrets.yaml}"
 bold() { printf '\n\033[1;34m==>\033[0m \033[1m%s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Fetch a URL to stdout with whatever downloader is present (curl or wget), so a
+# minimal Linux box that ships only one of them still works end to end.
+fetch() {
+  if command -v curl >/dev/null 2>&1; then
+    curl --proto '=https' --tlsv1.2 -sSf -L "$1"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$1"
+  else
+    die "need 'curl' or 'wget' to download $1 — install one (e.g. sudo apt install -y curl) and re-run"
+  fi
+}
+
 install_nix() {
   command -v nix >/dev/null 2>&1 || \
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+    fetch https://install.determinate.systems/nix | sh -s -- install --no-confirm
   # shellcheck disable=SC1091
   [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ] && \
     . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
