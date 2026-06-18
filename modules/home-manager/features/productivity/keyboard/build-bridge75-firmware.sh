@@ -4,8 +4,9 @@
 # enabled so you can tweak on the fly from usevia.app afterwards (and the
 # wireless keys KC_USB/KC_BT1..3/KC_2G4 are real keycodes, so BT survives).
 #
-# Needs qmk + the ARM toolchain. Easiest:
-#   nix-shell -p qmk gcc-arm-embedded --run ~/keyboards/bridge75/build-firmware.sh
+# Needs qmk + the ARM toolchain (+ wb32-dfu-updater to flash). Easiest:
+#   nix-shell -p qmk gcc-arm-embedded gnumake git wb32-dfu-updater \
+#     --run ~/keyboards/bridge75/build-firmware.sh
 # or natively on macOS:
 #   brew install qmk && qmk setup        # one-time; installs the toolchain
 #   ~/keyboards/bridge75/build-firmware.sh

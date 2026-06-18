@@ -9,7 +9,8 @@
   #   - colemak-keymap.c    : layer 0 = Colemak; Fn keeps KC_USB/KC_BT1..3/KC_2G4.
   #   - via-rules.mk        : VIA_ENABLE=yes for the compiled `via` keymap.
   #   - build-firmware.sh   : clone fork, drop in the via keymap, `qmk compile`.
-  #                           Needs qmk + ARM toolchain (nix-shell -p qmk gcc-arm-embedded).
+  #                           nix-shell -p qmk gcc-arm-embedded gnumake git wb32-dfu-updater
+  #                           (verified: builds a ~45 KB shortcut_bridge75_via.bin).
   #   - via-definition.json : load in usevia.app's Design tab to edit on the fly.
   #   - firmware.bin        : stock vendor firmware (factory restore).
   #   - layout.json         : legacy VIA keymap export (the pre-firmware approach).
