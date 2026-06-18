@@ -7,18 +7,19 @@ let
   # because `ssh-keygen -y` prompts for the passphrase on encrypted keys and
   # would otherwise block the non-interactive nix-build / home-manager switch.
   # Unencrypted keys (e.g. the sops-rendered ones on the macs) derive silently;
-  # passphrase-protected keys prompt only when you run this by hand.
+  # passphrase-protected keys prompt for their passphrase — only when you run
+  # this by hand — and the private key is never modified or downgraded.
   #
   # Cross-platform: iterates $HOME/.ssh on macOS and Linux alike. Run it once on
   # a fresh machine (bootstrap.sh does this for you) and after adding/rotating a
   # key whose .pub is missing or stale.
-  ssh-pubkeys = pkgs.writeShellScriptBin "ssh-pubkeys" ''
+  pubkey-setup = pkgs.writeShellScriptBin "pubkey-setup" ''
     set -uo pipefail
     sshdir="$HOME/.ssh"
     keygen="${pkgs.openssh}/bin/ssh-keygen"
-    [ -d "$sshdir" ] || { echo "ssh-pubkeys: $sshdir not found — nothing to do." >&2; exit 0; }
+    [ -d "$sshdir" ] || { echo "pubkey-setup: $sshdir not found — nothing to do." >&2; exit 0; }
 
-    echo "ssh-pubkeys: regenerating *.pub from private keys in $sshdir"
+    echo "pubkey-setup: regenerating *.pub from private keys in $sshdir"
     for k in "$sshdir"/*; do
       case "$k" in
         *.pub | */config | */config_clients | */known_hosts* | */authorized_keys | */allowed_signers | */agent) continue ;;
@@ -48,9 +49,9 @@ let
         fi
       fi
     done
-    echo "ssh-pubkeys: done"
+    echo "pubkey-setup: done"
   '';
 in
 {
-  home.packages = [ ssh-pubkeys ];
+  home.packages = [ pubkey-setup ];
 }

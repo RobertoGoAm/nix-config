@@ -69,7 +69,7 @@
           path = "/Users/${user}/.ssh/id_rsa";
         };
         # *.pub files are not stored in sops — derive them from the private
-        # keys above with the `ssh-pubkeys` command (see features/security).
+        # keys above with the `pubkey-setup` command (see features/security).
       };
     };
 
