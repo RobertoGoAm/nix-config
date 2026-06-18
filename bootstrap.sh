@@ -2,10 +2,11 @@
 # One-shot bootstrap for this nix-config. Idempotent — safe to re-run.
 #
 # Fresh machine, one line (it clones itself) — curl, or wget if that's what you have:
-#   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
-#   wget -qO-  https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host>
-# From an existing checkout:
-#   ./bootstrap.sh <host>                 # host = prometheus | vulcan | perseus
+#   curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash
+#   wget -qO-  https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash
+# With no host argument you get an interactive menu: pick an existing host, or
+# "Create a new host" (choose a base to duplicate + a name). Pass a host to skip it:
+#   ./bootstrap.sh <host>                 # e.g. prometheus | vulcan | perseus
 #
 # SECRETS — Bitwarden is the DEFAULT source. Two ways:
 #   a) DEFAULT — pull from Bitwarden (no flag needed):
@@ -113,6 +114,113 @@ fetch_from_bitwarden() {
   bold "Secrets restored from Bitwarden"
 }
 
+CREATED_HOST=0
+
+# --- interactive host selection / duplication ---
+list_hosts() { ls -1 "$REPO/modules/home-manager/hosts" 2>/dev/null | sort; }
+is_darwin_host() { [ -d "$REPO/modules/macos/$1" ]; }
+
+# Platform string for a host, read from the flake `hosts` map (fallback by OS dir).
+host_system() {
+  local h="$1" s=""
+  s="$(sed -n "s/.*${h} = \"\([a-z0-9_-]*\)\".*/\1/p" "$REPO/flake.nix" 2>/dev/null | head -1 || true)"
+  if [ -z "$s" ]; then
+    if is_darwin_host "$h"; then s="aarch64-darwin"; else s="x86_64-linux"; fi
+  fi
+  printf '%s' "$s"
+}
+
+# Copy an existing host's modules under a new name + register it in the flake.
+# Idempotent: an already-existing host is reused untouched.
+duplicate_host() {
+  local base="$1" new="$2" system f
+  if [ -d "$REPO/modules/home-manager/hosts/$new" ]; then
+    bold "Host '$new' already exists — reusing it"
+    return 0
+  fi
+  system="$(host_system "$base")"
+  bold "Duplicating '$base' -> '$new' ($system)"
+  cp -R "$REPO/modules/home-manager/hosts/$base" "$REPO/modules/home-manager/hosts/$new"
+  if [ -f "$REPO/modules/home-manager/hosts/$new/$base.nix" ]; then
+    mv "$REPO/modules/home-manager/hosts/$new/$base.nix" "$REPO/modules/home-manager/hosts/$new/$new.nix"
+  fi
+  if is_darwin_host "$base"; then
+    cp -R "$REPO/modules/macos/$base" "$REPO/modules/macos/$new"
+    if [ -f "$REPO/modules/macos/$new/$base.nix" ]; then
+      mv "$REPO/modules/macos/$new/$base.nix" "$REPO/modules/macos/$new/$new.nix"
+    fi
+    f="$REPO/modules/macos/$new/$new.nix"
+    if sed --version >/dev/null 2>&1; then
+      sed -i -e "s|networking.hostName = \"$base\"|networking.hostName = \"$new\"|" \
+             -e "s|home-manager/hosts/$base/$base.nix|home-manager/hosts/$new/$new.nix|" "$f"
+    else
+      sed -i '' -e "s|networking.hostName = \"$base\"|networking.hostName = \"$new\"|" \
+                -e "s|home-manager/hosts/$base/$base.nix|home-manager/hosts/$new/$new.nix|" "$f"
+    fi
+  fi
+  if ! grep -qE "^[[:space:]]*${new} = \"" "$REPO/flake.nix"; then
+    awk -v line="        ${new} = \"${system}\";" \
+      '/# bootstrap-hosts-marker/ && !d { print line; d=1 } { print }' \
+      "$REPO/flake.nix" > "$REPO/flake.nix.tmp" && mv "$REPO/flake.nix.tmp" "$REPO/flake.nix"
+  fi
+  CREATED_HOST=1
+  bold "Scaffolded host '$new' — review + commit it after the run"
+}
+
+new_host_flow() {
+  local bases=() h base new
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    if [ "$OS" = "Darwin" ]; then
+      if is_darwin_host "$h"; then bases+=("$h"); fi
+    else
+      if ! is_darwin_host "$h"; then bases+=("$h"); fi
+    fi
+  done < <(list_hosts)
+  [ "${#bases[@]}" -gt 0 ] || die "no $OS host available to duplicate"
+  bold "Pick a host to duplicate as the base:"
+  PS3="> "
+  select base in "${bases[@]}"; do
+    if [ -n "${base:-}" ]; then break; else echo "Pick a number." >/dev/tty; fi
+  done < /dev/tty
+  while :; do
+    printf 'New host name (lowercase, e.g. atlas): ' >/dev/tty
+    IFS= read -r new < /dev/tty || die "no input on /dev/tty"
+    new="$(printf '%s' "$new" | tr -d '[:space:]')"
+    if [ -z "$new" ]; then echo "Empty name." >/dev/tty; continue; fi
+    if ! printf '%s' "$new" | grep -qE '^[a-z][a-z0-9-]*$'; then
+      echo "Lowercase letters, digits, dashes only." >/dev/tty; continue
+    fi
+    if list_hosts | grep -qx "$new"; then
+      echo "'$new' already exists — pick it from the menu instead." >/dev/tty; continue
+    fi
+    break
+  done
+  duplicate_host "$base" "$new"
+  HOST="$new"
+}
+
+# Resolve HOST: keep a given arg, else show the menu (needs a terminal).
+choose_host() {
+  if [ -n "$HOST" ]; then return 0; fi
+  [ -e /dev/tty ] || die "no host given and no terminal for the menu — pass one, e.g. ./bootstrap.sh prometheus"
+  local existing=() h choice
+  while IFS= read -r h; do
+    if [ -n "$h" ]; then existing+=("$h"); fi
+  done < <(list_hosts)
+  bold "Which host is this machine?"
+  PS3="> "
+  select choice in "${existing[@]}" "Create a new host"; do
+    if [ "${choice:-}" = "Create a new host" ]; then
+      new_host_flow; break
+    elif [ -n "${choice:-}" ]; then
+      HOST="$choice"; break
+    else
+      echo "Pick a number." >/dev/tty
+    fi
+  done < /dev/tty
+}
+
 # --- arguments ---
 HOST=""
 USE_BW=1   # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
@@ -127,7 +235,7 @@ while [ $# -gt 0 ]; do
     *) if [ -z "$HOST" ]; then HOST="$1"; else die "unexpected argument: $1"; fi; shift ;;
   esac
 done
-[ -n "$HOST" ] || die "usage: bootstrap.sh <host> [--no-bw] [--bw-server <url>]   (host: prometheus | vulcan | perseus)"
+# HOST may be empty here — resolved interactively after the repo is available.
 
 # 1. Secrets: already present, or pull from Bitwarden, or fail fast.
 if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
@@ -160,10 +268,23 @@ else
       nix run nixpkgs#git -- clone "$REPO_URL" "$CLONE_DIR"
     fi
   fi
-  exec bash "$CLONE_DIR/bootstrap.sh" "$HOST"
+  # Re-run from the clone, preserving the original choices (empty host -> menu).
+  reexec=()
+  if [ -n "$HOST" ]; then reexec+=("$HOST"); fi
+  if [ "$USE_BW" = 0 ]; then reexec+=("--no-bw"); fi
+  if [ -n "${BW_SERVER:-}" ]; then reexec+=("--bw-server=$BW_SERVER"); fi
+  if [ "${#reexec[@]}" -gt 0 ]; then
+    exec bash "$CLONE_DIR/bootstrap.sh" "${reexec[@]}"
+  else
+    exec bash "$CLONE_DIR/bootstrap.sh"
+  fi
 fi
 cd "$REPO"
 OS="$(uname)"
+
+# Pick the host: a given arg, an existing host from the menu, or a new host
+# duplicated from one you choose. Sets HOST (and may scaffold new module files).
+choose_host
 
 mkdir -p "$HOME/.config/nix-secrets"
 ln -sf "$REPO/.sops.yaml" "$HOME/.config/nix-secrets/.sops.yaml"
@@ -207,6 +328,11 @@ command -v nix >/dev/null 2>&1 || die "nix not on PATH yet — open a new shell 
 
 # 6. Build + activate. Build as your user with --impure (so the machine-local
 #    files under ~/.config/nix-secrets are read); escalate only to activate.
+if [ "$CREATED_HOST" = 1 ]; then
+  # Stage the scaffolded host so the (dirty) flake includes it — flakes ignore
+  # untracked files. You review + commit it yourself afterwards.
+  git -C "$REPO" add -A 2>/dev/null || true
+fi
 if [ "$OS" = "Darwin" ]; then
   bold "Building darwin system for '$HOST' (the long part)"
   sys="$(nix build --impure --no-link --print-out-paths ".#darwinConfigurations.$HOST.system")"
@@ -235,6 +361,10 @@ if command -v wifi-setup >/dev/null 2>&1; then
 fi
 
 bold "Done."
+if [ "$CREATED_HOST" = 1 ]; then
+  printf '\nNew host "%s" was scaffolded from your chosen base and built.\nReview and commit it:\n  git -C "%s" add -A && git -C "%s" commit -m "feat(hosts): add %s"\n' \
+    "$HOST" "$REPO" "$REPO" "$HOST"
+fi
 cat <<EOF
 
 Almost there — the bits macOS won't let a script do:
