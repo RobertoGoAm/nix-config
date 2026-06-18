@@ -5,3 +5,9 @@ secrets/
 *.sops.json
 private/
 *.env
+
+# macOS
+.DS_Store
+
+# Serena (MCP) project cache
+.serena/
