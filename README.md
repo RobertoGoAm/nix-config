@@ -119,7 +119,7 @@ It adds them as preferred networks (you'll be asked for your password once); mac
 Public keys aren't stored in `secrets.yaml` — they're derived from your private keys. After the rebuild (and any time you add or rotate a key), run:
 
 ```bash
-ssh-pubkeys
+pubkey-setup
 ```
 
 It regenerates `~/.ssh/*.pub` for every private key. Unencrypted keys (the sops-rendered ones) derive silently; passphrase-protected keys prompt for the passphrase. `bootstrap.sh` runs this for you on a fresh install.
@@ -210,7 +210,7 @@ This registers them as NetworkManager connections.
 
 ### SSH public keys
 
-Same as macOS — run `ssh-pubkeys` to regenerate `~/.ssh/*.pub` from your private keys (it prompts for any passphrase-protected key).
+Same as macOS — run `pubkey-setup` to regenerate `~/.ssh/*.pub` from your private keys (it prompts for any passphrase-protected key).
 
 ## Troubleshooting
 
