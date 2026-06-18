@@ -43,8 +43,14 @@ Free tier without attachments? Put the age key in a **custom field** named `syst
 
 ### Free alternative to Bitwarden
 
-- **Vaultwarden** — a self-hosted, Bitwarden-compatible server; attachments are free (no Premium). The same `bw` CLI works against it — just point it at your server with `BW_SERVER=https://your.vault` (the bootstrap honours it) or `bw config server https://your.vault`. Best if you want the `--bw` flow without paying.
-- **No password manager at all** — skip `--bw` and use the *place-them-yourself* path: copy `system_keys.txt` (tiny — USB/scp) and `secrets.yaml` (already sops-encrypted, so safe in a private git repo or any cloud) onto the machine, then run `bootstrap.sh <host>`.
+- **Vaultwarden** — a self-hosted, Bitwarden-compatible server; attachments are free (no Premium). Point the bootstrap at it with `--bw-server` (which implies `--bw`):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw-server=https://your.vault
+  ```
+  (`BW_SERVER=https://your.vault` as an env var works too.) Populate the `nix-config` item exactly as in **First-time Bitwarden setup** above — attachments are free here, so no note-size limit. Best if you want the `--bw` flow without paying.
+- **No password manager at all** — skip `--bw` and use the *place-them-yourself* path. Create the two files once (see **Secrets Setup** below), then put them on each machine and run `bootstrap.sh <host>`:
+  - `~/.config/sops/age/system_keys.txt` — your age key (tiny; move it out-of-band, e.g. USB/scp).
+  - `~/.config/nix-secrets/secrets.yaml` — already sops-encrypted, so it's safe to keep in a private git repo or any cloud and just `git pull`/download it.
 
 ## MacOS steps
 

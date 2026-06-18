@@ -18,7 +18,10 @@
 #        - secrets : attachment "secrets.yaml",    or the item's Note
 #        - optional: attachments "sops-secrets.nix" / "work-extras.nix"
 #      (Attachments need Bitwarden Premium; the field+note path works on free.)
-#      Self-hosted vault? export BW_SERVER=https://your.vault.
+#      Vaultwarden / self-hosted? add `--bw-server https://your.vault` (or export BW_SERVER).
+#   No password manager at all? Use (a) — drop `--bw`; the script reads the two
+#   files straight from disk. secrets.yaml is sops-encrypted, so it's safe to keep
+#   in a private git repo / cloud; move only the small age key out-of-band.
 set -euo pipefail
 
 REPO_URL="https://github.com/RobertoGoAm/nix-config.git"
@@ -114,14 +117,17 @@ fetch_from_bitwarden() {
 # --- arguments ---
 HOST=""
 USE_BW=0
-for a in "$@"; do
-  case "$a" in
-    --bw|--bitwarden) USE_BW=1 ;;
-    -*) die "unknown flag: $a" ;;
-    *) if [ -z "$HOST" ]; then HOST="$a"; else die "unexpected argument: $a"; fi ;;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --bw|--bitwarden) USE_BW=1; shift ;;
+    # Vaultwarden / any self-hosted Bitwarden server (implies --bw). Both forms work.
+    --bw-server) USE_BW=1; BW_SERVER="${2:-}"; [ -n "$BW_SERVER" ] || die "--bw-server needs a URL"; shift 2 ;;
+    --bw-server=*) USE_BW=1; BW_SERVER="${1#*=}"; shift ;;
+    -*) die "unknown flag: $1" ;;
+    *) if [ -z "$HOST" ]; then HOST="$1"; else die "unexpected argument: $1"; fi; shift ;;
   esac
 done
-[ -n "$HOST" ] || die "usage: bootstrap.sh <host> [--bw]   (host: prometheus | vulcan | perseus)"
+[ -n "$HOST" ] || die "usage: bootstrap.sh <host> [--bw] [--bw-server <url>]   (host: prometheus | vulcan | perseus)"
 
 # 1. Secrets: already present, or pull from Bitwarden, or fail fast.
 if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
