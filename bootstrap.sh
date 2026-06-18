@@ -22,6 +22,8 @@
 #        ~/.config/nix-secrets/secrets.yaml   your encrypted secrets (sops-encrypted,
 #                                             so safe in a private repo / cloud)
 #      (If both files already exist they're used even without --no-bw.)
+#   c) No secrets at all — add `--no-secrets`: builds the public config with sops
+#      auto-disabled (no SSH keys / Wi-Fi / tokens). Handy for adopting this config.
 set -euo pipefail
 
 REPO_URL="https://github.com/RobertoGoAm/nix-config.git"
@@ -120,14 +122,14 @@ CREATED_HOST=0
 list_hosts() { ls -1 "$REPO/modules/home-manager/hosts" 2>/dev/null | sort; }
 is_darwin_host() { [ -d "$REPO/modules/macos/$1" ]; }
 
-# Platform string for a host, read from the flake `hosts` map (fallback by OS dir).
-host_system() {
-  local h="$1" s=""
-  s="$(sed -n "s/.*${h} = \"\([a-z0-9_-]*\)\".*/\1/p" "$REPO/flake.nix" 2>/dev/null | head -1 || true)"
-  if [ -z "$s" ]; then
-    if is_darwin_host "$h"; then s="aarch64-darwin"; else s="x86_64-linux"; fi
+# System string for THIS machine — a new host runs here, so its arch is ours.
+machine_system() {
+  local arch; arch="$(uname -m)"
+  if [ "$OS" = "Darwin" ]; then
+    case "$arch" in arm64) echo "aarch64-darwin" ;; *) echo "x86_64-darwin" ;; esac
+  else
+    case "$arch" in aarch64 | arm64) echo "aarch64-linux" ;; *) echo "x86_64-linux" ;; esac
   fi
-  printf '%s' "$s"
 }
 
 # Copy an existing host's modules under a new name + register it in the flake.
@@ -138,7 +140,7 @@ duplicate_host() {
     bold "Host '$new' already exists — reusing it"
     return 0
   fi
-  system="$(host_system "$base")"
+  system="$(machine_system)"
   bold "Duplicating '$base' -> '$new' ($system)"
   cp -R "$REPO/modules/home-manager/hosts/$base" "$REPO/modules/home-manager/hosts/$new"
   if [ -f "$REPO/modules/home-manager/hosts/$new/$base.nix" ]; then
@@ -223,11 +225,13 @@ choose_host() {
 
 # --- arguments ---
 HOST=""
-USE_BW=1   # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
+USE_BW=1       # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
+NO_SECRETS=0   # --no-secrets: build with no secrets at all (sops auto-disables)
 while [ $# -gt 0 ]; do
   case "$1" in
     --bw|--bitwarden) USE_BW=1; shift ;;
     --no-bw|--local)  USE_BW=0; shift ;;
+    --no-secrets)     NO_SECRETS=1; USE_BW=0; shift ;;
     # Vaultwarden / any self-hosted Bitwarden server (implies --bw). Both forms work.
     --bw-server) USE_BW=1; BW_SERVER="${2:-}"; [ -n "$BW_SERVER" ] || die "--bw-server needs a URL"; shift 2 ;;
     --bw-server=*) USE_BW=1; BW_SERVER="${1#*=}"; shift ;;
@@ -237,13 +241,17 @@ while [ $# -gt 0 ]; do
 done
 # HOST may be empty here — resolved interactively after the repo is available.
 
-# 1. Secrets: already present, or pull from Bitwarden, or fail fast.
-if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
+# 1. Secrets: skip (--no-secrets), use present files, pull from Bitwarden, or
+#    fail fast. With no age key the build auto-disables sops, so --no-secrets
+#    (or simply having none) still produces a working system.
+if [ "$NO_SECRETS" = 1 ]; then
+  bold "Skipping secrets (--no-secrets) — sops auto-disables without an age key"
+elif [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
   :
 elif [ "$USE_BW" = 1 ]; then
   fetch_from_bitwarden
 else
-  die "missing $AGE_KEY and/or $SECRETS — place them first (README 'Secrets Setup'), or drop --no-bw to pull from Bitwarden"
+  die "missing $AGE_KEY and/or $SECRETS — place them first (README 'Secrets Setup'), drop --no-bw to pull from Bitwarden, or pass --no-secrets to build without any"
 fi
 
 # 2. Locate (or fetch) the repo. Piped via curl with no checkout? Clone it —
