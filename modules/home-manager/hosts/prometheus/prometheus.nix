@@ -39,6 +39,7 @@
     ../../features/media/yt-dlp.nix
     ../../features/productivity/karabiner.nix
     ../../features/productivity/keyboard
+    ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
   ];
