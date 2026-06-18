@@ -1,10 +1,15 @@
 {
   pkgs,
   config,
+  lib,
   ...
 }:
 let
-  chromiumDev = pkgs.stdenv.mkDerivation {
+  # Chromium with web security disabled, for local development. macOS gets a
+  # proper .app bundle (so it shows in Launchpad/Spotlight as a separate app);
+  # Linux gets a plain `chromium-dev` wrapper script around the chromium binary
+  # (perseus already has chromium via chromium.nix). Same flags either way.
+  darwinApp = pkgs.stdenv.mkDerivation {
     pname = "chromium-dev";
     version = "1.0.0";
 
@@ -66,7 +71,14 @@ PLIST
       platforms = pkgs.lib.platforms.darwin;
     };
   };
+
+  linuxBin = pkgs.writeShellScriptBin "chromium-dev" ''
+    exec ${config.programs.chromium.package}/bin/chromium \
+      --disable-web-security \
+      --user-data-dir="/tmp/chromium_dev" \
+      "$@"
+  '';
 in
 {
-  home.packages = [ chromiumDev ];
+  home.packages = [ (if pkgs.stdenv.hostPlatform.isDarwin then darwinApp else linuxBin) ];
 }

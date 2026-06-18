@@ -49,7 +49,9 @@
     ../../features/desktop/gnome
     ../../features/development
     ../../features/development/cursor.nix
+    ../../features/development/antigravity.nix
     ../../features/internet/chromium.nix
+    ../../features/internet/chromium-dev.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
     ../../features/media/yt-dlp.nix
