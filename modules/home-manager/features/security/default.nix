@@ -9,8 +9,9 @@
 
   options.features.security.sops.enable = lib.mkOption {
     type = lib.types.bool;
-    default = true;
-    description = "Whether to enable SOPS secret management.";
+    # On when the age key exists, so a no-secrets adopter still builds. --impure.
+    default = builtins.pathExists "${config.home.homeDirectory}/.config/sops/age/system_keys.txt";
+    description = "Enable SOPS secret management (auto-detected from the age key).";
   };
 
   config = lib.mkIf config.features.security.sops.enable {

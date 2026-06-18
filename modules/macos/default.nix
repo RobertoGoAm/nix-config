@@ -4,6 +4,7 @@
   lib,
   outputs,
   pkgs,
+  system,
   user,
   ...
 }:
@@ -26,10 +27,14 @@
     if builtins.pathExists privateSopsPath then [ privateSopsPath ] else [ ]
   );
 
+  # Default: on when the age key exists, off otherwise — so a machine with no
+  # secrets (e.g. someone adopting this config) still builds; sops just no-ops.
+  # Needs --impure (absolute pathExists), which this config already requires for
+  # the conditional sops-secrets.nix import above.
   options.features.security.sops.enable = lib.mkOption {
     type = lib.types.bool;
-    default = true;
-    description = "Whether to enable SOPS secret management.";
+    default = builtins.pathExists "/Users/${user}/.config/sops/age/system_keys.txt";
+    description = "Enable SOPS secret management (auto-detected from the age key).";
   };
 
   config = {
@@ -131,7 +136,7 @@
           "python3.13-ecdsa-0.19.2"
         ];
       };
-      hostPlatform = "aarch64-darwin";
+      hostPlatform = system;
     };
 
     system = {
@@ -326,8 +331,7 @@
       useGlobalPkgs = true;
       useUserPackages = true;
       extraSpecialArgs = {
-        inherit inputs outputs user;
-        system = "aarch64-darwin";
+        inherit inputs outputs user system;
       };
     };
   };
