@@ -8,6 +8,7 @@
     ./git.nix
     ./java.nix
     ./nvim
+    ./trivy.nix
     ./vscode
   ];
 
