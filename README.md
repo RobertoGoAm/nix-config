@@ -13,7 +13,11 @@ Multiplatform nix configuration to handle installing applications, configuring t
    ```bash
    curl -fsSL https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw
    ```
-   (Already have the repo checked out? Just run `./bootstrap.sh <host> [--bw]` from it.)
+   No `curl`? Use `wget` (some minimal Linux images ship it instead); the script then uses whichever you have for the rest too:
+   ```bash
+   wget -qO- https://raw.githubusercontent.com/RobertoGoAm/nix-config/master/bootstrap.sh | bash -s -- <host> --bw
+   ```
+   Neither present (bare Linux)? Install one first, e.g. `sudo apt install -y curl`. macOS always has curl. Already have the repo checked out? Just run `./bootstrap.sh <host> [--bw]` from it.
 3. **Enter your Bitwarden login (if using `--bw`) and your sudo password, then wait.** The script is idempotent: when macOS shows a permission dialog (App Management, Accessibility for paneru, Automation for the wallpaper), grant it and re-run the same command if the build stopped.
 
 Bluetooth devices still need re-pairing by hand. The step-by-step sections below are exactly what the script automates — use them to do it manually or to debug.
