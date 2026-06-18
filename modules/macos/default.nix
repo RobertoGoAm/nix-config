@@ -262,14 +262,14 @@
         };
         SoftwareUpdate.AutomaticallyInstallMacOSUpdates = true;
 
-        # Control Center / menu-bar items. Were OS-managed (unset); pinned to the
-        # standard macOS layout — flip any bool if your menu bar differs.
+        # Control Center / menu-bar items. true = show icon in the menu bar,
+        # false = hide it. Bluetooth + Focus hidden per preference.
         controlcenter = {
           AirDrop = false;
           BatteryShowPercentage = false;
-          Bluetooth = true;
+          Bluetooth = false;
           Display = false;
-          FocusModes = true;
+          FocusModes = false;
           NowPlaying = true;
           Sound = true;
         };
