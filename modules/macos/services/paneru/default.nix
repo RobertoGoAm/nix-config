@@ -22,12 +22,17 @@
       left = 10;
       right = 10;
     };
-    # Keep iTerm2 (the quake/hotkey window) floating — excluded from tiling,
-    # like the aerospace on-window-detected float rule. title is required (regex),
-    # bundle_id narrows it to iTerm2.
+    # Float these apps (excluded from tiling), matching the aerospace
+    # on-window-detected float rules. title is required (regex); bundle_id
+    # narrows the match to the specific app.
     settings.windows.iterm2 = {
       title = ".*";
       bundle_id = "com.googlecode.iterm2";
+      floating = true;
+    };
+    settings.windows.retroarch = {
+      title = ".*";
+      bundle_id = "com.libretro.dist.RetroArch";
       floating = true;
     };
     settings.bindings = {
