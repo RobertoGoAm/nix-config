@@ -599,8 +599,9 @@
           # Prisma
           "prisma.showPrismaDataPlatformNotification" = false;
 
-          # Sonarlint
-          "sonarlint.pathToNodeExecutable" = "/Users/roberto/.nvm/versions/node/v18.19.0/bin/node";
+          # Sonarlint — use the nix-provided node (deterministic + cross-platform)
+          # instead of a hardcoded ~/.nvm path that only exists on one mac.
+          "sonarlint.pathToNodeExecutable" = "${pkgs.nodejs}/bin/node";
           "sonarlint.rules" = {
             "Web =TableWithoutCaptionCheck" = {
               "level" = "off";
