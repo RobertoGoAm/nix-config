@@ -15,45 +15,102 @@ let
 in
 {
 
-  home.packages = with pkgs; [
-    # Development
-    cabal-install
-    claude-code
-    chatgpt
-    ghc
-    gemini-cli
-    glab
-    haskell-language-server
-    ngrok
-    nixd
-    nixfmt
-    postman
-    stack
+  # Aligned with prometheus (the work-machine base); ripgrep is the one
+  # vulcan-specific extra.
+  home.packages =
+    with pkgs;
+    [
+      # Development
+      cabal-install
+      claude-code
+      chatgpt
+      codex-acp
+      ghc
+      gemini-cli
+      glab
+      haskell-language-server
+      ngrok
+      nixd
+      nixfmt
+      postman
+      stack
+      uv
 
-    # Productivity
-    anki-bin
-    raycast
+      # DevOps
+      actionlint
+      age
+      ansible
+      argocd
+      bitwarden-cli
+      checkov
+      cilium-cli
+      cosign
+      devcontainer
+      docker
+      docker-buildx
+      docker-compose
+      dive
+      gitleaks
+      grype
+      hadolint
+      hcloud
+      httpie
+      jq
+      k6
+      kind
+      kubeconform
+      kube-linter
+      kubectl
+      kubectx
+      kubernetes-helm
+      kustomize
+      pre-commit
+      semgrep
+      sops
+      step-cli
+      stern
+      syft
+      terraform
+      testssl
+      tflint
+      trivy
+      vault
+      velero
+      yamllint
+      yq-go
+      yubikey-manager
 
-    # Social
-    telegram-desktop
+      # Productivity
+      anki-bin
+      raycast
 
-    # Media
-    iina
-    spotify
+      # Social
+      telegram-desktop
 
-    # Tool
-    ansible
-    coreutils
-    cyberduck
-    nerd-fonts.jetbrains-mono
-    procps
-    qbittorrent
-    ripgrep
-    the-unarchiver
-    vlc-bin
+      # Media
+      ffmpeg
+      iina
+      spotify
 
-    # Work
-    git-credential-manager
-  ]
-  ++ private.macPackages;
+      # Tool
+      coreutils
+      cyberduck
+      graphviz
+      mdfried
+      mozjpeg
+      nerd-fonts.jetbrains-mono
+      oxipng
+      poppler-utils
+      procps
+      qbittorrent
+      ripgrep
+      syncthing
+      the-unarchiver
+      tree
+      vlc-bin
+
+      # Work
+      git-credential-manager
+    ]
+    ++ private.macPackages;
 }

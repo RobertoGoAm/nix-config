@@ -107,7 +107,21 @@
       mkHome =
         host: system:
         home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.${system};
+          # Instantiate nixpkgs with config (vs raw legacyPackages) so standalone
+          # home-manager hosts (perseus) allow unfree and permit the same insecure
+          # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
+          pkgs = import nixpkgs {
+            inherit system;
+            config = {
+              allowUnfree = true;
+              # Linux Electron apps (obsidian/discord/remnote) + checkov's
+              # python-ecdsa pull packages nixpkgs marks insecure; permit them by
+              # name so it survives version bumps. (The macs avoid electron — their
+              # obsidian is a prebuilt binary, not a from-source build.)
+              allowInsecurePredicate =
+                pkg: builtins.elem (lib.getName pkg) [ "electron" "ecdsa" ];
+            };
+          };
           extraSpecialArgs = { inherit inputs nixgl outputs user; };
           modules = [ ./modules/home-manager/hosts/${host}/${host}.nix ];
         };
