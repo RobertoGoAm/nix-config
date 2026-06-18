@@ -223,18 +223,36 @@ choose_host() {
   done < /dev/tty
 }
 
+# Decide the secret source — honor flags / already-present files, else ask.
+choose_secrets() {
+  if [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then return 0; fi  # already on disk
+  if [ "$SECRETS_EXPLICIT" = 1 ]; then return 0; fi             # a flag decided it
+  [ -e /dev/tty ] || return 0                                  # non-interactive: keep default (Bitwarden)
+  bold "Secrets — how should this machine get them?"
+  PS3="> "
+  local c
+  select c in "Pull from Bitwarden" "None — build without secrets (sops disabled)"; do
+    case "${c:-}" in
+      "Pull from Bitwarden") USE_BW=1; break ;;
+      None*) NO_SECRETS=1; USE_BW=0; break ;;
+      *) echo "Pick a number." >/dev/tty ;;
+    esac
+  done < /dev/tty
+}
+
 # --- arguments ---
 HOST=""
-USE_BW=1       # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
-NO_SECRETS=0   # --no-secrets: build with no secrets at all (sops auto-disables)
+USE_BW=1           # Bitwarden is the default secret source; --no-bw opts out (place files yourself)
+NO_SECRETS=0       # --no-secrets: build with no secrets at all (sops auto-disables)
+SECRETS_EXPLICIT=0 # any secrets flag given -> skip the interactive secrets menu
 while [ $# -gt 0 ]; do
   case "$1" in
-    --bw|--bitwarden) USE_BW=1; shift ;;
-    --no-bw|--local)  USE_BW=0; shift ;;
-    --no-secrets)     NO_SECRETS=1; USE_BW=0; shift ;;
+    --bw|--bitwarden) USE_BW=1; SECRETS_EXPLICIT=1; shift ;;
+    --no-bw|--local)  USE_BW=0; SECRETS_EXPLICIT=1; shift ;;
+    --no-secrets)     NO_SECRETS=1; USE_BW=0; SECRETS_EXPLICIT=1; shift ;;
     # Vaultwarden / any self-hosted Bitwarden server (implies --bw). Both forms work.
-    --bw-server) USE_BW=1; BW_SERVER="${2:-}"; [ -n "$BW_SERVER" ] || die "--bw-server needs a URL"; shift 2 ;;
-    --bw-server=*) USE_BW=1; BW_SERVER="${1#*=}"; shift ;;
+    --bw-server) USE_BW=1; SECRETS_EXPLICIT=1; BW_SERVER="${2:-}"; [ -n "$BW_SERVER" ] || die "--bw-server needs a URL"; shift 2 ;;
+    --bw-server=*) USE_BW=1; SECRETS_EXPLICIT=1; BW_SERVER="${1#*=}"; shift ;;
     -*) die "unknown flag: $1" ;;
     *) if [ -z "$HOST" ]; then HOST="$1"; else die "unexpected argument: $1"; fi; shift ;;
   esac
@@ -243,7 +261,9 @@ done
 
 # 1. Secrets: skip (--no-secrets), use present files, pull from Bitwarden, or
 #    fail fast. With no age key the build auto-disables sops, so --no-secrets
-#    (or simply having none) still produces a working system.
+#    (or simply having none) still produces a working system. When interactive
+#    with nothing specified, choose_secrets asks (Bitwarden vs none).
+choose_secrets
 if [ "$NO_SECRETS" = 1 ]; then
   bold "Skipping secrets (--no-secrets) — sops auto-disables without an age key"
 elif [ -f "$AGE_KEY" ] && [ -f "$SECRETS" ]; then
@@ -279,7 +299,8 @@ else
   # Re-run from the clone, preserving the original choices (empty host -> menu).
   reexec=()
   if [ -n "$HOST" ]; then reexec+=("$HOST"); fi
-  if [ "$USE_BW" = 0 ]; then reexec+=("--no-bw"); fi
+  if [ "$NO_SECRETS" = 1 ]; then reexec+=("--no-secrets"); fi
+  if [ "$USE_BW" = 0 ] && [ "$NO_SECRETS" = 0 ]; then reexec+=("--no-bw"); fi
   if [ -n "${BW_SERVER:-}" ]; then reexec+=("--bw-server=$BW_SERVER"); fi
   if [ "${#reexec[@]}" -gt 0 ]; then
     exec bash "$CLONE_DIR/bootstrap.sh" "${reexec[@]}"
