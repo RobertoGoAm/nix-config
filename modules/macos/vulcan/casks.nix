@@ -13,6 +13,7 @@ in
     enable = true;
     casks = [
       # Development
+      "dbeaver-community"
       "docker"
       "imageoptim"
       "orbstack"
@@ -28,6 +29,7 @@ in
 
       # Productivity
       "alt-tab" # cmd-tab replacement that also restores minimized/hidden windows
+      "claude"
       "notion"
       "remnote"
 
@@ -41,6 +43,7 @@ in
       # Tool
       "calibre"
       "filen"
+      "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
       "via"
