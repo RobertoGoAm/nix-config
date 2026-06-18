@@ -68,7 +68,8 @@
       {"name": "KC_BT3","title": "BT 3","shortName": "KC_BT3"},
       {"name": "KC_BT4","title": "BT 4","shortName": "KC_BT4"},
       {"name": "KC_BT5","title": "BT 5","shortName": "KC_BT5"},
-      {"name": "KC_2G4","title": "2.4G","shortName": "KC_2G4"}
+      {"name": "KC_2G4","title": "2.4G","shortName": "KC_2G4"},
+      {"name": "KC_BATQ","title": "Battery","shortName": "KC_BATQ"}
     ],
     "layouts": {
         "keymap":

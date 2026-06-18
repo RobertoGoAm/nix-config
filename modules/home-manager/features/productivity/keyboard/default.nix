@@ -1,31 +1,28 @@
 { ... }:
 {
-  # Shortcut Bridge 75 Plus (ANSI), WB32 + wireless. Vendored here and deployed to
-  # ~/keyboards/bridge75/ so they're on hand on any machine. Two ways to drive it:
-  #
-  #   QMK firmware (preferred — Colemak is compiled in, Bluetooth stays intact):
-  #   - colemak-keymap.c  : 1:1 of the fork's default keymap with layer 0 remapped
-  #                         to Colemak; the Fn layer keeps the real
-  #                         KC_USB/KC_BT1..3/KC_2G4 keycodes, so BT works.
-  #   - build-firmware.sh : clones emolitor/qmk_firmware@em-bridge75, drops the
-  #                         keymap in, and `qmk compile`s it. Needs qmk + the ARM
-  #                         toolchain (nix-shell -p qmk gcc-arm-embedded).
-  #     Flash: hold Esc while plugging in USB (wb32-dfu bootloader), then QMK Toolbox.
-  #
-  #   VIA fallback (no compiler, but the BT keys can't be customised — VIA can't
-  #   represent KC_BT2/KC_BT3, so importing a layout drops them to KC_NO):
+  # Shortcut Bridge 75 Plus (ANSI), WB32 + wireless. Approach: compile a VIA-enabled
+  # firmware from emolitor/qmk_firmware@em-bridge75 with Colemak as the default
+  # keymap, then tweak it on the fly in VIA. The fork uses standard KC_BT* keycodes,
+  # so VIA names the wireless keys correctly — unlike the stock firmware, where VIA
+  # saw KC_BT2/KC_BT3 as LT(0,undefined) and dropped them to KC_NO on import.
+  # Deployed to ~/keyboards/bridge75/:
+  #   - colemak-keymap.c    : layer 0 = Colemak; Fn keeps KC_USB/KC_BT1..3/KC_2G4.
+  #   - via-rules.mk        : VIA_ENABLE=yes for the compiled `via` keymap.
+  #   - build-firmware.sh   : clone fork, drop in the via keymap, `qmk compile`.
+  #                           Needs qmk + ARM toolchain (nix-shell -p qmk gcc-arm-embedded).
+  #   - via-definition.json : load in usevia.app's Design tab to edit on the fly.
   #   - firmware.bin        : stock vendor firmware (factory restore).
-  #   - via-definition.json : load in VIA's Design tab if it doesn't auto-detect
-  #                           (vendorId 0x0C45 / 0xFEFE).
-  #   - layout.json         : VIA keymap export (Colemak L0, BT2/BT3 as raw hex).
+  #   - layout.json         : legacy VIA keymap export (the pre-firmware approach).
+  # Flash: hold Esc while plugging in USB (wb32-dfu bootloader), then QMK Toolbox.
   home.file = {
     "keyboards/bridge75/colemak-keymap.c".source = ./bridge75-colemak-keymap.c;
+    "keyboards/bridge75/via-rules.mk".source = ./bridge75-via-rules.mk;
     "keyboards/bridge75/build-firmware.sh" = {
       source = ./build-bridge75-firmware.sh;
       executable = true;
     };
-    "keyboards/bridge75/firmware.bin".source = ./bridge75.bin;
     "keyboards/bridge75/via-definition.json".source = ./bridge75-via.json;
+    "keyboards/bridge75/firmware.bin".source = ./bridge75.bin;
     "keyboards/bridge75/layout.json".source = ./bridge75-layout.json;
   };
 }
