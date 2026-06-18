@@ -8,7 +8,7 @@ let
         complex_modifications = {
           rules = [
             {
-              description = "Caps hold = Nav (HJKL arrows, etc.)";
+              description = "Caps hold = Nav (HJKL arrows, etc.); Caps+M = warpd hint";
               manipulators = [
                 {
                   from = {
@@ -152,6 +152,28 @@ let
                     modifiers = { optional = [ "any" ]; };
                   };
                   to = [ { key_code = "page_down"; } ];
+                  type = "basic";
+                }
+                {
+                  # Caps + M -> warpd hint. Sends the daemon's Cmd+Option+x chord
+                  # (hint_activation_key), so it doesn't depend on warpd's path.
+                  conditions = [
+                    {
+                      name = "nav_layer";
+                      type = "variable_if";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "m";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [
+                    {
+                      key_code = "x";
+                      modifiers = [ "left_command" "left_option" ];
+                    }
+                  ];
                   type = "basic";
                 }
               ];
