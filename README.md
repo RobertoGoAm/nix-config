@@ -22,6 +22,30 @@ Multiplatform nix configuration to handle installing applications, configuring t
 
 Bluetooth devices still need re-pairing by hand. The step-by-step sections below are exactly what the script automates — use them to do it manually or to debug.
 
+### First-time Bitwarden setup
+
+`--bw` only *reads* the item — you populate it once, from the machine where you first created your secrets (see **Secrets Setup** below). Make an item named `nix-config` and attach the files:
+
+- **GUI:** New item → *Secure note* → name it `nix-config` → **Attachments** → add `~/.config/sops/age/system_keys.txt` and `~/.config/nix-secrets/secrets.yaml` (plus `sops-secrets.nix` / `work-extras.nix` if you use them).
+- **CLI:**
+  ```bash
+  export BW_SESSION="$(bw login --raw)"        # or: bw unlock --raw  (already logged in)
+  itemid="$(bw get template item \
+    | jq '.type=2 | .name="nix-config" | .secureNote.type=0 | .notes=""' \
+    | bw encode | bw create item | jq -r '.id')"
+  for f in ~/.config/sops/age/system_keys.txt ~/.config/nix-secrets/secrets.yaml; do
+    bw create attachment --file "$f" --itemid "$itemid"
+  done
+  bw lock; unset BW_SESSION
+  ```
+
+Free tier without attachments? Put the age key in a **custom field** named `system_keys.txt` and `secrets.yaml` in the item's **Note** — works until `secrets.yaml` outgrows Bitwarden's ~10,000-char note limit.
+
+### Free alternative to Bitwarden
+
+- **Vaultwarden** — a self-hosted, Bitwarden-compatible server; attachments are free (no Premium). The same `bw` CLI works against it — just point it at your server with `BW_SERVER=https://your.vault` (the bootstrap honours it) or `bw config server https://your.vault`. Best if you want the `--bw` flow without paying.
+- **No password manager at all** — skip `--bw` and use the *place-them-yourself* path: copy `system_keys.txt` (tiny — USB/scp) and `secrets.yaml` (already sops-encrypted, so safe in a private git repo or any cloud) onto the machine, then run `bootstrap.sh <host>`.
+
 ## MacOS steps
 
 (Optional) Disable and re-enable password for sudo
