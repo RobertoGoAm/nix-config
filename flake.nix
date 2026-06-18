@@ -98,9 +98,9 @@
       };
 
       mkDarwin =
-        host: _system:
+        host: system:
         nix-darwin.lib.darwinSystem {
-          specialArgs = { inherit inputs outputs user; };
+          specialArgs = { inherit inputs outputs user system; };
           modules = [ ./modules/macos/${host}/${host}.nix ];
         };
 
