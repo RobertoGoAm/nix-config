@@ -27,6 +27,7 @@ in
       "pdf-expert"
 
       # Productivity
+      "alt-tab" # cmd-tab replacement that also restores minimized/hidden windows
       "claude"
       "notion"
       "remnote"
