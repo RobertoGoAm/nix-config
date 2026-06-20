@@ -89,6 +89,13 @@ bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
     }
 }
 
+#ifdef RGB_MATRIX_ENABLE
+// Base lighting defaults off (indicators only); the RGB toggle flips this. We
+// blank the base by clearing the LEDs in the indicator hook rather than switching
+// to RGB_MATRIX_NONE, which lit the whole board red on this firmware.
+static bool rgb_lights_off = true;
+#endif
+
 // Right Shift is a tap-hold: hold = Shift (registered eagerly so capitals never
 // lag), tap = GUI+Tab to switch to the last app. Shift is held from key-down, and
 // GUI+Tab fires only on release when no other key intervened and the press was
@@ -121,18 +128,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
 #ifdef RGB_MATRIX_ENABLE
-    // Repurpose the RGB toggle: flip the base effect on/off instead of disabling
-    // the whole matrix. Disabling it would also stop the indicator hooks below, so
-    // keep the matrix enabled and just swap the base to RGB_MATRIX_NONE (all-black)
-    // and back to the last real effect.
+    // Repurpose the RGB toggle to flip the base on/off (applied in the indicator
+    // hook by blanking the LEDs) without disabling the matrix — so the battery /
+    // Fn / caps / BT indicators keep running either way.
     if (keycode == RGB_TOG && record->event.pressed) {
-        static uint8_t saved_mode = RGB_MATRIX_SOLID_COLOR;
-        if (rgb_matrix_get_mode() != RGB_MATRIX_NONE) {
-            saved_mode = rgb_matrix_get_mode();
-            rgb_matrix_mode(RGB_MATRIX_NONE);
-        } else {
-            rgb_matrix_mode(saved_mode);
-        }
+        rgb_lights_off = !rgb_lights_off;
         return false;
     }
 #endif
@@ -146,12 +146,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 static uint8_t blink_val = 1;
 static int8_t  blink_dir = 1;
 
-// Keep the matrix enabled every boot so the indicator hooks always run; the base
-// can still be dark (RGB_MATRIX_NONE, via the toggle above). Without this, a
-// matrix toggled off in EEPROM would take the indicators down with it. Also set
-// the charge-detect pins as inputs — the ANSI keyboard core doesn't (iso does).
+// Keep the matrix enabled every boot so the indicator hooks always run (the base
+// is blanked in software when "off" — see the toggle). Without this, a matrix
+// toggled off in EEPROM would take the indicators down with it. Also set the
+// charge-detect pins as inputs — the ANSI keyboard core doesn't (iso does).
 void keyboard_post_init_user(void) {
     rgb_matrix_enable_noeeprom();
+    // If the base effect is NONE (e.g. left in EEPROM), make it a real one so that
+    // toggling lights *on* shows something — NONE renders red on this board.
+    if (rgb_matrix_get_mode() == RGB_MATRIX_NONE) rgb_matrix_mode_noeeprom(RGB_MATRIX_SOLID_COLOR);
     gpio_set_pin_input(BT_CABLE_PIN);       // high when the charge cable is connected
     gpio_set_pin_input_high(BT_CHARGE_PIN); // low while charging, high when full
 }
@@ -166,6 +169,11 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
     blink_val += blink_dir;
     if (blink_val == UINT8_MAX)   blink_dir = -1;
     else if (blink_val == 1)      blink_dir = 1;
+
+    // Base "off": blank every LED in this batch so only the indicators below show.
+    if (rgb_lights_off) {
+        for (uint8_t i = led_min; i < led_max; i++) rgb_matrix_set_color(i, 0, 0, 0);
+    }
 
     bool fn = (get_highest_layer(layer_state) == FN);
 
