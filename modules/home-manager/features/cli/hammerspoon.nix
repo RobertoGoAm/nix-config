@@ -8,8 +8,9 @@
 # hotkey is disabled in iterm2.nix so Cmd+` is free.
 lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   home.file.".hammerspoon/init.lua".text = ''
-    -- Quake-style drop-down Alacritty on Cmd+`: show+drop from the top if hidden,
-    -- hide if it's already frontmost.
+    -- Quake-style drop-down Alacritty on Cmd+`: reveal if hidden, hide if frontmost.
+    -- Positioned (dropped from the top) only on FIRST launch; later toggles just
+    -- reveal/hide, so it keeps whatever size or fullscreen state you left it in.
     local QUAKE = "Alacritty"
 
     local function dropTop(win)
@@ -23,8 +24,7 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       if app and app:isFrontmost() then
         app:hide()
       elseif app and #app:allWindows() > 0 then
-        app:activate()
-        dropTop(app:mainWindow())
+        app:activate() -- reveal as-is; don't re-frame, so it keeps its size / fullscreen
       else
         hs.application.launchOrFocus(QUAKE)
         hs.timer.doAfter(0.3, function()
@@ -41,6 +41,8 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       hs.execute("alacritty msg config window.opacity=" .. (transparent and "0.85" or "1.0"), true)
     end)
 
+    -- Auto-reload this config when ~/.hammerspoon changes (handy while iterating).
+    hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", hs.reload):start()
     hs.alert.show("Hammerspoon loaded")
   '';
 }
