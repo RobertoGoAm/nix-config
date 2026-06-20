@@ -8,7 +8,11 @@
 //   hold = Left GUI/Cmd. Right Shift is a tap-hold too — tap = GUI+Tab ("last
 //   app": Cmd+Tab on macOS, Super+Tab on GNOME), hold = normal Right Shift.
 // SYM (hold RAlt): shifted digits + symbols + media.
-// NAV (hold Caps): numpad, arrows, Home/PgDn/PgUp/End.
+// NAV (hold Caps): numpad, arrows, Home/PgUp/End, and Caps+M = warpd hint
+//   (sends Cmd+Opt+x on mac / Super+Alt+x on Linux — warpd's hint activation, so
+//   warpd works from the Bridge75 just like Caps+M does on the other keyboards.
+//   Karabiner/keyd ignore this board, so the chord has to come from the keymap.
+//   PgDn keeps its dedicated key on BASE).
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
@@ -53,7 +57,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_DEL,
         _______, KC_P1, KC_P2, KC_P3, KC_P4, KC_P5, KC_P6, KC_P7, KC_P8, KC_P9, KC_P0, KC_NO, KC_NO, KC_NO, _______,
         _______, KC_CAPS, KC_NO, KC_NO, KC_NO, KC_NO, KC_LEFT, KC_DOWN, KC_UP, KC_RGHT, KC_BSPC, KC_DEL, _______, _______,
-        _______, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_HOME, KC_PGDN, KC_PGUP, KC_END, KC_NO, KC_NO, _______, _______,
+        _______, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_HOME, LGUI(LALT(KC_X)), KC_PGUP, KC_END, KC_NO, KC_NO, _______, _______,
         _______, _______, _______, _______, MO(FN), _______, _______, _______, _______
     )
 };
