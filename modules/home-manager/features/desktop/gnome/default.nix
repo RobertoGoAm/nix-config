@@ -3,7 +3,11 @@
 with lib.hm.gvariant;
 
 {
-  home.packages = [ pkgs.rofi ]; # X11 window switcher (rofi -show window)
+  home.packages = [
+    pkgs.rofi # X11 window switcher (rofi -show window)
+    pkgs.tdrop # quake-style drop-down terminal manager (X11)
+    pkgs.xorg.transset # toggle a window's opacity (transparency hotkey)
+  ];
 
   dconf.settings = {
     # Extensions
@@ -82,6 +86,8 @@ with lib.hm.gvariant;
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher-f18/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-term/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-transparency/"
     ];
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint" = {
       name = "warpd hint";
@@ -112,6 +118,21 @@ with lib.hm.gvariant;
       name = "Window switcher (F18)";
       command = "${pkgs.rofi}/bin/rofi -show window";
       binding = "F18";
+    };
+    # Quake-style drop-down Alacritty (like the iTerm2 quake on the Macs): tdrop
+    # toggles one Alacritty window down from the top. Super+` mirrors Cmd+` there.
+    # X11 only; geometry is tweakable — verify/tune on perseus.
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-term" = {
+      name = "Quake terminal";
+      command = "${pkgs.tdrop}/bin/tdrop -ma -w 100% -h 45% -x 0 -y 0 alacritty";
+      binding = "<Super>grave";
+    };
+    # Toggle the focused window's opacity (e.g. the quake terminal). Relies on
+    # GNOME/mutter honouring _NET_WM_WINDOW_OPACITY on X11.
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-transparency" = {
+      name = "Toggle window transparency";
+      command = "${pkgs.xorg.transset}/bin/transset --actual --toggle 0.85";
+      binding = "<Super><Shift>grave";
     };
 
     # Forge general settings live under .../forge (NOT .../forge/keybindings) —
