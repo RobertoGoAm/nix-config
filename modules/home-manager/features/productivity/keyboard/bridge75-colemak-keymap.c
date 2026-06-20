@@ -139,6 +139,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 #ifdef RGB_MATRIX_ENABLE
+// Timer-free "pleasant blink": brightness oscillates 1->255->1 each frame, used to
+// pulse the low-battery warning. (Pattern salvaged from bridge75_iso.)
+static uint8_t blink_val = 1;
+static int8_t  blink_dir = 1;
+
 // Keep the matrix enabled every boot so the indicator hooks always run; the base
 // can still be dark (RGB_MATRIX_NONE, via the toggle above). Without this, a
 // matrix toggled off in EEPROM would take the indicators down with it.
@@ -148,9 +153,16 @@ void keyboard_post_init_user(void) {
 
 // Indicators that survive the base lighting being off:
 //   - Holding Fn lights every key that does something on the FN ("system") layer.
-//   - Esc (LED 0) glows red when the wireless battery is low.
+//   - Esc (LED 0) reports the battery: a pulsing-red low warning at all times,
+//     plus a full green/orange/red level readout while Fn is held.
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
-    if (get_highest_layer(layer_state) == FN) {
+    blink_val += blink_dir;
+    if (blink_val == UINT8_MAX)   blink_dir = -1;
+    else if (blink_val == 1)      blink_dir = 1;
+
+    bool fn = (get_highest_layer(layer_state) == FN);
+
+    if (fn) {
         for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
             for (uint8_t col = 0; col < MATRIX_COLS; col++) {
                 uint8_t index = g_led_config.matrix_co[row][col];
@@ -164,10 +176,19 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
 
 #ifdef WIRELESS_ENABLE
     // md_getp_bat() is the module's reported level (0-100); 0 = unknown (e.g. on
-    // USB), so only warn on a real low reading.
-    uint8_t bat = *md_getp_bat();
-    if (bat > 0 && bat <= 20 && led_min == 0) {
-        rgb_matrix_set_color(0, 0xAA, 0x00, 0x00); // Esc: low-battery red
+    // USB), so skip the readout then.
+    if (led_min == 0) {
+        uint8_t bat = *md_getp_bat();
+        if (bat > 0) {
+            if (fn) {
+                // Full level readout while Fn is held (overrides the cyan on Esc).
+                if (bat > 50)      rgb_matrix_set_color(0, 0x00, 0xAA, 0x00); // green
+                else if (bat > 20) rgb_matrix_set_color(0, 0xAA, 0x40, 0x00); // orange
+                else               rgb_matrix_set_color(0, 0xAA, 0x00, 0x00); // red
+            } else if (bat <= 20) {
+                rgb_matrix_set_color(0, blink_val, 0x00, 0x00); // pulsing low-battery red
+            }
+        }
     }
 #endif
 
