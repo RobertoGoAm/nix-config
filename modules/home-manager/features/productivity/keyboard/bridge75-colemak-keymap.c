@@ -13,6 +13,12 @@
 //   mac / Super+Alt+<x/d/c> on Linux — warpd's activation chords). Karabiner/keyd
 //   own these on the other keyboards but ignore this board, so the keymap sends
 //   them directly. PgDn keeps its dedicated key on BASE.
+// FN (hold MO(FN)) is the "system layer": media/brightness, RGB, the wireless
+//   keys, EE_CLR on Esc, and QK_BOOT (jump to the wb32-dfu bootloader) on
+//   Fn+Backspace — so re-flashing needs no unplug-and-hold-Esc dance.
+// LEDs: the RGB toggle (Fn + its key) flips the base lighting on/off WITHOUT
+//   disabling the matrix, so indicators stay live while the base is dark — holding
+//   Fn lights the keys that do something, and Esc glows red on low battery.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
@@ -26,6 +32,12 @@ enum custom_keycodes {
     TT_LASTAPP = SAFE_RANGE,
 };
 
+#ifdef WIRELESS_ENABLE
+// The wireless module reports the battery level (0-100); used by the low-battery
+// indicator below. Declared here so the keymap needn't pull in module headers.
+extern uint8_t *md_getp_bat(void);
+#endif
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [BASE] = LAYOUT_ansi(
@@ -38,7 +50,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
     [FN] = LAYOUT_ansi(
         EE_CLR, KC_BRID, KC_BRIU, KC_MCTL, KC_LPAD, KC_F5, KC_F6, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_VOLD, KC_VOLU, _______,
-        KC_USB, KC_BT1, KC_BT2, KC_BT3, KC_2G4, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+        KC_USB, KC_BT1, KC_BT2, KC_BT3, KC_2G4, _______, _______, _______, _______, _______, _______, _______, _______, QK_BOOT, _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
         _______, RGB_TOG, RGB_MOD, RGB_RMOD, RGB_HUI, RGB_HUD, RGB_SAI, RGB_SAD, RGB_VAI, RGB_VAD, _______, _______, _______, _______,
@@ -105,5 +117,60 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         lastapp_interrupted = true;
     }
+
+#ifdef RGB_MATRIX_ENABLE
+    // Repurpose the RGB toggle: flip the base effect on/off instead of disabling
+    // the whole matrix. Disabling it would also stop the indicator hooks below, so
+    // keep the matrix enabled and just swap the base to RGB_MATRIX_NONE (all-black)
+    // and back to the last real effect.
+    if (keycode == RGB_TOG && record->event.pressed) {
+        static uint8_t saved_mode = RGB_MATRIX_SOLID_COLOR;
+        if (rgb_matrix_get_mode() != RGB_MATRIX_NONE) {
+            saved_mode = rgb_matrix_get_mode();
+            rgb_matrix_mode(RGB_MATRIX_NONE);
+        } else {
+            rgb_matrix_mode(saved_mode);
+        }
+        return false;
+    }
+#endif
+
     return true;
 }
+
+#ifdef RGB_MATRIX_ENABLE
+// Keep the matrix enabled every boot so the indicator hooks always run; the base
+// can still be dark (RGB_MATRIX_NONE, via the toggle above). Without this, a
+// matrix toggled off in EEPROM would take the indicators down with it.
+void keyboard_post_init_user(void) {
+    rgb_matrix_enable_noeeprom();
+}
+
+// Indicators that survive the base lighting being off:
+//   - Holding Fn lights every key that does something on the FN ("system") layer.
+//   - Esc (LED 0) glows red when the wireless battery is low.
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    if (get_highest_layer(layer_state) == FN) {
+        for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+            for (uint8_t col = 0; col < MATRIX_COLS; col++) {
+                uint8_t index = g_led_config.matrix_co[row][col];
+                if (index >= led_min && index < led_max && index != NO_LED &&
+                    keymap_key_to_keycode(FN, (keypos_t){col, row}) > KC_TRNS) {
+                    rgb_matrix_set_color(index, 0x00, 0x88, 0x88); // Fn keys: cyan
+                }
+            }
+        }
+    }
+
+#ifdef WIRELESS_ENABLE
+    // md_getp_bat() is the module's reported level (0-100); 0 = unknown (e.g. on
+    // USB), so only warn on a real low reading.
+    uint8_t bat = *md_getp_bat();
+    if (bat > 0 && bat <= 20 && led_min == 0) {
+        rgb_matrix_set_color(0, 0xAA, 0x00, 0x00); // Esc: low-battery red
+    }
+#endif
+
+    return true;
+}
+#endif
