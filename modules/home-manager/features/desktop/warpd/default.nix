@@ -35,6 +35,11 @@
     # Slow-pointer modifier — QWERTY d → Colemak s
     decelerator: s
 
+    # History stack (normal mode) — QWERTY C-o / C-i → Colemak C-y / C-u, i.e. the
+    # same physical o / i keys (which type y / u in Colemak).
+    hist_back: C-y
+    hist_forward: C-u
+
     # Sub-modes from normal mode — QWERTY g / s / ; / p → Colemak d / r / o / ;
     grid: d
     screen: r
@@ -48,13 +53,22 @@
     grid_right: s
     grid_keys: l u n e
 
-    # Global activation chords — QWERTY grid g / screen s / hint-oneshot l →
-    # Colemak d / r / i (hint A-M-x, cursor A-M-c, history A-M-h unchanged)
+    # Global activation chords — QWERTY grid g / screen s / hint-oneshot l /
+    # 2-pass-oneshot L → Colemak d / r / i / I (hint A-M-x, hint2 A-M-X, cursor
+    # A-M-c, history A-M-h unchanged — those keys keep their QWERTY position).
     grid_activation_key: A-M-d
     screen_activation_key: A-M-r
     hint_oneshot_key: A-M-i
+    hint2_oneshot_key: A-M-I
 
     # Hint labels — the physical home row (QWERTY asdfghjkl; → Colemak arstdhneio)
     hint_chars: arstdhneio
+    # Clear-all in hint mode — QWERTY C-u → Colemak C-l (same physical u key).
+    hint_undo_all: C-l
+    # Screen-select + two-pass-hint label sets — each QWERTY default mapped to the
+    # Colemak letter on the same physical key, so the keys pressed match QWERTY
+    # warpd: screen jkl;asdfg -> neioarstd, hint2 hjkl;asdfg... -> hneioarstd...
+    screen_chars: neioarstd
+    hint2_chars: hneioarstdqwfpgjluy;zxcvb
   '';
 }
