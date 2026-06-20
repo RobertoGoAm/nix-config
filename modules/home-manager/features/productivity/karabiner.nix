@@ -711,6 +711,30 @@ let
                 }
               ];
             }
+            {
+              # Tap Left Command alone = Raycast "Switch Windows" (the Cmd-Tab
+              # replacement). Holding it (with any other key) is a normal Command,
+              # so ⌘C/⌘V/etc. are unaffected — only a solo tap fires the deeplink.
+              description = "Tap Left Command = Raycast Switch Windows; hold = Command";
+              manipulators = [
+                {
+                  from = {
+                    key_code = "left_command";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [
+                    {
+                      key_code = "left_command";
+                      lazy = true;
+                    }
+                  ];
+                  to_if_alone = [
+                    { shell_command = "/usr/bin/open 'raycast://extensions/raycast/navigation/switch-windows'"; }
+                  ];
+                  type = "basic";
+                }
+              ];
+            }
           ];
         };
         devices = [
