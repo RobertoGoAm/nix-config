@@ -75,16 +75,26 @@ in
         dynamic_padding = true;
       };
 
-      # Fake (non-native) fullscreen on Cmd+Shift+Return: fills the screen without
-      # macOS's native-fullscreen Space, so it plays nice with aerospace. The
-      # action is macOS-only, so gate the binding to darwin.
-      keyboard.bindings = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-        {
-          key = "Enter";
-          mods = "Command|Shift";
-          action = "ToggleSimpleFullscreen";
-        }
-      ];
+      # Fullscreen toggle on Cmd/Super+Shift+Return. macOS uses ToggleSimpleFullscreen
+      # (non-native — no separate Space, so aerospace stays happy); Linux has no Space
+      # concept, so it gets plain ToggleFullscreen on Super+Shift+Return.
+      keyboard.bindings =
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          [
+            {
+              key = "Enter";
+              mods = "Command|Shift";
+              action = "ToggleSimpleFullscreen";
+            }
+          ]
+        else
+          [
+            {
+              key = "Enter";
+              mods = "Super|Shift";
+              action = "ToggleFullscreen";
+            }
+          ];
     };
   };
 }
