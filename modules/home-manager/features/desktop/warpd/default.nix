@@ -35,10 +35,9 @@
     # Slow-pointer modifier — QWERTY d → Colemak s
     decelerator: s
 
-    # History stack (normal mode) — QWERTY C-o / C-i → Colemak C-y / C-u, i.e. the
-    # same physical o / i keys (which type y / u in Colemak).
-    hist_back: C-y
-    hist_forward: C-u
+    # History stack (normal mode) — deliberately left at warpd's default C-o / C-i
+    # (NOT remapped by physical position): nvim's jumplist is also unremapped
+    # C-o / C-i, so both fire on the Colemak letters o / i and the motion matches.
 
     # Sub-modes from normal mode — QWERTY g / s / ; / p → Colemak d / r / o / ;
     grid: d
