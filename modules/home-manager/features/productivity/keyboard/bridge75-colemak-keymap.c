@@ -3,7 +3,9 @@
 // real KC_USB/KC_BT1..3/KC_2G4 wireless keycodes. Built as the `via` keymap, so
 // it can be tweaked live in usevia.app on top of this compiled default.
 //
-// BASE: Colemak; Caps = LT(NAV, Esc); RAlt = MO(SYM); MO(FN).
+// BASE: Colemak; Caps = LT(NAV, Esc); RAlt = MO(SYM); MO(FN); left Cmd is a
+//   mod-tap — tap = F18 (the "switch windows" trigger, like tap-Cmd on the macs),
+//   hold = Left GUI/Cmd.
 // SYM (hold RAlt): shifted digits + symbols + media.
 // NAV (hold Caps): numpad, arrows, Home/PgDn/PgUp/End.
 // SPDX-License-Identifier: GPL-2.0-or-later
@@ -20,7 +22,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB, KC_Q, KC_W, KC_F, KC_P, KC_G, KC_J, KC_L, KC_U, KC_Y, KC_SCLN, KC_LBRC, KC_RBRC, KC_BSLS, KC_PGUP,
         LT(NAV,KC_ESC), KC_A, KC_R, KC_S, KC_T, KC_D, KC_H, KC_N, KC_E, KC_I, KC_O, KC_QUOT, KC_ENT, KC_PGDN,
         KC_LSFT, KC_Z, KC_X, KC_C, KC_V, KC_B, KC_K, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_RSFT, KC_UP, KC_END,
-        KC_LCTL, KC_LALT, KC_LGUI, KC_SPC, MO(SYM), MO(FN), KC_LEFT, KC_DOWN, KC_RGHT
+        KC_LCTL, KC_LALT, LGUI_T(KC_F18), KC_SPC, MO(SYM), MO(FN), KC_LEFT, KC_DOWN, KC_RGHT
     ),
     [FN] = LAYOUT_ansi(
         EE_CLR, KC_BRID, KC_BRIU, KC_MCTL, KC_LPAD, KC_F5, KC_F6, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_VOLD, KC_VOLU, _______,
@@ -48,3 +50,15 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 // clang-format on
+
+// Resolve the left-Cmd mod-tap to its hold (Left GUI) the instant another key is
+// pressed, so chorded shortcuts (Cmd+C/V/Z, etc.) never register as the F18 tap.
+// A solo tap+release still sends F18 — the "switch windows" trigger.
+bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case LGUI_T(KC_F18):
+            return true;
+        default:
+            return false;
+    }
+}

@@ -81,6 +81,7 @@ with lib.hm.gvariant;
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher-f18/"
     ];
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint" = {
       name = "warpd hint";
@@ -104,6 +105,13 @@ with lib.hm.gvariant;
       name = "Window switcher";
       command = "${pkgs.rofi}/bin/rofi -show window";
       binding = "<Control><Alt>w";
+    };
+    # Same switcher on bare F18: the Bridge75 sends F18 on tap-Cmd (it's excluded
+    # from keyd, so the firmware's tap reaches GNOME directly as F18).
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher-f18" = {
+      name = "Window switcher (F18)";
+      command = "${pkgs.rofi}/bin/rofi -show window";
+      binding = "F18";
     };
 
     # Forge general settings live under .../forge (NOT .../forge/keybindings) —
