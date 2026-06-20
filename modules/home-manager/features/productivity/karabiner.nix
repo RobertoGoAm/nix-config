@@ -736,18 +736,20 @@ let
               ];
             }
             {
-              # Tap Right Command alone = switch to the last app (one Cmd-Tab);
-              # hold = normal Command.
-              description = "Tap Right Command = switch to last app; hold = Command";
+              # Tap Right Shift alone = switch to the last app (one Cmd-Tab);
+              # hold = normal Shift. Right Shift (not Right Command) so the
+              # behaviour is identical on the Bridge75 firmware and on perseus's
+              # keyd — every keyboard has a Right Shift, not every one a Right Cmd.
+              description = "Tap Right Shift = switch to last app; hold = Shift";
               manipulators = [
                 {
                   from = {
-                    key_code = "right_command";
+                    key_code = "right_shift";
                     modifiers = { optional = [ "any" ]; };
                   };
                   to = [
                     {
-                      key_code = "right_command";
+                      key_code = "right_shift";
                       lazy = true;
                     }
                   ];

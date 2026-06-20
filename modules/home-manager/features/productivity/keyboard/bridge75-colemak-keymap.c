@@ -5,7 +5,8 @@
 //
 // BASE: Colemak; Caps = LT(NAV, Esc); RAlt = MO(SYM); MO(FN); left Cmd is a
 //   mod-tap — tap = F18 (the "switch windows" trigger, like tap-Cmd on the macs),
-//   hold = Left GUI/Cmd.
+//   hold = Left GUI/Cmd. Right Shift is a tap-hold too — tap = GUI+Tab ("last
+//   app": Cmd+Tab on macOS, Super+Tab on GNOME), hold = normal Right Shift.
 // SYM (hold RAlt): shifted digits + symbols + media.
 // NAV (hold Caps): numpad, arrows, Home/PgDn/PgUp/End.
 // SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,6 +15,13 @@
 
 enum layers { BASE, FN, SYM, NAV };
 
+enum custom_keycodes {
+    // Right-Shift tap-hold: tap sends GUI+Tab (switch to the last app — Cmd+Tab
+    // on macOS, Super+Tab on GNOME); hold is a normal Right Shift. Logic lives in
+    // process_record_user below. SAFE_RANGE keeps it clear of VIA's keycodes.
+    TT_LASTAPP = SAFE_RANGE,
+};
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [BASE] = LAYOUT_ansi(
@@ -21,7 +29,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_GRV, KC_1, KC_2, KC_3, KC_4, KC_5, KC_6, KC_7, KC_8, KC_9, KC_0, KC_MINS, KC_EQL, KC_BSPC, KC_HOME,
         KC_TAB, KC_Q, KC_W, KC_F, KC_P, KC_G, KC_J, KC_L, KC_U, KC_Y, KC_SCLN, KC_LBRC, KC_RBRC, KC_BSLS, KC_PGUP,
         LT(NAV,KC_ESC), KC_A, KC_R, KC_S, KC_T, KC_D, KC_H, KC_N, KC_E, KC_I, KC_O, KC_QUOT, KC_ENT, KC_PGDN,
-        KC_LSFT, KC_Z, KC_X, KC_C, KC_V, KC_B, KC_K, KC_M, KC_COMM, KC_DOT, KC_SLSH, KC_RSFT, KC_UP, KC_END,
+        KC_LSFT, KC_Z, KC_X, KC_C, KC_V, KC_B, KC_K, KC_M, KC_COMM, KC_DOT, KC_SLSH, TT_LASTAPP, KC_UP, KC_END,
         KC_LCTL, KC_LALT, LGUI_T(KC_F18), KC_SPC, MO(SYM), MO(FN), KC_LEFT, KC_DOWN, KC_RGHT
     ),
     [FN] = LAYOUT_ansi(
@@ -61,4 +69,37 @@ bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
         default:
             return false;
     }
+}
+
+// Right Shift is a tap-hold: hold = Shift (registered eagerly so capitals never
+// lag), tap = GUI+Tab to switch to the last app. Shift is held from key-down, and
+// GUI+Tab fires only on release when no other key intervened and the press was
+// quick — so Shift+<key> always shifts and never mis-fires the app switch, while
+// a long solo hold is just Shift.
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    static uint16_t lastapp_timer;
+    static bool     lastapp_interrupted;
+
+    if (keycode == TT_LASTAPP) {
+        if (record->event.pressed) {
+            lastapp_timer       = timer_read();
+            lastapp_interrupted = false;
+            register_code(KC_RSFT);
+        } else {
+            unregister_code(KC_RSFT);
+            if (!lastapp_interrupted && timer_elapsed(lastapp_timer) < TAPPING_TERM) {
+                register_code(KC_LGUI);
+                tap_code(KC_TAB);
+                unregister_code(KC_LGUI);
+            }
+        }
+        return false;
+    }
+
+    // Any other key pressed while Right Shift is held means it's being used as a
+    // modifier, so suppress the last-app tap on release.
+    if (record->event.pressed) {
+        lastapp_interrupted = true;
+    }
+    return true;
 }
