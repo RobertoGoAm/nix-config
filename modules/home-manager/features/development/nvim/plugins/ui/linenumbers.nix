@@ -5,9 +5,9 @@
     };
   };
 
-  # Prose reads cleaner without the gutter — drop line numbers for markdown, plain
-  # text, and git commit messages. numbertoggle only flips relativenumber when
-  # 'number' is set, so turning 'number' off here keeps it from re-adding the column.
+  # Prose reads cleaner without the gutter — drop line numbers AND the fold column
+  # for markdown, plain text, and git commit messages. (numbertoggle only flips
+  # relativenumber when 'number' is set, so turning 'number' off keeps it away too.)
   autoCmd = [
     {
       event = "FileType";
@@ -16,7 +16,7 @@
         "text"
         "gitcommit"
       ];
-      command = "setlocal nonumber norelativenumber";
+      command = "setlocal nonumber norelativenumber foldcolumn=0";
     }
   ];
 }
