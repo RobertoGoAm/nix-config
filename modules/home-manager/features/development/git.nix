@@ -25,6 +25,13 @@
         last = "log -1 HEAD";
         unstage = "reset HEAD --";
         dc = "diff --cached";
+
+        # `git nb <type> <ticket> <description...>` creates a branch like
+        # feature/PROJ-1234_new_feature_description. The type and ticket are used
+        # verbatim (so no project keys are baked in here); the description is
+        # lowercased and snake-cased — runs of non-alphanumerics collapse to a
+        # single "_", with leading/trailing separators trimmed.
+        nb = ''!f() { t="$1"; k="$2"; shift 2; d=$(printf %s "$*" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' _ | sed 's/^_//;s/_$//'); git switch -c "$t/$k""_""$d"; }; f'';
       };
 
       pull.rebase = true;
