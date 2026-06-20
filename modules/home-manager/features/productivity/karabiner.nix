@@ -176,6 +176,50 @@ let
                   ];
                   type = "basic";
                 }
+                {
+                  # Caps + D -> warpd grid. "d" is on the physical g key in Colemak,
+                  # so this fires on g; sends Cmd+Option+d (grid_activation_key).
+                  conditions = [
+                    {
+                      name = "nav_layer";
+                      type = "variable_if";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "g";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [
+                    {
+                      key_code = "d";
+                      modifiers = [ "left_command" "left_option" ];
+                    }
+                  ];
+                  type = "basic";
+                }
+                {
+                  # Caps + C -> warpd normal/cursor. Sends Cmd+Option+c (the
+                  # oneshot_key); c isn't remapped by Colemak, so it fires on c.
+                  conditions = [
+                    {
+                      name = "nav_layer";
+                      type = "variable_if";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "c";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [
+                    {
+                      key_code = "c";
+                      modifiers = [ "left_command" "left_option" ];
+                    }
+                  ];
+                  type = "basic";
+                }
               ];
             }
             {
