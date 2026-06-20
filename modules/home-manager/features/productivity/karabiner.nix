@@ -798,5 +798,17 @@ in
   config = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     home.packages = [ pkgs.karabiner-elements ];
     home.file.".config/karabiner".source = karabinerDir;
+
+    # darwin-rebuild swaps the ~/.config/karabiner symlink to a new store path,
+    # but Karabiner's file watcher doesn't notice the swap, so rule changes don't
+    # take effect until its services restart. Kick the user agents after the new
+    # symlink is in place so a plain `darwin-rebuild switch` is enough — no manual
+    # "reload Karabiner" step. (The grabber daemon then re-reads the config and
+    # re-grabs devices; harmless ~1s blip.)
+    home.activation.karabinerReload = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      uid="$(id -u)"
+      run /bin/launchctl kickstart -k "gui/$uid/org.pqrs.service.agent.karabiner_console_user_server" || true
+      run /bin/launchctl kickstart -k "gui/$uid/org.pqrs.service.agent.karabiner_grabber" || true
+    '';
   };
 }
