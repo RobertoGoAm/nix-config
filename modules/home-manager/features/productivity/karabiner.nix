@@ -735,6 +735,32 @@ let
                 }
               ];
             }
+            {
+              # Tap Right Command alone = switch to the last app (one Cmd-Tab);
+              # hold = normal Command.
+              description = "Tap Right Command = switch to last app; hold = Command";
+              manipulators = [
+                {
+                  from = {
+                    key_code = "right_command";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [
+                    {
+                      key_code = "right_command";
+                      lazy = true;
+                    }
+                  ];
+                  to_if_alone = [
+                    {
+                      key_code = "tab";
+                      modifiers = [ "left_command" ];
+                    }
+                  ];
+                  type = "basic";
+                }
+              ];
+            }
           ];
         };
         devices = [
