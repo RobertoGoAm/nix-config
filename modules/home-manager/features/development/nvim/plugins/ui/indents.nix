@@ -20,6 +20,9 @@
             "TelescopePrompt"
             "TelescopeResults"
             "yaml"
+            "markdown" # prose: no indent guides (markdown / plain text / git messages)
+            "text"
+            "gitcommit"
           ];
         };
       };
