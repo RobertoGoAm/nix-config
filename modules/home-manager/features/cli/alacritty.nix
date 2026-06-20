@@ -74,6 +74,17 @@ in
 
         dynamic_padding = true;
       };
+
+      # Fake (non-native) fullscreen on Cmd+Shift+Return: fills the screen without
+      # macOS's native-fullscreen Space, so it plays nice with aerospace. The
+      # action is macOS-only, so gate the binding to darwin.
+      keyboard.bindings = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+        {
+          key = "Enter";
+          mods = "Command|Shift";
+          action = "ToggleSimpleFullscreen";
+        }
+      ];
     };
   };
 }
