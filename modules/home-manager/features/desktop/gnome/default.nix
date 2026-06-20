@@ -3,6 +3,8 @@
 with lib.hm.gvariant;
 
 {
+  home.packages = [ pkgs.rofi ]; # X11 window switcher (rofi -show window)
+
   dconf.settings = {
     # Extensions
     "org/gnome/shell" = {
@@ -78,6 +80,7 @@ with lib.hm.gvariant;
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-normal/"
+      "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher/"
     ];
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint" = {
       name = "warpd hint";
@@ -93,6 +96,14 @@ with lib.hm.gvariant;
       name = "warpd normal";
       command = "${pkgs.warpd}/bin/warpd --normal";
       binding = "<Alt><Super>c";
+    };
+    # Window switcher = the Raycast "Switch Windows" analog (flat fuzzy list).
+    # keyd maps a Super tap to this combo (see keyd-default.conf), so tapping
+    # Super pops the list. X11 only — rofi can't enumerate windows on Wayland.
+    "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher" = {
+      name = "Window switcher";
+      command = "${pkgs.rofi}/bin/rofi -show window";
+      binding = "<Control><Alt>w";
     };
 
     # Forge general settings live under .../forge (NOT .../forge/keybindings) —
