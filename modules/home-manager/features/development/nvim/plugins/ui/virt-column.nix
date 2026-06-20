@@ -21,7 +21,9 @@
             "man"
             "TelescopePrompt"
             "TelescopeResults"
-            "markdown" # no column guides while reading/rendering markdown
+            "markdown" # prose: no column guides (markdown / plain text / git messages)
+            "text"
+            "gitcommit"
           ];
         };
 
