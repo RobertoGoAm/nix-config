@@ -17,8 +17,10 @@
 //   keys, EE_CLR on Esc, and QK_BOOT (jump to the wb32-dfu bootloader) on
 //   Fn+Backspace — so re-flashing needs no unplug-and-hold-Esc dance.
 // LEDs: the RGB toggle (Fn + its key) flips the base lighting on/off WITHOUT
-//   disabling the matrix, so indicators stay live while the base is dark — holding
-//   Fn lights the keys that do something, and Esc glows red on low battery.
+//   disabling the matrix, so indicators stay live while the base is dark. Holding
+//   Fn lights the keys that do something and turns Esc into a battery gauge
+//   (green/orange/red by level, or green/amber while charging); at rest Esc just
+//   pulses red on low battery.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
@@ -146,15 +148,20 @@ static int8_t  blink_dir = 1;
 
 // Keep the matrix enabled every boot so the indicator hooks always run; the base
 // can still be dark (RGB_MATRIX_NONE, via the toggle above). Without this, a
-// matrix toggled off in EEPROM would take the indicators down with it.
+// matrix toggled off in EEPROM would take the indicators down with it. Also set
+// the charge-detect pins as inputs — the ANSI keyboard core doesn't (iso does).
 void keyboard_post_init_user(void) {
     rgb_matrix_enable_noeeprom();
+    gpio_set_pin_input(BT_CABLE_PIN);       // high when the charge cable is connected
+    gpio_set_pin_input_high(BT_CHARGE_PIN); // low while charging, high when full
 }
 
 // Indicators that survive the base lighting being off:
 //   - Holding Fn lights every key that does something on the FN ("system") layer.
-//   - Esc (LED 0) reports the battery: a pulsing-red low warning at all times,
-//     plus a full green/orange/red level readout while Fn is held.
+//   - Esc (LED 0) reports the battery. At rest it only pulses red when low. While
+//     Fn is held it's a full gauge: green/orange/red by level on battery, or
+//     green (charged) / amber-pulse (charging) when plugged — the charge state is
+//     read from the BT_CABLE/BT_CHARGE pins (reliable, unlike the level report).
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
     blink_val += blink_dir;
     if (blink_val == UINT8_MAX)   blink_dir = -1;
@@ -174,23 +181,32 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
         }
     }
 
-#ifdef WIRELESS_ENABLE
-    // md_getp_bat() is the module's reported level (0-100); 0 = unknown (e.g. on
-    // USB), so skip the readout then.
+    // Esc battery/charge status. Charge state is read from the hardware pins
+    // (reliable); the on-battery level comes from the wireless module.
     if (led_min == 0) {
-        uint8_t bat = *md_getp_bat();
-        if (bat > 0) {
-            if (fn) {
-                // Full level readout while Fn is held (overrides the cyan on Esc).
+        bool plugged = gpio_read_pin(BT_CABLE_PIN); // high when the cable is in
+        if (fn) {
+            if (plugged) {
+                if (gpio_read_pin(BT_CHARGE_PIN)) {
+                    rgb_matrix_set_color(0, 0x00, 0xAA, 0x00);            // green: charged
+                } else {
+                    rgb_matrix_set_color(0, blink_val, blink_val / 2, 0); // amber pulse: charging
+                }
+            } else {
+#ifdef WIRELESS_ENABLE
+                uint8_t bat = *md_getp_bat();                            // 0 = unknown
                 if (bat > 50)      rgb_matrix_set_color(0, 0x00, 0xAA, 0x00); // green
                 else if (bat > 20) rgb_matrix_set_color(0, 0xAA, 0x40, 0x00); // orange
-                else               rgb_matrix_set_color(0, 0xAA, 0x00, 0x00); // red
-            } else if (bat <= 20) {
-                rgb_matrix_set_color(0, blink_val, 0x00, 0x00); // pulsing low-battery red
+                else if (bat > 0)  rgb_matrix_set_color(0, 0xAA, 0x00, 0x00); // red
+#endif
             }
+        } else if (!plugged) {
+#ifdef WIRELESS_ENABLE
+            uint8_t bat = *md_getp_bat();
+            if (bat > 0 && bat <= 20) rgb_matrix_set_color(0, blink_val, 0x00, 0x00); // pulsing low
+#endif
         }
     }
-#endif
 
     return true;
 }
