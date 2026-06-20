@@ -1,0 +1,78 @@
+;; Kanata config — Colemak base + nav/sym layers + the tap behaviours: a single
+;; cross-platform config that mirrors the macOS Karabiner (karabiner.nix) and the
+;; Linux keyd (keyd/keyd-default.conf) setups, using the same chord vocabulary the
+;; Bridge75 firmware sends.
+;;
+;; STATUS: not active. Kept here, version-controlled and in sync, as a ready-to-
+;; flip replacement for Karabiner + keyd — see kanata/default.nix for why it's off
+;; (kanata's macOS setup needs manual, non-nix steps) and how to enable it.
+;;
+;; KEEP ALIGNED: any change to the Colemak map, the nav/sym layers, or the tap
+;; behaviours must also land in karabiner.nix and keyd-default.conf (and the
+;; Bridge75 keymap where relevant) — all are meant to behave identically.
+;;
+;; Unified output vocabulary (the chords the Bridge75 already sends, caught by
+;; tools configured on each OS):
+;;   tap Left GUI    -> F18          (mac Raycast "Switch Windows" / linux GNOME -> rofi)
+;;   tap Right Shift -> GUI+Tab      (last app: Cmd+Tab on mac, Super+Tab on linux)
+;;   Caps + M/D/C    -> A-M-x/d/c    (warpd hint/grid/normal; A = Alt/Opt, M = GUI/Super)
+;;   Esc             -> Hyper+Space  (launcher toggle)
+;; GUI = Cmd on macOS and Super on Linux, so one config behaves the same on both.
+
+(defcfg
+  process-unmapped-keys yes
+  ;; The QMK Bridge75 does Colemak + layers in firmware, so kanata must ignore it
+  ;; (mirrors keyd's `-0c45:fefe` and Karabiner's device-ignore). Replace the
+  ;; placeholder names below with the real ones from `kanata --list` when enabling.
+  macos-dev-names-exclude ("Bridge75")
+  linux-dev-names-exclude ("Bridge75")
+)
+
+(defsrc
+  esc
+  grv  1    2    3    4    5    6    7    8    9    0    min  eql  bspc
+  tab  q    w    e    r    t    y    u    i    o    p    lbrc rbrc bksl
+  caps a    s    d    f    g    h    j    k    l    scln apos ret
+  lsft z    x    c    v    b    n    m    comm .    /    rsft
+  lctl lalt lmet           spc            ralt rmet
+)
+
+(defalias
+  ;; tap-hold-press = resolve to HOLD as soon as another key is pressed, so chords
+  ;; (Cmd+C, Shift+letter, a nav key while held) are never mis-read as the tap.
+  cap (tap-hold-press 200 200 esc (layer-while-held nav))  ;; Caps: tap Esc / hold Nav
+  lmt (tap-hold-press 200 200 f18 lmet)                    ;; Left GUI: tap F18 (switch windows) / hold GUI
+  rsf (tap-hold-press 200 200 M-tab rsft)                  ;; Right Shift: tap GUI+Tab (last app) / hold Shift
+  sym (layer-while-held sym)                               ;; Right Alt: hold = Sym layer
+  hyp C-A-S-M-spc                                          ;; Esc: Hyper+Space (launcher)
+)
+
+;; Colemak base. Caps/Esc/RAlt/LGUI/RShift carry the tap behaviours via aliases.
+(deflayer base
+  @hyp
+  grv  1    2    3    4    5    6    7    8    9    0    min  eql  bspc
+  tab  q    w    f    p    g    j    l    u    y    scln lbrc rbrc bksl
+  @cap a    r    s    t    d    h    n    e    i    o    apos ret
+  lsft z    x    c    v    b    k    m    comm .    /    @rsf
+  lctl lalt @lmt           spc            @sym rmet
+)
+
+;; Nav (hold Caps): arrows on Colemak h/n/e/i, paging on y/u/o/p, warpd on m/g/c.
+(deflayer nav
+  _
+  _    _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    home pgup _    pgdn end  _    _    _
+  _    _    _    _    _    A-M-d left down up   rght _    _    _
+  _    _    _    A-M-c _    _    _    A-M-x _    _    _    _
+  _    _    _              _              _    _
+)
+
+;; Sym (hold Right Alt): digits + shifted symbols + brackets/punctuation.
+(deflayer sym
+  _
+  _    _    _    _    _    _    _    _    _    _    _    _    _    _
+  _    S-1  S-2  S-3  S-4  S-5  S-6  S-7  S-8  S-9  S-0  _    _    _
+  _    1    2    3    4    5    min  eql  lbrc rbrc bksl grv  _
+  _    6    7    8    9    0    S-min S-eql S-lbrc S-rbrc S-bksl _
+  _    _    _              _              _    _
+)
