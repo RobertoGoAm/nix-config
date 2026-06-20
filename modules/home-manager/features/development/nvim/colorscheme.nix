@@ -8,6 +8,10 @@
         hide_inactive_statusline = true;
         lualine_bold = false;
         style = "storm";
+        # Transparent editor background, so a translucent terminal shows through nvim
+        # too. Floats/sidebars stay "dark" below (readable popups); Telescope keeps
+        # its solid bg via on_highlights.
+        transparent = true;
 
         styles = {
           comments = {
