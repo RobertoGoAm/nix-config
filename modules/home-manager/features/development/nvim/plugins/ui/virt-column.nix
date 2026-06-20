@@ -21,6 +21,7 @@
             "man"
             "TelescopePrompt"
             "TelescopeResults"
+            "markdown" # no column guides while reading/rendering markdown
           ];
         };
 
