@@ -58,4 +58,10 @@ run = ["layout floating"]
 if.app-id = "com.googlecode.iterm2"
 run = ["layout floating"]
 
+[[on-window-detected]]
+# Float every Alacritty window so the Hammerspoon quake (Cmd+`) overlays instead
+# of being tiled. (Per request: float all Alacritty, not just the quake window.)
+if.app-id = "org.alacritty"
+run = ["layout floating"]
+
 [workspace-to-monitor-force-assignment]
