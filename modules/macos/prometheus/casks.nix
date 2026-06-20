@@ -29,6 +29,7 @@ in
       # Productivity
       "alt-tab" # cmd-tab replacement that also restores minimized/hidden windows
       "claude"
+      "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
       "notion"
       "remnote"
 
