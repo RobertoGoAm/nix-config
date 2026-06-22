@@ -19,7 +19,7 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       win:setFrame({ x = f.x, y = f.y, w = f.w, h = f.h * 0.45 })
     end
 
-    hs.hotkey.bind({ "cmd" }, "`", function()
+    local function toggleQuake()
       local app = hs.application.get(QUAKE)
       if app and app:isFrontmost() then
         app:hide()
@@ -32,7 +32,15 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
           if a then dropTop(a:mainWindow()) end
         end)
       end
-    end)
+    end
+
+    -- Summon on the TOP-LEFT key (left of 1) regardless of keyboard layout. On ANSI
+    -- (Bridge75) that key is ` / grave; on an Apple ISO keyboard the top-left key is
+    -- § (keycode 10) while ` sits left-of-Z. Bind both so the same physical key works
+    -- on either board (muscle memory). keycode 10 isn't emitted by ANSI boards, so
+    -- it's a harmless no-op there.
+    hs.hotkey.bind({ "cmd" }, "`", toggleQuake)
+    hs.hotkey.bind({ "cmd" }, "#10", toggleQuake)
 
     -- Toggle terminal transparency on Cmd+Shift+` via Alacritty's runtime IPC.
     local transparent = false
