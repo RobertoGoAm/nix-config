@@ -35,7 +35,11 @@
     };
 
     extraConfig = ''
-      # Use macOS keychain for SSH key passphrases
+      # Use the macOS keychain for SSH key passphrases. IgnoreUnknown must come
+      # first: it lets a non-Apple ssh (e.g. a nix/brew openssh pulled into a
+      # project devshell) silently skip this Apple-only option instead of aborting
+      # with "Bad configuration option: usekeychain" and breaking git over SSH.
+      IgnoreUnknown UseKeychain
       UseKeychain yes
     '';
   };
