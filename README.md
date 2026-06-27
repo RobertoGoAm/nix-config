@@ -51,6 +51,46 @@ Free tier without attachments? Put the age key in a **custom field** named `syst
   - `~/.config/sops/age/system_keys.txt` — your age key (tiny; move it out-of-band, e.g. USB/scp).
   - `~/.config/nix-secrets/secrets.yaml` — already sops-encrypted, so it's safe to keep in a private git repo or any cloud and just `git pull`/download it.
 
+### Syncing secrets to a machine already running Nix
+
+The bootstrap above is for a *fresh* machine. When a host already runs this config
+(e.g. `vulcan`) and only needs its secrets refreshed — or you edited `secrets.yaml`
+on one machine and want the others to catch up — sync directly instead of
+re-bootstrapping. Unlock Bitwarden first: `export BW_SESSION="$(bw unlock --raw)"`.
+
+**Pull onto the machine** — fetch the age key + encrypted secrets from the
+`nix-config` item, then rebuild so sops re-renders the derived files
+(`~/.ssh/config_clients`, the git config, …):
+
+```bash
+bw sync
+id="$(bw get item nix-config | jq -r '.id')"
+bw get attachment system_keys.txt --itemid "$id" --output ~/.config/sops/age/system_keys.txt
+bw get attachment secrets.yaml   --itemid "$id" --output ~/.config/nix-secrets/secrets.yaml
+chmod 600 ~/.config/sops/age/system_keys.txt ~/.config/nix-secrets/secrets.yaml
+
+darwin-rebuild switch --flake .     # macOS  (Linux: home-manager switch --flake .)
+```
+
+(Re-running `./bootstrap.sh <host>` does the same thing idempotently, if you'd
+rather not run the steps by hand.)
+
+**Push back to Bitwarden** after editing secrets on one machine. Attachments can't
+be overwritten, so delete the old one and re-add:
+
+```bash
+sops ~/.config/nix-secrets/secrets.yaml          # edit; saves it re-encrypted
+id="$(bw get item nix-config | jq -r '.id')"
+old="$(bw get item nix-config | jq -r '.attachments[] | select(.fileName=="secrets.yaml") | .id')"
+[ -n "$old" ] && bw delete attachment "$old" --itemid "$id"
+bw create attachment --file ~/.config/nix-secrets/secrets.yaml --itemid "$id"
+bw sync
+```
+
+Same pattern for the age key (`system_keys.txt`) or the optional
+`sops-secrets.nix` / `work-extras.nix` attachments. After pushing, run the **pull**
+steps on every other machine so it picks up the change.
+
 ## Manual install (macOS)
 
 > The **Quick start** above automates all of this. These steps are the manual / debug equivalent.
