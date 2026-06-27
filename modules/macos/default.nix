@@ -293,7 +293,7 @@
         };
 
         spaces.spans-displays = false; # displays keep separate Spaces (default)
-        magicmouse.MouseButtonMode = "OneButton";
+        magicmouse.MouseButtonMode = "TwoButton"; # enable right (secondary) click on the mouse
 
         # Trackpad — locked to current state (tap-to-click off, two-finger right-click).
         trackpad = {
