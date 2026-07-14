@@ -8,6 +8,39 @@ let
         complex_modifications = {
           rules = [
             {
+              description = "Ubuntu VDI (Omnissa Horizon): Cmd -> Ctrl so Mac shortcuts (Cmd+C/V/T/W) map to the Linux Ctrl the guest expects. Scoped to the Horizon client only, so Mac apps are unaffected. Ctrl/Alt pass through unchanged (terminal Ctrl+C = SIGINT; copy in a guest terminal is Cmd+Shift+C).";
+              manipulators = [
+                {
+                  conditions = [
+                    {
+                      bundle_identifiers = [ "com.omnissa.horizon.client.mac" ];
+                      type = "frontmost_application_if";
+                    }
+                  ];
+                  from = {
+                    key_code = "left_command";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [ { key_code = "left_control"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      bundle_identifiers = [ "com.omnissa.horizon.client.mac" ];
+                      type = "frontmost_application_if";
+                    }
+                  ];
+                  from = {
+                    key_code = "right_command";
+                    modifiers = { optional = [ "any" ]; };
+                  };
+                  to = [ { key_code = "right_control"; } ];
+                  type = "basic";
+                }
+              ];
+            }
+            {
               description = "Caps hold = Nav (HJKL arrows, etc.); Caps+M = warpd hint";
               manipulators = [
                 {
