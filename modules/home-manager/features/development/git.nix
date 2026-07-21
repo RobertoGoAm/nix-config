@@ -7,15 +7,6 @@
     enable = true;
     package = pkgs.gitFull;
 
-    # Global gitignore (~/.config/git/ignore). `.serena/` is Serena's per-project
-    # index + memories — tool state, never tracked in any repo. `.claude`, `.cursor`
-    # and `.gemini` are deliberately NOT ignored here, so their AI config stays
-    # committable per-repo; only Claude Code's machine-local settings file stays out.
-    ignores = [
-      ".serena/"
-      "**/.claude/settings.local.json"
-    ];
-
     settings = {
       # Fallback identity only. The real default (personal) identity and the
       # per-client identities live encrypted in secrets.yaml, rendered to
