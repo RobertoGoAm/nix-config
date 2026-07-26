@@ -47,6 +47,7 @@ in
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
+      "utm" # local Linux VMs (Apple Virtualization / QEMU); hosts the bridged Omada controller VM
       "via"
 
       # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
