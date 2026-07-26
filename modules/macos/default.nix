@@ -321,8 +321,14 @@
       ];
       home = "/Users/${user}";
       openssh.authorizedKeys.keys = [
+        # Phone / mobile SSH clients.
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq mobile-ssh-1"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOwqeO12WNRNFxGNZKBG+VHJKLkc6JvOvRUdQkius4S mobile-ssh-2"
+        # Personal machine keys (laptop/perseus). SSH *public* keys are safe to
+        # commit — only the private half authenticates. Client/work keys are NOT
+        # here on purpose (they'd leak client names and aren't for inbound access).
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOM0QfOlRBSF0bPOfWPBzQVpCH3h/9UaOFTKc5N0QpG7 robertogoam@perseus"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPXFC2MyOXYGjvQJMgbWBdz5EuYH3A+dCwz/17n9zpdv robertogoam"
       ];
     };
 
