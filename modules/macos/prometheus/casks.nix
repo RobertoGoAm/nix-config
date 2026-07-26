@@ -46,6 +46,7 @@ in
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
+      "stats" # menu-bar system monitor (CPU/RAM/GPU/disk/net/temperature)
       "via"
 
       # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
