@@ -78,6 +78,24 @@ let
     fi
     export RESTIC_REPOSITORY="$(cat "$REPO_FILE")"
 
+    # The launchd agent has no ssh-agent, so an sftp repo must be reached with an
+    # on-disk key (e.g. a sops-decrypted one) — the default identity search in the
+    # background otherwise hits the (approval-gated) Bitwarden agent and fails. If
+    # ~/.config/restic/ssh_key names a private key, force it for the transport;
+    # otherwise fall back to default ssh (non-sftp repos ignore this entirely).
+    SFTP_CMD=""
+    SSHKEY_FILE="$HOME/.config/restic/ssh_key"
+    case "$RESTIC_REPOSITORY" in
+      sftp:*)
+        if [ -r "$SSHKEY_FILE" ]; then
+          KEY="$(cat "$SSHKEY_FILE")"
+          TGT="''${RESTIC_REPOSITORY#sftp:}"; TGT="''${TGT%%:*}"   # user@host
+          SFTP_CMD="ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes $TGT -s sftp"
+        fi ;;
+    esac
+    # restic wrapper that injects the forced-key sftp.command when one is set.
+    rr() { if [ -n "$SFTP_CMD" ]; then restic -o "sftp.command=$SFTP_CMD" "$@"; else restic "$@"; fi; }
+
     # Only the paths that actually exist (a missing ~/.aws etc. must not be fatal).
     PATHS=""
     for p in Development Documents Desktop Pictures .config .ssh .gnupg .aws .kube; do
@@ -88,8 +106,8 @@ let
     # First ever run: init the repo (harmless if it already exists). A failure
     # here means the repo is unreachable (vulcan down / off Tailscale) -> skip
     # quietly and try again next interval.
-    if ! restic cat config >/dev/null 2>&1; then
-      restic init >/dev/null 2>&1 || { echo "restic-backup: repo unreachable; skipping"; exit 0; }
+    if ! rr cat config >/dev/null 2>&1; then
+      rr init >/dev/null 2>&1 || { echo "restic-backup: repo unreachable; skipping"; exit 0; }
     fi
 
     # --skip-if-unchanged (restic >=0.17) avoids identical 30-min snapshots; probe
@@ -97,19 +115,19 @@ let
     SKIP=""; restic backup --help 2>&1 | grep -q -- --skip-if-unchanged && SKIP="--skip-if-unchanged"
 
     # shellcheck disable=SC2086
-    restic backup $PATHS $SKIP --exclude-file=${excludes} --tag auto 2>&1 \
+    rr backup $PATHS $SKIP --exclude-file=${excludes} --tag auto 2>&1 \
       || { echo "restic-backup: backup failed (repo locked/unreachable?)"; exit 0; }
 
     # Fast: trim the snapshot list to the rewind-friendly policy (no repack here).
     # --tag auto so any manual pre-refactor snapshots you make are left untouched.
-    restic forget --tag auto \
+    rr forget --tag auto \
       --keep-within 3d --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --keep-yearly 2 \
       2>&1 || true
 
     # Expensive repack at most ~once/day.
     STAMP="$HOME/.config/restic/.last-prune"
     if [ ! -f "$STAMP" ] || find "$STAMP" -mmin +1200 2>/dev/null | grep -q .; then
-      restic prune 2>&1 && : > "$STAMP" || true
+      rr prune 2>&1 && : > "$STAMP" || true
     fi
   '';
 in
