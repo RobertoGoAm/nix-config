@@ -42,5 +42,6 @@
     ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
+    ../../features/backup/restic
   ];
 }
