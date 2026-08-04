@@ -1,5 +1,9 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, osConfig ? { }, ... }:
 let
+  # Workstation-only: the vault lives in ~/Documents on the laptop. Skip it on the
+  # headless vulcan server — the vault isn't there, and macOS TCC blocks writing to
+  # ~/Documents over SSH anyway, which fails home-manager activation on rebuilds.
+  onWorkstation = (osConfig.networking.hostName or "") != "vulcan";
   vaultPath = "Documents/robertogoam";
   obsidianPath = "${vaultPath}/.obsidian";
   metaPath = "${vaultPath}/000 Meta";
@@ -15,7 +19,7 @@ let
     }) mdFiles);
 
 in
-{
+lib.mkIf onWorkstation {
   home.packages = [ pkgs.obsidian ];
 
   home.file =
@@ -34,52 +38,9 @@ in
       "${obsidianPath}/snippets/dashboard.css".source = ./snippets/dashboard.css;
     }
     // {
+      # Obsidian Sync owns .obsidian config and plugin data.json — do not
+      # manage them via home.file (read-only nix store symlinks break sync).
+      # Baseline copies live in ./config and ./plugin-data for reference.
       "${vaultPath}/.obsidian.vimrc".source = ./vault-root/.obsidian.vimrc;
-
-      "${obsidianPath}/app.json".text = builtins.readFile ./config/app.json;
-      "${obsidianPath}/appearance.json".text = builtins.readFile ./config/appearance.json;
-      "${obsidianPath}/community-plugins.json".text = builtins.readFile ./config/community-plugins.json;
-      "${obsidianPath}/core-plugins.json".text = builtins.readFile ./config/core-plugins.json;
-      "${obsidianPath}/daily-notes.json".text = builtins.readFile ./config/daily-notes.json;
-      "${obsidianPath}/graph.json".text = builtins.readFile ./config/graph.json;
-      "${obsidianPath}/hotkeys.json".text = builtins.readFile ./config/hotkeys.json;
-      "${obsidianPath}/templates.json".text = builtins.readFile ./config/templates.json;
-      "${obsidianPath}/types.json".text = builtins.readFile ./config/types.json;
-    }
-    // {
-      "${obsidianPath}/plugins/agent-client/data.json".source =
-        ./plugin-data/agent-client/data.json;
-      "${obsidianPath}/plugins/calendar/data.json".source =
-        ./plugin-data/calendar/data.json;
-      "${obsidianPath}/plugins/dataview/data.json".source =
-        ./plugin-data/dataview/data.json;
-      "${obsidianPath}/plugins/homepage/data.json".source =
-        ./plugin-data/homepage/data.json;
-      "${obsidianPath}/plugins/new-tab-default-page/data.json".source =
-        ./plugin-data/new-tab-default-page/data.json;
-      "${obsidianPath}/plugins/obsidian-advanced-slides/data.json".source =
-        ./plugin-data/obsidian-advanced-slides/data.json;
-      "${obsidianPath}/plugins/obsidian-spaced-repetition/data.json".source =
-        ./plugin-data/obsidian-spaced-repetition/data.json;
-      "${obsidianPath}/plugins/obsidian-style-settings/data.json".source =
-        ./plugin-data/obsidian-style-settings/data.json;
-      "${obsidianPath}/plugins/obsidian-tasks-plugin/data.json".source =
-        ./plugin-data/obsidian-tasks-plugin/data.json;
-      "${obsidianPath}/plugins/obsidian42-brat/data.json".source =
-        ./plugin-data/obsidian42-brat/data.json;
-      "${obsidianPath}/plugins/omnisearch/data.json".source =
-        ./plugin-data/omnisearch/data.json;
-      "${obsidianPath}/plugins/pdf-plus/data.json".source =
-        ./plugin-data/pdf-plus/data.json;
-      "${obsidianPath}/plugins/quickadd/data.json".source =
-        ./plugin-data/quickadd/data.json;
-      "${obsidianPath}/plugins/table-editor-obsidian/data.json".source =
-        ./plugin-data/table-editor-obsidian/data.json;
-      "${obsidianPath}/plugins/templater-obsidian/data.json".source =
-        ./plugin-data/templater-obsidian/data.json;
-      "${obsidianPath}/plugins/terminal/data.json".source =
-        ./plugin-data/terminal/data.json;
-      "${obsidianPath}/plugins/statusbar-organizer/data.json".source =
-        ./plugin-data/statusbar-organizer/data.json;
     };
 }
