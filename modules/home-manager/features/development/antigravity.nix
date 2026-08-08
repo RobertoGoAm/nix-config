@@ -6,7 +6,7 @@ let
     # Linux: the IDE comes from the nix package (no macOS .app layout), so point
     # the agy/agy-ide shims straight at its binary. macOS: resolve inside the .app.
     if !pkgs.stdenv.hostPlatform.isDarwin then
-      lib.getExe pkgs.antigravity
+      lib.getExe pkgs.antigravity-ide
     else if builtins.pathExists "${binDir}/antigravity-ide" then
       "${binDir}/antigravity-ide"
     else if builtins.pathExists "${binDir}/antigravity" then
@@ -25,13 +25,15 @@ in
 
   config = {
     home.packages = [
-      pkgs.antigravity
+      pkgs.antigravity-ide
+
+      # The standalone TUI agent client. It owns `agy`, which is why the shim
+      # below only covers `agy-ide` — two packages claiming bin/agy would
+      # collide when home-manager builds the profile.
+      pkgs.antigravity-cli
 
       # Gemini /ide install looks for agy-ide; the IDE ships antigravity-ide.
       (pkgs.writeShellScriptBin "agy-ide" ''
-        exec "${ideCli}" "$@"
-      '')
-      (pkgs.writeShellScriptBin "agy" ''
         exec "${ideCli}" "$@"
       '')
     ];
