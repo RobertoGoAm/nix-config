@@ -44,6 +44,14 @@ in
       "oversight"
       "ransomwhere"
 
+      # Social
+      # Telegram for macOS, the AppKit client. nixpkgs has no package for it
+      # (telegram-macos/telegram-mac are both absent) and only ships the Qt
+      # telegram-desktop, which is the lighter-on-resources loser of the two and
+      # whose updates make a rebuild noticeably slower. Revisit only if the
+      # AppKit client ever lands in nixpkgs.
+      "telegram"
+
       # Tool
       "calibre" # nixpkgs marks calibre broken on darwin
       "filen" # nixpkgs filen-desktop is Electron, Linux-only

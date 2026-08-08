@@ -81,9 +81,6 @@ in
       notion-app
       raycast
 
-      # Social
-      telegram-desktop
-
       # Media
       ffmpeg
       iina
