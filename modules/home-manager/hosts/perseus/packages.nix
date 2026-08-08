@@ -95,7 +95,6 @@ in
       anki-bin
       gnome-calendar
       obsidian
-      remnote
 
       # Security
       bitwarden-desktop

@@ -36,7 +36,6 @@ in
       # Productivity
       "claude"
       "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
-      "remnote"
 
       # Security
       "bitwarden"
