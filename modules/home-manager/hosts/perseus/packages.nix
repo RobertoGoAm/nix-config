@@ -24,7 +24,6 @@ in
 
       # Development
       cabal-install
-      claude-code
       codex-acp
       gcc
       ghc
