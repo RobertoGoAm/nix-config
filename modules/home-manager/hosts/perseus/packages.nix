@@ -27,8 +27,8 @@ in
       claude-code
       codex-acp
       gcc
-      gemini-cli
       ghc
+      gemini-cli
       glab
       gnumake
       haskell-language-server
@@ -37,7 +37,6 @@ in
       nixfmt
       postman
       stack
-      uv
 
       # DevOps
       actionlint
@@ -54,7 +53,6 @@ in
       docker-compose
       dive
       gitleaks
-      grype
       hadolint
       hcloud
       httpie
