@@ -21,8 +21,6 @@ in
     enable = true;
     casks = greedy [
       # Development
-      "dbeaver-community"
-      "docker"
       "imageoptim"
       "orbstack"
 
@@ -36,10 +34,8 @@ in
       "pdf-expert"
 
       # Productivity
-      "alt-tab" # cmd-tab replacement that also restores minimized/hidden windows
       "claude"
       "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
-      "notion"
       "remnote"
 
       # Security
@@ -50,8 +46,8 @@ in
       "ransomwhere"
 
       # Tool
-      "calibre"
-      "filen"
+      "calibre" # nixpkgs marks calibre broken on darwin
+      "filen" # nixpkgs filen-desktop is Electron, Linux-only
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
