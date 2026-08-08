@@ -846,9 +846,27 @@
           ];
         }
       ];
+      PostToolUse = [
+        {
+          matcher = "Edit|MultiEdit|Write";
+          hooks = [
+            {
+              type = "command";
+              command = "node $HOME/.claude/hooks/enforce-comment-policy.mjs";
+              timeout = 15;
+              description = "Enforce the code-comment policy: flag added non-conforming comments (JSDoc / directives / tooling markers / obscure-only)";
+            }
+          ];
+        }
+      ];
     };
     agentPushNotifEnabled = true;
   };
+  };
+
+  home.file.".claude/hooks/enforce-comment-policy.mjs" = {
+    force = true;
+    source = ./enforce-comment-policy.mjs;
   };
 
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
