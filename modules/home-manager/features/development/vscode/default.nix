@@ -615,6 +615,17 @@
           "totalTypeScript.hideAllTips" = false;
           "totalTypeScript.hideBasicTips" = false;
 
+          # Updates — nix owns the version, so the built-in updater must stay off.
+          # Left on, Squirrel rewrites ~/Applications/Home Manager Apps/Visual Studio
+          # Code.app in place; the replacement carries Microsoft's Developer ID
+          # signature, which macOS then protects under the App Management privilege,
+          # and home-manager's copyApps rsync fails with "Operation not permitted"
+          # on every subsequent rebuild. Extensions come from the read-only
+          # mutableExtensionsDir = false store path, so their updater can't work either.
+          "update.mode" = "none";
+          "extensions.autoUpdate" = false;
+          "extensions.autoCheckUpdates" = false;
+
           # Vim
           "vim.easymotion" = true;
           "vim.easymotionMarkerForegroundColorOneChar" = "#FF0000";
