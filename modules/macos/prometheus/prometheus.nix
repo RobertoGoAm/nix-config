@@ -31,7 +31,7 @@ in
     "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app"
     "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
     "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
-    "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
+    "/Applications/Telegram.app"
     "/Users/${user}/Applications/Home Manager Apps/Obsidian.app"
   ]
   ++ private.macDockApps;
