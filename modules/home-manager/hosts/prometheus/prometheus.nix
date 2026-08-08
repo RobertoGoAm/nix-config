@@ -36,11 +36,14 @@
     ../../features/internet/chromium-dev.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
+    ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
     ../../features/productivity/karabiner.nix
     ../../features/productivity/keyboard
     ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
+    ../../features/productivity/imageoptim.nix
+    ../../features/desktop/vorssaint.nix
     ../../features/desktop/warpd
     ../../features/backup/restic
   ];
