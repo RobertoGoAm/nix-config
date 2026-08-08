@@ -112,6 +112,7 @@
           # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
           pkgs = import nixpkgs {
             inherit system;
+            overlays = [ outputs.overlays.check-pins ];
             config = {
               allowUnfree = true;
               # Linux Electron apps (obsidian/discord) + checkov's

@@ -1,5 +1,9 @@
 { pkgs, ... }:
 {
+  # Reports the version pins nothing updates for us; the nix-build/nix-update
+  # functions in zsh.nix call it after every rebuild.
+  home.packages = [ pkgs.check-pins ];
+
   programs.bat = {
     enable = true;
     config = {
