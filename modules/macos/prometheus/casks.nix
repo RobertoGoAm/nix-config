@@ -80,19 +80,16 @@ in
     # $ nix shell nixpkgs#mas
     # $ mas search <app name>
     #
-    # App Store apps, by ID from `mas list`. Everything here is App Store only
-    # — Apple's own apps and Safari extensions have no cask or nixpkgs
-    # equivalent, and the Raycast/TaskForge companions ship the same way.
+    # masApps stays empty: mas cannot drive these installs on this machine.
     #
-    masApps = {
-      "Hush" = 1544743900;
-      "Keynote" = 409183694;
-      "Numbers" = 409203825;
-      "Pages" = 409201541;
-      "Raycast Companion" = 6738274497;
-      "TaskForge" = 6744716215;
-      "The Camelizer" = 1532579087;
-      "uBlock Origin Lite" = 6745342698;
-    };
+    # `mas install` exits non-zero on "Already installed", so brew bundle counts
+    # every app already present as a failure — which is all of them — and the
+    # whole rebuild reports failure. Apple's bundled iWork IDs are worse: mas
+    # cannot resolve 409183694 / 409201541 / 409203825 at all ("No apps found in
+    # the App Store for ADAM ID"), so even a clean machine could not install
+    # them. Declaring them bought a broken rebuild and nothing else.
+    #
+    # For ad-hoc lookups: nix shell nixpkgs#mas, then `mas list` / `mas search`.
+    masApps = { };
   };
 }

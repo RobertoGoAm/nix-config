@@ -20,14 +20,7 @@
   # Resolves to homebrew/core/rtk — the same project as the old rtk-ai/tap
   # formula (same upstream, Apache-2.0, bottled) and ahead of the version the
   # tap was pinning.
-  #
-  # mas: the App Store CLI. brew bundle cannot process the `mas` lines the
-  # masApps option generates without it, and the Brewfile lists brews before
-  # mas entries, so declaring it here is enough to bootstrap itself.
-  homebrew.brews = [
-    "mas"
-    "rtk"
-  ];
+  homebrew.brews = [ "rtk" ];
 
   # Declaring a cask only ever installed it; rebuilds left the version alone and
   # the apps drifted until each one nagged about its own update. Refresh the tap
