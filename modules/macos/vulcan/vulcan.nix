@@ -38,7 +38,7 @@ in
     "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app"
     "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
     "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
-    "/Users/${user}/Applications/iTerm2.app"
+    "/Users/${user}/Applications/Home Manager Apps/iTerm2.app"
     "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
     "/Users/${user}/Applications/Home Manager Apps/Obsidian.app"
   ]

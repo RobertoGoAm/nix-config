@@ -28,7 +28,7 @@ in
     "/System/Applications/Mail.app"
     "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
-    "/Applications/Antigravity IDE.app"
+    "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app"
     "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
     "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
     "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
