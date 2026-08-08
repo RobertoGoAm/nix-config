@@ -124,6 +124,7 @@
     nixpkgs = {
       overlays = [
         outputs.overlays.apple-silicon
+        outputs.overlays.checkov
         outputs.overlays.direnv
         outputs.overlays.kubernetes-helm
         outputs.overlays.warpd
@@ -132,9 +133,9 @@
         allowUnfree = true;
         allowUnfreePredicate = (_: true);
         # checkov pulls in python-ecdsa, marked insecure in nixpkgs (CVE-2024-23342).
-        permittedInsecurePackages = [
-          "python3.13-ecdsa-0.19.2"
-        ];
+        # Matched by name rather than pinned to a version so it survives nixpkgs
+        # bumping its default python (3.13 -> 3.14 renamed the derivation).
+        allowInsecurePredicate = pkg: builtins.elem (lib.getName pkg) [ "ecdsa" ];
       };
       hostPlatform = system;
     };
