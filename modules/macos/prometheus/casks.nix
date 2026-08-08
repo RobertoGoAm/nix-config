@@ -28,6 +28,10 @@ in
 
       # Internet
       "google-chrome"
+      # The standalone client: runs its own tailscaled and ships a CLI at
+      # /usr/local/bin/tailscale that matches it. Replaced the App Store
+      # build, which was stuck at 1.98.9 against a 1.102.x CLI.
+      "tailscale-app"
 
       # Media
       "macmediakeyforwarder"
@@ -80,19 +84,12 @@ in
     # — Apple's own apps and Safari extensions have no cask or nixpkgs
     # equivalent, and the Raycast/TaskForge companions ship the same way.
     #
-    # Tailscale is the exception: a tailscale-app cask exists and matches the
-    # 1.102.x CLI that services.tailscale puts on PATH, which would end the
-    # version-skew warning. It stays here anyway — this build owns the network
-    # extension and the tailscaled that serves, and the whole tailnet resolves
-    # DNS through it, so removing it drops name resolution machine-wide until
-    # the replacement is up. Swap it deliberately, not as a rebuild side effect.
     masApps = {
       "Hush" = 1544743900;
       "Keynote" = 409183694;
       "Numbers" = 409203825;
       "Pages" = 409201541;
       "Raycast Companion" = 6738274497;
-      "Tailscale" = 1475387142;
       "TaskForge" = 6744716215;
       "The Camelizer" = 1532579087;
       "uBlock Origin Lite" = 6745342698;
