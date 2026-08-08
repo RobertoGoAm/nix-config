@@ -82,7 +82,6 @@ in
       yubikey-manager
 
       # Productivity
-      alt-tab-macos
       anki-bin
       notion-app
       raycast
