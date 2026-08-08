@@ -18,7 +18,7 @@
 
   programs.home-manager.enable = true;
 
-  features.development.antigravity.appPath = "/Users/${user}/Applications/Home Manager Apps/Antigravity.app";
+  features.development.antigravity.appPath = "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app";
 
   imports = [
     inputs.nixvim.homeModules.nixvim
