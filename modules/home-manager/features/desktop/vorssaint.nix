@@ -3,14 +3,23 @@
   # only the keys listed here and leaves the rest of the domain alone, but these
   # keys are reset to these values on every activation.
   #
-  # Regenerated from the live plist — edit Vorssaint's settings, then re-run the
-  # generator rather than hand-editing, so the two never drift.
+  # Regenerated from the live plist — change Vorssaint's settings, then re-run
+  # the generator rather than hand-editing, so the two never drift.
   #
   # Not expressible as Nix values, so left under the app's own control:
   #   shelfItems (data blob)
   targets.darwin.defaults."com.vorssaint.utils" = {
     "NSStatusItem Preferred Position VorssaintMenuBarItem" = 472.0;
+    "appUpdatesLastCheck" = 1786214871.502209;
+    "appUpdatesLastCount" = 12;
+    "appUpdatesNotifiedIDs" = [ ];
+    "autoQuitEnabled" = false;
+    "batteryLimitPercent" = 10;
+    "clipboardHistoryLimit" = 50;
     "defaultDurationMinutes" = 0;
+    "dockClickCycleWindows" = false;
+    "dockClickMinimize" = true;
+    "dockPreviewEnabled" = true;
     "featureAvailable.appUpdates" = true;
     "featureAvailable.autoQuit" = true;
     "featureAvailable.brightness" = true;
@@ -67,6 +76,7 @@
     "keepAwakeIconTint" = "orange";
     "keepAwakeMouseJiggleIntervalMinutes" = 5;
     "lastUpdateIntroVersion" = "3.3.0";
+    "mediaLastTool" = "videoCompressor";
     "menuBarMetricAppearance" = "values";
     "menuBarMetricSpacing" = "compact";
     "menuBarUsageBarCriticalColor" = "#FF453A";
@@ -74,6 +84,8 @@
     "menuBarUsageBarHighThreshold" = 90;
     "menuBarUsageBarMediumThreshold" = 70;
     "menuBarUsageBarNormalColor" = "#64D2FF";
+    "mixerHeadphonesDisconnectVolumePercent" = 10;
+    "mixerLowerVolumeOnHeadphonesDisconnect" = false;
     "monitorAlertBatteryPercent" = 15;
     "monitorAlertCPU" = true;
     "monitorAlertCPUTemperature" = true;
@@ -89,10 +101,16 @@
     "panelCollapsedResetVersion" = "2.15.1";
     "panelControlFilesExpanded" = true;
     "panelControlWindowsExpanded" = true;
-    "settingsWindowHeight" = 838.0;
-    "settingsWindowWidth" = 772.0;
+    "pastePlainEnabled" = true;
+    "settingsWindowHeight" = 914.0;
+    "settingsWindowWidth" = 1060.0;
     "shelfEnabled" = true;
     "supportUpdateIntroVersion" = "3.3.0";
     "updateHighlightsSeenVersion" = "3.3.0";
+    "urlCleanerEnabled" = true;
+    "whatsAppDownloadsAccessConfirmed" = true;
+    "whatsAppDownloadsRetentionDays" = 7;
+    "whatsAppOrganizerDelayMinutes" = 5;
+    "windowMaximizeEnabled" = true;
   };
 }
