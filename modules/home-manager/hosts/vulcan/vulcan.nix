@@ -40,7 +40,6 @@
     ../../features/productivity
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
-    ../../features/productivity/imageoptim.nix
     ../../features/desktop/warpd
   ];
 }

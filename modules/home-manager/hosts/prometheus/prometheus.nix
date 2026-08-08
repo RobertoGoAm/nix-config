@@ -43,7 +43,6 @@
     ../../features/productivity/keyboard
     ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
-    ../../features/productivity/imageoptim.nix
     ../../features/desktop/vorssaint.nix
     ../../features/desktop/warpd
     ../../features/backup/restic
