@@ -46,7 +46,6 @@ in
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
-      "stats" # menu-bar system monitor (CPU/RAM/GPU/disk/net/temperature)
       "via"
       "vorssaint" # cask for vorssaint-utils: keep-awake, volume mixer, system monitor
 
