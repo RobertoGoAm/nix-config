@@ -1,8 +1,14 @@
 { ... }:
 {
-  home.file.".claude/settings.json" = {
-    force = true;
-    text = builtins.toJSON {
+  programs.claude-code = {
+    enable = true;
+
+    # mcpServers is deliberately left undeclared. The module only emits its
+    # .mcp.json when the set is non-empty, and it never touches ~/.claude.json,
+    # so servers registered with `claude mcp add` survive a rebuild. context,
+    # skills and plugins are left out for the same reason: they would pull
+    # pipeline content into this public repo.
+    settings = {
     enabledMcpjsonServers = [
       "pipeline-rag"
       "storybook"

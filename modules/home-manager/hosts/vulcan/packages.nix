@@ -22,7 +22,6 @@ in
     [
       # Development
       cabal-install
-      claude-code
       chatgpt
       codex-acp
       dbeaver-bin
