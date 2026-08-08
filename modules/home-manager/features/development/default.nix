@@ -6,9 +6,11 @@
 {
   imports = [
     ./git.nix
+    ./grype.nix
     ./java.nix
     ./nvim
     ./trivy.nix
+    ./uv.nix
     ./vscode
   ];
 

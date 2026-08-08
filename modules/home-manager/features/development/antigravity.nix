@@ -30,6 +30,10 @@ in
       # The standalone TUI agent client. It owns `agy`, which is why the shim
       # below only covers `agy-ide` — two packages claiming bin/agy would
       # collide when home-manager builds the profile.
+      #
+      # Not routed through programs.antigravity-cli: that module is a single
+      # option set shared with the renamed programs.gemini-cli, and its package
+      # defaults to gemini-cli, so enabling it installs gemini and drops agy.
       pkgs.antigravity-cli
 
       # Gemini /ide install looks for agy-ide; the IDE ships antigravity-ide.

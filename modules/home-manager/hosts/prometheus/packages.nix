@@ -33,7 +33,6 @@ in
       nixfmt
       postman
       stack
-      uv
 
       # DevOps
       actionlint
@@ -50,7 +49,6 @@ in
       docker-compose
       dive
       gitleaks
-      grype
       hadolint
       hcloud
       httpie
