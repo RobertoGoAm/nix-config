@@ -13,7 +13,7 @@ let
   };
 in
 {
-  nixGL = nixGLConfig;
+  targets.genericLinux.nixGL = nixGLConfig;
 
   programs.alacritty = {
     enable = true;

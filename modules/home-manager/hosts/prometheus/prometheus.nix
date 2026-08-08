@@ -41,7 +41,6 @@
     ../../features/media/yt-dlp.nix
     ../../features/productivity/karabiner.nix
     ../../features/productivity/keyboard
-    ../../features/productivity/raycast.nix
     ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
     ../../features/productivity/imageoptim.nix
