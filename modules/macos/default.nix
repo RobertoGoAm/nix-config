@@ -319,10 +319,10 @@
           ShowDayOfWeek = true;
         };
 
-        # This config deliberately keeps window and scroll animations on
-        # (NSScrollAnimationEnabled, launchanim, NSWindowResizeTime), so pin the
-        # accessibility switch that would override all of them.
-        universalaccess.reduceMotion = false;
+        # No universalaccess here: macOS keeps com.apple.universalaccess behind
+        # a protected store, so activation only produces "Could not write domain
+        # com.apple.universalaccess; exiting". Set reduce-motion and friends in
+        # System Settings → Accessibility.
 
         CustomUserPreferences = {
           # Opt out of ad personalisation and the advertising identifier.
