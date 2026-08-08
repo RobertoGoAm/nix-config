@@ -26,13 +26,13 @@ in
     "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
     "/Users/${user}/Applications/Home Manager Apps/Chromium Dev.app"
     "/System/Applications/Mail.app"
-    "/Applications/Spotify.app"
+    "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
     "/Applications/Antigravity IDE.app"
-    "/Applications/Cursor.app"
+    "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
     "/Users/${user}/Applications/Home Manager Apps/Alacritty.app"
     "/Users/${user}/Applications/Home Manager Apps/Telegram.app"
-    "/Applications/Obsidian.app"
+    "/Users/${user}/Applications/Home Manager Apps/Obsidian.app"
   ]
   ++ private.macDockApps;
 
