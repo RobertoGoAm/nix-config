@@ -1,6 +1,16 @@
+# nixpkgs refuses to evaluate chromium on aarch64-darwin, so pull Google's
+# official Mac ARM snapshot build instead.
+#
+# The revision is a hand-pinned snapshot number and nothing updates it
+# automatically — neither flake.lock nor nix-update can move it. `nix run
+# .#check-pins` reports when it has fallen behind; bump `version` and refresh
+# the hash with:
+#
+#   nix-prefetch-url --type sha256 \
+#     https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/<rev>/chrome-mac.zip
 self: super: {
   chromium = super.stdenv.mkDerivation rec {
-    version = "1585201";
+    version = "1676167";
 
     name = "Chromium-${version}";
     buildInputs = [ super.unzip ];
@@ -16,14 +26,13 @@ self: super: {
 
     src = super.fetchurl {
       name = "Mac_Arm_${version}_chrome-mac.zip";
-      url = "https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Mac_Arm%2F${version}%2Fchrome-mac.zip?generation=1771134849659379&alt=media";
-      sha256 = "0kzswr5qij69i5gfxy72cqfly5j50xa1cw8nhxsmbfbdgizyxfnl";
+      url = "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/${version}/chrome-mac.zip";
+      sha256 = "16ry8d57c2hs3yagrnq39iq3chjn6zrz3dgw8qgnzhl56kvh5qwg";
     };
 
-    meta = with super.stdenv.lib; {
+    meta = {
       description = "Chromium";
-      homepage = "http://www.chromium.org";
-      maintainers = with super.maintainers; [ robertogoam ];
+      homepage = "https://www.chromium.org";
       platforms = [ "aarch64-darwin" ];
     };
   };

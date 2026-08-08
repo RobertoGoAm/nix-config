@@ -81,8 +81,8 @@ in
             {
               publisher = "vitest";
               name = "explorer";
-              version = "1.8.1";
-              sha256 = "sha256-IhixVldt4XqS6OvcCpE5pBx05/es/UZ2wXyd7PqEWmw=";
+              version = "1.50.8";
+              sha256 = "sha256-LkfCnEELkdj1BRlHZpphM+bTSh/U7oE11U/E+Hx/8sU=";
             }
             {
               name = "format-code-action";
@@ -99,8 +99,8 @@ in
             {
               name = "postman-for-vscode";
               publisher = "postman";
-              version = "1.5.0";
-              sha256 = "sha256-9H4mCFY07jHMq9OVVjaKYDACTqyNld20odkbPdn7l0Q=";
+              version = "1.19.1";
+              sha256 = "sha256-WkPUa+2xgL0yf6vKadojypXgJwoLFIZdKNxBIE9J4Ds=";
             }
             {
               name = "snippet-creator";
@@ -111,14 +111,14 @@ in
             {
               name = "tabout";
               publisher = "albert";
-              version = "0.2.2";
-              sha256 = "sha256-s306AHMkUFPaG7ISIr0RscK/k6OVtniIG1CQprBx+cY=";
+              version = "0.2.4";
+              sha256 = "sha256-6jSf+O+6pbAwTbo+Nt+DlLXG3k0m+MNzzkWDKuiaxIg=";
             }
             {
               name = "terraform";
               publisher = "hashicorp";
-              version = "2.39.2";
-              sha256 = "sha256-Lb20IdQcroJ/9Jn+epcIDvciFb/GDmklR9pDzrC5JbQ=";
+              version = "2.40.0";
+              sha256 = "sha256-UsyKO7zTSDovproPUaIWfqmJxIjZfNTwhaQuH2xIzyE=";
 
             }
             {
@@ -130,8 +130,8 @@ in
             {
               name = "turbo-console-log";
               publisher = "chakrounanas";
-              version = "2.10.5";
-              sha256 = "sha256-3FP9NWoOh0Em5R1kYkfEOEYxxlyjnMaYIiCti6YdDdI=";
+              version = "3.27.0";
+              sha256 = "sha256-qF96//flnSHkG06RJ3lQUFoCjgmpcNjr2iM2Oq52LwQ=";
             }
             {
               name = "vite";
@@ -142,8 +142,8 @@ in
             {
               name = "vscode-conventional-commits";
               publisher = "vivaxy";
-              version = "1.26.0";
-              sha256 = "sha256-Lj2+rlrKm9h21zEoXwa2TeGFNKBmlQKr7MRX0zgngdg=";
+              version = "1.31.0";
+              sha256 = "sha256-3HCybDoM4jk/A9xMeu9vNvdwGempP3azG1nqPNQemJ4=";
             }
             {
               name = "vscode-fileutils";
@@ -154,8 +154,8 @@ in
             {
               name = "vscode-jest";
               publisher = "orta";
-              version = "6.4.0";
-              sha256 = "sha256-RB+V7MzoEfEx8ANwDbmsCOQltKp2+e6/eBgIzLx4Uis=";
+              version = "6.4.4";
+              sha256 = "sha256-aAS52nwAtoMxrFoWD2Ow4LSKgCiBEZvAP6H2xYXMUzY=";
             }
           ];
 

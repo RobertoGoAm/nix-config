@@ -129,6 +129,14 @@
     {
       overlays = import ./overlays { inherit inputs; };
 
+      # `nix run .#check-pins` — reports the version pins nothing updates for
+      # you (the Chromium snapshot overlay and the marketplace extensions).
+      packages = lib.genAttrs (lib.attrValues hosts) (
+        system: {
+          check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
+        }
+      );
+
       # MacOS configuration entrypoint
       # Available through nix run nix-darwin -- switch --flake .
       darwinConfigurations = lib.mapAttrs mkDarwin (
