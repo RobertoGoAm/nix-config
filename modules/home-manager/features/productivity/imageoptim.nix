@@ -7,9 +7,14 @@
   #   NSTableView Columns v3 Files (data blob)
   #   NSTableView Sort Ordering v2 Files (data blob)
   #   SULastCheckTime (date)
+  #
+  # Runtime state is deliberately left out — window frames, resume
+  # positions, last-used tools and update-check stamps. Pinning those
+  # resets them on every activation and makes the file churn on every
+  # regeneration without a setting having changed:
+  #   NSWindow Frame MainWindow
   targets.darwin.defaults."net.pornel.ImageOptim" = {
     "NSTableView Supports v2 Files" = true;
-    "NSWindow Frame MainWindow" = "87 11 1200 1104 0 0 1800 1125 ";
     "SUHasLaunchedBefore" = true;
   };
 }
