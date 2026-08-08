@@ -46,6 +46,29 @@
         fi
       }
 
+      # The rebuild's copyApps step rsyncs into ~/Applications/Home Manager Apps,
+      # which macOS gates behind the App Management privilege. That grant is tied
+      # to the calling app's code signature — and Alacritty and iTerm2 both come
+      # from nix, so every rebuild rewrites the very binary whose grant it needs
+      # and the next one fails with "Operation not permitted". Terminal.app is a
+      # system app whose signature never changes, so grant it once and it holds.
+      #
+      # Set NIX_REBUILD_HERE=1 to stay in the current terminal.
+      _nix_rebuild_in_terminal() {
+        local fn="$1"
+        local script
+        script="$(mktemp -t nix-rebuild-XXXXXX)"
+        {
+          echo '#!/bin/zsh'
+          echo 'source "$HOME/.zshrc" >/dev/null 2>&1'
+          echo "NIX_REBUILD_HERE=1 $fn"
+          echo "rm -f '$script'"
+        } > "$script"
+        chmod +x "$script"
+        echo "↗️  Running $fn in Terminal.app (App Management grant lives there)..."
+        open -a Terminal "$script"
+      }
+
       # Rebuild from the committed flake.lock (reproducible, no input bumps) and
       # show the generation diff. Everyday command. Builds as the invoking user
       # with --impure so the private files in ~/.config/nix-secrets are read at
@@ -53,6 +76,11 @@
       # falls back to /var/root and silently drops them); only activation is
       # escalated.
       nix-build() {
+        if [[ "$TERM_PROGRAM" != "Apple_Terminal" && -z "$NIX_REBUILD_HERE" ]]; then
+          _nix_rebuild_in_terminal nix-build
+          return $?
+        fi
+
         CONFIG_DIR="$HOME/nix-config"
 
         if [[ ! -d "$CONFIG_DIR" ]]; then
@@ -109,6 +137,11 @@
       # build (an input not yet caught up to a nixpkgs change). If that happens,
       # run `git restore flake.lock` and use `nix-build` until it's resolved.
       nix-update() {
+        if [[ "$TERM_PROGRAM" != "Apple_Terminal" && -z "$NIX_REBUILD_HERE" ]]; then
+          _nix_rebuild_in_terminal nix-update
+          return $?
+        fi
+
         CONFIG_DIR="$HOME/nix-config"
 
         if [[ ! -d "$CONFIG_DIR" ]]; then
