@@ -32,7 +32,10 @@ in
       glab
       gnumake
       haskell-language-server
-      ngrok
+      # ngrok: the fetch of bin.ngrok.com is blackholed by local DNS filtering,
+      # so the fixed-output derivation can't download. Re-enable once the host
+      # is allowlisted upstream.
+      # ngrok
       nixd
       nixfmt
       postman
