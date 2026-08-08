@@ -11,6 +11,11 @@
   programs.firefox = {
     enable = true;
 
+    # home-manager moved this default to $XDG_CONFIG_HOME/mozilla/firefox for
+    # stateVersion >= 26.05. Pinned to the legacy path so a stateVersion bump
+    # does not relocate an existing profile; darwin keeps its own default.
+    configPath = lib.mkIf pkgs.stdenv.hostPlatform.isLinux ".mozilla/firefox";
+
     languagePacks = [
       "en-US"
       "es-ES"

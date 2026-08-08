@@ -6,7 +6,7 @@ with lib.hm.gvariant;
   home.packages = [
     pkgs.rofi # X11 window switcher (rofi -show window)
     pkgs.tdrop # quake-style drop-down terminal manager (X11)
-    pkgs.xorg.transset # toggle a window's opacity (transparency hotkey)
+    pkgs.transset # toggle a window's opacity (transparency hotkey)
   ];
 
   dconf.settings = {
@@ -130,7 +130,7 @@ with lib.hm.gvariant;
     # GNOME/mutter honouring _NET_WM_WINDOW_OPACITY on X11.
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-transparency" = {
       name = "Toggle window transparency";
-      command = "${pkgs.xorg.transset}/bin/transset --actual --toggle 0.85";
+      command = "${pkgs.transset}/bin/transset --actual --toggle 0.85";
       binding = "<Super><Shift>grave";
     };
 
