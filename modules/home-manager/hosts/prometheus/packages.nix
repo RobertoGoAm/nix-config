@@ -23,6 +23,7 @@ in
       claude-code
       chatgpt
       codex-acp
+      dbeaver-bin
       ghc
       gemini-cli
       glab
@@ -79,7 +80,9 @@ in
       yubikey-manager
 
       # Productivity
+      alt-tab-macos
       anki-bin
+      notion-app
       raycast
 
       # Social
