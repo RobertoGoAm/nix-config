@@ -34,7 +34,9 @@
         nb = ''!f() { t="$1"; k="$2"; shift 2; d=$(printf %s "$*" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' _ | sed 's/^_//;s/_$//'); git switch -c "$t/$k""_""$d"; }; f'';
       };
 
-      pull.rebase = true;
+      # "merges" not true: a plain rebase flattens merge commits and replays their
+      # contents as cherry-picks, which silently undoes branch merges on pull.
+      pull.rebase = "merges";
       init.defaultBranch = "main";
       push.autoSetupRemote = true;
       fetch.prune = true;
