@@ -112,9 +112,6 @@
           # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
           pkgs = import nixpkgs {
             inherit system;
-            # checkov doesn't build on current nixpkgs; the same overlay the
-            # macs use fixes it here.
-            overlays = [ (import ./overlays/checkov.nix) ];
             config = {
               allowUnfree = true;
               # Linux Electron apps (obsidian/discord) + checkov's

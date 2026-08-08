@@ -1,15 +1,6 @@
 # This file defines overlays
 { inputs, ... }:
 {
-  # Direnv overlay: fix build by removing fish from check inputs
-  direnv = import ./direnv.nix;
-
-  # Helm 4.x: skip broken checkPhase until nixpkgs updates test patches
-  kubernetes-helm = import ./kubernetes-helm.nix;
-
-  # checkov: work around two upstream nixpkgs build failures (see the file).
-  checkov = import ./checkov.nix;
-
   # warpd: nixpkgs ships it Linux-only; build it from source on darwin.
   warpd = import ./warpd.nix;
 

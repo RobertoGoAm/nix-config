@@ -124,9 +124,6 @@
     nixpkgs = {
       overlays = [
         outputs.overlays.apple-silicon
-        outputs.overlays.checkov
-        outputs.overlays.direnv
-        outputs.overlays.kubernetes-helm
         outputs.overlays.warpd
       ];
       config = {
