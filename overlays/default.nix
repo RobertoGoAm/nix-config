@@ -1,6 +1,9 @@
 # This file defines overlays
 { inputs, ... }:
 {
+  # check-pins: drift report for the hand-maintained version pins.
+  check-pins = import ./check-pins.nix;
+
   # warpd: nixpkgs ships it Linux-only; build it from source on darwin.
   warpd = import ./warpd.nix;
 

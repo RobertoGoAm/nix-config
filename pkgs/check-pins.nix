@@ -22,9 +22,10 @@ writeShellApplication {
     python3
   ];
 
+  # Pass every argument through: the script takes an optional repo root plus
+  # --quiet/--update, and consuming only $1 here would silently drop the flags.
   text = ''
-    root="''${1:-.}"
-    exec python3 "${./check-pins.py}" "$root"
+    exec python3 "${./check-pins.py}" "$@"
   '';
 
   meta = {

@@ -1,16 +1,22 @@
-"""Report drift on the version pins that nothing in this repo updates for you.
+"""Report — and optionally fix — drift on the version pins nothing updates here.
 
-Checks two sources:
+flake.lock covers every nixpkgs package and warpd rides prev.warpd.src, so both
+move on `nix-update`. Two things do not:
 
-  * the Chromium snapshot in overlays/apple-silicon-chromium.nix, against the
-    LAST_CHANGE marker in Google's Mac_Arm snapshot bucket
-  * every marketplace extension pinned in the VS Code module, against the
-    Visual Studio Marketplace gallery API
+  * the Chromium snapshot in overlays/apple-silicon-chromium.nix, checked
+    against the LAST_CHANGE marker in Google's Mac_Arm snapshot bucket
+  * every marketplace extension pinned by version + sha256 in the VS Code
+    module, checked against the Visual Studio Marketplace gallery API
 
-Exits 1 when anything is behind so it can gate a check, 0 when everything is
-current, and 2 when a lookup itself failed.
+Default is read-only. `--update` rewrites the stale pins in place, refreshing
+both the version and its hash. `--quiet` prints nothing unless something is
+behind, which is how the shell aliases call it.
+
+Exit codes: 0 current, 1 drift found (or fixed), 2 a lookup or fetch failed.
 """
 
+import argparse
+import concurrent.futures
 import json
 import re
 import subprocess
@@ -20,39 +26,49 @@ from pathlib import Path
 CHROMIUM_OVERLAY = Path("overlays/apple-silicon-chromium.nix")
 VSCODE_MODULE = Path("modules/home-manager/features/development/vscode/default.nix")
 
-SNAPSHOT_LAST_CHANGE = (
-    "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/LAST_CHANGE"
-)
+SNAPSHOT_BUCKET = "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm"
 MARKETPLACE_QUERY = (
     "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
 )
+VSIX_URL = (
+    "https://{publisher}.gallery.vsassets.io/_apis/public/gallery/publisher/"
+    "{publisher}/extension/{name}/{version}/assetbyname/"
+    "Microsoft.VisualStudio.Services.VSIXPackage"
+)
 
-# Matches either field order; the module uses both.
+# The module writes these blocks in both field orders.
 EXTENSION_BLOCK = re.compile(
     r'\{\s*(?:name = "(?P<n1>[^"]+)";\s*publisher = "(?P<p1>[^"]+)";'
     r'|publisher = "(?P<p2>[^"]+)";\s*name = "(?P<n2>[^"]+)";)'
-    r'\s*version = "(?P<version>[^"]+)";',
+    r'\s*version = "(?P<version>[^"]+)";'
+    r'\s*sha256 = "(?P<sha256>[^"]+)";',
     re.MULTILINE,
 )
+
+
+def run(cmd, stdin=None):
+    result = subprocess.run(cmd, capture_output=True, text=True, input=stdin)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"{cmd[0]} exited {result.returncode}")
+    return result.stdout
 
 
 def fetch(url, data=None):
     cmd = ["curl", "-sS", "--max-time", "30", url]
     if data is not None:
         cmd += [
-            "-X",
-            "POST",
-            "-H",
-            "Content-Type: application/json",
-            "-H",
-            "Accept: application/json;api-version=7.1-preview.1",
-            "-d",
-            data,
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-H", "Accept: application/json;api-version=7.1-preview.1",
+            "-d", data,
         ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"curl exited {result.returncode}")
-    return result.stdout
+    return run(cmd)
+
+
+def prefetch_sri(url):
+    """Download url and return its hash in SRI form, as the nix files spell it."""
+    base32 = run(["nix-prefetch-url", "--type", "sha256", url]).strip().splitlines()[-1]
+    return run(["nix", "hash", "to-sri", "--type", "sha256", base32]).strip()
 
 
 def latest_extension_version(extension_id):
@@ -68,70 +84,151 @@ def latest_extension_version(extension_id):
 
 def parse_extension_pins(text):
     for match in EXTENSION_BLOCK.finditer(text):
-        name = match.group("n1") or match.group("n2")
-        publisher = match.group("p1") or match.group("p2")
-        yield f"{publisher}.{name}", match.group("version")
+        yield {
+            "name": match.group("n1") or match.group("n2"),
+            "publisher": match.group("p1") or match.group("p2"),
+            "version": match.group("version"),
+            "sha256": match.group("sha256"),
+            "span": match.span(),
+        }
 
 
-def check_chromium(root, report):
+def check_chromium(root):
     overlay = root / CHROMIUM_OVERLAY
     if not overlay.exists():
-        report.append(("skip", "chromium", f"{CHROMIUM_OVERLAY} not found"))
-        return
+        return {"status": "skip", "subject": "chromium", "detail": f"{CHROMIUM_OVERLAY} not found"}
     pinned = re.search(r'version = "(\d+)";', overlay.read_text())
     if not pinned:
-        report.append(("error", "chromium", "no version pin found in the overlay"))
-        return
-    latest = fetch(SNAPSHOT_LAST_CHANGE).strip()
-    if pinned.group(1) == latest:
-        report.append(("ok", "chromium snapshot", pinned.group(1)))
-    else:
-        behind = int(latest) - int(pinned.group(1))
-        report.append(
-            (
-                "stale",
-                "chromium snapshot",
-                f"{pinned.group(1)} -> {latest} ({behind} revisions behind)",
-            )
-        )
+        return {"status": "error", "subject": "chromium", "detail": "no version pin in the overlay"}
+    latest = fetch(f"{SNAPSHOT_BUCKET}/LAST_CHANGE").strip()
+    current = pinned.group(1)
+    if current == latest:
+        return {"status": "ok", "subject": "chromium snapshot", "detail": current}
+    behind = int(latest) - int(current)
+    return {
+        "status": "stale",
+        "subject": "chromium snapshot",
+        "detail": f"{current} -> {latest} ({behind} revisions behind)",
+        "kind": "chromium",
+        "from": current,
+        "to": latest,
+    }
 
 
-def check_extensions(root, report):
+def check_extension(pin):
+    extension_id = f"{pin['publisher']}.{pin['name']}"
+    try:
+        latest = latest_extension_version(extension_id)
+    except Exception as exc:  # noqa: BLE001 - one bad lookup must not sink the sweep
+        return {"status": "error", "subject": extension_id, "detail": str(exc)}
+    if latest == pin["version"]:
+        return {"status": "ok", "subject": extension_id, "detail": pin["version"]}
+    return {
+        "status": "stale",
+        "subject": extension_id,
+        "detail": f"{pin['version']} -> {latest}",
+        "kind": "extension",
+        "pin": pin,
+        "to": latest,
+    }
+
+
+def collect(root):
     module = root / VSCODE_MODULE
+    pins = list(parse_extension_pins(module.read_text())) if module.exists() else []
+    # The lookups are all independent network round trips; sequentially they cost
+    # a few seconds, which is too much to put in front of every rebuild.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        chromium = pool.submit(check_chromium, root)
+        extensions = list(pool.map(check_extension, pins))
+        report = [chromium.result()] + extensions
     if not module.exists():
-        report.append(("skip", "extensions", f"{VSCODE_MODULE} not found"))
-        return
-    for extension_id, pinned in parse_extension_pins(module.read_text()):
+        report.append({"status": "skip", "subject": "extensions", "detail": f"{VSCODE_MODULE} not found"})
+    return report
+
+
+def apply_updates(root, stale):
+    """Rewrite stale pins in place, refreshing each hash alongside its version."""
+    fixed, failed = [], []
+
+    extensions = [row for row in stale if row.get("kind") == "extension"]
+    if extensions:
+        path = root / VSCODE_MODULE
+        text = path.read_text()
+        # Rewrite back to front so earlier spans stay valid as the text shifts.
+        for row in sorted(extensions, key=lambda r: r["pin"]["span"][0], reverse=True):
+            pin, new_version = row["pin"], row["to"]
+            url = VSIX_URL.format(publisher=pin["publisher"], name=pin["name"], version=new_version)
+            try:
+                new_hash = prefetch_sri(url)
+            except Exception as exc:  # noqa: BLE001
+                failed.append((row["subject"], str(exc)))
+                continue
+            start, end = pin["span"]
+            block = text[start:end]
+            block = block.replace(f'version = "{pin["version"]}";', f'version = "{new_version}";')
+            block = block.replace(f'sha256 = "{pin["sha256"]}";', f'sha256 = "{new_hash}";')
+            text = text[:start] + block + text[end:]
+            fixed.append(f"{row['subject']} {pin['version']} -> {new_version}")
+        path.write_text(text)
+
+    for row in [r for r in stale if r.get("kind") == "chromium"]:
+        path = root / CHROMIUM_OVERLAY
+        text = path.read_text()
         try:
-            latest = latest_extension_version(extension_id)
-        except Exception as exc:  # noqa: BLE001 - report, do not abort the sweep
-            report.append(("error", extension_id, str(exc)))
+            new_hash_sri = prefetch_sri(f"{SNAPSHOT_BUCKET}/{row['to']}/chrome-mac.zip")
+            # The overlay spells this one as a bare base32 sha256.
+            new_hash = run(["nix", "hash", "to-base32", "--type", "sha256", new_hash_sri]).strip()
+        except Exception as exc:  # noqa: BLE001
+            failed.append((row["subject"], str(exc)))
             continue
-        if latest == pinned:
-            report.append(("ok", extension_id, pinned))
-        else:
-            report.append(("stale", extension_id, f"{pinned} -> {latest}"))
+        old_hash = re.search(r'sha256 = "([^"]+)";', text).group(1)
+        text = text.replace(f'version = "{row["from"]}";', f'version = "{row["to"]}";')
+        text = text.replace(f'sha256 = "{old_hash}";', f'sha256 = "{new_hash}";')
+        path.write_text(text)
+        fixed.append(f"{row['subject']} {row['from']} -> {row['to']}")
+
+    return fixed, failed
 
 
 def main():
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
-    report = []
-    check_chromium(root, report)
-    check_extensions(root, report)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("root", nargs="?", default=".", help="repository root")
+    parser.add_argument("--update", action="store_true", help="rewrite stale pins in place")
+    parser.add_argument("--quiet", action="store_true", help="print only when something is behind")
+    args = parser.parse_args()
 
-    stale = [row for row in report if row[0] == "stale"]
-    errors = [row for row in report if row[0] == "error"]
+    root = Path(args.root).resolve()
+    report = collect(root)
 
-    for status, subject, detail in report:
-        if status == "stale":
-            print(f"  STALE  {subject:42} {detail}")
-        elif status == "error":
-            print(f"  ERROR  {subject:42} {detail}")
-        elif status == "skip":
-            print(f"  SKIP   {subject:42} {detail}")
+    stale = [row for row in report if row["status"] == "stale"]
+    errors = [row for row in report if row["status"] == "error"]
+    checked = len([row for row in report if row["status"] in ("ok", "stale")])
 
-    checked = len([row for row in report if row[0] in ("ok", "stale")])
-    print(f"\n{checked} pins checked, {len(stale)} stale, {len(errors)} unreadable")
+    if stale and not args.update:
+        print("Pins behind upstream (nothing updates these automatically):")
+    for row in report:
+        if row["status"] == "stale" and not args.update:
+            print(f"  STALE  {row['subject']:42} {row['detail']}")
+        elif row["status"] == "error":
+            print(f"  ERROR  {row['subject']:42} {row['detail']}")
+        elif row["status"] == "skip" and not args.quiet:
+            print(f"  SKIP   {row['subject']:42} {row['detail']}")
+
+    if stale and not args.update:
+        print("\n  fix with: nix run .#check-pins -- --update")
+
+    if args.update and stale:
+        fixed, failed = apply_updates(root, stale)
+        for line in fixed:
+            print(f"  UPDATED  {line}")
+        for subject, detail in failed:
+            print(f"  FAILED   {subject:40} {detail}")
+        if failed:
+            errors.extend(failed)
+
+    if not args.quiet:
+        print(f"\n{checked} pins checked, {len(stale)} stale, {len(errors)} unreadable")
 
     if errors:
         return 2

@@ -103,6 +103,12 @@
         nix store diff-closures \
           "/nix/var/nix/profiles/$prev" \
           "/nix/var/nix/profiles/$current"
+
+        # flake.lock does not cover the hand-pinned Chromium snapshot or the
+        # marketplace extensions, so nothing above would ever move them. --quiet
+        # stays silent unless something is behind; a non-zero exit here only
+        # means drift, never a failed rebuild.
+        check-pins "$CONFIG_DIR" --quiet || true
       }
 
       # Bump flake inputs, then rebuild. Deliberate: upstream churn can break the
