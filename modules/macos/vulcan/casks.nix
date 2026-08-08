@@ -7,11 +7,19 @@ let
       {
         macCasks = [ ];
       };
+  # `brew bundle --upgrade` skips any cask that declares auto_updates upstream,
+  # which is most of this list, so rebuilds would install-then-never-touch them.
+  # Marking every entry greedy makes rebuilds upgrade them too; it is a no-op for
+  # casks that don't self-update.
+  greedy = map (name: {
+    inherit name;
+    greedy = true;
+  });
 in
 {
   homebrew = {
     enable = true;
-    casks = [
+    casks = greedy [
       # Development
       "dbeaver-community"
       "docker"
