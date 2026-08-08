@@ -117,7 +117,7 @@
             overlays = [ (import ./overlays/checkov.nix) ];
             config = {
               allowUnfree = true;
-              # Linux Electron apps (obsidian/discord/remnote) + checkov's
+              # Linux Electron apps (obsidian/discord) + checkov's
               # python-ecdsa pull packages nixpkgs marks insecure; permit them by
               # name so it survives version bumps. (The macs avoid electron — their
               # obsidian is a prebuilt binary, not a from-source build.)

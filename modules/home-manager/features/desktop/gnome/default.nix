@@ -38,7 +38,6 @@ with lib.hm.gvariant;
         "org.telegram.desktop.desktop"
         "vlc.desktop"
         "obsidian.desktop"
-        "remnote.desktop"
         "vmware-view.desktop"
       ];
     };
