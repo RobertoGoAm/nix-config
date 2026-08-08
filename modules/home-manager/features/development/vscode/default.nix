@@ -4,6 +4,28 @@
   pkgs,
   ...
 }:
+let
+  # Extensions the work devcontainer.json already installs.
+  # Personal extensions minus these become dev.containers.defaultExtensions.
+  devcontainerExtensions = map lib.toLower [
+    "antfu.vite"
+    "anthropic.claude-code"
+    "dbaeumer.vscode-eslint"
+    "editorconfig.editorconfig"
+    "esbenp.prettier-vscode"
+    "lokalise.i18n-ally"
+    "ms-playwright.playwright"
+    "rohit-gohri.format-code-action"
+    "sonarsource.sonarlint-vscode"
+    "vitest.explorer"
+    "vue.volar"
+  ];
+
+  # Host-side extensions that are pointless inside a container — never auto-install these.
+  hostOnlyExtensions = map lib.toLower [
+    "ms-vscode-remote.remote-containers"
+  ];
+in
 {
   programs.vscode = {
     enable = true;
@@ -550,6 +572,7 @@
           "editor.fontFamily" = "'JetBrainsMono Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace";
           "editor.minimap.enabled" = false;
           "workbench.colorTheme" = "Tokyo Night Storm";
+          "explorer.compactFolders" = false; # don't collapse single-child folders into one row
 
           # Extensions
           "nix.formatterPath" = "${lib.getExe pkgs.nixfmt}";
@@ -830,6 +853,20 @@
           ];
           "whichkey.delay" = 700;
           "window.titleBarStyle" = "custom";
+
+          # Dev Containers — auto-install my personal extensions in every container,
+          # minus what the devcontainer already ships and host-only ones.
+          "dev.containers.defaultExtensions" = lib.subtractLists (
+            devcontainerExtensions ++ hostOnlyExtensions
+          ) (map (e: lib.toLower e.vscodeExtUniqueId) config.programs.vscode.profiles.default.extensions);
+
+          # Default the integrated terminal in Linux dev containers to the
+          # "zsh (comfy)" profile the devcontainer defines.
+          "terminal.integrated.defaultProfile.linux" = "zsh (comfy)";
+
+          # VS Code auto-adds this when opening a remote/container and tries to
+          # persist it; declare it so it never writes to this read-only settings file.
+          "remote.autoForwardPortsSource" = "hybrid";
         };
       };
     };
