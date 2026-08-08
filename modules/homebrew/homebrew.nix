@@ -10,22 +10,24 @@
     autoMigrate = true;
   };
 
-  # Third-party taps, declared so a fresh machine reproduces them. Two carry
-  # nothing installed any more — pencil now comes from the official cask — but
-  # they are recorded rather than silently dropped.
-  #
-  # rtk-ai/tap is untrusted in Homebrew's sense (a personal tap, unreviewed), so
-  # `brew bundle` refuses to load its formula until `brew trust rtk-ai/tap` is
-  # run once per machine. rtk is our own tool and sits in the Claude Code hook
-  # path, so that trust is deliberate, not incidental.
-  homebrew.taps = [
-    "open-pencil/tap"
-    "rtk-ai/tap"
-    "zseven-w/openpencil"
-  ];
+  # No taps. Everything here comes from homebrew-core and homebrew-cask, which
+  # are reviewed; personal taps are not, and Homebrew refuses to load them
+  # without an explicit `brew trust`. The two pencil taps carried nothing
+  # installed once pencil moved to the official cask, and rtk landed in
+  # homebrew-core, so none of them earn their keep.
 
   # rtk: the token-optimising CLI proxy the Claude Code hooks rewrite through.
-  homebrew.brews = [ "rtk" ];
+  # Resolves to homebrew/core/rtk — the same project as the old rtk-ai/tap
+  # formula (same upstream, Apache-2.0, bottled) and ahead of the version the
+  # tap was pinning.
+  #
+  # mas: the App Store CLI. brew bundle cannot process the `mas` lines the
+  # masApps option generates without it, and the Brewfile lists brews before
+  # mas entries, so declaring it here is enough to bootstrap itself.
+  homebrew.brews = [
+    "mas"
+    "rtk"
+  ];
 
   # Declaring a cask only ever installed it; rebuilds left the version alone and
   # the apps drifted until each one nagged about its own update. Refresh the tap
