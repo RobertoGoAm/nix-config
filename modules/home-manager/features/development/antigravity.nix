@@ -18,7 +18,11 @@ in
   options.features.development.antigravity = {
     appPath = lib.mkOption {
       type = lib.types.str;
-      default = "/Applications/Antigravity IDE.app";
+      # The nix copy, so the agy-ide shim and the dock resolve to the same
+      # bundle. A hand-installed /Applications copy would drift from the
+      # pkgs.antigravity-ide version this config pins.
+      default = "${config.home.homeDirectory}/Applications/Home Manager Apps/Antigravity IDE.app";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/Applications/Home Manager Apps/Antigravity IDE.app"'';
       description = "Path to Antigravity IDE.app (must contain Contents/Resources/app/bin/antigravity-ide).";
     };
   };
