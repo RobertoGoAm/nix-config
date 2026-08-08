@@ -103,12 +103,6 @@
         nix store diff-closures \
           "/nix/var/nix/profiles/$prev" \
           "/nix/var/nix/profiles/$current"
-
-        # flake.lock does not cover the hand-pinned Chromium snapshot or the
-        # marketplace extensions, so nothing above would ever move them. --quiet
-        # stays silent unless something is behind; a non-zero exit here only
-        # means drift, never a failed rebuild.
-        check-pins "$CONFIG_DIR" --quiet || true
       }
 
       # Bump flake inputs, then rebuild. Deliberate: upstream churn can break the
@@ -126,6 +120,15 @@
         ( cd "$CONFIG_DIR" && nix flake update ) || return 1
 
         nix-build
+
+        # Only here, never in nix-build: nix-build is meant to reproduce the
+        # committed pins exactly, so it has nothing to say about them. Updating
+        # is this function's job, and flake.lock cannot reach the hand-pinned
+        # Chromium snapshot or the marketplace extensions — this is the one
+        # place that reports them. Non-fatal: drift is not a failed rebuild.
+        echo
+        echo "📌 Checking the pins flake.lock cannot reach..."
+        check-pins "$CONFIG_DIR" || true
       };
     '';
 
