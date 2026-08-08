@@ -307,6 +307,35 @@
           SecondClickThreshold = 1;
           TrackpadMomentumScroll = true;
         };
+
+        # Console access at the login window is a root shell behind a magic
+        # username; GuestEnabled and SHOWFULLNAME are already set above.
+        loginwindow.DisableConsoleAccess = true;
+
+        # Current menu-bar clock, declared rather than changed.
+        menuExtraClock = {
+          ShowAMPM = true;
+          ShowDate = 0;
+          ShowDayOfWeek = true;
+        };
+
+        # This config deliberately keeps window and scroll animations on
+        # (NSScrollAnimationEnabled, launchanim, NSWindowResizeTime), so pin the
+        # accessibility switch that would override all of them.
+        universalaccess.reduceMotion = false;
+
+        CustomUserPreferences = {
+          # Opt out of ad personalisation and the advertising identifier.
+          "com.apple.AdLib" = {
+            allowApplePersonalizedAdvertising = false;
+            allowIdentifierForAdvertising = false;
+          };
+
+          # Crash dialogs steal focus mid-work; the reports still get written.
+          "com.apple.CrashReporter" = {
+            DialogType = "none";
+          };
+        };
       };
       keyboard.enableKeyMapping = true;
       stateVersion = 5;
