@@ -6,6 +6,12 @@ secrets/
 private/
 *.env
 
+# Nix
+# `nix build` / darwin-rebuild leave these symlinks into the store in the
+# working tree; they are build output, not config.
+result
+result-*
+
 # macOS
 .DS_Store
 
