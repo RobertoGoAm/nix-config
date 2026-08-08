@@ -21,11 +21,18 @@ in
     enable = true;
     casks = greedy [
       # Development
+      "cate"
+      "codex"
       "imageoptim"
       "orbstack"
 
       # Internet
       "google-chrome"
+      # The GUI, which owns the network extension and the tailscaled that
+      # actually serves. Was the App Store build stuck at 1.98.9 while
+      # services.tailscale put a 1.102.x CLI on PATH, so every command
+      # warned about the version skew; the cask tracks the same 1.102.x.
+      "tailscale-app"
 
       # Media
       "macmediakeyforwarder"
@@ -35,6 +42,8 @@ in
 
       # Productivity
       "claude"
+      "kimi"
+      "pencil"
       "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
 
       # Security
@@ -72,6 +81,23 @@ in
     # $ nix shell nixpkgs#mas
     # $ mas search <app name>
     #
-    masApps = { };
+    # App Store apps, by ID from `mas list`. Everything here is App Store only
+    # — Apple's own apps and Safari extensions have no cask or nixpkgs
+    # equivalent, and the Raycast/TaskForge companions ship the same way.
+    #
+    # Microsoft Word is the exception: a microsoft-word cask exists, but the
+    # licence rides this install, so it stays here until that is worth
+    # unpicking deliberately.
+    masApps = {
+      "Hush" = 1544743900;
+      "Keynote" = 409183694;
+      "Microsoft Word" = 462054704;
+      "Numbers" = 409203825;
+      "Pages" = 409201541;
+      "Raycast Companion" = 6738274497;
+      "TaskForge" = 6744716215;
+      "The Camelizer" = 1532579087;
+      "uBlock Origin Lite" = 6745342698;
+    };
   };
 }
