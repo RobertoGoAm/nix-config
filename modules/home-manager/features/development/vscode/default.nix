@@ -573,6 +573,7 @@ in
           "editor.minimap.enabled" = false;
           "workbench.colorTheme" = "Tokyo Night Storm";
           "explorer.compactFolders" = false; # don't collapse single-child folders into one row
+          "window.autoDetectColorScheme" = false; # workbench.colorTheme decides, not the OS
 
           # Extensions
           "nix.formatterPath" = "${lib.getExe pkgs.nixfmt}";
@@ -586,6 +587,8 @@ in
             };
           };
           "haskell.manageHLS" = "PATH";
+          "claudeCode.preferredLocation" = "panel";
+          "geminicodeassist.displayInlineContextHint" = false;
 
           # Formatting
           "[javascript]" = {
@@ -617,7 +620,7 @@ in
 
           # i18n-ally
           "i18n-ally.dirStructure" = "auto";
-          "i18n-ally.displayLanguage" = "es";
+          "i18n-ally.displayLanguage" = "es-ES";
 
           # Prisma
           "prisma.showPrismaDataPlatformNotification" = false;
