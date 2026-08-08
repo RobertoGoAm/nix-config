@@ -36,10 +36,12 @@
     ../../features/internet/chromium-dev.nix
     ../../features/internet/discord.nix
     ../../features/internet/firefox.nix
+    ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
     ../../features/productivity
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
+    ../../features/productivity/imageoptim.nix
     ../../features/desktop/warpd
   ];
 }
