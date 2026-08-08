@@ -8,10 +8,18 @@
   #
   # Not expressible as Nix values, so left under the app's own control:
   #   shelfItems (data blob)
+  #
+  # Runtime state is deliberately left out — window frames, resume
+  # positions, last-used tools and update-check stamps. Pinning those
+  # resets them on every activation and makes the file churn on every
+  # regeneration without a setting having changed:
+  #   appUpdatesLastCheck
+  #   appUpdatesLastCount
+  #   mediaLastTool
+  #   settingsWindowHeight
+  #   settingsWindowWidth
   targets.darwin.defaults."com.vorssaint.utils" = {
     "NSStatusItem Preferred Position VorssaintMenuBarItem" = 472.0;
-    "appUpdatesLastCheck" = 1786214871.502209;
-    "appUpdatesLastCount" = 12;
     "appUpdatesNotifiedIDs" = [ ];
     "autoQuitEnabled" = false;
     "batteryLimitPercent" = 10;
@@ -76,7 +84,6 @@
     "keepAwakeIconTint" = "orange";
     "keepAwakeMouseJiggleIntervalMinutes" = 5;
     "lastUpdateIntroVersion" = "3.3.0";
-    "mediaLastTool" = "videoCompressor";
     "menuBarMetricAppearance" = "values";
     "menuBarMetricSpacing" = "compact";
     "menuBarUsageBarCriticalColor" = "#FF453A";
@@ -102,8 +109,6 @@
     "panelControlFilesExpanded" = true;
     "panelControlWindowsExpanded" = true;
     "pastePlainEnabled" = true;
-    "settingsWindowHeight" = 914.0;
-    "settingsWindowWidth" = 1060.0;
     "shelfEnabled" = true;
     "supportUpdateIntroVersion" = "3.3.0";
     "updateHighlightsSeenVersion" = "3.3.0";
