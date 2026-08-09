@@ -27,6 +27,13 @@ CHROMIUM_OVERLAY = Path("overlays/apple-silicon-chromium.nix")
 VSCODE_MODULE = Path("modules/home-manager/features/development/vscode/default.nix")
 
 SNAPSHOT_BUCKET = "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm"
+# Chromium mainline advances on the order of a thousand revisions a week, so a
+# freshly bumped pin is "behind" within hours and an exact comparison would
+# report stale permanently. A milestone is roughly four weeks of commits; this
+# threshold means "about a release behind", which is the point at which the
+# bump is actually worth doing.
+SNAPSHOT_DRIFT_THRESHOLD = 5000
+
 MARKETPLACE_QUERY = (
     "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
 )
@@ -102,9 +109,14 @@ def check_chromium(root):
         return {"status": "error", "subject": "chromium", "detail": "no version pin in the overlay"}
     latest = fetch(f"{SNAPSHOT_BUCKET}/LAST_CHANGE").strip()
     current = pinned.group(1)
-    if current == latest:
-        return {"status": "ok", "subject": "chromium snapshot", "detail": current}
     behind = int(latest) - int(current)
+    if behind < SNAPSHOT_DRIFT_THRESHOLD:
+        # Not "current" — it never is — but not worth acting on either.
+        return {
+            "status": "ok",
+            "subject": "chromium snapshot",
+            "detail": f"{current} ({behind} revisions behind, under threshold)",
+        }
     return {
         "status": "stale",
         "subject": "chromium snapshot",
