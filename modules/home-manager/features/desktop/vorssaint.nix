@@ -7,20 +7,20 @@
   # the generator rather than hand-editing, so the two never drift.
   #
   # Not expressible as Nix values, so left under the app's own control:
+  #   NSOSPLastRootDirectory (data blob)
   #   shelfItems (data blob)
   #
-  # Runtime state is deliberately left out — window frames, resume
-  # positions, last-used tools and update-check stamps. Pinning those
-  # resets them on every activation and makes the file churn on every
-  # regeneration without a setting having changed:
+  # Runtime state, deliberately excluded: pinning it resets the value on every
+  # activation and makes each regeneration churn with no setting changed.
+  #   NSNavPanelExpandedSizeForOpenMode
   #   appUpdatesLastCheck
   #   appUpdatesLastCount
+  #   appUpdatesNotifiedIDs
   #   mediaLastTool
   #   settingsWindowHeight
   #   settingsWindowWidth
   targets.darwin.defaults."com.vorssaint.utils" = {
     "NSStatusItem Preferred Position VorssaintMenuBarItem" = 472.0;
-    "appUpdatesNotifiedIDs" = [ ];
     "autoQuitEnabled" = false;
     "batteryLimitPercent" = 10;
     "clipboardHistoryLimit" = 50;
@@ -84,6 +84,7 @@
     "keepAwakeIconTint" = "orange";
     "keepAwakeMouseJiggleIntervalMinutes" = 5;
     "lastUpdateIntroVersion" = "3.3.0";
+    "launchAtLoginWanted" = true;
     "menuBarMetricAppearance" = "values";
     "menuBarMetricSpacing" = "compact";
     "menuBarUsageBarCriticalColor" = "#FF453A";
@@ -104,6 +105,8 @@
     "monitorAlertMemory" = true;
     "monitorIntervalSeconds" = 2;
     "monitorShowFanControlBeta" = true;
+    "musicBlockEnabled" = true;
+    "musicBlockReplacementPath" = "/Users/robertogoam/Applications/Home Manager Apps/Spotify.app";
     "onboardingStep" = 0;
     "panelCollapsedResetVersion" = "2.15.1";
     "panelControlFilesExpanded" = true;
