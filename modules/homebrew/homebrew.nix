@@ -10,24 +10,14 @@
     autoMigrate = true;
   };
 
-  # One tap, and only because OpenPencil ships nowhere else. Everything else
-  # comes from homebrew-core and homebrew-cask, which are reviewed; a personal
-  # tap is not, and Homebrew refuses to load one without `brew trust
-  # zseven-w/openpencil` — run once per machine.
-  #
-  # It must stay tap-qualified in the cask list: homebrew-cask has an unrelated
-  # project under the same `openpencil` token (net.dannote.open-pencil, a
-  # Figma-compatible editor), and the bare name resolves to that one.
-  homebrew.taps = [ "zseven-w/openpencil" ];
+  # No taps. Everything comes from homebrew-core and homebrew-cask, which are
+  # reviewed; personal taps are not, and Homebrew refuses to load one without an
+  # explicit `brew trust`.
 
-  # op: the OpenPencil CLI, which drives the editor over its HTTP MCP transport.
   # rtk: the token-optimising CLI proxy the Claude Code hooks rewrite through.
-  # rtk resolves to homebrew/core — same upstream as the old rtk-ai/tap formula,
+  # Resolves to homebrew/core — same upstream as the old rtk-ai/tap formula,
   # Apache-2.0 and bottled, and ahead of the version that tap pinned.
-  homebrew.brews = [
-    "op"
-    "rtk"
-  ];
+  homebrew.brews = [ "rtk" ];
 
   # Declaring a cask only ever installed it; rebuilds left the version alone and
   # the apps drifted until each one nagged about its own update. Refresh the tap
