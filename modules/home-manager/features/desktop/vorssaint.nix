@@ -1,17 +1,17 @@
+{ config, ... }:
 {
-  # Vorssaint preferences, pinned declaratively. targets.darwin.defaults writes
-  # only the keys listed here and leaves the rest of the domain alone, but these
-  # keys are reset to these values on every activation.
+  # com.vorssaint.utils preferences, pinned declaratively. targets.darwin.defaults
+  # writes only the keys listed here and leaves the rest of the domain
+  # alone, but these keys are reset to these values on every activation.
   #
-  # Regenerated from the live plist — change Vorssaint's settings, then re-run
-  # the generator rather than hand-editing, so the two never drift.
+  # Generated — change the setting in the app, then re-run:
+  #   nix run .#pin-prefs -- com.vorssaint.utils <this file>
   #
-  # Not expressible as Nix values, so left under the app's own control:
+  # Not expressible as Nix values, left to the app:
   #   NSOSPLastRootDirectory (data blob)
   #   shelfItems (data blob)
   #
-  # Runtime state, deliberately excluded: pinning it resets the value on every
-  # activation and makes each regeneration churn with no setting changed.
+  # Runtime state, deliberately excluded:
   #   NSNavPanelExpandedSizeForOpenMode
   #   appUpdatesLastCheck
   #   appUpdatesLastCount
@@ -106,7 +106,7 @@
     "monitorIntervalSeconds" = 2;
     "monitorShowFanControlBeta" = true;
     "musicBlockEnabled" = true;
-    "musicBlockReplacementPath" = "/Users/robertogoam/Applications/Home Manager Apps/Spotify.app";
+    "musicBlockReplacementPath" = "${config.home.homeDirectory}/Applications/Home Manager Apps/Spotify.app";
     "onboardingStep" = 0;
     "panelCollapsedResetVersion" = "2.15.1";
     "panelControlFilesExpanded" = true;

@@ -132,9 +132,12 @@
 
       # `nix run .#check-pins` — reports the version pins nothing updates for
       # you (the Chromium snapshot overlay and the marketplace extensions).
+      # `nix run .#pin-prefs -- <domain> <file>` — regenerates a macOS defaults
+      # module from an app's live preferences.
       packages = lib.genAttrs (lib.attrValues hosts) (
         system: {
           check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
+          pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
         }
       );
 

@@ -1,6 +1,9 @@
 # This file defines overlays
 { inputs, ... }:
 {
+  # pin-prefs: regenerates the macOS defaults modules from live prefs.
+  pin-prefs = import ./pin-prefs.nix;
+
   # check-pins: drift report for the hand-maintained version pins.
   check-pins = import ./check-pins.nix;
 
