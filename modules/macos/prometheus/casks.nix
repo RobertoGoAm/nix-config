@@ -42,10 +42,10 @@ in
       # Productivity
       "claude"
       "kimi"
-      # Tap-qualified deliberately: homebrew-cask has an unrelated project
-      # under the same token (net.dannote.open-pencil). This is the
-      # AI-native vector editor that the op CLI drives.
-      "zseven-w/openpencil/openpencil"
+      # openpencil.dev — the open-source Figma alternative. Opens .fig files
+      # natively, which nothing else here does, and its MCP server both reads
+      # and writes the document.
+      "openpencil"
       "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
 
       # Security

@@ -1,13 +1,12 @@
 { lib, pkgs, ... }:
 {
-  # opencode global config. Darwin-only: it registers the OpenPencil MCP
-  # server, which the macOS app exposes.
+  # opencode global config. Darwin-only: it registers the OpenPencil MCP server,
+  # which reads and writes the document — open/save .fig, create and modify
+  # nodes, components and instances, and bind design variables.
   #
-  # OpenPencil serves MCP over HTTP rather than shipping a stdio binary — the
-  # old Pencil.app bundled one at Contents/Resources/..., but that app is gone
-  # (homebrew deprecated it for failing Gatekeeper) and OpenPencil has no
-  # equivalent inside its bundle. The editor must be running for this to
-  # resolve: `op start`, or launch the app.
+  # Run over npx rather than a global `npm install -g @open-pencil/mcp`, so
+  # nothing has to be installed outside nix for this file to work. The tradeoff
+  # is that the version is not pinned; pin it here if that ever matters.
   #
   # force = true because opencode may rewrite this file at runtime; declare new
   # MCP servers here rather than via the opencode CLI.
@@ -15,9 +14,18 @@
     force = true;
     text = builtins.toJSON {
       mcp.openpencil = {
-        url = "http://127.0.0.1:3100/mcp";
+        # -p names the package, then the binary: the package is
+        # @open-pencil/mcp but the executable is openpencil-mcp, and plain
+        # `npx -y @open-pencil/mcp` fails with "could not determine executable".
+        command = [
+          "npx"
+          "-y"
+          "-p"
+          "@open-pencil/mcp"
+          "openpencil-mcp"
+        ];
         enabled = true;
-        type = "remote";
+        type = "local";
       };
     };
   };
