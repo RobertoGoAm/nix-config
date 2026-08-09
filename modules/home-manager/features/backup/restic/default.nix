@@ -77,6 +77,10 @@ let
       exit 0
     fi
     export RESTIC_REPOSITORY="$(cat "$REPO_FILE")"
+    # Optional healthchecks.io dead-man's switch. Secret-free: the ping URL lives in the
+    # runtime file ~/.config/restic/healthchecks.env (HC_PROMETHEUS), so nothing sensitive
+    # is in this public module. Absent -> no ping (the pinging is simply skipped).
+    [ -r "$HOME/.config/restic/healthchecks.env" ] && { set -a; . "$HOME/.config/restic/healthchecks.env"; set +a; }
 
     # The launchd agent has no ssh-agent, so an sftp repo must be reached with an
     # on-disk key (e.g. a sops-decrypted one) — the default identity search in the
@@ -117,6 +121,10 @@ let
     # shellcheck disable=SC2086
     rr backup $PATHS $SKIP --exclude-file=${excludes} --tag auto 2>&1 \
       || { echo "restic-backup: backup failed (repo locked/unreachable?)"; exit 0; }
+
+    # Backup to vulcan succeeded -> ping the dead-man's switch. (The offsite B2 copy is
+    # vulcan's own agent, watched by its own healthchecks check.)
+    [ -n "''${HC_PROMETHEUS:-}" ] && curl -fsS -m10 --retry 2 "$HC_PROMETHEUS" >/dev/null 2>&1 || true
 
     # Fast: trim the snapshot list to the rewind-friendly policy (no repack here).
     # --tag auto so any manual pre-refactor snapshots you make are left untouched.
