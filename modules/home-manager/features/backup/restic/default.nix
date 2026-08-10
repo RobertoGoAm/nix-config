@@ -107,11 +107,23 @@ let
     done
     [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
 
-    # First ever run: init the repo (harmless if it already exists). A failure
-    # here means the repo is unreachable (vulcan down / off Tailscale) -> skip
-    # quietly and try again next interval.
+    # Probe the repo. Three different things can go wrong here and they used to
+    # collapse into one "repo unreachable" line, which is how a crashed run once
+    # cost five days of backups: it left an exclusive lock behind, every later
+    # run tripped over it, and the log blamed the network.
+    #
+    # `restic unlock` removes only locks whose owning process is gone, never a
+    # live one, so it is safe to run unconditionally — a crashed run becomes a
+    # hiccup instead of a permanent outage.
     if ! rr cat config >/dev/null 2>&1; then
-      rr init >/dev/null 2>&1 || { echo "restic-backup: repo unreachable; skipping"; exit 0; }
+      if rr unlock >/dev/null 2>&1 && rr cat config >/dev/null 2>&1; then
+        echo "restic-backup: cleared a stale lock from a crashed run; continuing"
+      elif rr init >/dev/null 2>&1; then
+        echo "restic-backup: initialised a new repository"
+      else
+        echo "restic-backup: repo unreachable, or locked by a run that is still alive; skipping"
+        exit 0
+      fi
     fi
 
     # --skip-if-unchanged (restic >=0.17) avoids identical 30-min snapshots; probe
@@ -120,7 +132,7 @@ let
 
     # shellcheck disable=SC2086
     rr backup $PATHS $SKIP --exclude-file=${excludes} --tag auto 2>&1 \
-      || { echo "restic-backup: backup failed (repo locked/unreachable?)"; exit 0; }
+      || { echo "restic-backup: backup failed after a successful repo probe; see the error above"; exit 0; }
 
     # Backup to vulcan succeeded -> ping the dead-man's switch. (The offsite B2 copy is
     # vulcan's own agent, watched by its own healthchecks check.)
