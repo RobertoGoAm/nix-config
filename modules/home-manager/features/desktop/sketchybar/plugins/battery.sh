@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export PATH="/usr/bin:/bin:/usr/sbin"
+export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin"
 read -r pct state <<< "$(pmset -g batt | awk 'NR==2{gsub(/[;%]/,""); print $3, $4}')"
 [ -n "$pct" ] || exit 0
 icon="󰁹"; color=0xffc0caf5
