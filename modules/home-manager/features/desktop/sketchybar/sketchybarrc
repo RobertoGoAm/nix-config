@@ -77,9 +77,9 @@ sketchybar --add item front_app left \
 
 sketchybar --add item music left \
            --set music update_freq=10 \
-                       icon="♫" \
                        icon.color=$GREEN \
-                       icon.padding_left=12 \
+                       icon.padding_left=14 \
+                       icon.padding_right=6 \
                        label.color=$DIM \
                        label.max_chars=38 \
                        scroll_texts=on \
@@ -104,9 +104,23 @@ sketchybar --add item backup right \
 
 sketchybar --add item vitals right \
            --set vitals icon="􀫥" icon.color=$DIM update_freq=15 \
+                        icon.padding_right=6 \
                         script="$CONFIG_DIR/plugins/vitals.sh"
 
-sketchybar --add bracket status vitals backup battery clock \
+# Wi-Fi and tailnet together: all DNS on this machine goes through the tailnet,
+# so "wifi is up" on its own is not the question worth answering.
+sketchybar --add item network right \
+           --subscribe network wifi_change system_woke \
+           --set network update_freq=30 \
+                         icon.padding_right=6 \
+                         script="$CONFIG_DIR/plugins/network.sh"
+
+sketchybar --add item keyboard right \
+           --set keyboard icon="􀇳" icon.color=$DIM update_freq=5 \
+                          icon.padding_right=6 \
+                          script="$CONFIG_DIR/plugins/keyboard.sh"
+
+sketchybar --add bracket status vitals network keyboard backup battery clock \
            --set status background.color=$SURFACE \
                         background.corner_radius=8 \
                         background.height=26
