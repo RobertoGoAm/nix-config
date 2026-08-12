@@ -1,91 +1,114 @@
 #!/usr/bin/env bash
-# SketchyBar: a trial, driven mainly by wanting AeroSpace workspaces in the bar.
+# SketchyBar: on trial, driven by wanting AeroSpace workspaces in the bar.
 #
-# Deliberately additive — the macOS menu bar stays visible and SwiftBar keeps
-# running, so this can be compared side by side and switched off in one line
-# (features.desktop.sketchybar.enable) without leaving a gap where the status
-# item used to be.
+# Additive on purpose — the macOS menu bar stays visible and SwiftBar keeps
+# running, so this can be compared side by side and dropped in one line
+# (features.desktop.sketchybar.enable) without leaving a gap.
 #
-# Scripts run detached from a login shell, so PATH is set explicitly. This
-# session has been bitten five times by nix-profile tools shadowing BSD ones.
-export PATH="/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin"
+# Scripts run detached from a login shell, so PATH is set explicitly. Six
+# separate times this session a nix-profile tool has shadowed the BSD one.
+export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin"
 
-BAR_HEIGHT=32
+# Tokyo Night, matching the VS Code theme.
+BG=0xf01a1b26
+FG=0xffc0caf5
+DIM=0xff565f89
+ACCENT=0xff7aa2f7
+GREEN=0xff9ece6a
+SURFACE=0xff24283b
+
 FONT="SF Pro"
-COLOR_BG=0xff1a1b26          # tokyo night, matching the vscode theme
-COLOR_FG=0xffc0caf5
-COLOR_ACCENT=0xff7aa2f7
-COLOR_DIM=0xff565f89
+APP_FONT="sketchybar-app-font"
 
-sketchybar --bar height=$BAR_HEIGHT \
+# notch_width keeps items clear of the camera housing. Nothing is placed in the
+# centre either: on a notched display that is the one position guaranteed to be
+# cut in half, which is what the gap in the middle of the bar was.
+sketchybar --bar height=34 \
                  position=top \
                  sticky=on \
-                 padding_left=8 \
-                 padding_right=8 \
-                 color=$COLOR_BG
+                 padding_left=10 \
+                 padding_right=10 \
+                 color=$BG \
+                 blur_radius=30 \
+                 notch_width=200 \
+                 shadow=off
 
 sketchybar --default icon.font="$FONT:Bold:13.0" \
-                     icon.color=$COLOR_FG \
+                     icon.color=$FG \
                      label.font="$FONT:Semibold:13.0" \
-                     label.color=$COLOR_FG \
-                     padding_left=4 \
-                     padding_right=4
+                     label.color=$FG \
+                     padding_left=3 \
+                     padding_right=3 \
+                     background.corner_radius=7 \
+                     background.height=24
 
 # ---- AeroSpace workspaces --------------------------------------------------
-# The custom event has to exist before anything subscribes to it, otherwise
-# every subscribe fails with "Event not found" and the workspaces never redraw.
+# The custom event must exist before anything subscribes, or every subscribe
+# fails with "Event not found" and the workspaces never redraw.
 sketchybar --add event aerospace_workspace_change
-# One item per workspace. aerospace fires the custom event on every change, so
-# these never poll.
+
 for wid in $(aerospace list-workspaces --all 2>/dev/null); do
   sketchybar --add item "space.$wid" left \
-             --subscribe "space.$wid" aerospace_workspace_change \
-             --subscribe "space.$wid" front_app_switched \
+             --subscribe "space.$wid" aerospace_workspace_change front_app_switched \
              --set "space.$wid" \
                    label="$wid" \
-                   label.color=$COLOR_DIM \
+                   label.color=$DIM \
                    label.padding_left=9 \
                    label.padding_right=9 \
-                   background.color=$COLOR_ACCENT \
-                   background.corner_radius=6 \
-                   background.height=26 \
+                   background.color=$ACCENT \
                    background.drawing=off \
                    update_freq=5 \
                    click_script="aerospace workspace $wid" \
                    script="$CONFIG_DIR/plugins/workspace.sh $wid"
 done
 
-# ---- centre: what is focused, and what is playing --------------------------
+# ---- focused app, with its own icon ----------------------------------------
 sketchybar --add item front_app left \
            --subscribe front_app front_app_switched \
-           --set front_app icon.drawing=off \
-                           label.color=$COLOR_ACCENT \
-                           padding_left=12 \
+           --set front_app icon.font="$APP_FONT:Regular:15.0" \
+                           icon.color=$ACCENT \
+                           label.color=$FG \
+                           padding_left=14 \
+                           background.color=$SURFACE \
+                           background.drawing=on \
+                           label.padding_right=10 \
+                           icon.padding_left=10 \
                            script="$CONFIG_DIR/plugins/front_app.sh"
 
-sketchybar --add item music center \
+sketchybar --add item music left \
            --set music update_freq=10 \
-                       label.color=$COLOR_DIM \
-                       label.max_chars=45 \
+                       icon="♫" \
+                       icon.color=$GREEN \
+                       icon.padding_left=12 \
+                       label.color=$DIM \
+                       label.max_chars=38 \
                        scroll_texts=on \
                        click_script="osascript -e 'tell application \"Spotify\" to playpause'" \
                        script="$CONFIG_DIR/plugins/music.sh"
 
-# ---- right side ------------------------------------------------------------
-sketchybar --add item vitals right \
-           --set vitals update_freq=15 script="$CONFIG_DIR/plugins/vitals.sh"
-
+# ---- right side, grouped in one rounded surface ----------------------------
 sketchybar --add item clock right \
-           --set clock update_freq=10 script="$CONFIG_DIR/plugins/clock.sh"
+           --set clock icon="􀐫" icon.color=$DIM update_freq=10 \
+                       script="$CONFIG_DIR/plugins/clock.sh"
 
 sketchybar --add item battery right \
            --subscribe battery power_source_change system_woke \
            --set battery update_freq=120 script="$CONFIG_DIR/plugins/battery.sh"
 
-# Reuses the SwiftBar collector's cache rather than re-probing: the backup age
-# is the one number that has actually mattered, and re-running restic here
-# would mean two things hitting the repository on different schedules.
+# Reads the SwiftBar collector's cache rather than re-querying restic: two
+# things polling the same repository on different schedules is how lock
+# contention starts, which cost five days of backups this week.
 sketchybar --add item backup right \
-           --set backup update_freq=300 script="$CONFIG_DIR/plugins/backup.sh"
+           --set backup icon="􀈄" icon.color=$DIM update_freq=300 \
+                        script="$CONFIG_DIR/plugins/backup.sh"
+
+sketchybar --add item vitals right \
+           --set vitals icon="􀫥" icon.color=$DIM update_freq=15 \
+                        script="$CONFIG_DIR/plugins/vitals.sh"
+
+sketchybar --add bracket status vitals backup battery clock \
+           --set status background.color=$SURFACE \
+                        background.corner_radius=8 \
+                        background.height=26
 
 sketchybar --update
