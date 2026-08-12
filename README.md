@@ -289,6 +289,50 @@ This registers them as NetworkManager connections.
 
 Same as macOS — run `pubkey-setup` to regenerate `~/.ssh/*.pub` from your private keys (it prompts for any passphrase-protected key).
 
+## Editors
+
+Two editors are configured, both declaratively, and they do not interfere with each
+other. `nvim` stays the default editor (`$EDITOR`, `$VISUAL`, git); Emacs is an
+addition you opt into by launching it.
+
+`modules/home-manager/features/development/emacs/` mirrors the nvim tree file for
+file — `keybinds.nix`, `options.nix`, `colorscheme.nix`, `plugins/{code,completion,
+files,lsp,notes,ui,version-control,vim}/` — so a change on one side has an obvious
+home on the other. The same leader (`SPC`), the same localleader (`,`), the same
+which-key groups with the same labels, and the same Colemak hnei rotation.
+
+**Launching.** A daemon runs under launchd, so both frontends share one session:
+
+```bash
+em                     # terminal frame (24-bit colour, see emacs/default.nix)
+emacsclient -c         # GUI frame (Emacs.app, linked by mac-app-util)
+```
+
+**Colemak.** The rotation is defined once in `emacs/keybinds.nix` and applied to the
+evil state maps plus every keymap `evil-collection` sets up, via
+`evil-collection-setup-hook`. That is what makes hnei work inside magit, treemacs,
+dired, docker and the rest without binding them one at a time. Text objects are
+deliberately exempt: `i` stays the text-object prefix in visual and operator-pending
+state, so `vi{` and `di{` still work while `vn` and `dn` move.
+
+**First-run steps** (each is a credential, so none of them is automated here):
+
+- **forge** (GitHub/GitLab PRs and MRs) — add to `~/.authinfo.gpg`:
+  `machine api.github.com login <user>^forge password <token>` and
+  `machine gitlab.com/api/v4 login <user>^forge password <token>`.
+- **gptel** (Claude chat buffer) — `machine api.anthropic.com login apikey password <key>`
+  in the same file, or `$ANTHROPIC_API_KEY`. `claude-code.el` needs nothing; it drives
+  the `claude` CLI, which already has its own auth.
+- **telega** (Telegram) — `M-x telega`, then phone number and login code once.
+- **sqls** (SQL completion against a live schema) — connections go in
+  `~/.config/sqls/config.yaml`; `SPC o s` reads `$DATABASE_URL` or `~/.pgpass`.
+
+**Known gaps against the nvim config**, all documented in the module that would have
+carried them: neotest's adapter model and summary tree (`plugins/code/test.nix` ships
+a jest/vitest/playwright runner with nearest-test detection instead),
+refactoring.nvim's extract-to-new-file variants, precognition, hardtime, and
+virt-column's second and third guides at 120 and 140.
+
 ## Troubleshooting
 
 If you find either of these errors (or a similar one) in MacOS when trying to run nix-darwin for the first time:

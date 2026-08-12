@@ -5,6 +5,7 @@
 }:
 {
   imports = [
+    ./emacs
     ./git.nix
     ./grype.nix
     ./java.nix
