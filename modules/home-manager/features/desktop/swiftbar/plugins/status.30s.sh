@@ -40,17 +40,31 @@ backup_age() {
 pins_state() { check-pins "$HOME/nix-config" --quiet 2>/dev/null | grep -c STALE || echo 0; }
 # Free space on the backup target. A full vulcan fails backups with a different
 # error than a stale lock, and the health line would just call it "unreadable".
-vulcan_disk() {
-  ssh -o BatchMode=yes -o ConnectTimeout=8 vulcan.tail5ec262.ts.net \
-    "df -h ~/Backups 2>/dev/null | tail -1" 2>/dev/null | awk '{print $5" used, "$4" free"}'
+# One SSH round trip for everything vulcan knows: free space on the backup
+# target, and how long ago each of its own backup jobs last wrote a log. Those
+# jobs (Home Assistant, network config) have their own healthchecks but are
+# otherwise invisible from this machine.
+vulcan_state() {
+  ssh -o BatchMode=yes -o ConnectTimeout=8 vulcan.tail5ec262.ts.net '
+    df -h ~/Backups 2>/dev/null | tail -1 | awk "{print \"disk|\"\$5\" used, \"\$4\" free\"}"
+    now=$(date +%s)
+    for f in ~/Library/Logs/*backup*.out.log; do
+      [ -e "$f" ] || continue
+      printf "job|%s|%s\n" "$(basename "$f" .out.log)" "$(( (now - $(date -r "$f" +%s)) / 60 ))"
+    done
+  ' 2>/dev/null
 }
 
 BACKUP_TS="$(cached backup 300 backup_age)"
 PINS_STALE="$(cached pins 21600 pins_state)"
-VULCAN_DISK="$(cached vulcan-disk 1800 vulcan_disk)"
+VULCAN="$(cached vulcan 1800 vulcan_state)"
 
 # ---- cheap probes, every run --------------------------------------------
 IFACE="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}' || true)"
+# getairportnetwork reports "not associated" on an iPhone hotspot; getsummary
+# still knows the SSID, and knowing which network you are on is the first
+# question when the internet is missing.
+SSID="$(ipconfig getsummary en0 2>/dev/null | awk -F' SSID : ' '/ SSID : /{print $2; exit}' || true)"
 NET_CODE="$(curl -s -m 5 -o /dev/null -w '%{http_code}' https://connectivitycheck.gstatic.com/generate_204 2>/dev/null || true)"
 FILTERED="$(dig +short +time=2 +tries=1 tunnel.ngrok.com 2>/dev/null | head -1 || true)"
 TS_JSON="$(tailscale status --json 2>/dev/null || true)"
@@ -78,5 +92,5 @@ if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo fals
   SPOT_ARTIST="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null || true)"
 fi
 
-export BACKUP_TS PINS_STALE VULCAN_DISK CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
+export BACKUP_TS PINS_STALE VULCAN SSID CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
 python3 "$HOME/.config/swiftbar/lib/status-render.py"
