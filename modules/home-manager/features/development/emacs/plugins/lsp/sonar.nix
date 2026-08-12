@@ -1,0 +1,58 @@
+{
+  lib,
+  pkgs,
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      lsp-sonarlint
+    ];
+
+  home.packages = with pkgs; [
+    sonar-scanner-cli
+    sonarlint-ls
+  ];
+
+  programs.emacs.extraConfig = ''
+        ;;; SonarLint — no nvim counterpart; this is an addition, not a port.
+        ;;;
+        ;;; lsp-sonarlint runs the same analyzers SonarQube does, so the findings a merge
+        ;;; request would raise show up in the buffer instead. Its diagnostics arrive
+        ;;; through flycheck like every other checker, which means they appear on the
+        ;;; sideline and in SPC d b with no extra wiring.
+        ;;;
+        ;;; The server is the nix-built sonarlint-ls rather than a jar lsp-sonarlint
+        ;;; downloads at runtime, so it is pinned with the rest of the closure. The
+        ;;; variable names below track upstream, and the `require' is guarded: if a name
+        ;;; drifts, Sonar quietly does not attach rather than breaking startup.
+
+        (when (require 'lsp-sonarlint nil t)
+          (setq lsp-sonarlint-server-path "${lib.getExe pkgs.sonarlint-ls}"
+                lsp-sonarlint-auto-download nil
+                lsp-sonarlint-plugin-autodownload nil
+                lsp-sonarlint-use-system-jre t
+                lsp-sonarlint-disable-telemetry t
+                ;; The analyzers that match this stack.
+                lsp-sonarlint-javascript-enabled t
+                lsp-sonarlint-typescript-enabled t
+                lsp-sonarlint-html-enabled t
+                lsp-sonarlint-css-enabled t
+                lsp-sonarlint-python-enabled t
+                lsp-sonarlint-go-enabled t
+                lsp-sonarlint-secrets-enabled t
+                lsp-sonarlint-text-enabled t
+                lsp-sonarlint-xml-enabled t))
+
+        ;; sonar-scanner-cli is on PATH for a full project scan, which is a different
+        ;; job from in-editor linting — it needs a server to publish to.
+        (defun my/sonar-scan ()
+          "Run sonar-scanner over the project.
+    Reads sonar-project.properties, so a project already wired to SonarQube needs no
+    arguments; without one the scanner will say so."
+          (interactive)
+          (let ((default-directory (my/project-root))
+                (compilation-buffer-name-function (lambda (_) "*sonar*")))
+            (compile "sonar-scanner")))
+  '';
+}

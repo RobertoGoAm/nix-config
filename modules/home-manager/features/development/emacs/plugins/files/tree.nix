@@ -1,0 +1,109 @@
+{
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      treemacs
+      treemacs-evil
+      treemacs-magit
+      treemacs-nerd-icons
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; File tree — treemacs in place of nvim-tree.
+
+    ;; Settings first, `require' second: treemacs creates the directory holding its
+    ;; persist file as it loads, so letting the defcustom compute its own default
+    ;; would put that state in the wrong place (and breaks the sandboxed
+    ;; byte-compile, where $HOME is read-only).
+    (setq treemacs-persist-file (expand-file-name "treemacs-persist" user-emacs-directory)
+          treemacs-last-error-persist-file (expand-file-name
+                                            "treemacs-persist-at-last-error"
+                                            user-emacs-directory)
+          treemacs-width 35
+          treemacs-follow-after-init t
+          treemacs-indentation 2
+          treemacs-is-never-other-window t
+          treemacs-show-hidden-files t
+          treemacs-silent-filewatch t
+          treemacs-silent-refresh t
+          treemacs-sorting 'alphabetic-asc)
+
+    (require 'treemacs)
+    (require 'treemacs-evil)
+    (require 'treemacs-nerd-icons)
+    ;; sync_root_with_cwd's mode ships in its own file.
+    (require 'treemacs-project-follow-mode)
+    (with-eval-after-load 'magit (require 'treemacs-magit))
+
+    (treemacs-load-theme "nerd-icons")
+
+    ;; git.enable / modified.enable, including the show_on_dirs pair — a dirty file
+    ;; deep in the tree colours its parents too. "deferred" keeps the git calls off
+    ;; the redisplay path.
+    (treemacs-git-mode 'deferred)
+    (treemacs-filewatch-mode 1)
+    (treemacs-fringe-indicator-mode 'always)
+    (setq treemacs-git-commit-diff-mode t)
+
+    ;; update_focused_file.enable + update_root, and sync_root_with_cwd.
+    (treemacs-follow-mode 1)
+    (treemacs-project-follow-mode 1)
+
+    (defun my/treemacs-toggle ()
+      "Toggle the tree, revealing the current file — NvimTreeFindFileToggle."
+      (interactive)
+      (pcase (treemacs-current-visibility)
+        ('visible (delete-window (treemacs-get-local-window)))
+        (_ (treemacs-find-file))))
+
+    ;; actions.open_file.quit_on_open = true: opening a file closes the tree, so the
+    ;; tree is a picker rather than a permanent sidebar.
+    (defun my/treemacs-visit-and-quit ()
+      "Open the node at point and close the tree."
+      (interactive)
+      (treemacs-RET-action)
+      (when (eq (treemacs-current-visibility) 'visible)
+        (delete-window (treemacs-get-local-window))))
+
+    ;; The nvim-tree on_attach map, as far as treemacs has equivalents. Movement is
+    ;; deliberately absent: the Colemak rotation reaches treemacs through
+    ;; evil-collection and treemacs-evil, so hnei already works here.
+    ;;
+    ;; No equivalent in treemacs, and so not bound: nvim-tree's live filter (f/F),
+    ;; its bulk bookmark operations (bd/bt/bmv), and per-node git/diagnostic hopping
+    ;; (]c/[c, ]e/[e) — lsp-treemacs covers the diagnostics case from SPC d t.
+    (with-eval-after-load 'treemacs
+      (dolist (binding
+               `(("RET"   . my/treemacs-visit-and-quit)
+                 ("o"     . my/treemacs-visit-and-quit)
+                 ("TAB"   . treemacs-TAB-action)
+                 ("q"     . treemacs-quit)
+                 ("a"     . treemacs-create-file)
+                 ("A"     . treemacs-create-dir)
+                 ("d"     . treemacs-delete-file)
+                 ("r"     . treemacs-rename-file)
+                 ("R"     . treemacs-refresh)
+                 ("c"     . treemacs-copy-file)
+                 ("x"     . treemacs-move-file)
+                 ("y"     . treemacs-copy-file-name)
+                 ("Y"     . treemacs-copy-relative-path-at-point)
+                 ("gy"    . treemacs-copy-absolute-path-at-point)
+                 ("m"     . treemacs-add-bookmark)
+                 ("H"     . treemacs-toggle-show-dotfiles)
+                 ("I"     . treemacs-hide-gitignored-files-mode)
+                 ("E"     . treemacs-expand-all-projects)
+                 ("W"     . treemacs-collapse-all-projects)
+                 ("S"     . treemacs-find-file)
+                 ("-"     . treemacs-root-up)
+                 ("<backspace>" . treemacs-collapse-parent-node)
+                 ("C-]"   . treemacs-root-down)
+                 ("C-v"   . treemacs-visit-node-vertical-split)
+                 ("C-x"   . treemacs-visit-node-horizontal-split)
+                 ("C-t"   . treemacs-visit-node-in-most-recently-used-window)
+                 ("C-k"   . treemacs-show-file-details)))
+        (evil-define-key 'treemacs treemacs-mode-map
+          (kbd (car binding)) (cdr binding))))
+  '';
+}

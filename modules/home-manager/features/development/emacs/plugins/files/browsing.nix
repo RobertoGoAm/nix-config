@@ -1,0 +1,175 @@
+{
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      consult
+      consult-dir
+      consult-projectile
+      diredfl
+      embark
+      embark-consult
+      marginalia
+      nerd-icons-completion
+      nerd-icons-dired
+      orderless
+      projectile
+      vertico
+      vertico-posframe
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; Fuzzy finding — vertico + consult + orderless + embark, standing in for
+    ;;; telescope and its extensions.
+    ;;;
+    ;;; The split is worth knowing: vertico is the popup, orderless is the matching
+    ;;; algorithm, consult supplies the sources (buffers, ripgrep, imenu, recentf)
+    ;;; and embark is the "act on the thing under the cursor" layer telescope does
+    ;;; not really have. That last one is what makes project-wide replace work.
+
+    (require 'vertico)
+    ;; pumheight = 10
+    (setq vertico-count 10
+          vertico-cycle t
+          vertico-resize nil)
+    (vertico-mode 1)
+
+    ;; Path editing that behaves like a file browser: RET descends, DEL goes up.
+    (when (require 'vertico-directory nil t)
+      (define-key vertico-map (kbd "RET")   #'vertico-directory-enter)
+      (define-key vertico-map (kbd "DEL")   #'vertico-directory-delete-char)
+      (define-key vertico-map (kbd "M-DEL") #'vertico-directory-delete-word)
+      (add-hook 'rfn-eshadow-update-overlay-hook #'vertico-directory-tidy))
+
+    ;; The centred float telescope draws. Only a GUI frame can host a child frame,
+    ;; so terminal frames fall back to the minibuffer — same keys either way. The
+    ;; solid background is the on_highlights TelescopeNormal override.
+    (when (display-graphic-p)
+      (setq vertico-posframe-poshandler #'posframe-poshandler-frame-center
+            vertico-posframe-border-width 2
+            vertico-posframe-width 120)
+      (vertico-posframe-mode 1))
+
+    (require 'orderless)
+    (setq completion-styles '(orderless basic)
+          completion-category-defaults nil
+          completion-category-overrides '((file (styles partial-completion))
+                                          (lsp-capf (styles orderless))))
+
+    (require 'marginalia)
+    (marginalia-mode 1)
+    (nerd-icons-completion-mode 1)
+
+    (require 'consult)
+    (setq consult-narrow-key "<"
+          consult-preview-key 'any
+          consult-line-start-from-top nil
+          ;; hidden = true, and the --smart-case that ignorecase + smartcase imply.
+          consult-ripgrep-args
+          (concat "rg --null --line-buffered --color=never --max-columns=1000"
+                  " --path-separator / --smart-case --no-heading --with-filename"
+                  " --line-number --hidden --glob !.git/"))
+
+    (require 'embark)
+    (require 'embark-consult)
+    (setq prefix-help-command #'embark-prefix-help-command)
+    (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
+
+    ;; project-nvim's replacement. The search path is the dev workspace root
+    ;; features/development/default.nix creates, so SPC p p lists real projects on a
+    ;; fresh machine without any manual registration.
+    (require 'projectile)
+    (require 'consult-projectile)
+    (setq projectile-project-search-path '(("~/Development" . 3))
+          projectile-enable-caching t
+          projectile-indexing-method 'alien
+          projectile-completion-system 'default)
+    (projectile-mode 1)
+
+    (defun my/project-root ()
+      "Project root for the current buffer, or its directory when there is none."
+      (or (and (fboundp 'projectile-project-root) (projectile-project-root))
+          default-directory))
+
+    ;; Telescope find_files hidden=true
+    (defun my/find-files ()
+      "Find a file anywhere in the project, hidden files included."
+      (interactive)
+      (consult-fd (my/project-root)))
+
+    ;; Telescope file_browser path=%:p:h
+    (defun my/find-files-in-dir ()
+      "Find a file under the directory of the current buffer."
+      (interactive)
+      (consult-fd default-directory))
+
+    ;; Telescope frecency — recentf is the recency half; consult-buffer's own
+    ;; sorting supplies the frequency half in practice.
+    (defun my/recent-files ()
+      "Open a recently visited file."
+      (interactive)
+      (consult-recent-file))
+
+    ;; Telescope live_grep with --fixed-strings
+    (defun my/search-project ()
+      "Search the project for a literal string."
+      (interactive)
+      (let ((consult-ripgrep-args (concat consult-ripgrep-args " --fixed-strings")))
+        (consult-ripgrep (my/project-root))))
+
+    (defun my/search-project-regex ()
+      "Search the project with a regexp."
+      (interactive)
+      (consult-ripgrep (my/project-root)))
+
+    (defun my/search-buffer-regex ()
+      "Search only this file, with a regexp."
+      (interactive)
+      (consult-ripgrep (list (buffer-file-name))))
+
+    ;; Telescope env
+    (defun my/consult-env ()
+      "Pick an environment variable; its value goes to the kill ring."
+      (interactive)
+      (let ((pair (completing-read "Environment: " process-environment nil t)))
+        (when (string-match "\\`\\([^=]+\\)=\\(.*\\)\\'" pair)
+          (kill-new (match-string 2 pair))
+          (message "%s = %s (copied)" (match-string 1 pair) (match-string 2 pair)))))
+
+    (defun my/reload-config ()
+      "Re-read the generated configuration — the `so $MYVIMRC' reflex."
+      (interactive)
+      (let ((file (locate-library "default")))
+        (if file
+            (progn (load file nil :nomessage)
+                   (message "Reloaded %s" file))
+          (message "Could not locate the generated default.el"))))
+
+    (defun my/kill-buffer-force ()
+      "Kill this buffer, discarding changes — the `q!' reflex."
+      (interactive)
+      (set-buffer-modified-p nil)
+      (kill-buffer))
+
+    (defun my/quit-force ()
+      "Quit without saving — `qa!'."
+      (interactive)
+      (dolist (buffer (buffer-list))
+        (with-current-buffer buffer (set-buffer-modified-p nil)))
+      (kill-emacs))
+
+    ;; dired, since it is the other half of file management in Emacs and worth
+    ;; having match the tree's look. macOS ships BSD ls, which has no
+    ;; --group-directories-first, so ls-lisp does the listing inside Emacs and both
+    ;; hosts get an identical dired.
+    (require 'ls-lisp)
+    (setq ls-lisp-use-insert-directory-program nil
+          ls-lisp-dirs-first t
+          dired-listing-switches "-alh"
+          dired-dwim-target t
+          dired-kill-when-opening-new-dired-buffer t)
+    (add-hook 'dired-mode-hook #'nerd-icons-dired-mode)
+    (add-hook 'dired-mode-hook #'diredfl-mode)
+  '';
+}
