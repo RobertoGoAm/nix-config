@@ -76,4 +76,4 @@ if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo fals
 fi
 
 export BACKUP_TS PINS_STALE VULCAN_DISK CONTAINERS UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
-python3 "$(dirname "$0")/status-render.py"
+python3 "$HOME/.config/swiftbar/lib/status-render.py"
