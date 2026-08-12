@@ -179,6 +179,12 @@ elif containers:
 # Roll helper processes up into their parent app: Chrome's twenty renderers
 # individually say nothing, their total says a lot. The first ".app" in the
 # path is the outermost bundle, which is the name worth showing.
+#
+# These are RSS sums, which is the right shape for ranking but will not match
+# Activity Monitor: RSS counts shared pages once per process, so a
+# many-process app reads high, and Activity Monitor reports physical
+# footprint instead. Treat the order as accurate and the absolute numbers as
+# an upper bound.
 usage = {}
 for line in (env("PS_DATA") or "").splitlines():
     parts = line.split(None, 2)

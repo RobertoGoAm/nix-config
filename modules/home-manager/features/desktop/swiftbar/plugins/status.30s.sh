@@ -84,7 +84,11 @@ UNHEALTHY="$(timeout 8 docker ps -a --filter health=unhealthy --format '{{.Names
 # /bin/ps explicitly: this profile's ps is procps, whose flags differ. rss is
 # KiB, pcpu is a percentage, and comm is a full path that contains spaces — so
 # the renderer splits on the first two fields only.
-PS_DATA="$(/bin/ps -Ao rss=,pcpu=,comm= 2>/dev/null | head -400 || true)"
+#
+# No head cap here. An earlier version took the first 400 lines, but ps orders
+# by PID, so that dropped an arbitrary third of 630 processes and reported
+# Chrome at 1.10G instead of 2.64G. Aggregating by app needs every process.
+PS_DATA="$(/bin/ps -Ao rss=,pcpu=,comm= 2>/dev/null || true)"
 
 REPO="$HOME/nix-config"
 DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | grep -vc '^??' || echo 0)"
