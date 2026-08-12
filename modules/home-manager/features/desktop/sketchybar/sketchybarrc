@@ -32,6 +32,9 @@ sketchybar --default icon.font="$FONT:Bold:13.0" \
                      padding_right=4
 
 # ---- AeroSpace workspaces --------------------------------------------------
+# The custom event has to exist before anything subscribes to it, otherwise
+# every subscribe fails with "Event not found" and the workspaces never redraw.
+sketchybar --add event aerospace_workspace_change
 # One item per workspace. aerospace fires the custom event on every change, so
 # these never poll.
 for wid in $(aerospace list-workspaces --all 2>/dev/null); do

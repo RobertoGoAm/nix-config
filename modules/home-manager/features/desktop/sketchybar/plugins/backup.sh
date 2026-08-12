@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reads the SwiftBar collector's cache instead of querying restic itself, so
 # only one thing ever talks to the repository.
-export PATH="/etc/profiles/per-user/$USER/bin:/usr/bin:/bin"
+export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin"
 cache="${TMPDIR:-/tmp}/swiftbar-status/backup"
 [ -r "$cache" ] || { sketchybar --set "$NAME" label="backup ?"; exit 0; }
 ts="$(cat "$cache")"
