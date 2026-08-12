@@ -86,7 +86,7 @@ if problems:
         print(f"⚠ {p} | color=red")
     print("---")
 
-print(f"Backup {backup_line}")
+print(f"Backup {backup_line} | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
 print(f"--Run now | bash=/bin/launchctl param1=kickstart param2=-k param3=gui/{os.getuid()}/org.nix-community.home.restic-backup terminal=false refresh=true")
 print("--Open log | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
 
@@ -131,7 +131,10 @@ print("--Update pins | bash=/bin/sh param1=-c param2='cd ~/nix-config && nix run
 
 if track:
     print("---")
-    print(f"♫ {artist} — {track}")
-    print("--Play/Pause | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to playpause' terminal=false refresh=true")
-    print("--Next | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to next track' terminal=false refresh=true")
-    print("--Previous | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to previous track' terminal=false refresh=true")
+    # The controls sit at top level rather than in a submenu: SwiftBar renders a
+    # row with no action as disabled, so a submenu parent looks dead and buries
+    # the one thing here you actually want to click.
+    print(f"♫ {artist} — {track} | bash=/usr/bin/open param1=-a param2=Spotify terminal=false")
+    print("Play/Pause | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to playpause' terminal=false refresh=true")
+    print("Next | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to next track' terminal=false refresh=true")
+    print("Previous | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to previous track' terminal=false refresh=true")
