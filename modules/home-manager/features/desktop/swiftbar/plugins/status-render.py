@@ -85,6 +85,33 @@ try:
 except ValueError:
     pass
 
+# Roll helper processes up into their parent app: Chrome's twenty renderers
+# individually say nothing, their total says a lot. The first ".app" in the
+# path is the outermost bundle, which is the name worth showing.
+#
+# These are RSS sums, which is the right shape for ranking but will not match
+# Activity Monitor: RSS counts shared pages once per process, so a
+# many-process app reads high, and Activity Monitor reports physical footprint
+# instead. Treat the order as accurate and the absolute numbers as an upper
+# bound.
+usage = {}
+for line in (env("PS_DATA") or "").splitlines():
+    parts = line.split(None, 2)
+    if len(parts) < 3:
+        continue
+    try:
+        rss_kib, pcpu = int(parts[0]), float(parts[1])
+    except ValueError:
+        continue
+    path = parts[2]
+    if ".app/" in path:
+        name = path.split(".app/")[0].split("/")[-1]
+    else:
+        name = path.split("/")[-1]
+    total = usage.setdefault(name, [0, 0.0])
+    total[0] += rss_kib
+    total[1] += pcpu
+
 # ---- rotating title lines -------------------------------------------------
 if metrics:
     mem = metrics["memory"]
@@ -102,6 +129,16 @@ if metrics:
 # read — the appearance of this line is meant to be the signal.
 if problems:
     print(f"⚠ {problems[0]} | color=red")
+
+if backup_age_h is not None:
+    print(f"⏱ backup {backup_line}")
+
+# The heaviest thing on the machine right now — the question you actually have
+# when the fans spin up, answered without opening anything.
+if usage:
+    top_cpu = max(usage.items(), key=lambda kv: kv[1][1])
+    if top_cpu[1][1] >= 5:
+        print(f"⚡ {top_cpu[0]} {top_cpu[1][1]:.0f}%")
 
 track, artist = env("SPOT_TRACK", ""), env("SPOT_ARTIST", "")
 if track:
@@ -176,32 +213,6 @@ elif containers:
     for name in stopped:
         print(f"--○ {name}")
 
-# Roll helper processes up into their parent app: Chrome's twenty renderers
-# individually say nothing, their total says a lot. The first ".app" in the
-# path is the outermost bundle, which is the name worth showing.
-#
-# These are RSS sums, which is the right shape for ranking but will not match
-# Activity Monitor: RSS counts shared pages once per process, so a
-# many-process app reads high, and Activity Monitor reports physical
-# footprint instead. Treat the order as accurate and the absolute numbers as
-# an upper bound.
-usage = {}
-for line in (env("PS_DATA") or "").splitlines():
-    parts = line.split(None, 2)
-    if len(parts) < 3:
-        continue
-    try:
-        rss_kib, pcpu = int(parts[0]), float(parts[1])
-    except ValueError:
-        continue
-    path = parts[2]
-    if ".app/" in path:
-        name = path.split(".app/")[0].split("/")[-1]
-    else:
-        name = path.split("/")[-1]
-    total = usage.setdefault(name, [0, 0.0])
-    total[0] += rss_kib
-    total[1] += pcpu
 
 if usage:
     for label, key, fmt in (
