@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# SketchyBar: a trial, driven mainly by wanting AeroSpace workspaces in the bar.
+#
+# Deliberately additive — the macOS menu bar stays visible and SwiftBar keeps
+# running, so this can be compared side by side and switched off in one line
+# (features.desktop.sketchybar.enable) without leaving a gap where the status
+# item used to be.
+#
+# Scripts run detached from a login shell, so PATH is set explicitly. This
+# session has been bitten five times by nix-profile tools shadowing BSD ones.
+export PATH="/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin:/bin"
+
+BAR_HEIGHT=32
+FONT="SF Pro"
+COLOR_BG=0xff1a1b26          # tokyo night, matching the vscode theme
+COLOR_FG=0xffc0caf5
+COLOR_ACCENT=0xff7aa2f7
+COLOR_DIM=0xff565f89
+
+sketchybar --bar height=$BAR_HEIGHT \
+                 position=top \
+                 sticky=on \
+                 padding_left=8 \
+                 padding_right=8 \
+                 color=$COLOR_BG
+
+sketchybar --default icon.font="$FONT:Bold:13.0" \
+                     icon.color=$COLOR_FG \
+                     label.font="$FONT:Semibold:13.0" \
+                     label.color=$COLOR_FG \
+                     padding_left=4 \
+                     padding_right=4
+
+# ---- AeroSpace workspaces --------------------------------------------------
+# One item per workspace. aerospace fires the custom event on every change, so
+# these never poll.
+for wid in $(aerospace list-workspaces --all 2>/dev/null); do
+  sketchybar --add item "space.$wid" left \
+             --subscribe "space.$wid" aerospace_workspace_change \
+             --set "space.$wid" \
+                   label="$wid" \
+                   label.color=$COLOR_DIM \
+                   background.color=$COLOR_ACCENT \
+                   background.corner_radius=5 \
+                   background.height=22 \
+                   background.drawing=off \
+                   click_script="aerospace workspace $wid" \
+                   script="$CONFIG_DIR/plugins/workspace.sh $wid"
+done
+
+# ---- right side ------------------------------------------------------------
+sketchybar --add item clock right \
+           --set clock update_freq=10 script="$CONFIG_DIR/plugins/clock.sh"
+
+sketchybar --add item battery right \
+           --subscribe battery power_source_change system_woke \
+           --set battery update_freq=120 script="$CONFIG_DIR/plugins/battery.sh"
+
+# Reuses the SwiftBar collector's cache rather than re-probing: the backup age
+# is the one number that has actually mattered, and re-running restic here
+# would mean two things hitting the repository on different schedules.
+sketchybar --add item backup right \
+           --set backup update_freq=300 script="$CONFIG_DIR/plugins/backup.sh"
+
+sketchybar --update
