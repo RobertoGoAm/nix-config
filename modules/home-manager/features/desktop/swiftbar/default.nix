@@ -2,13 +2,12 @@
 let
   pluginDir = "${config.home.homeDirectory}/.config/swiftbar/plugins";
 
-  # SwiftBar reads the interval out of the filename (name.INTERVAL.ext), so the
-  # schedule lives there rather than in this module.
   # One item, not seven. SwiftBar gives each plugin its own menu bar slot, and
-  # five of the old seven read green almost always — width spent to say nothing.
-  # The single item rotates vitals, health and the current track through one
-  # slot, and the renderer puts the detail in submenus.
-  plugins = [ "status.30s.sh" ];
+  # most of them read green almost always — width spent to say nothing. The
+  # single item rotates vitals, health and the current track through one slot,
+  # and the renderer puts the detail in submenus. The 30s in the filename is
+  # SwiftBar's refresh interval; the rotation speed itself is fixed and not
+  # configurable.
 in
 lib.mkIf pkgs.stdenv.isDarwin {
   # macmon reads Apple Silicon's counters through IOReport, so the system plugin
@@ -24,17 +23,28 @@ lib.mkIf pkgs.stdenv.isDarwin {
   # executes everything it finds in there, and a .py file with no shebang gets
   # handed to the shell — which then tries to run the docstring as a command
   # and litters the bar with a broken item.
-  home.file = lib.listToAttrs (
-    map (name: {
-      name = ".config/swiftbar/plugins/${name}";
-      value = {
-        source = ./plugins/${name};
-        executable = true;
-      };
-    }) plugins
-  ) // {
+  home.file = {
     ".config/swiftbar/lib/status-render.py".source = ./plugins/status-render.py;
+    ".config/swiftbar/lib/status.sh" = {
+      source = ./plugins/status.30s.sh;
+      executable = true;
+    };
   };
+
+  # The plugin itself is a real file, copied rather than symlinked, because
+  # SwiftBar identifies a menu bar item by its *resolved* path. A store symlink
+  # changes hash whenever the script does, so every rebuild would look like a
+  # brand-new item: it loses its position in the bar, gets re-hidden by a menu
+  # bar manager, and leaves a stale NSStatusItem preference behind each time.
+  # A two-line shim at a fixed path never changes, so the identity is stable and
+  # the logic still lives in the store.
+  home.activation.swiftbarPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run mkdir -p "${pluginDir}"
+    run install -m 755 /dev/stdin "${pluginDir}/status.30s.sh" <<'SHIM'
+#!/bin/sh
+exec "$HOME/.config/swiftbar/lib/status.sh"
+SHIM
+  '';
 
   # Point SwiftBar at the managed directory so the plugins are whatever this
   # module says they are, not whatever got dragged in.
