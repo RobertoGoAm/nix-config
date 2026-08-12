@@ -266,7 +266,10 @@
           Bluetooth = false;
           Display = false;
           FocusModes = false;
-          NowPlaying = true;
+          # The menu bar already carries now-playing via the SwiftBar status
+          # item, and this was re-asserting itself over every manual attempt to
+          # hide it.
+          NowPlaying = false;
           Sound = true;
         };
 
