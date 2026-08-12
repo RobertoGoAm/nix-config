@@ -17,7 +17,8 @@ ACCENT=0xff7aa2f7
 GREEN=0xff9ece6a
 SURFACE=0xff24283b
 
-FONT="SF Pro"
+FONT="JetBrainsMono Nerd Font Propo"
+ICON_FONT="JetBrainsMono Nerd Font"
 APP_FONT="sketchybar-app-font"
 
 # notch_width keeps items clear of the camera housing. Nothing is placed in the
@@ -33,9 +34,9 @@ sketchybar --bar height=34 \
                  notch_width=200 \
                  shadow=off
 
-sketchybar --default icon.font="$FONT:Bold:13.0" \
+sketchybar --default icon.font="$ICON_FONT:Regular:15.0" \
                      icon.color=$FG \
-                     label.font="$FONT:Semibold:13.0" \
+                     label.font="$FONT:Medium:13.0" \
                      label.color=$FG \
                      padding_left=3 \
                      padding_right=3 \
@@ -88,7 +89,7 @@ sketchybar --add item music left \
 
 # ---- right side, grouped in one rounded surface ----------------------------
 sketchybar --add item clock right \
-           --set clock icon="􀐫" icon.color=$DIM update_freq=10 \
+           --set clock icon="󰥔" icon.color=$DIM update_freq=10 \
                        script="$CONFIG_DIR/plugins/clock.sh"
 
 sketchybar --add item battery right \
@@ -99,11 +100,11 @@ sketchybar --add item battery right \
 # things polling the same repository on different schedules is how lock
 # contention starts, which cost five days of backups this week.
 sketchybar --add item backup right \
-           --set backup icon="􀈄" icon.color=$DIM update_freq=300 \
+           --set backup icon="󰁯" icon.color=$DIM update_freq=300 \
                         script="$CONFIG_DIR/plugins/backup.sh"
 
 sketchybar --add item vitals right \
-           --set vitals icon="􀫥" icon.color=$DIM update_freq=15 \
+           --set vitals icon="󰍛" icon.color=$DIM update_freq=15 \
                         icon.padding_right=6 \
                         script="$CONFIG_DIR/plugins/vitals.sh"
 
@@ -116,7 +117,7 @@ sketchybar --add item network right \
                          script="$CONFIG_DIR/plugins/network.sh"
 
 sketchybar --add item keyboard right \
-           --set keyboard icon="􀇳" icon.color=$DIM update_freq=5 \
+           --set keyboard icon="󰌌" icon.color=$DIM update_freq=5 \
                           icon.padding_right=6 \
                           script="$CONFIG_DIR/plugins/keyboard.sh"
 
