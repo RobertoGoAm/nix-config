@@ -38,9 +38,16 @@ backup_age() {
     restic snapshots --no-lock --latest 1 --json 2>/dev/null | jq -r '.[0].time // "none"'
 }
 pins_state() { check-pins "$HOME/nix-config" --quiet 2>/dev/null | grep -c STALE || echo 0; }
+# Free space on the backup target. A full vulcan fails backups with a different
+# error than a stale lock, and the health line would just call it "unreadable".
+vulcan_disk() {
+  ssh -o BatchMode=yes -o ConnectTimeout=8 vulcan.tail5ec262.ts.net \
+    "df -h ~/Backups 2>/dev/null | tail -1" 2>/dev/null | awk '{print $5" used, "$4" free"}'
+}
 
 BACKUP_TS="$(cached backup 300 backup_age)"
 PINS_STALE="$(cached pins 21600 pins_state)"
+VULCAN_DISK="$(cached vulcan-disk 1800 vulcan_disk)"
 
 # ---- cheap probes, every run --------------------------------------------
 IFACE="$(route -n get default 2>/dev/null | awk '/interface:/{print $2}' || true)"
@@ -51,6 +58,12 @@ AWAKE="$(pmset -g assertions 2>/dev/null | awk '/PreventUserIdleDisplaySleep/{pr
 HOLDER="$(pmset -g assertions 2>/dev/null | awk -F'[()]' '/PreventUserIdleDisplaySleep.*named/{print $2; exit}')"
 DISK="$(df -h / 2>/dev/null | awk 'NR==2{print $4" free, "$5" used"}')"
 METRICS="$(macmon pipe --samples 1 2>/dev/null || true)"
+# Containers: show what is up and what is not. Exited containers are not
+# flagged — one here has been down six weeks on purpose — but an unhealthy one
+# is unambiguous.
+CONTAINERS="$(timeout 8 docker ps -a --format '{{.Names}}\t{{.State}}' 2>/dev/null || true)"
+UNHEALTHY="$(timeout 8 docker ps -a --filter health=unhealthy --format '{{.Names}}' 2>/dev/null | tr '\n' ' ' || true)"
+
 REPO="$HOME/nix-config"
 DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | grep -vc '^??' || echo 0)"
 AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
@@ -62,5 +75,5 @@ if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo fals
   SPOT_ARTIST="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null || true)"
 fi
 
-export BACKUP_TS PINS_STALE IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
+export BACKUP_TS PINS_STALE VULCAN_DISK CONTAINERS UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
 python3 "$(dirname "$0")/status-render.py"
