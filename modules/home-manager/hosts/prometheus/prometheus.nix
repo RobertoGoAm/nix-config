@@ -16,6 +16,9 @@
     username = user;
   };
 
+  # On trial alongside SwiftBar and the macOS menu bar — set to false to drop it.
+  features.desktop.sketchybar.enable = true;
+
   programs.home-manager = {
     enable = true;
   };
@@ -45,6 +48,7 @@
     ../../features/productivity/wallpaper
     ../../features/desktop/vorssaint.nix
     ../../features/desktop/swiftbar
+    ../../features/desktop/sketchybar
     ../../features/desktop/warpd
     ../../features/backup/restic
   ];
