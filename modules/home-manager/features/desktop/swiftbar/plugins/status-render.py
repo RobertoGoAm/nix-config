@@ -176,6 +176,36 @@ elif containers:
     for name in stopped:
         print(f"--○ {name}")
 
+# Roll helper processes up into their parent app: Chrome's twenty renderers
+# individually say nothing, their total says a lot. The first ".app" in the
+# path is the outermost bundle, which is the name worth showing.
+usage = {}
+for line in (env("PS_DATA") or "").splitlines():
+    parts = line.split(None, 2)
+    if len(parts) < 3:
+        continue
+    try:
+        rss_kib, pcpu = int(parts[0]), float(parts[1])
+    except ValueError:
+        continue
+    path = parts[2]
+    if ".app/" in path:
+        name = path.split(".app/")[0].split("/")[-1]
+    else:
+        name = path.split("/")[-1]
+    total = usage.setdefault(name, [0, 0.0])
+    total[0] += rss_kib
+    total[1] += pcpu
+
+if usage:
+    for label, key, fmt in (
+        ("Top CPU", lambda kv: kv[1][1], lambda kv: f"{kv[1][1]:5.1f}%  {kv[0]}"),
+        ("Top RAM", lambda kv: kv[1][0], lambda kv: f"{kv[1][0]/2**20:5.2f}G  {kv[0]}"),
+    ):
+        print(label)
+        for entry in sorted(usage.items(), key=key, reverse=True)[:10]:
+            print(f"--{fmt(entry)}")
+
 dirty, ahead = num("DIRTY"), num("AHEAD")
 print(f"nix-config {'clean' if not (dirty or ahead) else f'{dirty}△ {ahead}↑'}")
 print(f"--Uncommitted: {dirty}    Unpushed: {ahead}")

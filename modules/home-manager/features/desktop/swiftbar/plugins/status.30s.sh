@@ -81,6 +81,11 @@ CONTAINERS="$(timeout 8 docker ps -a --format '{{.Names}}\t{{.State}}' 2>/dev/nu
 DOCKER_UP=$(timeout 8 docker info >/dev/null 2>&1 && echo 1 || echo 0)
 UNHEALTHY="$(timeout 8 docker ps -a --filter health=unhealthy --format '{{.Names}}' 2>/dev/null | tr '\n' ' ' || true)"
 
+# /bin/ps explicitly: this profile's ps is procps, whose flags differ. rss is
+# KiB, pcpu is a percentage, and comm is a full path that contains spaces — so
+# the renderer splits on the first two fields only.
+PS_DATA="$(/bin/ps -Ao rss=,pcpu=,comm= 2>/dev/null | head -400 || true)"
+
 REPO="$HOME/nix-config"
 DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | grep -vc '^??' || echo 0)"
 AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
@@ -92,5 +97,5 @@ if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo fals
   SPOT_ARTIST="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null || true)"
 fi
 
-export BACKUP_TS PINS_STALE VULCAN SSID CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
+export BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
 python3 "$HOME/.config/swiftbar/lib/status-render.py"
