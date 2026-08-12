@@ -62,6 +62,9 @@ METRICS="$(macmon pipe --samples 1 2>/dev/null || true)"
 # flagged — one here has been down six weeks on purpose — but an unhealthy one
 # is unambiguous.
 CONTAINERS="$(timeout 8 docker ps -a --format '{{.Names}}\t{{.State}}' 2>/dev/null || true)"
+# Distinguish "no containers" from "could not ask": with OrbStack closed the
+# section used to vanish silently, which reads exactly like everything is fine.
+DOCKER_UP=$(timeout 8 docker info >/dev/null 2>&1 && echo 1 || echo 0)
 UNHEALTHY="$(timeout 8 docker ps -a --filter health=unhealthy --format '{{.Names}}' 2>/dev/null | tr '\n' ' ' || true)"
 
 REPO="$HOME/nix-config"
@@ -75,5 +78,5 @@ if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo fals
   SPOT_ARTIST="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null || true)"
 fi
 
-export BACKUP_TS PINS_STALE VULCAN_DISK CONTAINERS UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
+export BACKUP_TS PINS_STALE VULCAN_DISK CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
 python3 "$HOME/.config/swiftbar/lib/status-render.py"
