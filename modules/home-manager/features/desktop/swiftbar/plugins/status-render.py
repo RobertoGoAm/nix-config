@@ -141,7 +141,9 @@ if metrics:
     print(f"--Power  {metrics['all_power']:.1f} W")
     print(f"--Disk  {env('DISK','?')}")
 
-if containers:
+if env("DOCKER_UP") != "1":
+    print("Containers — OrbStack not running")
+elif containers:
     print(f"Containers {len(running)} up" + (f", {len(stopped)} stopped" if stopped else ""))
     for name in running:
         print(f"--● {name}")
