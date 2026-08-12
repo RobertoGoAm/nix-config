@@ -62,7 +62,17 @@
           echo '#!/bin/zsh'
           echo 'source "$HOME/.zshrc" >/dev/null 2>&1'
           echo "NIX_REBUILD_HERE=1 $fn"
+          echo 'status=$?'
           echo "rm -f '$script'"
+          # Close this window on success only. Terminal exists here purely to own
+          # the App Management grant, so a clean run should leave nothing behind
+          # — but a failed one has to stay readable. Matching on tty closes this
+          # window and never one you were working in.
+          echo 'if [ $status -eq 0 ]; then'
+          echo '  osascript -e "tell application \"Terminal\" to close (every window whose tty is \"$(tty)\")" >/dev/null 2>&1'
+          echo 'else'
+          echo '  echo; echo "Rebuild failed (exit $status) — window kept open."'
+          echo 'fi'
         } > "$script"
         chmod +x "$script"
         echo "↗️  Running $fn in Terminal.app (App Management grant lives there)..."
