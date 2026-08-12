@@ -71,7 +71,14 @@ unhealthy = (env("UNHEALTHY") or "").split()
 if unhealthy:
     problems.append(f"unhealthy: {' '.join(unhealthy)}")
 
-vulcan_disk = (env("VULCAN_DISK") or "").strip()
+# vulcan reports "disk|..." and one "job|name|minutes" line per backup job.
+vulcan_disk, vulcan_jobs = "", []
+for line in (env("VULCAN") or "").splitlines():
+    parts = line.split("|")
+    if parts[0] == "disk" and len(parts) > 1:
+        vulcan_disk = parts[1].strip()
+    elif parts[0] == "job" and len(parts) > 2:
+        vulcan_jobs.append((parts[1], int(parts[2])))
 try:
     if vulcan_disk and int(vulcan_disk.split("%")[0]) > 90:
         problems.append(f"vulcan disk {vulcan_disk}")
@@ -105,11 +112,18 @@ if problems:
 print(f"Backup {backup_line} | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
 if vulcan_disk:
     print(f"--Target: vulcan {vulcan_disk}")
+# Ages only, no verdict: a log's mtime says when the job last spoke, not
+# whether it succeeded. Each job has its own healthchecks for that.
+for name, mins in vulcan_jobs:
+    age = f"{mins}m" if mins < 120 else f"{mins//60}h" if mins < 2880 else f"{mins//1440}d"
+    print(f"--vulcan {name}: {age} ago")
 print(f"--Run now | bash=/bin/launchctl param1=kickstart param2=-k param3=gui/{os.getuid()}/org.nix-community.home.restic-backup terminal=false refresh=true")
 print("--Open log | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
 
 net_ok = env("NET_CODE") == "204"
 print(f"Network {env('IFACE','?')} {'ok' if net_ok else 'DOWN'}")
+if env("SSID"):
+    print(f"--Network: {env('SSID')}")
 print(f"--Probe: {env('NET_CODE') or 'timeout'}")
 print(f"--DNS filter: {'active' if env('FILTERED') == '0.0.0.0' else 'NOT filtering'}")
 
