@@ -4,14 +4,13 @@ let
 
   # SwiftBar reads the interval out of the filename (name.INTERVAL.ext), so the
   # schedule lives there rather than in this module.
+  # One item, not seven. SwiftBar gives each plugin its own menu bar slot, and
+  # five of the old seven read green almost always — width spent to say nothing.
+  # The single item rotates vitals, health and the current track through one
+  # slot, and the renderer puts the detail in submenus.
   plugins = [
-    "backup.5m.sh"
-    "net.1m.sh"
-    "nix.15m.sh"
-    "pins.6h.sh"
-    "spotify.10s.sh"
-    "system.10s.sh"
-    "tailscale.1m.sh"
+    "status.30s.sh"
+    "status-render.py"
   ];
 in
 lib.mkIf pkgs.stdenv.isDarwin {
