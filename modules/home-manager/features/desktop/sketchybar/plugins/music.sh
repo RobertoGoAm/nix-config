@@ -8,5 +8,5 @@ state="$(osascript -e 'tell application "Spotify" to player state as string' 2>/
 track="$(osascript -e 'tell application "Spotify" to name of current track' 2>/dev/null)"
 artist="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null)"
 if [ -z "$track" ]; then sketchybar --set "$NAME" drawing=off; exit 0; fi
-if [ "$state" = "playing" ]; then icon="􀊄"; else icon="􀊆"; fi
+if [ "$state" = "playing" ]; then icon="󰐊"; else icon="󰏤"; fi
 sketchybar --set "$NAME" drawing=on icon="$icon" label="$artist — $track"
