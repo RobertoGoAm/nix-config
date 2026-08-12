@@ -69,6 +69,7 @@ in
       "multipass"
       "omnidisksweeper"
       "qmk-toolbox"
+      "swiftbar" # menu bar status plugins, declared in features/desktop/swiftbar
       "via"
       "vorssaint" # cask for vorssaint-utils: keep-awake, volume mixer, system monitor
 

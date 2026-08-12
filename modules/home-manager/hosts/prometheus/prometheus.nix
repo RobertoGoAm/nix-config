@@ -44,6 +44,7 @@
     ../../features/productivity/obsidian
     ../../features/productivity/wallpaper
     ../../features/desktop/vorssaint.nix
+    ../../features/desktop/swiftbar
     ../../features/desktop/warpd
     ../../features/backup/restic
   ];
