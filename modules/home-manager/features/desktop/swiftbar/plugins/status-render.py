@@ -88,18 +88,30 @@ except ValueError:
 # ---- rotating title lines -------------------------------------------------
 if metrics:
     mem = metrics["memory"]
-    used = mem["ram_usage"] / mem["ram_total"] * 100
+    used_gib = mem["ram_usage"] / 2**30
+    used_pct = mem["ram_usage"] / mem["ram_total"] * 100
     temp = metrics["temp"]["cpu_temp_avg"]
     icon = "☕" if env("AWAKE") == "1" else "☾"
-    hot = used > 90 or temp > 90
-    print(f"{icon} {used:.0f}% {temp:.0f}°" + (" | color=red" if hot else ""))
+    hot = used_pct > 90 or temp > 90
+    # GiB rather than a bare percentage: "84%" gives no clue what it measures,
+    # which was the same complaint as the unlabelled coffee cup.
+    print(f"{icon} {used_gib:.1f}G {temp:.0f}°" + (" | color=red" if hot else ""))
 
-print(f"⚠ {problems[0]} | color=red" if problems else "✓ | color=green")
+# Only shown when something is wrong. A permanent green tick would eat a third
+# of the rotation to say nothing, and a line that is always there stops being
+# read — the appearance of this line is meant to be the signal.
+if problems:
+    print(f"⚠ {problems[0]} | color=red")
 
 track, artist = env("SPOT_TRACK", ""), env("SPOT_ARTIST", "")
 if track:
     icon = "▶" if env("SPOT_STATE") == "playing" else "❚❚"
     print(f"{icon} {artist} — {track} | length=40")
+
+# Nothing above is guaranteed: with macmon unavailable, no problems and no
+# music, the item would render blank and look broken.
+if not metrics and not problems and not track:
+    print("✓ | color=green")
 
 # ---- dropdown -------------------------------------------------------------
 print("---")
