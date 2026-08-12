@@ -11,6 +11,10 @@ in
   '';
 
   config = lib.mkIf (cfg.enable && pkgs.stdenv.isDarwin) {
+    # icon_map.sh maps an app name to its glyph, and the font has to be
+    # installed for the glyph to render rather than showing a tofu box.
+    home.packages = [ pkgs.sketchybar-app-font ];
+
     programs.sketchybar = {
       enable = true;
       configType = "bash";
