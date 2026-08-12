@@ -102,16 +102,26 @@ if tail:
         mark = "●" if p.get("Online") else "○"
         print(f"--{mark} {p.get('HostName','?')}  {(p.get('TailscaleIPs') or ['?'])[0]}")
 
+# Caffeination gets its own labelled row: the bar only has room for an icon,
+# and an unlabelled icon is a guess.
+if env("AWAKE") == "1":
+    holder = env("HOLDER", "")
+    print(f"☕ Display staying awake{f' — {holder}' if holder else ''}")
+else:
+    print("☾ Display will sleep normally")
+print("--Keep awake 1 hour | bash=/usr/bin/caffeinate param1=-d param2=-t param3=3600 terminal=false")
+print("--Keep awake 4 hours | bash=/usr/bin/caffeinate param1=-d param2=-t param3=14400 terminal=false")
+print("--Stop keeping awake | bash=/usr/bin/pkill param1=-f param2=caffeinate terminal=false refresh=true")
+print("--(only stops caffeinate — an app holding the assertion keeps it)")
+
 if metrics:
     mem = metrics["memory"]
     print("System")
-    print(f"--Awake: {'yes — ' + env('HOLDER','') if env('AWAKE') == '1' else 'no'}")
     print(f"--CPU  E {metrics['ecpu_usage'][1]*100:.0f}%   P {metrics['pcpu_usage'][1]*100:.0f}%   GPU {metrics['gpu_usage'][1]*100:.0f}%")
     print(f"--Temp  CPU {metrics['temp']['cpu_temp_avg']:.0f}°C   GPU {metrics['temp']['gpu_temp_avg']:.0f}°C")
     print(f"--RAM  {mem['ram_usage']/2**30:.1f} / {mem['ram_total']/2**30:.0f} GiB   swap {mem['swap_usage']/2**30:.1f} GiB")
     print(f"--Power  {metrics['all_power']:.1f} W")
     print(f"--Disk  {env('DISK','?')}")
-    print("--Keep awake 1h | bash=/usr/bin/caffeinate param1=-d param2=-t param3=3600 terminal=false")
 
 dirty, ahead = num("DIRTY"), num("AHEAD")
 print(f"nix-config {'clean' if not (dirty or ahead) else f'{dirty}△ {ahead}↑'}")
@@ -121,7 +131,7 @@ print("--Update pins | bash=/bin/sh param1=-c param2='cd ~/nix-config && nix run
 
 if track:
     print("---")
-    print(f"{artist} — {track}")
+    print(f"♫ {artist} — {track}")
     print("--Play/Pause | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to playpause' terminal=false refresh=true")
     print("--Next | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to next track' terminal=false refresh=true")
     print("--Previous | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to previous track' terminal=false refresh=true")
