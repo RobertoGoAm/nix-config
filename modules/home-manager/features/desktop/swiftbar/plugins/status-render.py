@@ -62,6 +62,22 @@ pins_stale = num("PINS_STALE")
 if pins_stale:
     problems.append(f"{pins_stale} pins stale")
 
+# Containers: exited ones are not a fault — one here has been down six weeks by
+# choice — but an unhealthy one means a health check is actively failing.
+containers = [l.split("\t") for l in (env("CONTAINERS") or "").splitlines() if "\t" in l]
+running = [c[0] for c in containers if c[1] == "running"]
+stopped = [c[0] for c in containers if c[1] != "running"]
+unhealthy = (env("UNHEALTHY") or "").split()
+if unhealthy:
+    problems.append(f"unhealthy: {' '.join(unhealthy)}")
+
+vulcan_disk = (env("VULCAN_DISK") or "").strip()
+try:
+    if vulcan_disk and int(vulcan_disk.split("%")[0]) > 90:
+        problems.append(f"vulcan disk {vulcan_disk}")
+except ValueError:
+    pass
+
 # ---- rotating title lines -------------------------------------------------
 if metrics:
     mem = metrics["memory"]
@@ -87,6 +103,8 @@ if problems:
     print("---")
 
 print(f"Backup {backup_line} | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
+if vulcan_disk:
+    print(f"--Target: vulcan {vulcan_disk}")
 print(f"--Run now | bash=/bin/launchctl param1=kickstart param2=-k param3=gui/{os.getuid()}/org.nix-community.home.restic-backup terminal=false refresh=true")
 print("--Open log | bash=/bin/sh param1=-c param2='tail -40 ~/Library/Logs/restic-backup.out.log' terminal=true")
 
@@ -122,6 +140,13 @@ if metrics:
     print(f"--RAM  {mem['ram_usage']/2**30:.1f} / {mem['ram_total']/2**30:.0f} GiB   swap {mem['swap_usage']/2**30:.1f} GiB")
     print(f"--Power  {metrics['all_power']:.1f} W")
     print(f"--Disk  {env('DISK','?')}")
+
+if containers:
+    print(f"Containers {len(running)} up" + (f", {len(stopped)} stopped" if stopped else ""))
+    for name in running:
+        print(f"--● {name}")
+    for name in stopped:
+        print(f"--○ {name}")
 
 dirty, ahead = num("DIRTY"), num("AHEAD")
 print(f"nix-config {'clean' if not (dirty or ahead) else f'{dirty}△ {ahead}↑'}")
