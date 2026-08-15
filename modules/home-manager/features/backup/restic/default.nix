@@ -107,24 +107,33 @@ let
     done
     [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
 
-    # Probe the repo. Three different things can go wrong here and they used to
-    # collapse into one "repo unreachable" line, which is how a crashed run once
-    # cost five days of backups: it left an exclusive lock behind, every later
-    # run tripped over it, and the log blamed the network.
-    #
-    # `restic unlock` removes only locks whose owning process is gone, never a
-    # live one, so it is safe to run unconditionally — a crashed run becomes a
-    # hiccup instead of a permanent outage.
+    # Probe the repo. `cat config` is a lock-free read, so reaching it proves the
+    # transport works and says nothing at all about locks — which is the whole
+    # point of splitting the two checks below.
     if ! rr cat config >/dev/null 2>&1; then
-      if rr unlock >/dev/null 2>&1 && rr cat config >/dev/null 2>&1; then
-        echo "restic-backup: cleared a stale lock from a crashed run; continuing"
-      elif rr init >/dev/null 2>&1; then
+      if rr init >/dev/null 2>&1; then
         echo "restic-backup: initialised a new repository"
       else
-        echo "restic-backup: repo unreachable, or locked by a run that is still alive; skipping"
+        echo "restic-backup: repo unreachable (network, host key or credentials); skipping"
         exit 0
       fi
     fi
+
+    # Clear locks left behind by crashed runs. This MUST be unconditional, and
+    # gating it on the probe above was a real five-day outage in miniature: a
+    # stale *exclusive* lock does not fail `cat config`, so the probe passed, the
+    # backup succeeded, and only `forget`/`prune` were blocked — silently, because
+    # both ended in `|| true`. Retention stopped for five days while every run
+    # still reported success and pinged the dead-man's switch.
+    #
+    # `restic unlock` removes only locks whose owning process is gone (same host,
+    # dead PID) and never a live one, so running it every time is safe even when
+    # another backup is genuinely in flight.
+    LOCKS="$(rr unlock 2>&1)"
+    case "$LOCKS" in
+      ""|*"removed 0 locks"*) ;;
+      *) echo "restic-backup: $LOCKS (stale lock from a crashed run)" ;;
+    esac
 
     # --skip-if-unchanged (restic >=0.17) avoids identical 30-min snapshots; probe
     # for it so an older restic doesn't hard-fail on an unknown flag.
@@ -140,14 +149,20 @@ let
 
     # Fast: trim the snapshot list to the rewind-friendly policy (no repack here).
     # --tag auto so any manual pre-refactor snapshots you make are left untouched.
+    # Non-fatal, but never silent: a swallowed failure here is invisible for as
+    # long as it lasts, because the backup itself keeps succeeding.
     rr forget --tag auto \
       --keep-within 3d --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --keep-yearly 2 \
-      2>&1 || true
+      2>&1 || echo "restic-backup: forget FAILED — retention is not being applied"
 
     # Expensive repack at most ~once/day.
     STAMP="$HOME/.config/restic/.last-prune"
     if [ ! -f "$STAMP" ] || find "$STAMP" -mmin +1200 2>/dev/null | grep -q .; then
-      rr prune 2>&1 && : > "$STAMP" || true
+      if rr prune 2>&1; then
+        : > "$STAMP"
+      else
+        echo "restic-backup: prune FAILED — reclaimable space is not being freed"
+      fi
     fi
   '';
 in
