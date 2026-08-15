@@ -27,7 +27,6 @@ in
       codex-acp
       gcc
       ghc
-      gemini-cli
       glab
       gnumake
       haskell-language-server
