@@ -62,16 +62,19 @@
           echo '#!/bin/zsh'
           echo 'source "$HOME/.zshrc" >/dev/null 2>&1'
           echo "NIX_REBUILD_HERE=1 $fn"
-          echo 'status=$?'
+          # `rc`, not `status`: zsh reserves `status` as a read-only alias for
+          # `$?`, so assigning to it aborts the script with "read-only variable"
+          # before the exit code is ever captured.
+          echo 'rc=$?'
           echo "rm -f '$script'"
           # Close this window on success only. Terminal exists here purely to own
           # the App Management grant, so a clean run should leave nothing behind
           # — but a failed one has to stay readable. Matching on tty closes this
           # window and never one you were working in.
-          echo 'if [ $status -eq 0 ]; then'
+          echo 'if [ $rc -eq 0 ]; then'
           echo '  osascript -e "tell application \"Terminal\" to close (every window whose tty is \"$(tty)\")" >/dev/null 2>&1'
           echo 'else'
-          echo '  echo; echo "Rebuild failed (exit $status) — window kept open."'
+          echo '  echo; echo "Rebuild failed (exit $rc) — window kept open."'
           echo 'fi'
         } > "$script"
         chmod +x "$script"
