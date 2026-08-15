@@ -41,7 +41,6 @@ in
 
       # Productivity
       "claude"
-      "kimi"
       # openpencil.dev — the open-source Figma alternative. Opens .fig files
       # natively, which nothing else here does, and its MCP server both reads
       # and writes the document.
