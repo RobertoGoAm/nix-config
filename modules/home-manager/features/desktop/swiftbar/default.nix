@@ -9,7 +9,7 @@ let
   # SwiftBar's refresh interval; the rotation speed itself is fixed and not
   # configurable.
 in
-lib.mkIf pkgs.stdenv.isDarwin {
+lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # macmon reads Apple Silicon's counters through IOReport, so the system plugin
   # gets CPU/GPU temperature and power without sudo — powermetrics would have
   # needed root, which a menu bar plugin must never have.

@@ -10,7 +10,7 @@
   #
   # force = true because opencode may rewrite this file at runtime; declare new
   # MCP servers here rather than via the opencode CLI.
-  xdg.configFile."opencode/opencode.json" = lib.mkIf pkgs.stdenv.isDarwin {
+  xdg.configFile."opencode/opencode.json" = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     force = true;
     text = builtins.toJSON {
       mcp.openpencil = {
