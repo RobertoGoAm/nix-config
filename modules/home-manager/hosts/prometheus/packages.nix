@@ -24,7 +24,6 @@ in
       codex-acp
       dbeaver-bin
       ghc
-      gemini-cli
       glab
       haskell-language-server
       ngrok
