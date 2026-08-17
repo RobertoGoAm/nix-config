@@ -10,6 +10,9 @@
   # warpd: nixpkgs ships it Linux-only; build it from source on darwin.
   warpd = import ./warpd.nix;
 
+  # checkov: skip one upstream-broken test that fails the build.
+  checkov = import ./checkov.nix;
+
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays
