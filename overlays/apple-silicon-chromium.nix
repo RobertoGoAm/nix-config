@@ -10,7 +10,7 @@
 #     https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/<rev>/chrome-mac.zip
 self: super: {
   chromium = super.stdenv.mkDerivation rec {
-    version = "1676167";
+    version = "1684534";
 
     name = "Chromium-${version}";
     buildInputs = [ super.unzip ];
@@ -27,7 +27,7 @@ self: super: {
     src = super.fetchurl {
       name = "Mac_Arm_${version}_chrome-mac.zip";
       url = "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/${version}/chrome-mac.zip";
-      sha256 = "16ry8d57c2hs3yagrnq39iq3chjn6zrz3dgw8qgnzhl56kvh5qwg";
+      sha256 = "10ylvjzh78sbr7rdkrn1c1x73cv03y2ss7n1nmwzcz5yx0izrr6p";
     };
 
     meta = {
