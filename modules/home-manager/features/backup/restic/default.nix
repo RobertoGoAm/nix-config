@@ -107,9 +107,30 @@ let
     done
     [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
 
-    # Probe the repo. `cat config` is a lock-free read, so reaching it proves the
-    # transport works and says nothing at all about locks — which is the whole
-    # point of splitting the two checks below.
+    # Clear stale locks FIRST, before anything that needs the repo. Order here has
+    # now caused two separate multi-day outages, in both directions:
+    #
+    #   unlock only when the probe fails -> a stale NON-exclusive lock does not
+    #     fail `cat config`, so the probe passed, backups kept succeeding and
+    #     pinging the dead-man's switch, and only forget/prune were blocked. Five
+    #     days of silently dead retention.
+    #   unlock only after the probe passes -> a stale EXCLUSIVE lock (left by a
+    #     crashed prune) DOES fail `cat config`, so the probe fell straight to
+    #     `init`, failed, and exited before ever reaching the recovery. Five days
+    #     of no backups at all, reported as "repo unreachable".
+    #
+    # Unconditional and first is the only ordering that survives both. `restic
+    # unlock` removes only locks whose owning process is gone (same host, dead
+    # PID) and never a live one, so it is safe even when another run is genuinely
+    # in flight, and a no-op on an unreachable repo.
+    LOCKS="$(rr unlock 2>&1)"
+    case "$LOCKS" in
+      ""|*"removed 0 locks"*) ;;
+      *) echo "restic-backup: $LOCKS (stale lock from a crashed run)" ;;
+    esac
+
+    # Now the probe means what it says: with locks cleared, a failure here is a
+    # genuinely unreachable or uninitialised repo.
     if ! rr cat config >/dev/null 2>&1; then
       if rr init >/dev/null 2>&1; then
         echo "restic-backup: initialised a new repository"
@@ -118,22 +139,6 @@ let
         exit 0
       fi
     fi
-
-    # Clear locks left behind by crashed runs. This MUST be unconditional, and
-    # gating it on the probe above was a real five-day outage in miniature: a
-    # stale *exclusive* lock does not fail `cat config`, so the probe passed, the
-    # backup succeeded, and only `forget`/`prune` were blocked — silently, because
-    # both ended in `|| true`. Retention stopped for five days while every run
-    # still reported success and pinged the dead-man's switch.
-    #
-    # `restic unlock` removes only locks whose owning process is gone (same host,
-    # dead PID) and never a live one, so running it every time is safe even when
-    # another backup is genuinely in flight.
-    LOCKS="$(rr unlock 2>&1)"
-    case "$LOCKS" in
-      ""|*"removed 0 locks"*) ;;
-      *) echo "restic-backup: $LOCKS (stale lock from a crashed run)" ;;
-    esac
 
     # --skip-if-unchanged (restic >=0.17) avoids identical 30-min snapshots; probe
     # for it so an older restic doesn't hard-fail on an unknown flag.
