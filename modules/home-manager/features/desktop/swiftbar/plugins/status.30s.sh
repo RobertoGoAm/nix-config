@@ -56,7 +56,11 @@ vulcan_state() {
 }
 
 BACKUP_TS="$(cached backup 300 backup_age)"
-PINS_STALE="$(cached pins 21600 pins_state)"
+# 30 min, not 6 h: the pin count is cheap to compute (concurrent lookups,
+# well under a second) and a long TTL made the panel contradict itself —
+# it kept showing "1 pin stale" for hours after the pin had been bumped,
+# with nothing on screen to say the number was old.
+PINS_STALE="$(cached pins 1800 pins_state)"
 VULCAN="$(cached vulcan 1800 vulcan_state)"
 
 # ---- cheap probes, every run --------------------------------------------
