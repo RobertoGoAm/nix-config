@@ -64,9 +64,15 @@
     ;; HTTP scratchpads, for poking at the APIs behind the Drizzle/Prisma work
     ;; without leaving the editor. restclient runs .http files; verb runs org blocks.
     (require 'restclient)
-    (require 'verb)
     (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
+
+    ;; verb is NOT required here. It is an org-mode client, so requiring it pulls
+    ;; in org, org-element, ol-gnus and embark-org at launch -- about 7 of the 9.6
+    ;; seconds this config used to spend starting up, for a feature that only
+    ;; applies inside an org buffer. Loading it with org moves all of that to the
+    ;; first org file of the session.
     (with-eval-after-load 'org
+      (require 'verb)
       (define-key org-mode-map (kbd "C-c C-r") verb-command-map))
 
     ;; Reopen the file you are on with sudo, for the times a config edit needs it.

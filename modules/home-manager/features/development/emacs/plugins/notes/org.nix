@@ -14,14 +14,20 @@
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Org -- agenda and capture only.
 
-    (require 'org)
-    (require 'evil-org)
-    (add-hook 'org-mode-hook #'evil-org-mode)
+    ;; Neither is required at startup. org autoloads on .org files and on the
+    ;; agenda/capture commands below, and evil-org costs ~1.9s to load -- by far
+    ;; the most expensive require in this config -- for something no buffer needs
+    ;; until an org buffer exists. Loading it from org-mode-hook moves that cost
+    ;; to the first org file of the session and off every launch.
+    (with-eval-after-load 'org
+      (require 'evil-org)
+      (add-hook 'org-mode-hook #'evil-org-mode))
 
     ;; Under Documents, not ~/org: the restic agent backs up Documents every 30
     ;; minutes (features/backup/restic) and nothing outside its path list, and on
     ;; macOS Documents is also what iCloud syncs. Agenda files are the one thing
     ;; here that is genuinely irreplaceable, so they live where both already look.
+    ;; Plain setq, so none of this pulls org in early; org reads these when it loads.
     (setq org-directory (expand-file-name "~/Documents/org")
           ;; Every .org in ~/org, so a calendar sync can drop files in without a
           ;; config change. Missing directory is not an error: the agenda simply
