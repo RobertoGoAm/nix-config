@@ -1,10 +1,23 @@
-{ inputs, ... }:
+{ config, inputs, user, ... }:
+let
+  # Read through the home-manager user: the option lives in the HM tree and
+  # this is a nix-darwin module.
+  colemak = config.home-manager.users.${user}.features.productivity.keyboard.layout == "colemak";
+
+  # Spelled out rather than omitted: paneru has no directional defaults.
+  # Left is h under both layouts, since Colemak leaves h in place.
+  nav =
+    if colemak then
+      { down = "n"; up = "e"; right = "i"; }
+    else
+      { down = "j"; up = "k"; right = "l"; };
+in
 {
   imports = [ inputs.paneru.darwinModules.paneru ];
 
   # Paneru — scrolling/paning window manager (PaperWM-style). prometheus runs
   # this instead of aerospace. Bindings mirror the aerospace shortcuts where
-  # paneru's model allows: alt + Colemak h/n/e/i = left/down/up/right.
+  # paneru's model allows: alt + h/n/e/i (Colemak) or h/j/k/l (QWERTY).
   services.paneru = {
     enable = true;
     # paneru 0.4.2 requires an [options] table even though newer docs call it
@@ -38,15 +51,15 @@
     settings.bindings = {
       # Focus
       window_focus_west = "alt - h";
-      window_focus_south = "alt - n";
-      window_focus_north = "alt - e";
-      window_focus_east = "alt - i";
+      window_focus_south = "alt - ${nav.down}";
+      window_focus_north = "alt - ${nav.up}";
+      window_focus_east = "alt - ${nav.right}";
 
       # Move / swap window
       window_swap_west = "alt + shift - h";
-      window_swap_south = "alt + shift - n";
-      window_swap_north = "alt + shift - e";
-      window_swap_east = "alt + shift - i";
+      window_swap_south = "alt + shift - ${nav.down}";
+      window_swap_north = "alt + shift - ${nav.up}";
+      window_swap_east = "alt + shift - ${nav.right}";
 
       # Virtual workspaces 1-6 (paneru's stacked rows ≈ aerospace workspaces)
       window_virtualnum_1 = "alt - 1";
