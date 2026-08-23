@@ -18,7 +18,11 @@
     (require 'evil-org)
     (add-hook 'org-mode-hook #'evil-org-mode)
 
-    (setq org-directory (expand-file-name "~/org")
+    ;; Under Documents, not ~/org: the restic agent backs up Documents every 30
+    ;; minutes (features/backup/restic) and nothing outside its path list, and on
+    ;; macOS Documents is also what iCloud syncs. Agenda files are the one thing
+    ;; here that is genuinely irreplaceable, so they live where both already look.
+    (setq org-directory (expand-file-name "~/Documents/org")
           ;; Every .org in ~/org, so a calendar sync can drop files in without a
           ;; config change. Missing directory is not an error: the agenda simply
           ;; has nothing in it until something writes there.

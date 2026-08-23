@@ -217,10 +217,13 @@
 
       ;; open — the app surfaces that have no nvim equivalent.
       "o"  '(:ignore t :which-key "open")
-      "oc" '(my/devcontainer-up :which-key "devcontainer up")
+      "oc" '(my/devcontainer-up :which-key "devcontainer up + shell")
+      "oC" '(my/devcontainer-open :which-key "reopen in container")
       "od" '(docker :which-key "docker")
       "oD" '(my/dashboard :which-key "dashboard")
       "of" '(my/devcontainer-find-file :which-key "file in container")
+      "oe" '(my/devcontainer-shell :which-key "shell in container")
+      "oX" '(my/devcontainer-down :which-key "stop container")
       "ob" '(my/browse-url-at-point :which-key "browser (in emacs)")
       "og" '(my/open-gchat :which-key "google chat")
       "oG" '(my/open-gmail :which-key "gmail (web)")

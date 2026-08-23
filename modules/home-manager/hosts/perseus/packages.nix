@@ -83,6 +83,7 @@ in
       google-chrome
 
       # Media
+      playerctl
       ffmpeg
       spotify
       vlc

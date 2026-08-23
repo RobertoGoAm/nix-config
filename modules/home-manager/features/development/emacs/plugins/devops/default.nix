@@ -4,6 +4,8 @@
   ...
 }:
 {
+  imports = [ ./containers.nix ];
+
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
       docker
@@ -35,35 +37,9 @@
     (add-to-list 'auto-mode-alist '("docker-compose[^/]*\\.ya?ml\\'" . docker-compose-mode))
     (add-to-list 'auto-mode-alist '("compose[^/]*\\.ya?ml\\'" . docker-compose-mode))
 
-    ;; Devcontainers. Emacs 29+ ships a tramp method for containers, so a running
-    ;; devcontainer is reachable as /docker:<name>:/workspace — LSP servers, shells
-    ;; and magit all follow it. That is the whole integration; there is no separate
-    ;; devcontainer plugin to mirror, and the devcontainer CLI is already installed.
-    (require 'tramp)
-    (require 'tramp-container)
-    (setq tramp-verbose 1
-          tramp-default-method "ssh"
-          ;; Remote LSP servers over tramp are slow to nothing; run them locally
-          ;; against the mounted workspace instead.
-          lsp-enable-file-watchers-remote nil)
-
-    (defun my/devcontainer-up ()
-      "Run `devcontainer up' for this project, then open a shell inside it."
-      (interactive)
-      (let ((default-directory (my/project-root))
-            (compilation-buffer-name-function (lambda (_) "*devcontainer*")))
-        (compile "devcontainer up --workspace-folder .")))
-
-    (defun my/devcontainer-find-file ()
-      "Open a file inside a running container over tramp."
-      (interactive)
-      (let ((container (completing-read
-                        "Container: "
-                        (split-string
-                         (shell-command-to-string
-                          "docker ps --format '{{.Names}}'")
-                         "\n" t))))
-        (find-file (format "/docker:%s:/" container))))
+    ;; Devcontainers live in ./containers.nix: the tramp method, the project ->
+    ;; container lookup, and the remote LSP clients that let a language server run
+    ;; inside the container instead of against local dependencies.
 
     ;; k8s manifests, terraform and justfiles — the rest of the toolchain already in
     ;; hosts/prometheus/packages.nix.
