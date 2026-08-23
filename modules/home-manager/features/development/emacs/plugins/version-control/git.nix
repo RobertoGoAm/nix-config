@@ -56,6 +56,7 @@
         ;; parent does not pull them in — each of these is a `require', not a nicety.
         (require 'diff-hl)
         (require 'diff-hl-margin)
+        (require 'diff-hl-flydiff)
         (require 'diff-hl-dired)
         (require 'diff-hl-show-hunk)
         (setq diff-hl-margin-symbols-alist
@@ -90,20 +91,15 @@
 
         (my/global-diff-hl-mode 1)
         (diff-hl-margin-mode 1)
-        ;; No diff-hl-flydiff. Live-signs-as-you-type is gitsigns' default and was
-        ;; the intent here, but the flydiff path is broken against Emacs 30's vc
-        ;; API: it hands `(:working . #<buffer *diff-hl-diff*>)' to something
-        ;; expecting a list, so every update on a MODIFIED buffer raised
+        ;; Live signs as you type -- gitsigns' default behaviour.
         ;;
-        ;;   Error running timer 'diff-hl-flydiff-update':
-        ;;     (wrong-type-argument listp (:working . #<buffer  *diff-hl-diff*>))
-        ;;
-        ;; and at a 0.1s delay that repeated the whole time you were typing --
-        ;; filling *Messages*, and doing the diff work twice for nothing since the
-        ;; signs never updated anyway. Reproduced and confirmed fixed by turning it
-        ;; off: with flydiff disabled, diff-hl-update on a modified buffer returns
-        ;; cleanly. Signs now refresh on save, which is what actually worked before.
-        ;; Revisit if diff-hl gains Emacs 30 support upstream.
+        ;; This was switched off earlier on a misdiagnosis. The
+        ;; (wrong-type-argument listp (:working . ...)) errors blamed on flydiff
+        ;; came from my/diff-refresh-counts in ui/statusline.nix, which is advised
+        ;; onto diff-hl's update and mis-read its return value; flydiff only made
+        ;; it fire more often. With that fixed, live diffing works.
+        (setq diff-hl-flydiff-delay 0.3)
+        (diff-hl-flydiff-mode 1)
         ;; Keep the gutter honest after a magit stage or commit.
         (add-hook 'magit-pre-refresh-hook #'diff-hl-magit-pre-refresh)
         (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh)
