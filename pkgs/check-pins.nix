@@ -3,7 +3,6 @@
 # flake.lock covers every nixpkgs package, and warpd rides prev.warpd.src, so
 # both move on `nix-update`. These do not:
 #
-#   - the Chromium snapshot pinned in overlays/apple-silicon-chromium.nix
 #   - the marketplace extensions pinned by version + sha256 in the vscode module
 #
 # Read-only: it prints what has fallen behind and exits 1 so it can gate a

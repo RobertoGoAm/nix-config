@@ -6,15 +6,21 @@
   ...
 }:
 {
-  imports = [ ./vimium.nix ];
+  imports = [
+    inputs.zen-browser.homeModules.default
+    ./vimium.nix
+  ];
 
-  programs.firefox = {
+  programs.zen-browser = {
     enable = true;
 
-    # home-manager moved this default to $XDG_CONFIG_HOME/mozilla/firefox for
-    # stateVersion >= 26.05. Pinned to the legacy path so a stateVersion bump
-    # does not relocate an existing profile; darwin keeps its own default.
-    configPath = lib.mkIf pkgs.stdenv.hostPlatform.isLinux ".mozilla/firefox";
+    # Required on macOS by this module: the plist domain it writes preferences
+    # to. The darwin package is the beta channel -- Zen ships no stable macOS
+    # build for the flake to wrap -- so the bundle id is the beta one.
+    darwinDefaultsId = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin "app.zen-browser.zen";
+
+    # Left at the module's own default: Zen keeps its profiles in its own
+    # directory, not Firefox's, so there is no legacy path to pin here.
 
     languagePacks = [
       "en-US"
