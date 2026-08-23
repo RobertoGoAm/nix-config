@@ -59,39 +59,9 @@ let
     exec "$pm" "$@" --ignore-scripts
   '';
 
-  # Unrelated to the guard above, and never automatic: run something in the
-  # project's devcontainer on purpose. Kept because the container is where
-  # builds and tests belong even though installs are the only thing rewritten.
-  dcRun = pkgs.writeShellScriptBin "dc" ''
-    set -euo pipefail
-
-    dir="$PWD"; root=""
-    while [ "$dir" != "/" ]; do
-      if [ -f "$dir/.devcontainer/devcontainer.json" ] || [ -f "$dir/.devcontainer.json" ]; then
-        root="$dir"; break
-      fi
-      dir="$(dirname "$dir")"
-    done
-    [ -n "$root" ] || { echo "dc: no devcontainer above $PWD" >&2; exit 1; }
-
-    container="$(docker ps --filter "label=devcontainer.local_folder=$root" --format '{{.Names}}' | head -1)"
-    [ -n "$container" ] || { echo "dc: no running container for $root (devcontainer up --workspace-folder \"$root\")" >&2; exit 1; }
-
-    # The mount destination varies -- /app here, /workspaces/<name> by default --
-    # so it is read rather than assumed, and the relative path appended.
-    dest="$(docker inspect "$container" \
-      --format '{{range .Mounts}}{{if eq .Source "'"$root"'"}}{{.Destination}}{{end}}{{end}}' 2>/dev/null)"
-    [ -n "$dest" ] || dest=/workspaces/"$(basename "$root")"
-    rel="''${PWD#"$root"}"
-
-    tty_flag=""
-    [ -t 0 ] && tty_flag="-it"
-    # shellcheck disable=SC2086
-    exec docker exec $tty_flag -w "$dest$rel" "$container" "$@"
-  '';
 in
 {
-  home.packages = [ pmRun dcRun ];
+  home.packages = [ pmRun ];
 
   # Functions rather than aliases or PATH shims: anything that execs a binary
   # directly is unaffected, so MCP servers, opencode and emacs subprocesses keep
