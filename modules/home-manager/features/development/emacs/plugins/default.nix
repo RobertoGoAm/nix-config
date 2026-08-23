@@ -1,6 +1,7 @@
 {
   imports = [
     ./ai
+    ./apps
     ./code
     ./completion
     ./data
