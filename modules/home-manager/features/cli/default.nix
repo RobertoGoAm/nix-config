@@ -8,6 +8,7 @@
     ./gpg.nix
     ./hammerspoon.nix # macOS quake terminal (Alacritty drop-down); no-op off darwin
     ./aider.nix
+    ./devcontainer.nix
     ./opencode.nix
     ./ripgrep.nix
     ./ssh.nix
