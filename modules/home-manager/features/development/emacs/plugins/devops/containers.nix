@@ -166,7 +166,15 @@
           (lsp-register-client
            (make-lsp-client
             :new-connection (lsp-tramp-connection cmd)
-            :activation-fn (lambda (_file mode) (memq mode modes))
+            ;; :major-modes only -- deliberately NO :activation-fn. This file is
+            ;; generated without a lexical-binding cookie, so a lambda here closes
+            ;; over nothing and `modes' is void when lsp-mode calls it:
+            ;;
+            ;;   Error running timer: (void-variable modes)
+            ;;
+            ;; which made client selection fail, left every /docker: buffer with
+            ;; no server, and reduced completion to Dabbrev. :major-modes is read
+            ;; at registration time, so it carries the value correctly.
             :major-modes modes
             :remote? t
             :server-id id
