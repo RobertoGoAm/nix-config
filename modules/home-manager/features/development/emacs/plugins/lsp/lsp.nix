@@ -41,6 +41,17 @@
 
         (require 'lsp-mode)
         (require 'lsp-ui)
+        ;; lsp-mode ships a semgrep client that activates purely because the
+        ;; `semgrep' binary is on PATH -- and it is, as a DevOps CLI from
+        ;; hosts/*/packages.nix, never as a language server. On every buffer it
+        ;; tried to fetch a ruleset and failed:
+        ;;
+        ;;   LSP :: Fatal error: Failed to download config from https://semgrep.dev/...
+        ;;
+        ;; Scanning stays a deliberate CLI step; nothing here wants it per-keystroke
+        ;; or wants an editor that needs the network to open a file.
+        (setq lsp-disabled-clients '(semgrep-ls semgrep-ls-tramp))
+
         (require 'consult-lsp)
         ;; Provides the symbol tree and the error/reference lists the leader tree binds.
         (require 'lsp-treemacs)
