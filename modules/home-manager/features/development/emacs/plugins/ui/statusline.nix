@@ -141,20 +141,40 @@
     (defvar-local my/diff-counts nil
       "Cached (added changed removed) line counts for this buffer.")
 
+    ;; Counted from diff-hl's OVERLAYS, not from `diff-hl-changes'.
+    ;;
+    ;; diff-hl-changes returns an alist -- ((:working . CHANGES) (:reference
+    ;; . CHANGES)) -- and this function used to iterate it as though it were the
+    ;; change list itself, so `nth' was applied to the cons and every modified
+    ;; file raised
+    ;;
+    ;;   (wrong-type-argument listp (:working . " *diff-hl* "))
+    ;;
+    ;; surfacing as "Error running timer 'diff-hl--update-buffer'". It fired on
+    ;; every file with uncommitted changes -- which is every file being worked on.
+    ;;
+    ;; Reading the alist correctly would not be enough either: :working is a
+    ;; BUFFER while the diff is still being resolved asynchronously, and the
+    ;; entries are (line inserts deletes type), with type at index 3 rather than
+    ;; the 2 assumed here. The overlays are the resolved answer and already carry
+    ;; their type, so counting those is both correct and immune to the format.
     (defun my/diff-refresh-counts (&rest _)
-      "Recompute `my/diff-counts' from diff-hl's own change list."
+      "Recompute `my/diff-counts' from diff-hl's overlays."
       (setq my/diff-counts
-            (when (fboundp 'diff-hl-changes)
-              (let ((added 0) (changed 0) (removed 0))
-                (dolist (change (ignore-errors (diff-hl-changes)))
-                  (pcase (nth 2 change)
-                    ('insert (cl-incf added   (or (nth 1 change) 0)))
-                    ('change (cl-incf changed (or (nth 1 change) 0)))
-                    ('delete (cl-incf removed (or (nth 1 change) 0)))))
-                (list added changed removed)))))
+            (let ((added 0) (changed 0) (removed 0))
+              (dolist (o (overlays-in (point-min) (point-max)))
+                (when (overlay-get o 'diff-hl-hunk)
+                  (let ((lines (max 1 (count-lines (overlay-start o) (overlay-end o)))))
+                    (pcase (overlay-get o 'diff-hl-hunk-type)
+                      ('insert (cl-incf added lines))
+                      ('change (cl-incf changed lines))
+                      ('delete (cl-incf removed 1))))))
+              (list added changed removed))))
 
     (with-eval-after-load 'diff-hl
-      (advice-add 'diff-hl-update :after #'my/diff-refresh-counts))
+      ;; After the overlays are drawn, not after diff-hl-update: the update
+      ;; schedules async work, so at that point there is nothing to count yet.
+      (advice-add 'diff-hl--update-overlays :after #'my/diff-refresh-counts))
 
     (doom-modeline-def-segment my/diff
       (when (and my/diff-counts (my/wide-window-p))
