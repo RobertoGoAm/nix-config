@@ -148,6 +148,7 @@
         system: {
           check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
           pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
+          clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
         }
       );
 
