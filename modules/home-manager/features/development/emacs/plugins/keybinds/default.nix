@@ -197,6 +197,15 @@
       "no" '(my/obsidian-open-note :which-key "open note")
       "nO" '(my/obsidian-open-app :which-key "open app")
 
+      ;; help — diagnostics worth sending to someone else.
+      "h"  '(:ignore t :which-key "help")
+      "hr" '(my/emacs-report :which-key "write diagnostics report")
+      "hp" '(my/report-profiler-start :which-key "start profiler")
+      "hP" '(my/report-profiler-stop :which-key "stop profiler + write")
+      "hk" '(describe-key :which-key "describe key")
+      "hf" '(describe-function :which-key "describe function")
+      "hv" '(describe-variable :which-key "describe variable")
+
       ;; agenda — org owns dates and tasks; notes stay in Obsidian under "n".
       "k"  '(:ignore t :which-key "agenda")
       "kk" '(my/org-agenda-today :which-key "today")
@@ -280,6 +289,7 @@
       "Ti" '(highlight-indent-guides-mode :which-key "indent guides")
       "Tl" '(display-line-numbers-mode :which-key "line numbers")
       "Tm" '(my/toggle-markdown-markup :which-key "markdown markup")
+      "TI" '(my/toggle-markdown-images :which-key "markdown images")
       "Ts" '(evil-ex-nohighlight :which-key "search highlight")
       "Tt" '(my/toggle-twilight :which-key "twilight")
       "Tw" '(visual-line-mode :which-key "wrap")
