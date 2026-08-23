@@ -1,5 +1,10 @@
-{ ... }:
+{ config, lib, ... }:
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+in
 {
+  imports = [ ../keyboard-layout.nix ];
+
   # Shortcut Bridge 75 Plus (ANSI), WB32 + wireless. Approach: compile a VIA-enabled
   # firmware from emolitor/qmk_firmware@em-bridge75 with Colemak as the default
   # keymap, then tweak it on the fly in VIA. The fork uses standard KC_BT* keycodes,
@@ -17,7 +22,10 @@
   #                           BT as CUSTOM(0/1/2/3/6)); import in usevia.app to
   #                           restore the full keymap, or keep as a tweak backup.
   # Flash: hold Esc while plugging in USB (wb32-dfu bootloader), then QMK Toolbox.
-  home.file = {
+  # Colemak-only: every artefact here encodes the Colemak keymap, and the
+  # firmware build script compiles it. Under layout = "qwerty" they are just
+  # 45 KB of someone else's layout in ~/keyboards, so skip them entirely.
+  home.file = lib.mkIf colemak {
     "keyboards/bridge75/colemak-keymap.c".source = ./bridge75-colemak-keymap.c;
     "keyboards/bridge75/via-rules.mk".source = ./bridge75-via-rules.mk;
     "keyboards/bridge75/build-firmware.sh" = {
