@@ -74,6 +74,7 @@
           firenvim
           image-search-options
           lingq-importer2
+          readeck
           sponsorblock
           ublock-origin
           umatrix

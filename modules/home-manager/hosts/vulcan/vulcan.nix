@@ -18,6 +18,11 @@
 
   programs.home-manager.enable = true;
 
+  # vulcan is the always-on machine, so the reading stack lives here: readeck
+  # for read-it-later and calibre-web for the library and its OPDS feed, which
+  # is what the e-reader browses.
+  features.services.reading.enable = true;
+
   imports = [
     inputs.nixvim.homeModules.nixvim
     inputs.sops-nix.homeManagerModules.sops
@@ -40,5 +45,6 @@
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
+    ../../features/services/reading.nix
   ];
 }
