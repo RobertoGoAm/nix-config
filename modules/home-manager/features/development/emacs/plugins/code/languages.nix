@@ -81,7 +81,13 @@
     ;; Node projects: put ./node_modules/.bin on exec-path for the buffer, so
     ;; prettier, eslint and the test runners resolve to the versions the project
     ;; pins rather than anything global.
+    ;; npm removed `npm bin' in v9 and this package still defaults to it. The
+    ;; command fails, and over tramp npm's error text ("Unknown command: bin /
+    ;; To see a list of supported npm commands...") was taken for a directory and
+    ;; spliced onto a /docker: path -- the source of the "Not a Tramp file name"
+    ;; errors. `npm root' is the supported replacement.
     (require 'add-node-modules-path)
+    (setq add-node-modules-path-command '("echo \"$(npm root)/.bin\""))
     (dolist (hook '(js-ts-mode-hook typescript-ts-mode-hook tsx-ts-mode-hook
                     web-mode-hook json-ts-mode-hook))
       (add-hook hook #'add-node-modules-path))
@@ -89,6 +95,11 @@
     ;; .editorconfig wins over the defaults in options.nix, per project.
     (require 'editorconfig)
     (editorconfig-mode 1)
+    ;; Not over tramp. A container with no .editorconfig produced a warning for
+    ;; every buffer opened under /docker:, and reading one would be a network
+    ;; round trip per file for settings the host checkout already supplies.
+    (with-eval-after-load 'editorconfig
+      (add-to-list 'editorconfig-exclude-regexps "\\`/[^/|:]+[|:]"))
 
     ;; schemastore.nvim's replacement: lsp-mode pulls the same catalogue for JSON and
     ;; YAML, which is what makes package.json, tsconfig, GitHub Actions and

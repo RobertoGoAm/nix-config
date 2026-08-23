@@ -21,6 +21,15 @@ in
     ./plugins
   ];
 
+  # TRAMP writes temp files under the XDG cache, and a root-owned
+  # ~/.cache/emacs (created once by something running under sudo) made every
+  # remote file unreadable: "Creating file with prefix Permission denied", then
+  # "File exists, but cannot be read" for anything opened over /docker:.
+  # Creating it here as the user keeps that from recurring on a fresh machine.
+  home.activation.emacsCacheDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run mkdir -p "$HOME/.cache/emacs/tramp"
+  '';
+
   programs.emacs = {
     enable = true;
     package = emacsPackage;
