@@ -82,6 +82,24 @@
         open -a Terminal "$script"
       }
 
+      # Pull e-reader highlights into the vault. Driven by hand rather than on a
+      # timer: there is nothing to sync until the reader actually produces a
+      # clippings file, and the format is still unverified against hardware.
+      #
+      # Defaults to the reader mounted over USB, so the common case is a bare
+      # `clippings`; any other path can be passed instead. Extra flags
+      # (--dry-run, --folder) pass through.
+      clippings() {
+        local src="''${1:-/Volumes/XTEINK/My Clippings.txt}"
+        [[ $# -gt 0 ]] && shift
+        if [[ ! -f "$src" ]]; then
+          echo "clippings: nothing at $src (is the reader plugged in?)" >&2
+          return 1
+        fi
+        nix run "$HOME/nix-config#clippings-import" -- \
+          "$src" --vault "$HOME/Documents/robertogoam" "$@"
+      }
+
       # Rebuild from the committed flake.lock (reproducible, no input bumps) and
       # show the generation diff. Everyday command. Builds as the invoking user
       # with --impure so the private files in ~/.config/nix-secrets are read at
@@ -169,9 +187,9 @@
 
         # Only here, never in nix-build: nix-build is meant to reproduce the
         # committed pins exactly, so it has nothing to say about them. Updating
-        # is this function's job, and flake.lock cannot reach the hand-pinned
-        # Chromium snapshot or the marketplace extensions — this is the one
-        # place that reports them. Non-fatal: drift is not a failed rebuild.
+        # is this function's job, and flake.lock cannot reach the marketplace
+        # extensions pinned by hand — this is the one place that reports them.
+        # Non-fatal: drift is not a failed rebuild.
         echo
         echo "📌 Checking the pins flake.lock cannot reach..."
         check-pins "$CONFIG_DIR" || true
