@@ -16,6 +16,28 @@ let
     import time
 
     root = os.path.expanduser("~/.claude/projects")
+
+    # The desktop app keeps its own metadata beside the CLI transcripts, under
+    # Application Support/Claude/claude-code-sessions/<account>/<workspace>/.
+    # It carries a human title ("Nix flake inputs update") where the CLI store
+    # has only the opening prompt, and links to the transcript by cliSessionId.
+    # Same conversations, better labels -- so titles are borrowed where they
+    # exist and the prompt is the fallback.
+    titles = {}
+    desktop = os.path.expanduser(
+        "~/Library/Application Support/Claude/claude-code-sessions"
+    )
+    for meta_path in glob.glob(os.path.join(desktop, "**", "local_*.json"), recursive=True):
+        try:
+            with open(meta_path, errors="replace") as fh:
+                meta = json.load(fh)
+        except (ValueError, OSError):
+            continue
+        cli_id = meta.get("cliSessionId")
+        title = meta.get("title")
+        if cli_id and title:
+            titles[cli_id] = title
+
     rows = []
     for path in glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True):
         cwd = branch = prompt = None
@@ -55,7 +77,7 @@ let
         # Skip the near-empty ones: a session that never got a reply is noise.
         if size < 2048:
             continue
-        text = " ".join((prompt or "(no prompt)").split())[:90]
+        text = titles.get(sid) or " ".join((prompt or "(no prompt)").split())[:90]
         rows.append((mtime, cwd or "?", branch or "", text, sid, path))
 
     rows.sort(reverse=True)
