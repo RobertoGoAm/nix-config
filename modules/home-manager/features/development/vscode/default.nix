@@ -4,6 +4,65 @@
   pkgs,
   ...
 }:
+
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+
+  # The hnei rotation for the VS Code vim extension, shared by the normal,
+  # operator-pending and visual lists -- all three carried an identical copy.
+  # Empty under layout = "qwerty", which leaves the extension on stock vim
+  # bindings; the vspacecode space entries are not layout-specific and stay.
+  colemakVimSwaps = lib.optionals colemak [
+    {
+      "before" = [ "n" ];
+      "after" = [ "j" ];
+    }
+    {
+      "before" = [ "j" ];
+      "after" = [ "n" ];
+    }
+    {
+      "before" = [ "N" ];
+      "after" = [ "J" ];
+    }
+    {
+      "before" = [ "J" ];
+      "after" = [ "N" ];
+    }
+    {
+      "before" = [ "e" ];
+      "after" = [ "k" ];
+    }
+    {
+      "before" = [ "k" ];
+      "after" = [ "e" ];
+    }
+    {
+      "before" = [ "E" ];
+      "after" = [ "K" ];
+    }
+    {
+      "before" = [ "K" ];
+      "after" = [ "E" ];
+    }
+    {
+      "before" = [ "i" ];
+      "after" = [ "l" ];
+    }
+    {
+      "before" = [ "l" ];
+      "after" = [ "i" ];
+    }
+    {
+      "before" = [ "I" ];
+      "after" = [ "L" ];
+    }
+    {
+      "before" = [ "L" ];
+      "after" = [ "I" ];
+    }
+  ];
+in
 let
   # Extensions the work devcontainer.json already installs.
   # Personal extensions minus these become dev.containers.defaultExtensions.
@@ -27,6 +86,8 @@ let
   ];
 in
 {
+  imports = [ ../../productivity/keyboard-layout.nix ];
+
   programs.vscode = {
     enable = true;
     mutableExtensionsDir = false;
@@ -660,172 +721,31 @@ in
           "vim.useSystemClipboard" = true;
 
           # Vim COLEMAK remaps
-          "vim.normalModeKeyBindingsNonRecursive" = [
-            {
-              "before" = [ " " ];
-              "commands" = [ "vspacecode.space" ];
-            }
-            {
-              "before" = [ "<space>" ];
-              "commands" = [ "vspacecode.space" ];
-            }
-            {
-              "before" = [ "n" ];
-              "after" = [ "j" ];
-            }
-            {
-              "before" = [ "j" ];
-              "after" = [ "n" ];
-            }
-            {
-              "before" = [ "N" ];
-              "after" = [ "J" ];
-            }
-            {
-              "before" = [ "J" ];
-              "after" = [ "N" ];
-            }
-            {
-              "before" = [ "e" ];
-              "after" = [ "k" ];
-            }
-            {
-              "before" = [ "k" ];
-              "after" = [ "e" ];
-            }
-            {
-              "before" = [ "E" ];
-              "after" = [ "K" ];
-            }
-            {
-              "before" = [ "K" ];
-              "after" = [ "E" ];
-            }
-            {
-              "before" = [ "i" ];
-              "after" = [ "l" ];
-            }
-            {
-              "before" = [ "l" ];
-              "after" = [ "i" ];
-            }
-            {
-              "before" = [ "I" ];
-              "after" = [ "L" ];
-            }
-            {
-              "before" = [ "L" ];
-              "after" = [ "I" ];
-            }
-          ];
-          "vim.operatorPendingModeKeyBindingsNonRecursive" = [
-            {
-              "before" = [ "n" ];
-              "after" = [ "j" ];
-            }
-            {
-              "before" = [ "j" ];
-              "after" = [ "n" ];
-            }
-            {
-              "before" = [ "N" ];
-              "after" = [ "J" ];
-            }
-            {
-              "before" = [ "J" ];
-              "after" = [ "N" ];
-            }
-            {
-              "before" = [ "e" ];
-              "after" = [ "k" ];
-            }
-            {
-              "before" = [ "k" ];
-              "after" = [ "e" ];
-            }
-            {
-              "before" = [ "E" ];
-              "after" = [ "K" ];
-            }
-            {
-              "before" = [ "K" ];
-              "after" = [ "E" ];
-            }
-            {
-              "before" = [ "i" ];
-              "after" = [ "l" ];
-            }
-            {
-              "before" = [ "l" ];
-              "after" = [ "i" ];
-            }
-            {
-              "before" = [ "I" ];
-              "after" = [ "L" ];
-            }
-            {
-              "before" = [ "L" ];
-              "after" = [ "I" ];
-            }
-          ];
-          "vim.visualModeKeyBindingsNonRecursive" = [
-            {
-              "before" = [ " " ];
-              "commands" = [ "vspacecode.space" ];
-            }
-            {
-              "before" = [ "<space>" ];
-              "commands" = [ "vspacecode.space" ];
-            }
-            {
-              "before" = [ "n" ];
-              "after" = [ "j" ];
-            }
-            {
-              "before" = [ "j" ];
-              "after" = [ "n" ];
-            }
-            {
-              "before" = [ "N" ];
-              "after" = [ "J" ];
-            }
-            {
-              "before" = [ "J" ];
-              "after" = [ "N" ];
-            }
-            {
-              "before" = [ "e" ];
-              "after" = [ "k" ];
-            }
-            {
-              "before" = [ "k" ];
-              "after" = [ "e" ];
-            }
-            {
-              "before" = [ "E" ];
-              "after" = [ "K" ];
-            }
-            {
-              "before" = [ "K" ];
-              "after" = [ "E" ];
-            }
-            {
-              "before" = [ "i" ];
-              "after" = [ "l" ];
-            }
-            {
-              "before" = [ "l" ];
-              "after" = [ "i" ];
-            }
-            {
-              "before" = [ "I" ];
-              "after" = [ "L" ];
-            }
-            {
-              "before" = [ "L" ];
-              "after" = [ "I" ];
-            }
-          ];
+            "vim.normalModeKeyBindingsNonRecursive" =
+              [
+              {
+                "before" = [ " " ];
+                "commands" = [ "vspacecode.space" ];
+              }
+              {
+                "before" = [ "<space>" ];
+                "commands" = [ "vspacecode.space" ];
+              }
+              ]
+              ++ colemakVimSwaps;
+            "vim.operatorPendingModeKeyBindingsNonRecursive" = colemakVimSwaps;
+            "vim.visualModeKeyBindingsNonRecursive" =
+              [
+              {
+                "before" = [ " " ];
+                "commands" = [ "vspacecode.space" ];
+              }
+              {
+                "before" = [ "<space>" ];
+                "commands" = [ "vspacecode.space" ];
+              }
+              ]
+              ++ colemakVimSwaps;
 
           # VSpaceCode
           "vspacecode.bindingOverrides" = [

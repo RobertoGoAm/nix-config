@@ -1,5 +1,13 @@
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+  # tmux has no directional defaults to fall back on, so unlike vim or warpd
+  # the QWERTY case needs its keys written out rather than simply omitted.
+  nav = if colemak then { d = "n"; u = "e"; r = "i"; } else { d = "j"; u = "k"; r = "l"; };
+in
 {
+  imports = [ ../productivity/keyboard-layout.nix ];
+
   programs.tmux = {
     enable = true;
     mouse = true;
@@ -23,22 +31,18 @@
       # Reload config
       bind r source-file ~/.config/tmux/tmux.conf \; display "Reloaded!"
 
-      # Colemak-DH / Aerospace / Vim consistent navigation
-      # h - Left
-      # n - Down
-      # e - Up
-      # i - Right
-      
+      # Pane navigation on the physical hjkl positions: hnei under Colemak,
+      # hjkl under QWERTY. Left is h either way, since Colemak leaves h alone.
       bind -r h select-pane -L
-      bind -r n select-pane -D
-      bind -r e select-pane -U
-      bind -r i select-pane -R
+      bind -r ${nav.d} select-pane -D
+      bind -r ${nav.u} select-pane -U
+      bind -r ${nav.r} select-pane -R
 
       # Resize panes with same keys (capitalized)
       bind -r H resize-pane -L 5
-      bind -r N resize-pane -D 5
-      bind -r E resize-pane -U 5
-      bind -r I resize-pane -R 5
+      bind -r ${lib.toUpper nav.d} resize-pane -D 5
+      bind -r ${lib.toUpper nav.u} resize-pane -U 5
+      bind -r ${lib.toUpper nav.r} resize-pane -R 5
 
       # No delay for escape key press (essential for Vim)
       set -s escape-time 0

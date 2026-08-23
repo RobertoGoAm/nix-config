@@ -1,8 +1,14 @@
 {
+  config,
   lib,
   ...
 }:
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+in
 {
+  imports = [ ../../productivity/keyboard-layout.nix ];
+
   # Split deliberately across two points in the generated file.
   #
   # The machinery and its hooks go FIRST, at 90 — ahead of the core block that calls
@@ -14,7 +20,8 @@
   #
   # The global state maps and the remaining literal remaps go LAST, at 1500, once
   # every plugin has had its say.
-  programs.emacs.extraConfig = lib.mkMerge [
+  programs.emacs.extraConfig = lib.mkMerge (
+    lib.optionals colemak [
     (lib.mkOrder 90 ''
             ;;; Colemak hnei rotation — the machinery.
 
@@ -140,7 +147,12 @@
       (evil-define-key 'normal 'global
         (kbd "C-S-p") #'evil-scroll-down
         (kbd "C-S-e") #'evil-scroll-up)
-
+    '')
+    ]
+    ++ [
+      # Layout-neutral: these mirror the nvim config but touch no letter the
+      # rotation moves, so they apply under both layouts.
+      (lib.mkOrder 1500 ''
       ;; Delete without copying: x, X and Del write to the black-hole register.
       (defun my/delete-char-no-yank (count)
         "Delete COUNT characters forward, leaving the unnamed register alone."
@@ -180,5 +192,6 @@
       (evil-define-key '(normal insert) 'global
         (kbd "C-k") #'my/lsp-signature-help)
     '')
-  ];
+    ]
+  );
 }

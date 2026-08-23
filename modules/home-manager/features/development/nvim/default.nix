@@ -1,4 +1,10 @@
+{ config, lib, ... }:
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+in
 {
+  imports = [ ../../productivity/keyboard-layout.nix ];
+
   programs.nixvim = {
     enable = true;
     defaultEditor = true;
@@ -9,7 +15,7 @@
 
     imports = [
       ./colorscheme.nix
-      ./keybinds.nix
+      (import ./keybinds.nix { inherit colemak lib; })
       ./options.nix
       ./plugins
     ];
