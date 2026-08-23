@@ -20,9 +20,17 @@
     ;;; so the list below is written in the same order as the cmp sources table.
 
     (require 'corfu)
+    ;; auto-delay 0.1 with prefix 1 fires a completion on the first character and
+    ;; then again on every keystroke. The request is deferred to a timer, so on a
+    ;; slow source it lands after the window has moved on -- posn-at-point then
+    ;; returns nil and corfu logs
+    ;;   corfu--popup-show(nil ...) (wrong-type-argument number-or-marker-p nil)
+    ;; and shows nothing. corfu traps it, so it is noise rather than a crash, but
+    ;; the popup you were waiting for is the thing that went missing. 0.2s with a
+    ;; 2-character prefix asks far less often and still feels immediate.
     (setq corfu-auto t
-          corfu-auto-prefix 1
-          corfu-auto-delay 0.1
+          corfu-auto-prefix 2
+          corfu-auto-delay 0.2
           ;; pumheight = 10
           corfu-count 10
           corfu-cycle t

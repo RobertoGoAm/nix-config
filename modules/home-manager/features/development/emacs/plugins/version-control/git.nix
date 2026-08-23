@@ -65,7 +65,30 @@
                 (unknown . "┆")
                 (ignored . "┆"))
               diff-hl-draw-borders nil)
-        (global-diff-hl-mode 1)
+        ;; Neither diff-hl nor blamer runs on a remote buffer.
+        ;;
+        ;; Both shell out to git per redisplay, which over tramp is a round trip
+        ;; into the container for every refresh -- and both then break on the
+        ;; result. diff-hl raised
+        ;;   Error running timer 'diff-hl--update-buffer':
+        ;;     (wrong-type-argument listp (:working . " *diff-hl* "))
+        ;; on every save under /docker:, and blamer failed mid-format, leaving its
+        ;; overlays behind so each redisplay stacked another copy of the blame
+        ;; text along the line until it pushed the code off screen.
+        ;;
+        ;; The container is a mount of the host checkout, so the host buffer shows
+        ;; the same git state anyway: nothing is lost by keeping these local.
+        (defun my/vc-local-buffer-p ()
+          "Non-nil when this buffer is a local file, not one over tramp."
+          (and buffer-file-name (not (file-remote-p buffer-file-name))))
+
+        (defun my/diff-hl-unless-remote ()
+          (when (my/vc-local-buffer-p) (diff-hl-mode 1)))
+
+        (define-globalized-minor-mode my/global-diff-hl-mode
+          diff-hl-mode my/diff-hl-unless-remote)
+
+        (my/global-diff-hl-mode 1)
         (diff-hl-margin-mode 1)
         ;; No diff-hl-flydiff. Live-signs-as-you-type is gitsigns' default and was
         ;; the intent here, but the flydiff path is broken against Emacs 30's vc
@@ -99,7 +122,13 @@
               blamer-commit-formatter "%s")
         (custom-set-faces
          `(blamer-face ((t (:foreground ,(my/tn 'comment) :slant italic :height 0.9)))))
-        (global-blamer-mode 1)
+        (defun my/blamer-unless-remote ()
+          (when (my/vc-local-buffer-p) (blamer-mode 1)))
+
+        (define-globalized-minor-mode my/global-blamer-mode
+          blamer-mode my/blamer-unless-remote)
+
+        (my/global-blamer-mode 1)
 
         ;; GBrowse and GO: open the current line, or the repository, on the forge.
         (require 'browse-at-remote)
