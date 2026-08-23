@@ -7,6 +7,16 @@
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Diagnostics report.
 
+    ;; *Messages* IS the echo-area history -- every "Wrote ...", "Auto-saving...",
+    ;; and command result that flashed at the bottom of the frame is in it,
+    ;; including the ones inhibit-message-regexps hides from the echo area: those
+    ;; are suppressed from display only, and still logged.
+    ;;
+    ;; The default keeps 1000 lines, which a long session with a chatty LSP will
+    ;; roll straight past -- and the interesting message is usually the one that
+    ;; scrolled off. 10000 lines of text costs nothing next to the rest of Emacs.
+    (setq message-log-max 10000)
+
     (defun my/report--buffer (name)
       "Contents of buffer NAME, or a note that it does not exist."
       (if (get-buffer name)
