@@ -56,6 +56,22 @@
 
         (add-hook 'markdown-mode-hook #'my/obsidian-maybe-enable)
 
+        ;; Warm the index while nothing is waiting on it. Loading obsidian.el walks
+        ;; the whole vault -- 591 notes, about 3.4s -- and paying that on the first
+        ;; note you open reads as the editor freezing mid-keystroke. On an idle
+        ;; timer it happens once, in the background, before you ask for anything;
+        ;; my/obsidian-ensure is already guarded by `unless (featurep 'obsidian)',
+        ;; so the hook above becomes a no-op rather than a second scan.
+        ;;
+        ;; 8s, not immediately: startup itself should not be competing with this,
+        ;; and the timer is one-shot, so a session that never touches the vault
+        ;; still pays it exactly once.
+        (run-with-idle-timer
+         8 nil
+         (lambda ()
+           (when (file-directory-p obsidian-directory)
+             (ignore-errors (my/obsidian-ensure)))))
+
         (defun my/obsidian-new ()
           "Create a note in the vault."
           (interactive)
