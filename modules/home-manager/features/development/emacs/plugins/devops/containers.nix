@@ -62,11 +62,10 @@
                           (shell-quote-argument container))))))
         (if (string-empty-p wd) "/workspace" wd)))
 
-    (defun my/devcontainer-up ()
-      "Bring this project's devcontainer up, then open a shell inside it.
+    (defun my/devcontainer-up-then (callback)
+      "Bring this project's devcontainer up, then call CALLBACK with no arguments.
     Asynchronous: the CLI pulls and builds on a cold start, which is minutes, and
-    blocking Emacs for it is not acceptable."
-      (interactive)
+    blocking Emacs for that is not acceptable."
       (let* ((default-directory (my/devcontainer--root))
              (buf (get-buffer-create "*devcontainer*")))
         (with-current-buffer buf (erase-buffer))
@@ -79,9 +78,25 @@
          (lambda (_proc event)
            (if (string-match-p "finished" event)
                (progn (message "devcontainer up: ready")
-                      (my/devcontainer-shell))
+                      (when callback (funcall callback)))
              (message "devcontainer up failed -- see *devcontainer*")
              (display-buffer "*devcontainer*"))))))
+
+    (defun my/devcontainer-up ()
+      "Bring this project's devcontainer up, then open a shell inside it."
+      (interactive)
+      (my/devcontainer-up-then #'my/devcontainer-shell))
+
+    (defun my/devcontainer--ensure (callback)
+      "Run CALLBACK once this project has a running container.
+    Starts one if there is none, rather than failing: reaching for \"open in
+    container\" when the container happens to be down is the same intent as
+    starting it, and making that two commands in a fixed order is a trap."
+      (if (my/devcontainer-id)
+          (funcall callback)
+        (if (y-or-n-p "No container running for this project. Start it? ")
+            (my/devcontainer-up-then callback)
+          (user-error "No container for %s" (my/devcontainer--root)))))
 
     (defun my/devcontainer-shell ()
       "Open a shell inside this project's container."
@@ -98,11 +113,14 @@
     (defun my/devcontainer-open ()
       "Open this project's root from inside the container -- \"reopen in container\".
     Everything opened from the resulting dired carries the /docker: prefix, so the
-    remote LSP clients below start their servers in the container."
+    remote LSP clients below start their servers in the container. Brings the
+    container up first if it is not already running."
       (interactive)
-      (let* ((container (my/devcontainer--pick))
-             (wd (my/devcontainer-workdir container)))
-        (dired (format "/docker:%s:%s/" container wd))))
+      (my/devcontainer--ensure
+       (lambda ()
+         (let* ((container (my/devcontainer--pick))
+                (wd (my/devcontainer-workdir container)))
+           (dired (format "/docker:%s:%s/" container wd))))))
 
     (defun my/devcontainer-find-file ()
       "Open a file inside a running container over tramp."

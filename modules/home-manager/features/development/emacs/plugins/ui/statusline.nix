@@ -120,8 +120,14 @@
     ;; asking git per redisplay would be the expensive way to learn the same thing.
     (doom-modeline-def-segment my/branch
       (when (and (buffer-file-name) (stringp vc-mode))
-        (let ((branch (string-trim
-                       (replace-regexp-in-string "\\`[ ]*Git[:-]" "" vc-mode))))
+          ;; substring-no-properties first. vc-mode is a PROPERTIZED string, and
+          ;; string-trim / replace-regexp-in-string carry its property ranges onto
+          ;; a shorter string -- so truncate-string-to-width was handed a string
+          ;; whose properties ran past its end and raised "Args out of range" on
+          ;; every redisplay of a buffer with a long branch name.
+          (let ((branch (substring-no-properties
+                         (string-trim
+                          (replace-regexp-in-string "\\`[ ]*Git[:-]" "" vc-mode)))))
           (unless (string-empty-p branch)
             (propertize (concat "  "
                                 (truncate-string-to-width
