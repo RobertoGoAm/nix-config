@@ -103,7 +103,6 @@ in
 
       # Tool
       coreutils
-      fasd
       gnutar
       graphviz
       mdfried

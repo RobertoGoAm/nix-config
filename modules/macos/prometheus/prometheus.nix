@@ -33,9 +33,15 @@ in
   system.defaults.dock.persistent-apps = [
     "/System/Applications/Calendar.app"
     "/System/Applications/System Settings.app"
-    "/Users/${user}/Applications/Home Manager Apps/Firefox.app"
-    "/Users/${user}/Applications/Home Manager Apps/Chromium.app"
-    "/Users/${user}/Applications/Home Manager Apps/Chromium Dev.app"
+    # Chrome is the work browser and comes from the homebrew cask, so it lives in
+    # /Applications rather than the home-manager tree.
+    "/Applications/Google Chrome.app"
+    # "Zen Browser (Beta).app" is the bundle name the package ships -- the
+    # darwin build is the beta channel, and the name carries that. It changes
+    # if the channel does, and a dock entry pointing at a missing path just
+    # silently shows nothing.
+    "/Users/${user}/Applications/Home Manager Apps/Zen Browser (Beta).app"
+    "/Users/${user}/Applications/Home Manager Apps/Chrome Dev.app"
     "/System/Applications/Mail.app"
     "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"

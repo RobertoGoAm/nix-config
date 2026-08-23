@@ -38,11 +38,10 @@
     ../../features/development
     ../../features/development/cursor.nix
     ../../features/development/antigravity.nix
-    ../../features/internet/chromium.nix
-    ../../features/internet/chromium-dev.nix
+    ../../features/internet/chrome-dev.nix
     ../../features/internet/cyberduck.nix
     ../../features/internet/discord.nix
-    ../../features/internet/firefox.nix
+    ../../features/internet/zen.nix
     ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
     ../../features/productivity/karabiner.nix

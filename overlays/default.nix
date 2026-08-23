@@ -22,18 +22,6 @@
   #   });
   # };
 
-  # Import all apple silicon overlays in the folder
-  apple-silicon =
-    final: prev:
-    let
-      files = builtins.filter (n: builtins.match "apple-silicon-.*\\.nix" n != null) (
-        builtins.attrNames (builtins.readDir ./.)
-      );
-
-      importOverlay = name: import (./. + "/${name}") final prev;
-    in
-    builtins.foldl' (acc: name: acc // (importOverlay name)) { } files;
-
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
   # be accessible through 'pkgs.unstable'
   # unstable-packages = final: _prev: {

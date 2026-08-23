@@ -14,6 +14,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Zen is not in nixpkgs on any platform. This flake repackages the upstream
+    # binary and ships a home-manager module built on mkFirefoxModule, so the
+    # profile/extensions/settings schema is the same one programs.firefox uses --
+    # which is what makes moving the old firefox.nix across a rename rather than
+    # a rewrite. aarch64-darwin is a supported system (verified via flake show).
+    zen-browser = {
+      url = "github:0xc000022070/zen-browser-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     homebrew-bundle = {
       url = "github:homebrew/homebrew-bundle";
       flake = false;

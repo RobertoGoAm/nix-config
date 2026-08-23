@@ -1,10 +1,8 @@
 """Report — and optionally fix — drift on the version pins nothing updates here.
 
 flake.lock covers every nixpkgs package and warpd rides prev.warpd.src, so both
-move on `nix-update`. Two things do not:
+move on `nix-update`. One thing does not:
 
-  * the Chromium snapshot in overlays/apple-silicon-chromium.nix, checked
-    against the LAST_CHANGE marker in Google's Mac_Arm snapshot bucket
   * every marketplace extension pinned by version + sha256 in the VS Code
     module, checked against the Visual Studio Marketplace gallery API
 
@@ -23,16 +21,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-CHROMIUM_OVERLAY = Path("overlays/apple-silicon-chromium.nix")
-VSCODE_MODULE = Path("modules/home-manager/features/development/vscode/default.nix")
+# Nothing here names a file. Pins are found by their shape -- a nix attrset with
+# publisher/name/version/sha256 -- anywhere in the tree, so moving the VS Code
+# module or pinning an extension somewhere new needs no change here. A hardcoded
+# path fails the wrong way: it reports "0 stale" for pins it never looked at.
+SKIP_DIRS = {".git", "result", "node_modules"}
 
-SNAPSHOT_BUCKET = "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm"
-# Chromium mainline advances on the order of a thousand revisions a week, so a
-# freshly bumped pin is "behind" within hours and an exact comparison would
-# report stale permanently. A milestone is roughly four weeks of commits; this
-# threshold means "about a release behind", which is the point at which the
-# bump is actually worth doing.
-SNAPSHOT_DRIFT_THRESHOLD = 5000
 
 MARKETPLACE_QUERY = (
     "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
@@ -100,33 +94,6 @@ def parse_extension_pins(text):
         }
 
 
-def check_chromium(root):
-    overlay = root / CHROMIUM_OVERLAY
-    if not overlay.exists():
-        return {"status": "skip", "subject": "chromium", "detail": f"{CHROMIUM_OVERLAY} not found"}
-    pinned = re.search(r'version = "(\d+)";', overlay.read_text())
-    if not pinned:
-        return {"status": "error", "subject": "chromium", "detail": "no version pin in the overlay"}
-    latest = fetch(f"{SNAPSHOT_BUCKET}/LAST_CHANGE").strip()
-    current = pinned.group(1)
-    behind = int(latest) - int(current)
-    if behind < SNAPSHOT_DRIFT_THRESHOLD:
-        # Not "current" — it never is — but not worth acting on either.
-        return {
-            "status": "ok",
-            "subject": "chromium snapshot",
-            "detail": f"{current} ({behind} revisions behind, under threshold)",
-        }
-    return {
-        "status": "stale",
-        "subject": "chromium snapshot",
-        "detail": f"{current} -> {latest} ({behind} revisions behind)",
-        "kind": "chromium",
-        "from": current,
-        "to": latest,
-    }
-
-
 def check_extension(pin):
     extension_id = f"{pin['publisher']}.{pin['name']}"
     try:
@@ -145,17 +112,28 @@ def check_extension(pin):
     }
 
 
+def find_pins(root):
+    """Every extension pin in the tree, tagged with the file holding it."""
+    for path in sorted(root.rglob("*.nix")):
+        if SKIP_DIRS & set(path.relative_to(root).parts):
+            continue
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for pin in parse_extension_pins(text):
+            pin["path"] = path
+            yield pin
+
+
 def collect(root):
-    module = root / VSCODE_MODULE
-    pins = list(parse_extension_pins(module.read_text())) if module.exists() else []
+    pins = list(find_pins(root))
     # The lookups are all independent network round trips; sequentially they cost
     # a few seconds, which is too much to put in front of every rebuild.
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        chromium = pool.submit(check_chromium, root)
-        extensions = list(pool.map(check_extension, pins))
-        report = [chromium.result()] + extensions
-    if not module.exists():
-        report.append({"status": "skip", "subject": "extensions", "detail": f"{VSCODE_MODULE} not found"})
+        report = list(pool.map(check_extension, pins))
+    if not pins:
+        report.append({"status": "skip", "subject": "extensions", "detail": "no pinned extensions found"})
     return report
 
 
@@ -164,11 +142,16 @@ def apply_updates(root, stale):
     fixed, failed = [], []
 
     extensions = [row for row in stale if row.get("kind") == "extension"]
-    if extensions:
-        path = root / VSCODE_MODULE
+    # Grouped by file: spans are offsets into one file's text, so pins from
+    # different files cannot be rewritten in a single pass.
+    by_file = {}
+    for row in extensions:
+        by_file.setdefault(row["pin"]["path"], []).append(row)
+
+    for path, rows in by_file.items():
         text = path.read_text()
         # Rewrite back to front so earlier spans stay valid as the text shifts.
-        for row in sorted(extensions, key=lambda r: r["pin"]["span"][0], reverse=True):
+        for row in sorted(rows, key=lambda r: r["pin"]["span"][0], reverse=True):
             pin, new_version = row["pin"], row["to"]
             url = VSIX_URL.format(publisher=pin["publisher"], name=pin["name"], version=new_version)
             try:
@@ -183,22 +166,6 @@ def apply_updates(root, stale):
             text = text[:start] + block + text[end:]
             fixed.append(f"{row['subject']} {pin['version']} -> {new_version}")
         path.write_text(text)
-
-    for row in [r for r in stale if r.get("kind") == "chromium"]:
-        path = root / CHROMIUM_OVERLAY
-        text = path.read_text()
-        try:
-            new_hash_sri = prefetch_sri(f"{SNAPSHOT_BUCKET}/{row['to']}/chrome-mac.zip")
-            # The overlay spells this one as a bare base32 sha256.
-            new_hash = run(["nix", "hash", "to-base32", "--type", "sha256", new_hash_sri]).strip()
-        except Exception as exc:  # noqa: BLE001
-            failed.append((row["subject"], str(exc)))
-            continue
-        old_hash = re.search(r'sha256 = "([^"]+)";', text).group(1)
-        text = text.replace(f'version = "{row["from"]}";', f'version = "{row["to"]}";')
-        text = text.replace(f'sha256 = "{old_hash}";', f'sha256 = "{new_hash}";')
-        path.write_text(text)
-        fixed.append(f"{row['subject']} {row['from']} -> {row['to']}")
 
     return fixed, failed
 

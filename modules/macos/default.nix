@@ -123,7 +123,6 @@
 
     nixpkgs = {
       overlays = [
-        outputs.overlays.apple-silicon
         outputs.overlays.check-pins
         outputs.overlays.checkov
         outputs.overlays.pin-prefs
