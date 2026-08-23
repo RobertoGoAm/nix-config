@@ -197,13 +197,36 @@
       "no" '(my/obsidian-open-note :which-key "open note")
       "nO" '(my/obsidian-open-app :which-key "open app")
 
+      ;; agenda — org owns dates and tasks; notes stay in Obsidian under "n".
+      "k"  '(:ignore t :which-key "agenda")
+      "kk" '(my/org-agenda-today :which-key "today")
+      "ka" '(org-agenda :which-key "agenda menu")
+      "kc" '(org-capture :which-key "capture")
+      "kt" '(my/org-todos :which-key "todo list")
+      "ki" '(my/org-inbox :which-key "open inbox")
+
+      ;; music — the running Spotify client, same one the menu bar item reports.
+      "m"  '(:ignore t :which-key "music")
+      "mm" '(my/music-playpause :which-key "play/pause")
+      "mn" '(my/music-next :which-key "next track")
+      "mp" '(my/music-previous :which-key "previous track")
+      "mc" '(my/music-current :which-key "what is playing")
+      "mo" '(my/music-open :which-key "open spotify")
+      "m=" '(my/music-louder :which-key "louder")
+      "m-" '(my/music-quieter :which-key "quieter")
+
       ;; open — the app surfaces that have no nvim equivalent.
       "o"  '(:ignore t :which-key "open")
       "oc" '(my/devcontainer-up :which-key "devcontainer up")
       "od" '(docker :which-key "docker")
       "oD" '(my/dashboard :which-key "dashboard")
       "of" '(my/devcontainer-find-file :which-key "file in container")
+      "ob" '(my/browse-url-at-point :which-key "browser (in emacs)")
+      "og" '(my/open-gchat :which-key "google chat")
+      "oG" '(my/open-gmail :which-key "gmail (web)")
       "oh" '(restclient-mode :which-key "http scratchpad")
+      "om" '(my/open-meet :which-key "google meet")
+      "oM" '(my/open-meet-next :which-key "join next meeting")
       "os" '(my/sql-postgres :which-key "postgres")
       "oS" '(my/sonar-scan :which-key "sonar scan")
       "ot" '(telega :which-key "telegram")
