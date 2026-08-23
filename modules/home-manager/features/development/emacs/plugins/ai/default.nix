@@ -3,6 +3,8 @@
   ...
 }:
 {
+  imports = [ ./sessions.nix ];
+
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
       claude-code
