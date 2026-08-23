@@ -1,6 +1,8 @@
 { config, lib, pkgs, ... }:
 
 let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+
   karabinerJson = {
     global = { show_in_menu_bar = false; };
     profiles = [
@@ -750,7 +752,11 @@ let
             }
             {
               description = "Base Colemak letters (disabled while Symbols layer is active)";
-              manipulators = [
+              # Empty under layout = "qwerty": this rule IS the Colemak remap, so
+              # dropping its manipulators leaves letters untouched while every other
+              # rule here (nav, symbols, warpd, the Raycast taps) keeps working --
+              # those are keyed to physical positions, not to Colemak output.
+              manipulators = lib.optionals colemak [
                 { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "e"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "f"; } ]; type = "basic"; }
                 { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "r"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "p"; } ]; type = "basic"; }
                 { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "t"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "g"; } ]; type = "basic"; }
@@ -870,6 +876,8 @@ let
   '';
 in
 {
+  imports = [ ./keyboard-layout.nix ];
+
   # macOS only — Linux uses keyd (features/productivity/keyd). karabiner-elements
   # isn't available off darwin, so an ungated import would break perseus's build.
   config = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
