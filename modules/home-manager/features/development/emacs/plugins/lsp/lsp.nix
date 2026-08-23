@@ -60,6 +60,15 @@
         (setq lsp-keymap-prefix nil
               ;; updatetime = 300
               lsp-idle-delay 0.3
+              ;; 10s (the default) is not enough for the first request against a
+              ;; large Nuxt or Angular project: ts-ls and the Vue server are still
+              ;; indexing, textDocument/completion times out, and what you see is
+              ;; an editor with no completion rather than one still warming up.
+              ;; Raising it trades a slower first response for one that arrives.
+              lsp-response-timeout 30
+              ;; tsserver's default heap is modest for a monorepo-sized project,
+              ;; and it degrades to no completions rather than to an error.
+              lsp-clients-typescript-max-ts-server-memory 4096
               lsp-log-io nil
               ;; corfu drives completion, not company.
               lsp-completion-provider :none
