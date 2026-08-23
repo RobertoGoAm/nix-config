@@ -22,7 +22,11 @@
         ;;; a wrapper over the CLI. So the SPC g keys keep their nvim meanings and get
         ;;; better implementations underneath.
 
-        (require 'magit)
+        ;; Not required at startup. magit-status and the rest are autoloaded, and
+        ;; loading magit eagerly costs ~1.8s of every launch (magit-core, -diff,
+        ;; -process, -transient, with-editor and git-commit all come with it) for
+        ;; something not needed until you actually open a git buffer. The settings
+        ;; below are plain setq of defcustoms, which do not pull it in.
         (setq magit-diff-refine-hunk 'all
               magit-save-repository-buffers 'dontask
               magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1
