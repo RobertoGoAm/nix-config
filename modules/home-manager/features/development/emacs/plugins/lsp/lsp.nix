@@ -101,13 +101,24 @@
         ;; action lightbulb on the sideline, peek windows for definitions/references.
         (setq lsp-ui-doc-enable t
               lsp-ui-doc-position 'at-point
-              lsp-ui-doc-show-with-cursor nil
+              ; The doc popup was enabled but unreachable: show-with-cursor and
+              ; show-with-mouse were both nil and nothing bound lsp-ui-doc-glance,
+              ; so it could never appear. It follows the cursor now.
+              lsp-ui-doc-show-with-cursor t
               lsp-ui-doc-show-with-mouse nil
+              ; Slower than the 0.2 default: at 0.2 the popup chases the cursor
+              ; through ordinary movement, half a second lets it appear when you
+              ; stop to look at something.
+              lsp-ui-doc-delay 0.5
               lsp-ui-doc-max-height 20
               lsp-ui-doc-max-width 100
-              lsp-ui-sideline-enable t
-              lsp-ui-sideline-show-diagnostics t
-              lsp-ui-sideline-show-code-actions t
+              ; Sideline off: it renders at end of line, exactly where blamer
+              ; draws, so the two fought over the same space. End of line is now
+              ; blame's; types go to the doc popup, diagnostics to the posframe
+              ; below, code actions stay in the modeline (already enabled).
+              lsp-ui-sideline-enable nil
+              lsp-ui-sideline-show-diagnostics nil
+              lsp-ui-sideline-show-code-actions nil
               lsp-ui-sideline-show-hover nil
               ;; lspsaga ui.code_action = "💡"
               lsp-ui-sideline-code-actions-prefix "💡 "
