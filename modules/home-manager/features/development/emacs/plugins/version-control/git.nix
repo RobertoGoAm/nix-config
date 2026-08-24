@@ -143,6 +143,32 @@
         (with-eval-after-load 'apheleia
           (add-hook 'apheleia-post-format-hook #'blamer--clear-overlay))
 
+        ;; Enforce "one blame at a time" rather than trusting blamer to do it.
+        ;;
+        ;; blamer-type is 'visual, so exactly one overlay should ever exist. In
+        ;; practice they accumulate: traverse four lines, pause, and four blames
+        ;; are on screen at once. blamer clears via blamer--overlays, a registry
+        ;; it maintains itself, and anything that misses that list -- a render
+        ;; from the idle timer while another buffer is current, a second timer
+        ;; that outlived its cancel -- leaks an overlay nothing will ever delete.
+        ;;
+        ;; So sweep the buffer instead of reading the registry: before drawing,
+        ;; delete every overlay whose displayed string carries blamer-face. That
+        ;; is blamer's own face, set just below, so it identifies its overlays
+        ;; without depending on bookkeeping that has already proven unreliable.
+        (defun my/blamer-sweep (&rest _)
+          "Delete every blamer overlay in this buffer."
+          (dolist (o (overlays-in (point-min) (point-max)))
+            (let ((str (or (overlay-get o 'after-string) (overlay-get o 'before-string))))
+              (when (and (stringp str) (> (length str) 0))
+                (let ((face (get-text-property 0 'face str)))
+                  (when (or (eq face 'blamer-face)
+                            (and (listp face) (memq 'blamer-face face)))
+                    (delete-overlay o)))))))
+
+        (with-eval-after-load 'blamer
+          (advice-add 'blamer--render :before #'my/blamer-sweep))
+
         ;; blamer--overlays is deliberately NOT made buffer-local, though it
         ;; looks like it should be. blamer keeps blamer-idle-timer,
         ;; blamer--previous-line-number and the overlay list all global: the
