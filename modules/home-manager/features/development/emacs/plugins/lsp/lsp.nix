@@ -111,7 +111,11 @@
               ; stop to look at something.
               lsp-ui-doc-delay 0.5
               lsp-ui-doc-max-height 20
-              lsp-ui-doc-max-width 100
+              ; 100 was wider than the frame: at 77 columns the popup ran past the
+              ; right edge and the type was cut mid-word rather than wrapped. Set
+              ; from the frame on each show so it fits whatever width is in use,
+              ; leaving room for the fringe and the popup's own border.
+              lsp-ui-doc-max-width 80
               ; Sideline off: it renders at end of line, exactly where blamer
               ; draws, so the two fought over the same space. End of line is now
               ; blame's; types go to the doc popup, diagnostics to the posframe
@@ -125,6 +129,17 @@
               lsp-ui-peek-enable t
               lsp-ui-peek-show-directory t
               lsp-ui-imenu-auto-refresh t)
+
+        ;; The popup is sized per show rather than pinned: a fixed width is
+        ;; either too wide for a split or wastes a wide frame, and this file is
+        ;; shared by both machines and every window layout.
+        (defun my/lsp-ui-doc-fit-frame (&rest _)
+          "Keep the doc popup inside the current window."
+          (setq lsp-ui-doc-max-width (max 40 (- (window-body-width) 8))))
+
+        (with-eval-after-load 'lsp-ui
+          (advice-add 'lsp-ui-doc--make-frame :before #'my/lsp-ui-doc-fit-frame)
+          (advice-add 'lsp-ui-doc-glance :before #'my/lsp-ui-doc-fit-frame))
 
         ;; The inlay hints from the ts_ls extraOptions block, setting for setting. One
         ;; set of variables covers both languages: lsp-mode maps each
