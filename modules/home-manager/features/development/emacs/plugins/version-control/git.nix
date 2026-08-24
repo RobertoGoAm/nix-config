@@ -143,11 +143,15 @@
         (with-eval-after-load 'apheleia
           (add-hook 'apheleia-post-format-hook #'blamer--clear-overlay))
 
-        ;; And make the registry buffer-local, so clearing in one buffer cannot
-        ;; orphan another's. With a single shared list, whichever buffer renders
-        ;; last owns it and every earlier buffer's overlays leak.
-        (with-eval-after-load 'blamer
-          (make-variable-buffer-local 'blamer--overlays))
+        ;; blamer--overlays is deliberately NOT made buffer-local, though it
+        ;; looks like it should be. blamer keeps blamer-idle-timer,
+        ;; blamer--previous-line-number and the overlay list all global: the
+        ;; design is one active blame at a time, process-wide. Making only the
+        ;; list buffer-local breaks that pairing -- the render runs from an idle
+        ;; timer, and any firing where a different buffer is current registers
+        ;; the overlay in a list the real buffer's clear never reads, leaking one
+        ;; per render. Traversing four lines then pausing left four blames on
+        ;; screen at once.
 
         ;; GBrowse and GO: open the current line, or the repository, on the forge.
         (require 'browse-at-remote)

@@ -147,6 +147,22 @@
         ;; is registered, and Volar reports that ts-ls is not carrying it. The
         ;; language-server package directory is a real resolution root -- node
         ;; resolves @vue/typescript-plugin from there -- so name it explicitly.
+        ;; No semantic tokens in web-mode, which here is .vue and .html.
+        ;;
+        ;; Hybrid Volar means two servers on one buffer, and both ts-ls and
+        ;; vue-semantic-server advertise semanticTokensProvider. lsp-mode asks
+        ;; every workspace and hands the handler the list of replies, which
+        ;; expects a single one:
+        ;;
+        ;;   Error processing message (wrong-type-argument hash-table-p (#s(...) #s(...)))
+        ;;
+        ;; on every edit. Removing the capability from one workspace after
+        ;; initialisation does not help -- the request is already keyed on the
+        ;; buffer's own state -- so tokens are off for these buffers. web-mode
+        ;; does its own font-lock, and .ts/.tsx keep semantic tokens because they
+        ;; only ever have one server.
+        (add-hook 'web-mode-hook (lambda () (setq-local lsp-semantic-tokens-enable nil)))
+
         (setq lsp-volar-location-for-typescript-plugin
               "${pkgs.vue-language-server}/lib/language-tools/packages/language-server")
 
