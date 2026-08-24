@@ -172,8 +172,25 @@
                            (stringp (overlay-get o 'before-string))))
               (delete-overlay o))))
 
+        ;; Advised on the ASYNC RESULT, not on blamer--render.
+        ;;
+        ;; blamer--render clears synchronously and then asks git for the blame in
+        ;; the background; the overlay is created later, in the callback. Cross
+        ;; four lines quickly and four requests are in flight, each having
+        ;; already run its clear before any overlay existed -- so all four
+        ;; callbacks land and each adds one. That is the whole bug, and it is why
+        ;; clearing at render time (blamer's own approach, and two earlier
+        ;; attempts here) cannot help: by then there is nothing to clear yet.
+        ;;
+        ;; Sweeping as each result arrives means the newest always wins.
+        (defun my/blamer-sweep-result (_infos buffer &rest _)
+          "Clear stale blame overlays in BUFFER before a new result is drawn."
+          (when (buffer-live-p buffer)
+            (with-current-buffer buffer (my/blamer-sweep))))
+
         (with-eval-after-load 'blamer
-          (advice-add 'blamer--render :before #'my/blamer-sweep))
+          (advice-add 'blamer--handle-async-blame-info-result
+                      :before #'my/blamer-sweep-result))
 
         ;; blamer--overlays is deliberately NOT made buffer-local, though it
         ;; looks like it should be. blamer keeps blamer-idle-timer,
