@@ -8,6 +8,7 @@
     epkgs: with epkgs; [
       consult-flycheck
       flycheck
+      flycheck-posframe
       flycheck-projectile
     ];
 
@@ -22,6 +23,27 @@
 
         (require 'flycheck)
         (require 'consult-flycheck)
+
+        ;; Errors in a popup at point, now that the sideline is off.
+        ;;
+        ;; lsp-ui-doc carries hover information -- types and signatures -- and
+        ;; never diagnostics, so turning the sideline off would otherwise have
+        ;; left errors visible only as a fringe mark until asked for. posframe
+        ;; puts the message beside the cursor on the same terms.
+        ;;
+        ;; Graphical frames only: posframe needs a child frame, which a terminal
+        ;; cannot make, and there it falls back to the echo area.
+        (when (display-graphic-p)
+          (require 'flycheck-posframe)
+          (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
+          (setq flycheck-posframe-border-width 1
+                ;; Not while typing: a popup that reappears on every keystroke in
+                ;; a half-written expression is noise, and the error it reports is
+                ;; usually about the half you have not finished writing.
+                flycheck-posframe-inhibit-functions
+                (list (lambda (&rest _) (bound-and-true-p company-backend))
+                      (lambda (&rest _) (bound-and-true-p corfu--total))
+                      #'evil-insert-state-p)))
         ;; The project-wide error list `my/diagnostics-list' falls back to.
         (require 'flycheck-projectile)
 

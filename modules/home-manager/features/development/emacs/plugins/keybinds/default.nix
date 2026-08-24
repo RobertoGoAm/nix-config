@@ -182,6 +182,7 @@
 
       ;; lsp
       "l"  '(:ignore t :which-key "lsp")
+      "lh" '(lsp-ui-doc-glance :which-key "hover doc popup")
       "lb" '(my/diagnostics-buffer :which-key "buffer diagnostics")
       "lc" '(lsp-execute-code-action :which-key "code action")
       "ld" '(consult-lsp-diagnostics :which-key "diagnostics")
