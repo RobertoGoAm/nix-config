@@ -50,7 +50,27 @@
         ;;
         ;; Scanning stays a deliberate CLI step; nothing here wants it per-keystroke
         ;; or wants an editor that needs the network to open a file.
-        (setq lsp-disabled-clients '(semgrep-ls semgrep-ls-tramp))
+        ;; ts-ls must not touch a .vue file.
+        ;;
+        ;; lsp-volar-hybrid-mode is nil here, so Volar owns the whole SFC --
+        ;; template, script and style. ts-ls attaches anyway, because lsp-mode
+        ;; lists web-mode among its major modes, and then parses the file as
+        ;; plain TypeScript: the first thing it meets is <template>, so every
+        ;; buffer opens with
+        ;;
+        ;;   Cannot find name 'template'. [2304]
+        ;;
+        ;; and a cascade of red under markup that is not TypeScript at all.
+        ;; Hybrid mode would be the other valid answer, but that needs
+        ;; @vue/typescript-plugin in the project, and it is not there.
+        ;;
+        ;; Scoped to web-mode, which here means .vue and .html -- ts-ls has no
+        ;; business in either. Real .ts and .tsx use typescript-ts-mode and are
+        ;; untouched. The tramp and remote variants are named too, or the same
+        ;; thing happens again inside a devcontainer.
+        (setq lsp-disabled-clients '(semgrep-ls
+                                     semgrep-ls-tramp
+                                     (web-mode . (ts-ls ts-ls-tramp ts-ls-remote))))
 
         (require 'consult-lsp)
         ;; Provides the symbol tree and the error/reference lists the leader tree binds.
