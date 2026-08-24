@@ -50,27 +50,7 @@
         ;;
         ;; Scanning stays a deliberate CLI step; nothing here wants it per-keystroke
         ;; or wants an editor that needs the network to open a file.
-        ;; ts-ls must not touch a .vue file.
-        ;;
-        ;; lsp-volar-hybrid-mode is nil here, so Volar owns the whole SFC --
-        ;; template, script and style. ts-ls attaches anyway, because lsp-mode
-        ;; lists web-mode among its major modes, and then parses the file as
-        ;; plain TypeScript: the first thing it meets is <template>, so every
-        ;; buffer opens with
-        ;;
-        ;;   Cannot find name 'template'. [2304]
-        ;;
-        ;; and a cascade of red under markup that is not TypeScript at all.
-        ;; Hybrid mode would be the other valid answer, but that needs
-        ;; @vue/typescript-plugin in the project, and it is not there.
-        ;;
-        ;; Scoped to web-mode, which here means .vue and .html -- ts-ls has no
-        ;; business in either. Real .ts and .tsx use typescript-ts-mode and are
-        ;; untouched. The tramp and remote variants are named too, or the same
-        ;; thing happens again inside a devcontainer.
-        (setq lsp-disabled-clients '(semgrep-ls
-                                     semgrep-ls-tramp
-                                     (web-mode . (ts-ls ts-ls-tramp ts-ls-remote))))
+        (setq lsp-disabled-clients '(semgrep-ls semgrep-ls-tramp))
 
         (require 'consult-lsp)
         ;; Provides the symbol tree and the error/reference lists the leader tree binds.
@@ -151,6 +131,24 @@
         ;; nixd, with nixfmt as its formatter — same as the nixd settings block.
         (setq lsp-nix-nixd-server-path "${lib.getExe pkgs.nixd}"
               lsp-nix-nixd-formatting-command ["${lib.getExe pkgs.nixfmt}"])
+
+        ;; Vue: ts-ls carries the Volar TypeScript plugin, so it belongs on .vue
+        ;; buffers rather than being kept off them.
+        ;;
+        ;; Volar 3 is hybrid-only -- it hands TypeScript to tsserver through
+        ;; @vue/typescript-plugin and does none itself. lsp-volar appends that
+        ;; plugin to lsp-clients-typescript-plugins, but only if it can find it,
+        ;; and its two guesses are npm layouts:
+        ;;
+        ;;   <pkg>/lib/node_modules/@vue/language-server/     absent here
+        ;;   <resolved bin>/../..                             the store root, no node_modules
+        ;;
+        ;; nixpkgs builds it as a pnpm workspace instead, so both miss, no plugin
+        ;; is registered, and Volar reports that ts-ls is not carrying it. The
+        ;; language-server package directory is a real resolution root -- node
+        ;; resolves @vue/typescript-plugin from there -- so name it explicitly.
+        (setq lsp-volar-location-for-typescript-plugin
+              "${pkgs.vue-language-server}/lib/language-tools/packages/language-server")
 
         ;; pyright, and Angular pointed at the nix-built ngserver.
         (require 'lsp-pyright)
