@@ -126,6 +126,29 @@
 
         (my/global-blamer-mode 1)
 
+        ;; Clear blamer's overlays when a formatter rewrites the buffer.
+        ;;
+        ;; blamer tracks its overlays in one global list -- blamer--overlays is a
+        ;; plain defvar, never buffer-local -- and blamer--try-render only clears
+        ;; it when the line number, the line length or the window width has
+        ;; changed. Format-on-save replaces the buffer's contents underneath it,
+        ;; usually leaving point on the same line at the same length, so none of
+        ;; those trigger: the previous overlay is orphaned rather than deleted and
+        ;; a fresh one is drawn beside it. Do it a few times and the blame text
+        ;; stacks along the line and pushes the code out of view.
+        ;;
+        ;; They are overlays, not buffer text, so nothing was ever written to the
+        ;; file -- reopening the buffer already cleared them. This just stops them
+        ;; accumulating in the first place.
+        (with-eval-after-load 'apheleia
+          (add-hook 'apheleia-post-format-hook #'blamer--clear-overlay))
+
+        ;; And make the registry buffer-local, so clearing in one buffer cannot
+        ;; orphan another's. With a single shared list, whichever buffer renders
+        ;; last owns it and every earlier buffer's overlays leak.
+        (with-eval-after-load 'blamer
+          (make-variable-buffer-local 'blamer--overlays))
+
         ;; GBrowse and GO: open the current line, or the repository, on the forge.
         (require 'browse-at-remote)
         (setq browse-at-remote-prefer-symbolic nil)
