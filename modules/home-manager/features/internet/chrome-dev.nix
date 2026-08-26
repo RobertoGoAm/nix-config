@@ -17,6 +17,12 @@ let
   # Its own --user-data-dir on purpose. Chrome refuses --disable-web-security
   # against a normal profile, and pointing it at the real one would disable the
   # same-origin policy for everyday browsing, cookies and logins included.
+  #
+  # Under Application Support rather than /tmp: macOS purges /private/tmp of
+  # anything untouched for three days at boot, which threw away the HTTP and
+  # V8 code caches (~60MB of the profile) and made the next launch cold enough
+  # to feel broken. A dev profile is disposable, but it should not be disposed
+  # of on a timer.
   launcher = ''
     if [ ! -d "${chromePath}" ]; then
       echo "Google Chrome is not installed at ${chromePath} (it comes from the homebrew cask)." >&2
@@ -24,7 +30,9 @@ let
     fi
     exec "${chromePath}/Contents/MacOS/Google Chrome" \
       --disable-web-security \
-      --user-data-dir="/tmp/chrome_dev" \
+      --user-data-dir="$HOME/Library/Application Support/Chrome Dev" \
+      --no-first-run \
+      --no-default-browser-check \
       "$@"
   '';
 
@@ -71,7 +79,9 @@ let
   linuxBin = pkgs.writeShellScriptBin "chrome-dev" ''
     exec ${pkgs.google-chrome}/bin/google-chrome-stable \
       --disable-web-security \
-      --user-data-dir="/tmp/chrome_dev" \
+      --user-data-dir="''${XDG_DATA_HOME:-$HOME/.local/share}/chrome-dev" \
+      --no-first-run \
+      --no-default-browser-check \
       "$@"
   '';
 in
