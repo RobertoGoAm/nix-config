@@ -118,8 +118,8 @@
               lsp-ui-doc-max-width 80
               ; Sideline off: it renders at end of line, exactly where blamer
               ; draws, so the two fought over the same space. End of line is now
-              ; blame's; types go to the doc popup, diagnostics to the posframe
-              ; below, code actions stay in the modeline (already enabled).
+              ; blame's; types AND code actions go to the doc popup (see the
+              ; advice below), diagnostics to the flycheck posframe.
               lsp-ui-sideline-enable nil
               lsp-ui-sideline-show-diagnostics nil
               lsp-ui-sideline-show-code-actions nil
@@ -137,9 +137,61 @@
           "Keep the doc popup inside the current window."
           (setq lsp-ui-doc-max-width (max 40 (- (window-body-width) 8))))
 
+        ;; One character of slack on the frame, so the last glyph is not clipped.
+        ;;
+        ;; lsp-ui-doc--move-frame measures the rendered text with
+        ;; window-text-pixel-size and adds exactly one character of margin:
+        ;;
+        ;;   (width (+ width (* char-w 1)))  ;; margins
+        ;;
+        ;; That one character has to cover the 1px internal border on both sides
+        ;; and any glyph the measurement rounds down, so a line that reaches the
+        ;; full width of the popup loses its last character behind the border --
+        ;; which is why a type ending in `>' showed up ending in the border
+        ;; instead. Widening after the fact is the least invasive fix: the
+        ;; positioning logic has already run and is left alone.
+        (defun my/lsp-ui-doc-slack (frame)
+          "Widen FRAME by one character so its last glyph clears the border."
+          (when (frame-live-p frame)
+            (let ((frame-resize-pixelwise t))
+              (set-frame-size frame
+                              (+ (frame-pixel-width frame) (frame-char-width frame))
+                              (frame-pixel-height frame)
+                              t))))
+
+        ;; Code actions in the hover popup.
+        ;;
+        ;; The sideline is off because it draws at end of line, where blame
+        ;; lives, and the code action lightbulb went with it -- leaving a
+        ;; modeline segment as the only sign that a refactor was available.
+        ;;
+        ;; lsp-modeline-code-actions-mode is already running and already keeps
+        ;; the current buffer's actions in a string, so reading it here costs no
+        ;; extra request to the server and puts the actions where the types are.
+        ;; lsp-ui-doc--display is called with the source buffer current -- it is
+        ;; guarded by (eq buffer (current-buffer)) one frame up -- so the
+        ;; buffer-local cache is the right one.
+        (defun my/lsp-ui-doc-code-actions ()
+          "Code actions available at point as plain text, or nil if there are none."
+          (let ((s (and (bound-and-true-p lsp-modeline--code-actions-string)
+                        (string-trim
+                         (substring-no-properties lsp-modeline--code-actions-string)))))
+            (unless (or (null s) (string-empty-p s)) s)))
+
+        (defun my/lsp-ui-doc-with-actions (args)
+          "Append the code actions at point to the hover string in ARGS."
+          (let ((symbol (nth 0 args))
+                (string (nth 1 args))
+                (actions (my/lsp-ui-doc-code-actions)))
+            (if (and string (not (string-empty-p string)) actions)
+                (list symbol (concat string "\n\n---\n\n" actions))
+              args)))
+
         (with-eval-after-load 'lsp-ui
           (advice-add 'lsp-ui-doc--make-frame :before #'my/lsp-ui-doc-fit-frame)
-          (advice-add 'lsp-ui-doc-glance :before #'my/lsp-ui-doc-fit-frame))
+          (advice-add 'lsp-ui-doc-glance :before #'my/lsp-ui-doc-fit-frame)
+          (advice-add 'lsp-ui-doc--move-frame :after #'my/lsp-ui-doc-slack)
+          (advice-add 'lsp-ui-doc--display :filter-args #'my/lsp-ui-doc-with-actions))
 
         ;; The inlay hints from the ts_ls extraOptions block, setting for setting. One
         ;; set of variables covers both languages: lsp-mode maps each

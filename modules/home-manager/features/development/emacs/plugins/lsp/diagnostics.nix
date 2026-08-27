@@ -47,10 +47,31 @@
         ;; The project-wide error list `my/diagnostics-list' falls back to.
         (require 'flycheck-projectile)
 
-        ;; none-ls runs with updateInInsert = false, so nothing re-lints mid-keystroke.
-        ;; Checking on save and on mode-enable is the closest equivalent and stops the
-        ;; sideline flickering while you type.
-        (setq flycheck-check-syntax-automatically '(save mode-enabled)
+        ;; idle-change is not a preference here, it is what makes LSP diagnostics
+        ;; appear at all.
+        ;;
+        ;; With lsp-diagnostics-provider :flycheck the server pushes diagnostics
+        ;; and lsp-diagnostics--flycheck-report decides whether to surface them:
+        ;;
+        ;;   (when (and (or (memq 'idle-change flycheck-check-syntax-automatically)
+        ;;                  (and (memq 'save flycheck-check-syntax-automatically)
+        ;;                       (not (buffer-modified-p))))
+        ;;              lsp--cur-workspace)
+        ;;
+        ;; This list was '(save mode-enabled), so the only branch that could fire
+        ;; needed an UNMODIFIED buffer. Every publish that arrived while the
+        ;; buffer was dirty -- which is every publish caused by the edit you just
+        ;; made -- was dropped on the floor. Errors effectively never showed:
+        ;; not on the fringe, not in the posframe, not in the modeline count.
+        ;;
+        ;; The original reasoning (match none-ls's updateInInsert = false, do not
+        ;; flicker while typing) still holds, and is now enforced where it
+        ;; belongs instead: the idle delay below waits for a pause, and the
+        ;; posframe's inhibit functions keep it quiet during insert state and
+        ;; completion.
+        (setq flycheck-check-syntax-automatically '(save mode-enabled idle-change)
+              ;; Long enough to be a pause rather than a gap between keystrokes.
+              flycheck-idle-change-delay 0.8
               flycheck-display-errors-delay 0.3
               flycheck-help-echo-function nil
               ;; Terminal frames have no fringe to draw a sign in.
