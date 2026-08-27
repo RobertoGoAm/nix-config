@@ -163,34 +163,43 @@
         ;; a display string -- the type annotations shown inline -- and they are
         ;; tagged lsp-inlay-hint and never intangible, so they are excluded twice
         ;; over.
-        (defun my/blamer-sweep (&rest _)
-          "Delete every blamer overlay in this buffer."
-          (dolist (o (overlays-in (point-min) (point-max)))
-            (when (and (overlay-get o 'intangible)
-                       (not (overlay-get o 'lsp-inlay-hint))
-                       (or (stringp (overlay-get o 'after-string))
-                           (stringp (overlay-get o 'before-string))))
-              (delete-overlay o))))
-
-        ;; Advised on the ASYNC RESULT, not on blamer--render.
+        ;; One blame overlay, for the line point is actually on.
         ;;
-        ;; blamer--render clears synchronously and then asks git for the blame in
-        ;; the background; the overlay is created later, in the callback. Cross
-        ;; four lines quickly and four requests are in flight, each having
-        ;; already run its clear before any overlay existed -- so all four
-        ;; callbacks land and each adds one. That is the whole bug, and it is why
-        ;; clearing at render time (blamer's own approach, and two earlier
-        ;; attempts here) cannot help: by then there is nothing to clear yet.
+        ;; blamer creates its overlays TWO async layers deep. blamer--render
+        ;; clears the old ones and shells out to git; that callback runs
+        ;; blamer--handle-async-blame-info-result, which does not create
+        ;; anything either -- it calls blamer--async-parse-line-info, and only
+        ;; that innermost callback reaches blamer--render-line-overlay and makes
+        ;; the overlay.
         ;;
-        ;; Sweeping as each result arrives means the newest always wins.
-        (defun my/blamer-sweep-result (_infos buffer &rest _)
-          "Clear stale blame overlays in BUFFER before a new result is drawn."
+        ;; Nothing cancels a chain when the cursor moves, so crossing four lines
+        ;; while git is working starts four chains. Each one ran its clear before
+        ;; any overlay existed, and each one draws at the end. Four blames.
+        ;;
+        ;; Clearing at either of the two outer layers cannot fix this, which is
+        ;; why blamer's own clear and three earlier attempts here did not: at
+        ;; both of those points the overlays this render is racing have not been
+        ;; created yet. blamer--render-line-overlay is the funnel every render
+        ;; type passes through and the first point where the overlay's line is
+        ;; known, so the filter belongs here.
+        ;;
+        ;; A result for a line the cursor has since left is dropped outright, and
+        ;; whatever survived is cleared before the accepted one is drawn. Region
+        ;; blame is exempt from both: there the extra lines are the point.
+        (defun my/blamer-render-one (orig commit-info buffer render-point &optional type)
+          "Draw a blame overlay only for the line point is on, replacing any other."
           (when (buffer-live-p buffer)
-            (with-current-buffer buffer (my/blamer-sweep))))
+            (with-current-buffer buffer
+              (let ((region (region-active-p)))
+                (when (or region
+                          (not (integer-or-marker-p render-point))
+                          (= (line-number-at-pos render-point t)
+                             (line-number-at-pos (point) t)))
+                  (unless region (blamer--clear-overlay))
+                  (funcall orig commit-info buffer render-point type))))))
 
         (with-eval-after-load 'blamer
-          (advice-add 'blamer--handle-async-blame-info-result
-                      :before #'my/blamer-sweep-result))
+          (advice-add 'blamer--render-line-overlay :around #'my/blamer-render-one))
 
         ;; blamer--overlays is deliberately NOT made buffer-local, though it
         ;; looks like it should be. blamer keeps blamer-idle-timer,
