@@ -1,3 +1,16 @@
+# Zen, and the language packs
+
+# Zen is a Firefox fork, so the home-manager module takes the same shape as the
+# Firefox one and the preferences below are ordinary Firefox prefs.
+
+# darwinDefaultsId is required on macOS by this module: it is the plist domain
+# the module writes preferences to. The darwin package is the beta channel --
+# Zen ships no stable macOS build for the flake to wrap -- so the bundle id is
+# the beta one.
+
+# The profile path is left at the module's own default: Zen keeps its profiles
+# in its own directory, not Firefox's, so there is no legacy path to pin.
+
 {
   inputs,
   lib,
@@ -14,13 +27,7 @@
   programs.zen-browser = {
     enable = true;
 
-    # Required on macOS by this module: the plist domain it writes preferences
-    # to. The darwin package is the beta channel -- Zen ships no stable macOS
-    # build for the flake to wrap -- so the bundle id is the beta one.
     darwinDefaultsId = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin "app.zen-browser.zen";
-
-    # Left at the module's own default: Zen keeps its profiles in its own
-    # directory, not Firefox's, so there is no legacy path to pin here.
 
     languagePacks = [
       "en-US"
@@ -31,6 +38,13 @@
     profiles.${user} = {
       id = 0;
       name = user;
+
+      # Bookmarks
+
+      # force = true because the module refuses to overwrite a bookmarks file it did
+      # not write, and this one is declarative: whatever is here wins over whatever
+      # the browser has accumulated.
+
       bookmarks = {
         force = true;
         settings = [
@@ -63,6 +77,11 @@
         ];
       };
 
+      # Extensions
+
+      # From the firefox-addons flake, so each one is pinned and reproducible rather
+      # than fetched by the browser at first run.
+
       extensions = {
         force = true;
 
@@ -80,6 +99,12 @@
           umatrix
           vimium
         ];
+
+        # uBlock Origin
+
+        # The dynamic filtering rules neuter behind-the-scene requests -- the ones the
+        # browser itself makes outside any tab -- and the filter list selection is the
+        # default set plus the annoyance and cookie-notice lists.
 
         settings."uBlock0@raymondhill.net".settings = {
           dynamicFilteringString = "behind-the-scene * * noop\nbehind-the-scene * inline-script noop\nbehind-the-scene * 1p-script noop\nbehind-the-scene * 3p-script noop\nbehind-the-scene * 3p-frame noop\nbehind-the-scene * image noop\nbehind-the-scene * 3p noop";
@@ -121,13 +146,17 @@
         };
       };
 
+      # Preferences: first-run noise
+
+      # autoDisableScopes = 0 stops Firefox disabling the addons installed above
+      # before you ever see them. The rest is the welcome tour, the what's-new panel,
+      # the default-browser nag and the rights notice.
+
       settings = {
-        # Don't disable auto installed addons
         "extensions.autoDisableScopes" = 0;
 
         "browser.startup.homepage" = "about:home";
 
-        # Disable irritating first-run stuff
         "browser.disableResetPrompt" = true;
         "browser.download.panel.shown" = true;
         "browser.feeds.showFirstRunUI" = false;
@@ -142,10 +171,14 @@
         "browser.bookmarks.restore_default_bookmarks" = false;
         "browser.bookmarks.addedImportButton" = true;
 
-        # Don't ask for download dir
         "browser.download.useDownloadDir" = false;
 
-        # Disable crappy home activity stream page
+        # Preferences: the new tab page
+
+        # The activity stream is off, and the six top sites Firefox ships are blocked
+        # by their hashes -- that is the only handle the pref gives you, hence the
+        # comment against each one.
+
         "browser.newtabpage.activity-stream.feeds.topsites" = false;
         "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
         "browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts" = false;
@@ -164,7 +197,12 @@
           "T9nJot5PurhJSy8n038xGA=="
         ] (_: 1);
 
-        # Disable some telemetry
+        # Preferences: telemetry
+
+        # Every reporting channel Firefox has, off. Several of these are redundant with
+        # each other; they are all set because which one actually governs a given ping
+        # has changed between releases more than once.
+
         "app.shield.optoutstudies.enabled" = false;
         "browser.discovery.enabled" = false;
         "browser.newtabpage.activity-stream.feeds.telemetry" = false;
@@ -190,12 +228,22 @@
         "toolkit.telemetry.unifiedIsOptIn" = false;
         "toolkit.telemetry.updatePing.enabled" = false;
 
-        # Disable "save password" prompt
+        # Preferences: hardening
+
+        # Passwords live in Bitwarden, so the browser's own password manager is off
+        # rather than merely unused -- an empty prompt is still a prompt.
+
         "signon.rememberSignons" = false;
-        # Harden
+
         "privacy.trackingprotection.enabled" = true;
         "dom.security.https_only_mode" = true;
-        # Layout
+
+        # Preferences: toolbar layout
+
+        # Pinned as JSON because Firefox stores the whole toolbar arrangement in one
+        # pref. Editing it by hand in the browser and copying the result back out is
+        # the only practical way to change this.
+
         "browser.uiCustomization.state" = builtins.toJSON {
           currentVersion = 20;
           newElementCount = 5;

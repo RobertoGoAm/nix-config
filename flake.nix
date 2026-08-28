@@ -122,7 +122,10 @@
           # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ outputs.overlays.check-pins ];
+            overlays = [
+              outputs.overlays.check-pins
+              outputs.overlays.lit-tangle
+            ];
             config = {
               allowUnfree = true;
               # Linux Electron apps (obsidian/discord) + checkov's
@@ -144,11 +147,14 @@
       # you (the Chromium snapshot overlay and the marketplace extensions).
       # `nix run .#pin-prefs -- <domain> <file>` — regenerates a macOS defaults
       # module from an app's live preferences.
+      # `nix run .#lit-tangle -- --check` — verifies the committed Nix still
+      # matches the literate org sources it was generated from.
       packages = lib.genAttrs (lib.attrValues hosts) (
         system: {
           check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
           pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
           clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
+          lit-tangle = (import nixpkgs { inherit system; }).callPackage ./pkgs/lit-tangle.nix { };
         }
       );
 
