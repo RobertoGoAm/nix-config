@@ -1,0 +1,123 @@
+# lit-tangle: turn the literate .org sources into the .nix files this repo commits.
+#
+# The org sources live in their own private repository -- nix-config-literate --
+# and are never committed here. What lands in this repo is the tangled output:
+# ordinary, commented Nix, indistinguishable from hand-written, because the
+# prose around each block is emitted as `#' comments.
+#
+# Two modes:
+#   lit-tangle            write the .nix files
+#   lit-tangle --check    tangle to a scratch tree and diff, changing nothing
+#
+# --check is the guard that matters. With the sources in a separate repo it is
+# otherwise possible to edit a .nix here directly, have it work, and lose the
+# edit the next time anyone saves the org file it came from. The check turns
+# that silent overwrite into a failure you see first.
+{
+  lib,
+  writeShellApplication,
+  emacs,
+  diffutils,
+  nixfmt,
+}:
+writeShellApplication {
+  name = "lit-tangle";
+  runtimeInputs = [
+    emacs
+    diffutils
+    nixfmt
+  ];
+  text = ''
+    src="''${LIT_SRC:-$HOME/nix-config-literate}"
+    out="''${LIT_OUT:-$HOME/nix-config}"
+    check=0
+
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --check) check=1 ;;
+        --src) src="$2"; shift ;;
+        --out) out="$2"; shift ;;
+        -h|--help)
+          echo "usage: lit-tangle [--check] [--src DIR] [--out DIR]"
+          echo "  --check   tangle to a scratch tree and report drift; writes nothing"
+          echo "  --src     literate org sources (default: \$HOME/nix-config-literate)"
+          echo "  --out     nix-config checkout to tangle into (default: \$HOME/nix-config)"
+          exit 0 ;;
+        *) echo "lit-tangle: unknown argument: $1" >&2; exit 2 ;;
+      esac
+      shift
+    done
+
+    if [ ! -d "$src" ]; then
+      echo "lit-tangle: no literate sources at $src" >&2
+      echo "  (clone nix-config-literate there, or pass --src)" >&2
+      exit 1
+    fi
+
+    # -Q so a configured Emacs is never loaded: the daemon's config starts
+    # language servers and file watchers, and in batch it simply hangs.
+    run_tangle() {
+      emacs -Q --batch -l ${./lit-tangle.el} "$src" "$1"
+      format_outputs "$1"
+    }
+
+    # Tangled output is not formatted output. Org emits the prose comments at
+    # column 0 whatever the nesting depth of the block they belong to, so a
+    # section describing something three levels inside an attrset arrives
+    # flush left against indented code.
+    #
+    # Running the repo's own formatter over the result fixes that and buys
+    # something more important: a canonical form. Without it every trivial
+    # reflow of the org would show up as a diff in the committed Nix, and
+    # --check would cry drift over whitespace instead of over meaning.
+    #
+    # Only the files this tangle produces are touched -- each .org maps to
+    # exactly one .nix -- never the rest of the checkout.
+    format_outputs() {
+      local root="$1" org rel target
+      while IFS= read -r org; do
+        rel="''${org#"$src"/}"
+        target="$root/''${rel%.org}.nix"
+        [ -f "$target" ] && nixfmt "$target"
+      done < <(find "$src" -name '*.org')
+    }
+
+    if [ "$check" -eq 0 ]; then
+      run_tangle "$out"
+      exit 0
+    fi
+
+    scratch="$(mktemp -d)"
+    trap 'rm -rf "$scratch"' EXIT
+    run_tangle "$scratch" >/dev/null
+
+    drift=0
+    while IFS= read -r generated; do
+      rel="''${generated#"$scratch"/}"
+      committed="$out/$rel"
+      if [ ! -f "$committed" ]; then
+        echo "MISSING  $rel (the org source produces it, this checkout has no such file)"
+        drift=1
+      elif ! diff -q "$committed" "$generated" >/dev/null; then
+        echo "DRIFTED  $rel"
+        diff -u --label "committed/$rel" --label "tangled/$rel" \
+          "$committed" "$generated" || true
+        drift=1
+      fi
+    done < <(find "$scratch" -name '*.nix' | sort)
+
+    if [ "$drift" -eq 0 ]; then
+      echo "lit-tangle: committed Nix matches the org sources"
+    else
+      echo
+      echo "lit-tangle: the committed Nix no longer matches its org source." >&2
+      echo "Re-run 'lit-tangle' to regenerate, or fold the change back into the org." >&2
+    fi
+    exit "$drift"
+  '';
+
+  meta = {
+    description = "Tangle the literate nix-config org sources into .nix files";
+    mainProgram = "lit-tangle";
+  };
+}

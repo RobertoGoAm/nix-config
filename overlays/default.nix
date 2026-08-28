@@ -13,6 +13,9 @@
   # checkov: skip one upstream-broken test that fails the build.
   checkov = import ./checkov.nix;
 
+  # lit-tangle: regenerates this repo's .nix from the literate org sources.
+  lit-tangle = import ./lit-tangle.nix;
+
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays

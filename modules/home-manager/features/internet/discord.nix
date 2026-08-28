@@ -1,3 +1,9 @@
+# Window geometry and hardware decoding
+
+# Nothing subtle here: the settings block is the state Discord would otherwise
+# write for itself on first run, pinned so a fresh machine opens the same
+# window on the same display.
+
 { pkgs, ... }:
 {
   programs.discord = {

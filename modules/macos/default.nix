@@ -125,6 +125,7 @@
       overlays = [
         outputs.overlays.check-pins
         outputs.overlays.checkov
+        outputs.overlays.lit-tangle
         outputs.overlays.pin-prefs
         outputs.overlays.warpd
       ];
