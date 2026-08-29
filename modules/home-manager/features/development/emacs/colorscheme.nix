@@ -75,15 +75,24 @@
     Alacritty window shows through exactly as it does under nvim. GUI frames only get
     real background transparency on pgtk/X, where `alpha-background' exists — the
     macOS NS port ignores it, and plain `alpha' would fade the text too, so a GUI
-    frame there keeps the solid storm background instead."
+    frame there keeps the solid storm background instead.
+
+    Each `set-face-background' passes FRAME explicitly. Without it the change is
+    global, not frame-local -- `with-selected-frame' does not scope face changes,
+    and setting the default face with no frame also rewrites background-color in
+    `default-frame-alist'. Under `emacs --fg-daemon' the initial frame F1 is a
+    terminal frame, so this ran at startup and left every face, and the alist
+    every future frame is built from, holding \"unspecified-bg\" -- a value that
+    only means anything on a terminal. Creating a GUI frame then died with
+    (error \"Unknown color\"), so `emacsclient -c' could never open a window and
+    the daemon was unusable for GUI work."
           (let ((frame (or frame (selected-frame))))
             (if (memq (framep frame) '(pgtk x))
                 (set-frame-parameter frame 'alpha-background 90)
               (unless (display-graphic-p frame)
-                (with-selected-frame frame
-                  (set-face-background 'default "unspecified-bg")
-                  (set-face-background 'line-number "unspecified-bg")
-                  (set-face-background 'fringe "unspecified-bg"))))))
+                (set-face-background 'default "unspecified-bg" frame)
+                (set-face-background 'line-number "unspecified-bg" frame)
+                (set-face-background 'fringe "unspecified-bg" frame)))))
 
         (add-to-list 'default-frame-alist '(alpha-background . 90))
         (add-hook 'after-make-frame-functions #'my/apply-transparency)
