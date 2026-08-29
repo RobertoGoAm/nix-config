@@ -99,9 +99,47 @@ in
                           (when (= (length f) 7) f)))
                       (split-string out "\n" t)))))
 
-    (defun my/claude--pick (prompt)
-      "Choose a session, returning its field list."
-      (let* ((rows (my/claude--sessions))
+    ;; This project's conversations first.
+    ;;
+    ;; The index spans every project, newest first, which is what you want for
+    ;; "find that conversation from last week" and wrong for the ordinary case
+    ;; of picking up where you left off here. The picker now offers only this
+    ;; project's conversations, and every conversation with a prefix argument.
+    ;; If the current directory has none, it falls back to showing everything
+    ;; rather than an empty prompt.
+    ;;
+    ;; The predicate reads its root from a defvar instead of closing over a
+    ;; `let': this file is generated without a lexical-binding cookie, so a
+    ;; lambda cannot capture a local and would see the global value instead.
+    (defvar my/claude--root nil
+      "Project root `my/claude--row-here-p' matches against.")
+
+    (defun my/claude--project-root ()
+      "Root of the project the current buffer belongs to."
+      (expand-file-name
+       (or (and (fboundp 'projectile-project-root)
+                (ignore-errors (projectile-project-root)))
+           (and (fboundp 'project-current)
+                (ignore-errors
+                  (let ((pr (project-current nil)))
+                    (and pr (project-root pr)))))
+           default-directory)))
+
+    (defun my/claude--row-here-p (f)
+      "Non-nil when session row F took place under `my/claude--root'.
+    `file-in-directory-p' rather than `string-prefix-p': the latter counts
+    ~/nix-config-literate as living under ~/nix-config, since one path really
+    is a prefix of the other. Two sibling projects whose names share a stem is
+    not an edge case here, it is the literate setup."
+      (file-in-directory-p (nth 5 f) my/claude--root))
+
+    (defun my/claude--pick (prompt &optional all)
+      "Choose a session, returning its field list.
+    Offers only the current project's conversations unless ALL is non-nil."
+      (let* ((my/claude--root (my/claude--project-root))
+             (rows (my/claude--sessions))
+             (here (seq-filter #'my/claude--row-here-p rows))
+             (rows (if (or all (null here)) rows here))
              (table (mapcar (lambda (f)
                               (cons (format "%s  %-22s %-18s %s"
                                             (nth 0 f) (nth 1 f)
@@ -122,12 +160,15 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
-    (defun my/claude-resume ()
-      "Pick any past Claude conversation and resume it.
+    (defun my/claude-resume (&optional all)
+      "Pick a past Claude conversation from this project and resume it.
+    With a prefix argument ALL, offer conversations from every project.
     Runs in the directory the conversation belonged to, because Claude resolves
     the session against its project and would not find it from anywhere else."
-      (interactive)
-      (let* ((row (my/claude--pick "Resume Claude session: "))
+      (interactive "P")
+      (let* ((row (my/claude--pick (if all "Resume any Claude session: "
+                                     "Resume Claude session: ")
+                                   all))
              (sid (nth 4 row))
              (cwd (nth 5 row)))
         (if (not (file-directory-p cwd))
@@ -137,10 +178,34 @@ in
             (vterm-send-string (format "claude --resume %s" sid))
             (vterm-send-return)))))
 
-    (defun my/claude-view ()
-      "Open a past conversation as text, without starting Claude."
+    ;; Switching between the sessions running right now.
+    ;;
+    ;; claude-code-switch-to-buffer only reaches the session belonging to the
+    ;; current project, so a second project -- or a second instance in the same
+    ;; one -- is unreachable once you have moved away from its buffer. This
+    ;; lists every live one.
+    (defun my/claude--live-session-p (b)
+      "Non-nil when buffer B is a running Claude session."
+      (and (string-prefix-p "*claude:" (buffer-name b))
+           (get-buffer-process b)))
+
+    (defun my/claude-switch ()
+      "Switch to one of the Claude sessions running right now."
       (interactive)
-      (let* ((row (my/claude--pick "View Claude transcript: "))
+      (let ((names (mapcar #'buffer-name
+                           (seq-filter #'my/claude--live-session-p (buffer-list)))))
+        (cond
+         ((null names) (user-error "No Claude session is running"))
+         ((null (cdr names)) (pop-to-buffer (car names)))
+         (t (pop-to-buffer (completing-read "Claude session: " names nil t))))))
+
+    (defun my/claude-view (&optional all)
+      "Open a past conversation as text, without starting Claude.
+    With a prefix argument ALL, offer conversations from every project."
+      (interactive "P")
+      (let* ((row (my/claude--pick (if all "View any Claude transcript: "
+                                     "View Claude transcript: ")
+                                   all))
              (path (nth 6 row))
              (buf (get-buffer-create (format "*claude transcript: %s*" (nth 4 row)))))
         (with-current-buffer buf
