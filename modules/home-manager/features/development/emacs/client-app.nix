@@ -32,8 +32,14 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       #!/bin/bash
       # -c for a new graphical frame; the empty alternate editor starts a
       # daemon if none is listening rather than failing.
+      #
+      # -n so emacsclient returns as soon as the frame exists instead of
+      # blocking until it is closed. Without it this script stays alive for the
+      # whole editing session, and macOS keeps a second Dock icon for it
+      # alongside the daemon's own -- which reads as the launcher being stuck,
+      # when the window it opened is right there under the name "Emacs".
       exec "${config.programs.emacs.finalPackage}/bin/emacsclient" \
-        -c --alternate-editor="" "\$@"
+        -c -n --alternate-editor="" "\$@"
       SCRIPT
       chmod +x "$app/Contents/MacOS/Emacs Client"
 
@@ -55,6 +61,11 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
         <key>CFBundleVersion</key>
         <string>1.0</string>
         <key>NSHighResolutionCapable</key>
+        <true/>
+        <!-- An agent, not an app: the frame belongs to the daemon, which has
+             its own Dock presence. Without this the launcher briefly claims a
+             second icon of its own on every launch. -->
+        <key>LSUIElement</key>
         <true/>
       </dict>
       </plist>
