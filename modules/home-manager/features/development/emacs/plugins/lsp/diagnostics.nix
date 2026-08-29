@@ -66,6 +66,24 @@
             (flycheck-posframe-mode 1)))
 
         (add-hook 'flycheck-mode-hook #'my/flycheck-display-setup)
+
+        ;; And again when a frame appears, for the buffers that predate it.
+        ;;
+        ;; flycheck-mode-hook answers correctly for a buffer opened in a frame,
+        ;; but not for one that exists before any frame does -- a daemon's
+        ;; restored session, a file opened by a tool rather than by you. Those
+        ;; run the hook against the daemon's dummy terminal frame, take the
+        ;; terminal branch, and would keep it for as long as the daemon lives
+        ;; even once you are looking at them in a GUI window.
+        (defun my/flycheck-display-refresh ()
+          "Re-decide the diagnostic display for every flycheck buffer."
+          (when (display-graphic-p)
+            (dolist (b (buffer-list))
+              (with-current-buffer b
+                (when (bound-and-true-p flycheck-mode)
+                  (my/flycheck-display-setup))))))
+
+        (add-hook 'server-after-make-frame-hook #'my/flycheck-display-refresh)
         ;; The project-wide error list `my/diagnostics-list' falls back to.
         (require 'flycheck-projectile)
 
