@@ -25,6 +25,23 @@
 
     (setq claude-code-executable "claude")
 
+    ;; claude-code-core only `declare-function's the vterm major mode; the
+    ;; definition lives in claude-code-ui, which nothing requires. Loading the
+    ;; package through its autoloads -- deliberate, see above -- means
+    ;; claude-code-run creates its buffer and then dies on
+    ;;
+    ;;   (void-function claude-code-vterm-mode)
+    ;;
+    ;; leaving a fundamental-mode buffer with no process in it. That is the
+    ;; empty pane that shows up when the chat window is toggled: the window is
+    ;; real, the session behind it never started, and the error lands in the
+    ;; echo area where it is easy to miss.
+    ;;
+    ;; Pulling the UI in after core keeps the lazy loading and costs nothing
+    ;; until claude-code is actually used.
+    (with-eval-after-load 'claude-code-core
+      (require 'claude-code-ui))
+
     (defun my/claude-toggle ()
       "Show this project's Claude Code session, starting one if there is none."
       (interactive)
