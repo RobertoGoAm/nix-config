@@ -28,6 +28,19 @@
     ;; showcmd
     (setq echo-keystrokes 0.02)
 
+    ;; Let the echo area shrink again, not just grow.
+    ;;
+    ;; The default is `grow-only': the minibuffer window expands to fit a tall
+    ;; message and then stays that tall for the rest of the session. With
+    ;; echo-keystrokes at 0.02 every partial key sequence echoes, so once
+    ;; anything has stretched the window those echoes stack inside it and the
+    ;; bottom of the frame fills with a running list of half-typed prefixes.
+    ;; Observed five lines tall, listing SPC-, SPC tab, SPC TAB- and so on.
+    ;;
+    ;; `t' resizes both ways, so the window is only ever as tall as the message
+    ;; currently in it.
+    (setq resize-mini-windows t)
+
     ;; signcolumn = yes — reserve the gutter so text never shifts sideways when a
     ;; diagnostic or a git sign appears.
     (setq-default left-fringe-width 12
