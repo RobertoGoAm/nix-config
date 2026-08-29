@@ -47,6 +47,24 @@ in
     defaultEditor = false;
   };
 
+  # Keep the daemon up, not merely restart it when it crashes.
+  #
+  # The agent services.emacs generates asks for
+  #   KeepAlive = { Crashed = true; SuccessfulExit = false; }
+  # so a CLEAN exit leaves it down permanently -- C-x C-c in the daemon's own
+  # frame, a SIGTERM, an M-x kill-emacs. Observed exactly that:
+  #
+  #   launchctl print gui/501/org.nix-community.home.emacs
+  #     state = not running
+  #     last exit code = 0
+  #
+  # With no daemon, clicking Emacs Client falls through to emacsclient's
+  # --alternate-editor, which starts a fresh daemon that must load this entire
+  # config before any window appears. From the outside that is a launcher that
+  # does nothing for several seconds and then maybe opens a bare frame -- which
+  # is what "Emacs Client won't open" turned out to be.
+  launchd.agents.emacs.config.KeepAlive = lib.mkForce true;
+
   # early-init runs before the first frame is drawn, so killing package.el and
   # pre-painting the frame background here is what stops the white startup flash.
   # Its presence also makes Emacs adopt ~/.config/emacs as user-emacs-directory,
