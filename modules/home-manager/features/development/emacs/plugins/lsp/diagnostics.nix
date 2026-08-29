@@ -97,6 +97,42 @@
                   (my/flycheck-display-setup))))))
 
         (add-hook 'server-after-make-frame-hook #'my/flycheck-display-refresh)
+
+        ;; One re-check once a server has attached.
+        ;;
+        ;; Opening a file starts the servers with lsp-deferred, and flycheck's
+        ;; mode-enabled check runs long before any of them have indexed, so it
+        ;; finishes with nothing. When diagnostics finally arrive, lsp-mode's
+        ;; own handler only schedules a flycheck run for a buffer that
+        ;; `get-buffer-window' finds -- and that consults the selected frame
+        ;; only -- then defers it to `lsp-on-idle-hook'. On a cold start the
+        ;; result is a buffer whose flycheck status stays `not-checked'
+        ;; indefinitely while the server holds diagnostics for it. Typing
+        ;; anything reschedules the idle timer and they all appear at once,
+        ;; which is what "it only shows up when I cause another error" is.
+        ;;
+        ;; Measured on a cold open of a .vue with one real error: lsp held 1,
+        ;; flycheck 0, status not-checked, unchanged after 50s of no input.
+        ;;
+        ;; A single timer per file open, and deliberately NOT a hook on the
+        ;; publish path: an earlier attempt advised
+        ;; lsp-diagnostics--flycheck-report to reschedule on every publish,
+        ;; which re-entered that same path and spun Emacs at 100% CPU. This
+        ;; fires once, cannot be re-entered, and leaves the steady-state
+        ;; behaviour alone.
+        (defun my/flycheck-recheck-buffer (buffer)
+          "Run flycheck once in BUFFER, if it is still around and idle."
+          (when (buffer-live-p buffer)
+            (with-current-buffer buffer
+              (when (and (bound-and-true-p flycheck-mode)
+                         (not (flycheck-running-p)))
+                (flycheck-buffer)))))
+
+        (defun my/flycheck-after-lsp-open ()
+          "Re-check this buffer a few seconds after a language server attaches."
+          (run-with-timer 4 nil #'my/flycheck-recheck-buffer (current-buffer)))
+
+        (add-hook 'lsp-after-open-hook #'my/flycheck-after-lsp-open)
         ;; The project-wide error list `my/diagnostics-list' falls back to.
         (require 'flycheck-projectile)
 
