@@ -35,7 +35,16 @@
           org-agenda-files (list org-directory)
           org-default-notes-file (expand-file-name "inbox.org" org-directory)
           org-startup-indented t
-          org-startup-folded 'content
+          ;; Nothing folded on open. `content' showed headings only, which suits
+          ;; a file you navigate as an index and fights one you opened to read --
+          ;; the literate Nix sources especially, where the prose is the point
+          ;; and the code blocks are what you came for.
+          ;;
+          ;; `showall', not `showeverything': the stronger setting also unfolds
+          ;; drawers, and org-log-into-drawer below means every completed task
+          ;; carries a :LOGBOOK: nobody opened the file to read. Folding by hand
+          ;; still works and still sticks for the session.
+          org-startup-folded 'showall
           org-log-done 'time
           org-log-into-drawer t
           ;; The agenda is the thing being opened all day; give it the frame
