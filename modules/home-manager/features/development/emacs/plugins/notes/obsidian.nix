@@ -56,21 +56,24 @@
 
         (add-hook 'markdown-mode-hook #'my/obsidian-maybe-enable)
 
-        ;; Warm the index while nothing is waiting on it. Loading obsidian.el walks
-        ;; the whole vault -- 591 notes, about 3.4s -- and paying that on the first
-        ;; note you open reads as the editor freezing mid-keystroke. On an idle
-        ;; timer it happens once, in the background, before you ask for anything;
-        ;; my/obsidian-ensure is already guarded by `unless (featurep 'obsidian)',
-        ;; so the hook above becomes a no-op rather than a second scan.
+        ;; No startup warm-up. There used to be a one-shot idle timer here that
+        ;; loaded obsidian.el eight seconds in, so the ~3.4s vault walk happened
+        ;; before anything waited on it rather than on the first note opened.
         ;;
-        ;; 8s, not immediately: startup itself should not be competing with this,
-        ;; and the timer is one-shot, so a session that never touches the vault
-        ;; still pays it exactly once.
-        (run-with-idle-timer
-         8 nil
-         (lambda ()
-           (when (file-directory-p obsidian-directory)
-             (ignore-errors (my/obsidian-ensure)))))
+        ;; The vault lives under ~/Documents, which macOS guards with TCC. Any
+        ;; process reading it must be granted access, and that grant is bound to
+        ;; the binary's identity -- for an unsigned nix build, its store path.
+        ;; Every rebuild produces a new path, so the grant never carries over and
+        ;; the warm-up asked again on the next launch, for a vault the session
+        ;; might never touch. This is the same trap as the App Management prompt
+        ;; documented in cli/zsh.nix: nix rewrites the binary the grant belongs
+        ;; to.
+        ;;
+        ;; Loading on demand means the prompt arrives when you actually open a
+        ;; note -- an answerable moment, not an unexplained dialog at login. The
+        ;; cost is that first note paying the walk; my/obsidian-ensure is guarded
+        ;; by `unless (featurep 'obsidian)', so it is paid once per session and
+        ;; only by a session that goes near the vault.
 
         (defun my/obsidian-new ()
           "Create a note in the vault."
