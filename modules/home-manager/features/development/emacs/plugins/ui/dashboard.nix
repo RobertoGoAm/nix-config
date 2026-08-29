@@ -51,6 +51,23 @@
     ;; dashboard instead of the file, so it is deliberately left to dashboard.el.
     (dashboard-setup-startup-hook)
 
+    ;; And again for every client frame.
+    ;;
+    ;; `dashboard-setup-startup-hook' points `initial-buffer-choice' at the
+    ;; dashboard, which is the whole mechanism -- but a daemon consumes that
+    ;; once, at its own startup, long before any frame exists. Every later
+    ;; `emacsclient -c' frame therefore opens on *scratch*, which is what a GUI
+    ;; frame against the daemon has been showing instead of the banner.
+    ;;
+    ;; Only when the frame would otherwise show *scratch*: opening a file with
+    ;; `emacsclient -c somefile' must land on the file, not on the dashboard.
+    (defun my/dashboard-on-client-frame ()
+      "Show the dashboard in a client frame that would otherwise show *scratch*."
+      (when (equal (buffer-name) "*scratch*")
+        (dashboard-open)))
+
+    (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
+
     (defun my/dashboard ()
       "Show the dashboard."
       (interactive)
