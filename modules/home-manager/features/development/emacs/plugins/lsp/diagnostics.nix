@@ -51,9 +51,22 @@
               ;; Not while typing: a popup that reappears on every keystroke in
               ;; a half-written expression is noise, and the error it reports is
               ;; usually about the half you have not finished writing.
+              ;;
+              ;; The corfu test used to be (bound-and-true-p corfu--total), and
+              ;; that suppressed the posframe permanently. corfu--total is
+              ;; `(defvar corfu--total 0)' -- always bound, and never reset when
+              ;; a completion ends -- while 0 is TRUTHY in Emacs Lisp. So the
+              ;; function returned 0, flycheck-posframe read that as "inhibit",
+              ;; and no diagnostic was ever drawn from the moment corfu loaded.
+              ;; Everything downstream was wired correctly and simply never
+              ;; allowed to render.
+              ;;
+              ;; completion-in-region-mode is what corfu actually toggles around
+              ;; a live popup, so it is nil exactly when there is no completion
+              ;; in progress. The company clause is gone: company is not
+              ;; installed here, corfu is the completion UI.
               flycheck-posframe-inhibit-functions
-              (list (lambda (&rest _) (bound-and-true-p company-backend))
-                    (lambda (&rest _) (bound-and-true-p corfu--total))
+              (list (lambda (&rest _) (bound-and-true-p completion-in-region-mode))
                     #'evil-insert-state-p))
 
         (defun my/flycheck-display-setup ()
