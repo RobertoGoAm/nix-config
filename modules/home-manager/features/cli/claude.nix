@@ -657,20 +657,12 @@
         "Edit(~/.gitconfig)"
         "Edit(/etc/**)"
 
-        # ── Sensitive file paths (Write) ─────────────────────────────────
-        "Write(~/.ssh/**)"
-        "Write(~/.aws/**)"
-        "Write(~/.gcp/**)"
-        "Write(~/.config/gcloud/**)"
-        "Write(~/.npmrc)"
-        "Write(~/.yarnrc)"
-        "Write(~/.bashrc)"
-        "Write(~/.zshrc)"
-        "Write(~/.profile)"
-        "Write(~/.bash_profile)"
-        "Write(~/.zprofile)"
-        "Write(~/.gitconfig)"
-        "Write(/etc/**)"
+        # No Write(...) twins for the Edit rules above. File permission checks
+        # only ever match Edit(path), which covers every file-editing tool --
+        # Write included -- so a Write(path) deny rule matches nothing and
+        # Claude Code prints a warning for each one at startup. The paths were
+        # already protected by the Edit rules; the duplicates only looked like
+        # extra protection.
 
         # ── Shell-pipe-execute (untrusted code from network) ─────────────
         "Bash(curl * | sh*)"
