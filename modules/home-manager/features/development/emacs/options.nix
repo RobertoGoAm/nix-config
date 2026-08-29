@@ -25,20 +25,36 @@
           display-line-numbers-width 3)
     (global-display-line-numbers-mode 1)
 
-    ;; showcmd
-    (setq echo-keystrokes 0.02)
+    ;; showcmd, but which-key does that job here.
+    ;;
+    ;; This was 0.02, so a partial key sequence echoed almost instantly. While
+    ;; that echo is live Emacs APPENDS later message text to it instead of
+    ;; replacing it, and at 0.02 nearly every message lands during an echo. The
+    ;; echo area became one long multi-line string:
+    ;;
+    ;;   "SPC b- (C-h for help)\nSPC b h is undefined\nSPC- (C-h for help)\n..."
+    ;;
+    ;; read straight out of ` *Echo Area 0*'. Eight lines of half-typed
+    ;; prefixes at the bottom of the frame, and resize-mini-windows sizing the
+    ;; window faithfully to fit them -- the growth was the symptom, this is the
+    ;; cause.
+    ;;
+    ;; 0 turns keystroke echo off. Nothing is lost: which-key already shows the
+    ;; pending prefix and its whole keymap after 0.5s, which is the showcmd
+    ;; behaviour this was reaching for, in a side window that replaces itself.
+    (setq echo-keystrokes 0)
 
     ;; Let the echo area shrink again, not just grow.
     ;;
     ;; The default is `grow-only': the minibuffer window expands to fit a tall
-    ;; message and then stays that tall for the rest of the session. With
-    ;; echo-keystrokes at 0.02 every partial key sequence echoes, so once
-    ;; anything has stretched the window those echoes stack inside it and the
-    ;; bottom of the frame fills with a running list of half-typed prefixes.
-    ;; Observed five lines tall, listing SPC-, SPC tab, SPC TAB- and so on.
+    ;; message and then stays that tall for the rest of the session, so one
+    ;; long message leaves a permanently oversized echo area.
     ;;
-    ;; `t' resizes both ways, so the window is only ever as tall as the message
-    ;; currently in it.
+    ;; This is not what produced the stack of half-typed prefixes at the bottom
+    ;; of the frame -- that was keystroke echo concatenating messages, fixed
+    ;; above by turning echo-keystrokes off. `grow-only' only made it stick
+    ;; around afterwards. Worth having either way: the window is now only ever
+    ;; as tall as the message currently in it.
     (setq resize-mini-windows t)
 
     ;; signcolumn = yes — reserve the gutter so text never shifts sideways when a
