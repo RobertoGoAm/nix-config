@@ -31,19 +31,41 @@
         ;; left errors visible only as a fringe mark until asked for. posframe
         ;; puts the message beside the cursor on the same terms.
         ;;
-        ;; Graphical frames only: posframe needs a child frame, which a terminal
-        ;; cannot make, and there it falls back to the echo area.
-        (when (display-graphic-p)
-          (require 'flycheck-posframe)
-          (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode)
-          (setq flycheck-posframe-border-width 1
-                ;; Not while typing: a popup that reappears on every keystroke in
-                ;; a half-written expression is noise, and the error it reports is
-                ;; usually about the half you have not finished writing.
-                flycheck-posframe-inhibit-functions
-                (list (lambda (&rest _) (bound-and-true-p company-backend))
-                      (lambda (&rest _) (bound-and-true-p corfu--total))
-                      #'evil-insert-state-p)))
+        ;; Asked per buffer, never once at load.
+        ;;
+        ;; This config runs Emacs as `emacs --fg-daemon', and a daemon has no
+        ;; graphical frame when its init is read. `(display-graphic-p)' is
+        ;; therefore nil at that moment, so a (when (display-graphic-p) ...)
+        ;; wrapper around this block skipped it for the entire life of the
+        ;; daemon -- for GUI frames opened later too. The mode was never hooked,
+        ;; the border and inhibit functions never set, and diagnostics had
+        ;; nowhere to be displayed however many of them arrived. Verified
+        ;; against the running daemon: flycheck-mode-hook held only
+        ;; flycheck-mode-set-explicitly and the border width was still 0.
+        ;;
+        ;; flycheck-mode-hook runs inside the buffer, in the frame showing it,
+        ;; so the question gets a real answer there -- and the right one for a
+        ;; GUI frame and an `emacsclient -nw' frame against the same daemon.
+        (require 'flycheck-posframe)
+        (setq flycheck-posframe-border-width 1
+              ;; Not while typing: a popup that reappears on every keystroke in
+              ;; a half-written expression is noise, and the error it reports is
+              ;; usually about the half you have not finished writing.
+              flycheck-posframe-inhibit-functions
+              (list (lambda (&rest _) (bound-and-true-p company-backend))
+                    (lambda (&rest _) (bound-and-true-p corfu--total))
+                    #'evil-insert-state-p))
+
+        (defun my/flycheck-display-setup ()
+          "Pick how diagnostics are shown, from the frame this buffer is in.
+    posframe needs a child frame, which a terminal cannot make; there the
+    fringe is unavailable too, so the indicator moves to the margin."
+          (setq-local flycheck-indication-mode
+                      (if (display-graphic-p) 'left-fringe 'left-margin))
+          (when (display-graphic-p)
+            (flycheck-posframe-mode 1)))
+
+        (add-hook 'flycheck-mode-hook #'my/flycheck-display-setup)
         ;; The project-wide error list `my/diagnostics-list' falls back to.
         (require 'flycheck-projectile)
 
@@ -73,9 +95,7 @@
               ;; Long enough to be a pause rather than a gap between keystrokes.
               flycheck-idle-change-delay 0.8
               flycheck-display-errors-delay 0.3
-              flycheck-help-echo-function nil
-              ;; Terminal frames have no fringe to draw a sign in.
-              flycheck-indication-mode (if (display-graphic-p) 'left-fringe 'left-margin))
+              flycheck-help-echo-function nil)
         (global-flycheck-mode 1)
 
         ;; The gutter glyphs, matching the diagnostics symbols the statusline uses.
