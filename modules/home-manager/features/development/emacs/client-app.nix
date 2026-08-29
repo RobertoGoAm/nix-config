@@ -38,6 +38,11 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       # whole editing session, and macOS keeps a second Dock icon for it
       # alongside the daemon's own -- which reads as the launcher being stuck,
       # when the window it opened is right there under the name "Emacs".
+      # Returning immediately is enough: the icon goes when the process does.
+      #
+      # LSUIElement would hide that icon outright, and was tried here, but the
+      # bundle then stopped launching from Finder and Spotlight altogether.
+      # Not worth it for a second of Dock icon.
       exec "${config.programs.emacs.finalPackage}/bin/emacsclient" \
         -c -n --alternate-editor="" "\$@"
       SCRIPT
@@ -61,11 +66,6 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
         <key>CFBundleVersion</key>
         <string>1.0</string>
         <key>NSHighResolutionCapable</key>
-        <true/>
-        <!-- An agent, not an app: the frame belongs to the daemon, which has
-             its own Dock presence. Without this the launcher briefly claims a
-             second icon of its own on every launch. -->
-        <key>LSUIElement</key>
         <true/>
       </dict>
       </plist>
