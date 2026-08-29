@@ -15,6 +15,7 @@ let
 in
 {
   imports = [
+    ./client-app.nix
     ./colorscheme.nix
     ./keybinds.nix
     ./options.nix
