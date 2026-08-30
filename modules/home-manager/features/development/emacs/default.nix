@@ -5,13 +5,20 @@
   ...
 }:
 let
-  # Emacs 30's NS build covers both runtimes: it installs Emacs.app for GUI frames
+  # The NS build covers both runtimes: it installs Emacs.app for GUI frames
   # (mac-app-util links it into ~/Applications) and the same binary runs
-  # `emacs -nw` inside iTerm2/Alacritty. emacs30-macport renders text slightly
+  # `emacs -nw` inside iTerm2/Alacritty. emacs-macport renders text slightly
   # better on macOS but is a patched fork, so the standard build wins by default.
   # Linux gets the pgtk build wrapped in nixGL, like alacritty.
+  #
+  # Unversioned `emacs' rather than a pinned major: nixpkgs removed emacs30 in
+  # August 2026 with a throw -- "'emacs30' has been superseded by 'emacs'" --
+  # so there is no Emacs 30 left in this channel to pin to. Following the
+  # default means major upgrades arrive with a flake update rather than being
+  # chosen, which is worth knowing when one lands: `emacs' is 31.1 as of this
+  # change.
   emacsPackage =
-    if pkgs.stdenv.hostPlatform.isDarwin then pkgs.emacs30 else config.lib.nixGL.wrap pkgs.emacs30-pgtk;
+    if pkgs.stdenv.hostPlatform.isDarwin then pkgs.emacs else config.lib.nixGL.wrap pkgs.emacs-pgtk;
 in
 {
   imports = [

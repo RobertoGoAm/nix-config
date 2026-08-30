@@ -16,6 +16,9 @@
   # lit-tangle: regenerates this repo's .nix from the literate org sources.
   lit-tangle = import ./lit-tangle.nix;
 
+  # neovim: skip one darwin-flaky treesitter test that fails the build.
+  neovim = import ./neovim.nix;
+
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays

@@ -179,8 +179,13 @@ in
               name = "terraform";
               publisher = "hashicorp";
               version = "2.40.0";
-              sha256 = "sha256-UsyKO7zTSDovproPUaIWfqmJxIjZfNTwhaQuH2xIzyE=";
-
+              # Rehashed 2026-08-31, same version. The marketplace served different
+              # bytes for 2.40.0 than when this was pinned. Not a fetcher change:
+              # vscode-utils.nix is byte-identical across the nixpkgs bump that
+              # surfaced it. Not a release we were behind on either -- check-pins
+              # still reports 2.40.0 as current. A re-publish under an unchanged
+              # version number.
+              sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
             }
             {
               name = "ts-error-translator";
