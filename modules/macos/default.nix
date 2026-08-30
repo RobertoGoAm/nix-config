@@ -126,6 +126,7 @@
         outputs.overlays.check-pins
         outputs.overlays.checkov
         outputs.overlays.lit-tangle
+        outputs.overlays.neovim
         outputs.overlays.pin-prefs
         outputs.overlays.warpd
       ];
