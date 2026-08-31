@@ -7,6 +7,7 @@
 {
   imports = [
     ./git.nix
+    ./gitlab.nix
   ];
 }
 #+end_src

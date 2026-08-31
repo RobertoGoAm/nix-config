@@ -1,0 +1,109 @@
+#+TITLE: development emacs plugins version-control gitlab
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins version-control gitlab
+
+Reviewing a merge request without leaving Emacs.
+
+forge already knows how to talk to GitLab -- it lists merge requests, opens a
+topic buffer with the description and every comment, and posts new comments
+through =forge-create-post=. Two things it does not do, and this file adds:
+
+1. *The diff.* forge has no "show me this merge request's changes" command.
+   =forge--pullreq-range= computes the right range, but only once the head ref
+   has been fetched, and nothing fetches it on demand -- so the obvious call
+   silently returns nil.
+
+2. *Approval.* =forge-approve-pullreq= exists, but its first act is
+   #+begin_example
+   (unless (forge-github-repository-p (forge-get-repository pullreq))
+     (user-error "This command is only available for Github"))
+   #+end_example
+   so adding a =forge--submit-approve-pullreq= method for GitLab would never be
+   reached. GitLab's approvals are a separate endpoint rather than a kind of
+   review, which is presumably why forge left them out.
+
+Both talk to the API through forge's own =forge--glab-post=, so they inherit the
+token lookup, the host and the auth handling already configured for forge, and
+there is no second credential to keep in step.
+
+#+begin_src nix
+{
+  lib,
+  ...
+}:
+{
+  programs.emacs.extraConfig = lib.mkOrder 1460 ''
+    ;;; GitLab merge requests -- the diff, and approving.
+
+    (with-eval-after-load 'forge
+      (require 'forge-gitlab)
+
+      (defun my/forge--gitlab-mr (&optional demand)
+        "Return the merge request at point, or nil.
+    Errors instead of returning nil when DEMAND is non-nil, and always errors
+    when point is on a topic belonging to a host that is not GitLab -- the
+    approval endpoint below is GitLab's alone."
+        (let ((topic (forge-current-pullreq demand)))
+          (cond ((null topic) nil)
+                ((forge-gitlab-repository-p (forge-get-repository topic)) topic)
+                (demand (user-error "Not a GitLab merge request"))
+                (t nil))))
+
+      (defun my/forge--ensure-mr-ref (mr)
+        "Fetch MR's head ref if it is not local yet, and return the ref.
+    GitLab publishes merge request heads under refs/merge-requests/N/head, and
+    forge maps them to refs/pullreqs/N. Until something fetches that,
+    `forge--pullreq-range' has no head to anchor on and quietly returns nil,
+    which reads as \"no changes\" rather than \"not downloaded\"."
+        (let ((n (oref mr number)))
+          (or (forge--pullreq-ref mr)
+              (progn
+                (message "Fetching merge request !%s..." n)
+                (magit-run-git "fetch" (forge--get-remote)
+                               (format "+refs/merge-requests/%s/head:refs/pullreqs/%s" n n))
+                (forge--pullreq-ref mr)))))
+
+      (defun my/forge-mr-diff ()
+        "Show the diff of the merge request at point.
+    Diffs against the merge base rather than the target branch's tip, so
+    unrelated commits landing on the target while the review is open do not
+    appear as part of the change under review."
+        (interactive)
+        (let ((mr (or (forge-current-pullreq t)
+                      (user-error "Not on a merge request"))))
+          (unless (my/forge--ensure-mr-ref mr)
+            (user-error "Could not fetch the head of !%s" (oref mr number)))
+          (magit-diff-range (forge--pullreq-range mr))))
+
+      ;; `apply-partially' rather than a lambda closing over the number: this
+      ;; configuration is tangled into a default.el with no lexical-binding
+      ;; cookie, so a lambda written here would be a dynamic-binding one and
+      ;; would fail with (void-variable n) by the time the request came back.
+      ;; The closure `apply-partially' builds is created inside subr.el, which
+      ;; is lexical, so it captures the value correctly.
+
+      (defun my/gitlab--report (verb number &rest _)
+        "Say that NUMBER was VERB'd. The callback for the two commands below."
+        (message "%s !%s" verb number))
+
+      (defun my/gitlab-approve-mr ()
+        "Approve the GitLab merge request at point."
+        (interactive)
+        (let* ((mr (my/forge--gitlab-mr t))
+               (n (oref mr number)))
+          (when (y-or-n-p (format "Approve !%s: %s? " n (oref mr title)))
+            (forge--glab-post mr "/projects/:project/merge_requests/:number/approve" nil
+              :callback (apply-partially #'my/gitlab--report "Approved" n)))))
+
+      (defun my/gitlab-unapprove-mr ()
+        "Withdraw your approval of the GitLab merge request at point."
+        (interactive)
+        (let* ((mr (my/forge--gitlab-mr t))
+               (n (oref mr number)))
+          (when (y-or-n-p (format "Withdraw approval of !%s? " n))
+            (forge--glab-post mr "/projects/:project/merge_requests/:number/unapprove" nil
+              :callback (apply-partially #'my/gitlab--report "Unapproved" n))))))
+  '';
+}
+#+end_src
