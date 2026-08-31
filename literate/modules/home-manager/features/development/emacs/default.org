@@ -96,6 +96,41 @@ is what "Emacs Client won't open" turned out to be.
 
 #+begin_src nix
   launchd.agents.emacs.config.KeepAlive = lib.mkForce true;
+
+  #+end_src
+
+  * A stable path in the agent, so a rebuild does not kill the daemon
+
+  The generated plist runs the emacs binary by its store path:
+
+  #+begin_example
+  exec /nix/store/iwa41j...-emacs-with-packages-31.1/bin/emacs --fg-daemon
+  #+end_example
+
+  Every change to this configuration produces a new =emacs-with-packages=, so
+  that string changes, so the plist changes -- and home-manager's activation
+  reloads any agent whose plist differs. Reloading means unloading: the daemon
+  dies and every frame with it. That is why a rebuild closed Emacs, whatever the
+  change happened to be.
+
+  Pointing at the profile instead keeps the plist byte-identical across rebuilds,
+  so the agent is left alone and the daemon survives. =home.profileDirectory= is
+  =/etc/profiles/per-user/<user>= here and =~/.nix-profile= under standalone
+  home-manager; both are stable paths, and swapping what they point at is exactly
+  what a rebuild does.
+
+  The trade is that the running daemon keeps the elisp it started with until it
+  is restarted deliberately -- =emacs-restart= below -- which is the point: when
+  Emacs goes away becomes a decision rather than a side effect.
+
+  #+begin_src nix
+  # Just the program: home-manager wraps ProgramArguments in its own
+  # `/bin/sh -c "/bin/wait4path /nix/store && exec ..."', so supplying that
+  # wrapper here too nests one inside the other.
+  launchd.agents.emacs.config.ProgramArguments = lib.mkForce [
+    "${config.home.profileDirectory}/bin/emacs"
+    "--fg-daemon"
+  ];
 #+end_src
 
 * early-init runs before the first frame is drawn, so killing...
@@ -176,6 +211,18 @@ so the entry is guaranteed to exist (macOS ships an ncurses too old to have
 it). GUI frames are `emacsclient -c`; both attach to the same daemon.
 
 #+begin_src nix
+    # Restarting the daemon on purpose, now that a rebuild no longer does it.
+    #
+    # `kickstart -k' stops the job and starts it again in one step, which is
+    # what picks up newly built elisp. Frames are not preserved: emacsclient
+    # frames belong to the daemon and go down with it.
+    (pkgs.writeShellScriptBin "emacs-restart" ''
+      set -eu
+      label="gui/$(id -u)/org.nix-community.home.emacs"
+      echo "Restarting $label..."
+      launchctl kickstart -k "$label"
+    '')
+
     (pkgs.writeShellScriptBin "em" ''
       exec env TERM=xterm-direct TERMINFO=${pkgs.ncurses}/share/terminfo \
         ${config.programs.emacs.finalPackage}/bin/emacsclient \
