@@ -92,6 +92,20 @@ in
 
     ;; Paint the frame in tokyonight storm before redisplay, so startup never
     ;; flashes the default white background.
+    ;; The font was never set, so every frame ran on macOS's default Menlo --
+    ;; while nerd-icons was configured for JetBrainsMono Nerd Font and the
+    ;; patched font was installed. The visible symptom is Nerd Font glyphs
+    ;; coming out wrong rather than missing: starship's Node.js symbol is
+    ;; U+E718, in the private use area, and Menlo claims that range and draws
+    ;; something else for it. An apostrophe, in the prompt inside vterm.
+    ;;
+    ;; The "Mono" variant, not the bare family: it renders icons single-width,
+    ;; which is what keeps a terminal prompt and the modeline in column.
+    ;;
+    ;; Here rather than in a hook, so it applies to the daemon's client frames
+    ;; too and is in place before the first redisplay -- same reason the
+    ;; colours are set here.
+    (push '(font . "JetBrainsMono Nerd Font Mono-12") default-frame-alist)
     (push '(background-color . "#24283b") default-frame-alist)
     (push '(foreground-color . "#c0caf5") default-frame-alist)
     (push '(ns-transparent-titlebar . t) default-frame-alist)
