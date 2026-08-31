@@ -45,11 +45,19 @@
       (require 'claude-code-ui))
 
     (defun my/claude-toggle ()
-      "Show this project's Claude Code session, starting one if there is none."
+      "Show this project's Claude Code session, starting one if there is none.
+    Hides it again when it is already on screen: the binding is called a toggle
+    and previously only ever opened, which left no way back to a full-width
+    buffer short of reaching for the mouse."
       (interactive)
-      (condition-case nil
-          (claude-code-switch-to-buffer)
-        (error (claude-code-run))))
+      (let ((win (seq-find (lambda (w)
+                             (string-prefix-p "*claude:" (buffer-name (window-buffer w))))
+                           (window-list))))
+        (if win
+            (delete-window win)
+          (condition-case nil
+              (claude-code-switch-to-buffer)
+            (error (claude-code-run))))))
 
     (defun my/claude-send-region-or-file ()
       "Send the region to Claude, or a reference to this file when nothing is selected."
@@ -71,5 +79,46 @@
                                  (or (auth-source-pick-first-password
                                       :host "api.anthropic.com" :user "apikey")
                                      (getenv "ANTHROPIC_API_KEY")))))
+
+    ;;; ------------------------------------------------------------------
+    ;;; The drawer
+    ;;; ------------------------------------------------------------------
+    ;;
+    ;; Both AI surfaces displayed their buffers with plain `display-buffer', so a
+    ;; session landed wherever the window tree had room -- splitting the file
+    ;; being read, or replacing it, and `C-x 1' discarded it outright. The
+    ;; terminals already solve this with a bottom side window; this is the same
+    ;; arrangement on the right, where a chat transcript's long lines fit far
+    ;; better than they would in a ten-line strip.
+    ;;
+    ;; Claude takes slot 0 and gptel slot 1, so opening the chat beside a running
+    ;; session stacks them in the same column instead of fighting over it.
+
+    (defvar my/ai-drawer-width 0.4
+      "Fraction of the frame width the AI drawer occupies.")
+
+    (dolist (rule `(("\\*claude\\(:\\| transcript:\\).*\\*" . 0)
+                    ((derived-mode . gptel-mode) . 1)))
+      (add-to-list 'display-buffer-alist
+                   `(,(car rule)
+                     (display-buffer-reuse-window display-buffer-in-side-window)
+                     (side . right)
+                     (slot . ,(cdr rule))
+                     (window-width . ,my/ai-drawer-width)
+                     (preserve-size . (t . nil))
+                     (window-parameters . ((no-delete-other-windows . t))))))
+
+    (defun my/ai-drawer-close ()
+      "Close the AI drawer, leaving the sessions running behind it.
+    Deliberately narrower than `window-toggle-side-windows', which would take
+    the bottom terminal down with it."
+      (interactive)
+      (dolist (win (window-list))
+        (when (and (window-parameter win 'window-side)
+                   (with-current-buffer (window-buffer win)
+                     (or (derived-mode-p 'gptel-mode)
+                         (string-prefix-p "*claude" (buffer-name)))))
+          (delete-window win))))
+
   '';
 }

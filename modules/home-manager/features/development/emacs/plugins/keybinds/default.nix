@@ -115,6 +115,7 @@
       "aH" '(my/claude-view :which-key "view transcript (C-u: any project)")
       "al" '(my/claude-switch :which-key "switch live session")
       "am" '(claude-code-transient :which-key "claude menu")
+      "ax" '(my/ai-drawer-close :which-key "close drawer")
       "aq" '(claude-code-quit :which-key "quit claude")
       "as" '(gptel-send :which-key "send to chat")
       "aw" '(gptel-rewrite :which-key "rewrite region")
