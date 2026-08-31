@@ -233,6 +233,13 @@ mean the same thing in a magit buffer as in a source file.
 
       ;; music — the running Spotify client, same one the menu bar item reports.
       "m"  '(:ignore t :which-key "music")
+      ;; mail -- `m' is music, so the inbox gets `i'
+      "i"  '(:ignore t :which-key "inbox")
+      "ii" '(mu4e :which-key "open mail")
+      "ic" '(mu4e-compose-new :which-key "compose")
+      "is" '(mu4e-search :which-key "search mail")
+      "iu" '(mu4e-update-mail-and-index :which-key "fetch now")
+
       "mm" '(my/music-playpause :which-key "play/pause")
       "mn" '(my/music-next :which-key "next track")
       "mp" '(my/music-previous :which-key "previous track")
