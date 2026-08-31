@@ -153,15 +153,9 @@
       (interactive)
       (let ((sid (get-text-property (point) 'my/claude-sid))
             (cwd (get-text-property (point) 'my/claude-cwd)))
-        (cond
-         ((null sid) (message "No Claude session on this line"))
-         ((not (file-directory-p cwd))
-          (user-error "That conversation's directory no longer exists: %s" cwd))
-         (t (let ((default-directory (file-name-as-directory cwd)))
-              (vterm (format "*claude:%s*" (file-name-nondirectory
-                                            (directory-file-name cwd))))
-              (vterm-send-string (format "claude --resume %s" sid))
-              (vterm-send-return))))))
+        (if (null sid)
+            (message "No Claude session on this line")
+          (my/claude-resume-session sid cwd))))
 
     (defun my/dashboard-claude (list-size)
       "Insert the most recent Claude conversations, newest first."

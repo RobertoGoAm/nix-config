@@ -53,6 +53,7 @@ well under a second rather than parsing 700MB.
     rows = []
     for path in glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True):
         cwd = branch = prompt = None
+        sidechain = False
         sid = os.path.basename(path)[:-6]
         try:
             with open(path, errors="replace") as fh:
@@ -66,10 +67,13 @@ well under a second rather than parsing 700MB.
                     cwd = cwd or d.get("cwd")
                     branch = branch or d.get("gitBranch")
                     sid = d.get("sessionId") or sid
-                    # Sidechains are subagent transcripts -- real conversations,
-                    # but not ones you resume, so they must not crowd the picker.
+                    # Sidechains are subagent transcripts. `claude --resume' cannot
+                    # open one, so a row for it is an entry that only ever fails.
+                    # Labelling it "[subagent]" and listing it anyway -- which is
+                    # what this did -- is how a fifth of the picker became unusable.
                     if d.get("isSidechain"):
-                        prompt = prompt or "[subagent]"
+                        sidechain = True
+                        break
                     if prompt is None and d.get("type") == "user":
                         msg = d.get("message") or {}
                         content = msg.get("content")
@@ -86,11 +90,19 @@ well under a second rather than parsing 700MB.
             size = os.path.getsize(path)
         except OSError:
             continue
+        if sidechain:
+            continue
         # Skip the near-empty ones: a session that never got a reply is noise.
         if size < 2048:
             continue
+        # And the ones with nowhere to run. Claude resolves a session against
+        # its project directory, so a conversation from a deleted worktree or a
+        # moved repository cannot be resumed from anywhere. Most of these are
+        # the throwaway .claude/worktrees/* that agent runs leave behind.
+        if not cwd or not os.path.isdir(cwd):
+            continue
         text = titles.get(sid) or " ".join((prompt or "(no prompt)").split())[:90]
-        rows.append((mtime, cwd or "?", branch or "", text, sid, path))
+        rows.append((mtime, cwd, branch or "", text, sid, path))
 
     rows.sort(reverse=True)
     for mtime, cwd, branch, text, sid, path in rows:
@@ -172,23 +184,33 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
+    (defun my/claude-resume-session (sid cwd)
+      "Resume conversation SID in a vterm rooted at CWD.
+
+    Runs in the conversation's own directory: Claude resolves a session against
+    the project it belongs to and does not find it from anywhere else.
+
+    The buffer carries the first eight characters of the session id. vterm hands
+    a name that is already taken to `generate-new-buffer', so several resumed
+    conversations from one project used to come out as *claude:nix-config*<2>,
+    <3>, <4> -- distinct buffers with nothing to tell them apart in the switcher."
+      (unless (file-directory-p cwd)
+        (user-error "That conversation's directory no longer exists: %s" cwd))
+      (let ((default-directory (file-name-as-directory cwd)))
+        (vterm (format "*claude:%s#%s*"
+                       (file-name-nondirectory (directory-file-name cwd))
+                       (substring sid 0 (min 8 (length sid)))))
+        (vterm-send-string (format "claude --resume %s" sid))
+        (vterm-send-return)))
+
     (defun my/claude-resume (&optional all)
       "Pick a past Claude conversation from this project and resume it.
-    With a prefix argument ALL, offer conversations from every project.
-    Runs in the directory the conversation belonged to, because Claude resolves
-    the session against its project and would not find it from anywhere else."
+    With a prefix argument ALL, offer conversations from every project."
       (interactive "P")
-      (let* ((row (my/claude--pick (if all "Resume any Claude session: "
-                                     "Resume Claude session: ")
-                                   all))
-             (sid (nth 4 row))
-             (cwd (nth 5 row)))
-        (if (not (file-directory-p cwd))
-            (user-error "That conversation's directory no longer exists: %s" cwd)
-          (let ((default-directory (file-name-as-directory cwd)))
-            (vterm (format "*claude:%s*" (file-name-nondirectory (directory-file-name cwd))))
-            (vterm-send-string (format "claude --resume %s" sid))
-            (vterm-send-return)))))
+      (let ((row (my/claude--pick (if all "Resume any Claude session: "
+                                    "Resume Claude session: ")
+                                  all)))
+        (my/claude-resume-session (nth 4 row) (nth 5 row))))
 
     ;; Switching between the sessions running right now.
     ;;
