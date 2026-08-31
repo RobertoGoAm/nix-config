@@ -38,9 +38,13 @@
           dashboard-set-file-icons t
           dashboard-icon-type 'nerd-icons
           ;; mru.limit = 20, and project.enable = true.
-          dashboard-items '((recents  . 20)
-                            (projects . 10)
-                            (bookmarks . 5))
+          ;; bookmarks is gone: it has never had an entry, so it only ever
+          ;; rendered "--- No items ---". backup and unread are custom
+          ;; generators defined below.
+          dashboard-items '((backup   . 1)
+                            (unread   . 1)
+                            (recents  . 15)
+                            (projects . 10))
           ;; change_to_vcs_root = true
           dashboard-projects-switch-function #'projectile-persp-switch-project
           dashboard-projects-backend 'projectile)
@@ -54,6 +58,61 @@
     ;; it appear in frames the daemon creates later rather than only the first one.
     ;; Setting that variable by hand as well is what makes `emacsclient file' open the
     ;; dashboard instead of the file, so it is deliberately left to dashboard.el.
+    ;; Two custom sections, each answering a question the editor is otherwise
+    ;; silent about.
+    ;;
+    ;; Backup age, because restic has twice stopped for days unnoticed -- once
+    ;; while still pinging its dead-man switch. The SwiftBar collector already
+    ;; caches the last snapshot time, so this reads that file rather than
+    ;; talking to the repository again.
+    ;;
+    ;; Unread mail, because mu4e only reports it while running, and a home
+    ;; screen is exactly where you want what arrived while you were not
+    ;; looking. Shelling out to mu keeps it independent of mu4e being loaded.
+    ;;
+    ;; Both bodies are wrapped in condition-case: a generator that signals
+    ;; takes the whole dashboard with it, and this is the first buffer of
+    ;; every session.
+    (defun my/dashboard-backup (_list-size)
+      "Insert how long ago restic last completed."
+      (dashboard-insert-heading "Backup:" nil)
+      (insert "\n    ")
+      (insert
+       (condition-case nil
+           (let* ((f (expand-file-name "swiftbar-status/backup"
+                                       (or (getenv "TMPDIR") "/tmp")))
+                  (ts (and (file-readable-p f)
+                           (string-trim (with-temp-buffer
+                                          (insert-file-contents f)
+                                          (buffer-string))))))
+             (if (or (null ts) (string-empty-p ts))
+                 "no snapshot recorded"
+               (let* ((age (float-time (time-subtract (current-time)
+                                                      (encode-time (iso8601-parse ts)))))
+                      (h (/ age 3600)))
+                 (cond ((< h 1) (format "%.0f minutes ago" (/ age 60)))
+                       ((< h 24) (format "%.0f hours ago" h))
+                       (t (propertize (format "%.0f DAYS ago" (/ h 24))
+                                      (quote face) (quote error)))))))
+         (error "unreadable")))
+      (insert "\n"))
+
+    (defun my/dashboard-unread (_list-size)
+      "Insert the number of unread messages mu knows about."
+      (dashboard-insert-heading "Unread mail:" nil)
+      (insert "\n    ")
+      (insert
+       (condition-case nil
+           (let ((n (string-to-number
+                     (shell-command-to-string
+                      "mu find --fields m flag:unread 2>/dev/null | wc -l"))))
+             (if (> n 0) (format "%d unread" n) "nothing unread"))
+         (error "mu index unavailable")))
+      (insert "\n"))
+
+    (add-to-list (quote dashboard-item-generators) (quote (backup . my/dashboard-backup)))
+    (add-to-list (quote dashboard-item-generators) (quote (unread . my/dashboard-unread)))
+
     (dashboard-setup-startup-hook)
 
     ;; And again for every client frame.
