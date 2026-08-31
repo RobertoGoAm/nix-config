@@ -61,10 +61,22 @@
     ;;
     ;; Only when the frame would otherwise show *scratch*: opening a file with
     ;; `emacsclient -c somefile' must land on the file, not on the dashboard.
+    (defun my/dashboard-home ()
+      "Switch to the dashboard, building it only if it is not there.
+
+    `dashboard-open' regenerates the buffer -- re-reading the recent-file and
+    project lists and redrawing the banner. Reusing an existing one instead
+    means returning here is instant and the contents stay put while you work,
+    rather than reshuffling under you every time."
+      (interactive)
+      (if (get-buffer "*dashboard*")
+          (switch-to-buffer "*dashboard*")
+        (dashboard-open)))
+
     (defun my/dashboard-on-client-frame ()
       "Show the dashboard in a client frame that would otherwise show *scratch*."
       (when (equal (buffer-name) "*scratch*")
-        (dashboard-open)))
+        (my/dashboard-home)))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
