@@ -51,6 +51,24 @@ def secret(name):
         return os.environ.get(name.upper()) or None
 
 
+def extract_code(raw):
+    """Pull the authorization code out of whatever got pasted.
+
+    People paste the full redirected URL, or just its query string, or the
+    bare code -- and the URL carries other parameters (Spotify appends ubi=)
+    that are not part of the code. Splitting on the first & and dropping any
+    ?code= prefix handles all three, which a bare strip() did not: the first
+    two attempts failed with an opaque 400 because the extra parameters went
+    to the token endpoint as part of the code.
+    """
+    raw = (raw or "").strip().strip("'\"")
+    if not raw:
+        return None
+    if "code=" in raw:
+        raw = raw.split("code=", 1)[1]
+    return raw.split("&", 1)[0].strip() or None
+
+
 def _post_token(data):
     cid, sec = secret("spotify_client_id"), secret("spotify_client_secret")
     if not cid or not sec:
@@ -121,11 +139,24 @@ def main():
             return 1
         q = urllib.parse.urlencode({"client_id": cid, "response_type": "code",
                                     "redirect_uri": REDIRECT, "scope": SCOPES})
-        print("Open this, approve, then paste the ?code= value back here:\n")
+        print("Open this and approve. The browser will fail to load a page --")
+        print("that is expected, nothing is listening. Copy the whole address")
+        print("bar and paste it below.\n")
         print(f"https://accounts.spotify.com/authorize?{q}\n")
-        code = input("code: ").strip()
-        body = _post_token({"grant_type": "authorization_code", "code": code,
-                            "redirect_uri": REDIRECT})
+        code = extract_code(input("redirected URL (or bare code): "))
+        if not code:
+            print("could not find a code in that", file=sys.stderr)
+            return 1
+        try:
+            body = _post_token({"grant_type": "authorization_code", "code": code,
+                                "redirect_uri": REDIRECT})
+        except urllib.error.HTTPError as e:
+            # Spotify explains itself in the body; the bare status does not.
+            detail = e.read().decode("utf-8", "replace")
+            print(f"token exchange failed ({e.code}): {detail}", file=sys.stderr)
+            print("\nCodes are single-use and expire in about a minute --"
+                  " re-run and paste a fresh one.", file=sys.stderr)
+            return 1
         if not body or "refresh_token" not in body:
             print("no refresh token returned", file=sys.stderr)
             return 1
