@@ -75,6 +75,48 @@ lib.mkIf enable {
 
   programs.emacs.extraPackages = epkgs: [ epkgs.mu4e ];
 
+  # mu4e, with one context per account.
+  #
+  # Contexts are generated from the same private list as the mbsync channels,
+  # so no address appears here either -- switching context is what picks the
+  # right From, the right sent folder and the right msmtp account.
+  #
+  # mu4e-change-filenames-when-moving is not optional with mbsync: mbsync
+  # tracks messages by filename, and mu4e's default of preserving names on
+  # move makes the next sync see a duplicate and resurrect the message.
+  programs.emacs.extraConfig = ''
+    (setq mu4e-maildir "${maildir}"
+          mu4e-get-mail-command "${pkgs.isync}/bin/mbsync -a"
+          mu4e-update-interval nil
+          mu4e-change-filenames-when-moving t
+          mu4e-completing-read-function #'completing-read
+          mu4e-confirm-quit nil
+          mu4e-headers-date-format "%d/%m/%y"
+          message-send-mail-function #'message-send-mail-with-sendmail
+          sendmail-program "${pkgs.msmtp}/bin/msmtp"
+          message-sendmail-f-is-evil t
+          message-sendmail-extra-arguments '("--read-envelope-from"))
+
+    (setq mu4e-contexts
+          (list
+    ${
+      lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: a: ''
+          (make-mu4e-context
+           :name "${name}"
+           :match-func
+           (lambda (msg)
+             (when msg
+               (string-prefix-p "/${name}" (mu4e-message-field msg :maildir))))
+           :vars '((user-mail-address . "${a.address}")
+                   (user-full-name    . "${a.realName}")
+                   (mu4e-sent-folder   . "/${name}/Sent")
+                   (mu4e-drafts-folder . "/${name}/Drafts")
+                   (mu4e-trash-folder  . "/${name}/Trash")))'') mailAccounts
+      )
+    }))
+  '';
+
   accounts.email = {
     maildirBasePath = maildir;
     accounts = lib.mapAttrs toAccount mailAccounts;
