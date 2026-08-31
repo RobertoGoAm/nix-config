@@ -4,5 +4,6 @@
   imports = [
     ./browser.nix
     ./music.nix
+    ./nixconfig.nix
   ];
 }

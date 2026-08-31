@@ -8,6 +8,7 @@
   imports = [
     ./browser.nix
     ./music.nix
+    ./nixconfig.nix
   ];
 }
 #+end_src
