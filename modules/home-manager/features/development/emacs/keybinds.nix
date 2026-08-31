@@ -133,11 +133,31 @@ in
         ;; operator-pending on qwerty j/k/l. Rotating all four states is what you
         ;; actually want on Colemak. To match nvim exactly instead, cut this list down
         ;; to `evil-normal-state-map'.
-        (dolist (map (list evil-motion-state-map
-                           evil-normal-state-map
-                           evil-visual-state-map
-                           evil-operator-state-map))
-          (my/colemak-rotate map))
+        (defun my/colemak-rotate-states ()
+          "Rotate the four evil state maps."
+          (dolist (map (list evil-motion-state-map
+                             evil-normal-state-map
+                             evil-visual-state-map
+                             evil-operator-state-map))
+            (my/colemak-rotate map)))
+
+        (my/colemak-rotate-states)
+
+        ;; And again once init has finished.
+        ;;
+        ;; This block runs at load order 90, and evil-collection reinstalls the
+        ;; evil state maps after that -- as fresh keymap objects. The guard in
+        ;; my/colemak-rotate is per keymap object, so it had already recorded
+        ;; the originals as done and left the replacements untouched: the
+        ;; rotation applied to maps that were then thrown away.
+        ;;
+        ;; Observed in a live buffer with evil in normal state -- n bound to
+        ;; evil-ex-search-next, e to evil-forward-word-end, both stock vim --
+        ;; and running the rotation by hand fixed it immediately.
+        ;;
+        ;; Safe to call twice: the guard skips any map object already rotated,
+        ;; so this only ever catches the ones that were replaced.
+        (add-hook 'emacs-startup-hook #'my/colemak-rotate-states)
 
         ;; Scroll pair. nvim swaps C-p and C-e, which lands nvim's C-e (scroll one line
         ;; down) on C-p. The other half of that swap inherits nvim's unbound normal-mode

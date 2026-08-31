@@ -133,6 +133,10 @@
           which-key-idle-secondary-delay 0.05
           which-key-prefix-prefix "+"
           which-key-separator " ➜ "
+          ;; 0.25 of the frame paginated the leader menu once the config and
+          ;; inbox sections took it to 24 entries -- half of them sat on a
+          ;; second page behind C-h, which reads as bindings having vanished.
+          which-key-side-window-max-height 0.45
           which-key-add-column-padding 3
           which-key-min-column-description-width 20
           which-key-max-description-length 50
