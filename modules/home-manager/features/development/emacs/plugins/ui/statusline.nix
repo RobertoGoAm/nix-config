@@ -190,10 +190,35 @@
              (propertize (format " %d " removed)
                          'face `(:foreground ,(my/tn 'red))))))))
 
+    ;; Unread Telegram, but only when there is some.
+    ;;
+    ;; telega-mode-line-mode maintains its own string and pushes it into
+    ;; `mode-line-misc-info', which this modeline never renders -- every
+    ;; segment here is explicit. So the count is read straight from telega's
+    ;; own counters instead.
+    ;;
+    ;; Unmuted chats rather than total messages: muted groups are muted
+    ;; precisely so they do not ask for attention, and a badge that counts them
+    ;; is one you learn to ignore. Absent entirely at zero, so the modeline
+    ;; looks exactly as it did before whenever there is nothing to read.
+    ;;
+    ;; bound-and-true-p throughout: telega is autoloaded, so in most sessions
+    ;; these variables never come into existence at all.
+    (doom-modeline-def-segment my/telega
+      (let ((n (or (and (bound-and-true-p telega--unread-chat-count)
+                        (plist-get telega--unread-chat-count :unread_unmuted_count))
+                   0)))
+        (when (> n 0)
+          (concat (doom-modeline-spc)
+                  (propertize (format "✉ %d" n)
+                              'face (if (facep 'telega-unmuted-count)
+                                        'telega-unmuted-count
+                                      'doom-modeline-warning))))))
+
     (doom-modeline-def-modeline 'my/eviline
       '(my/edge-bar my/mode-dot my/filesize my/filename buffer-position
         my/progress my/diagnostics)
-      '(my/encoding my/fileformat my/branch my/diff my/edge-bar))
+      '(my/telega my/encoding my/fileformat my/branch my/diff my/edge-bar))
 
     (defun my/set-eviline ()
       "Install the eviline layout as the default modeline."
