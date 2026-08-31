@@ -8,6 +8,26 @@ into submenus with `--`.
 import datetime
 import json
 import os
+import re
+
+def parse_rfc3339(ts):
+    """Parse an RFC3339 timestamp on the Python this actually runs under.
+
+    /usr/bin/python3 is 3.9 on macOS, and its fromisoformat accepts fractional
+    seconds only in exactly 3 or 6 digits, and refuses a trailing Z. restic
+    emits whatever precision it happens to have, so a snapshot stamped
+    .04566 -- five digits -- crashed the plugin outright and the menu bar
+    showed a traceback instead of a status. Pad the fraction to six and spell
+    Z out, then 3.9 is happy and 3.11+ is unaffected.
+    """
+    ts = ts.strip()
+    if ts[-1:] in ("Z", "z"):
+        ts = ts[:-1] + "+00:00"
+    m = re.match(r"^(.*\d{2}:\d{2}:\d{2})\.(\d+)(.*)$", ts)
+    if m:
+        ts = "{}.{}{}".format(m.group(1), (m.group(2) + "000000")[:6], m.group(3))
+    return datetime.datetime.fromisoformat(ts)
+
 
 env = os.environ.get
 
@@ -38,7 +58,7 @@ backup_line, backup_age_h = "unknown", None
 ts = env("BACKUP_TS", "").strip()
 if ts and ts not in ("none", "n/a"):
     age = (datetime.datetime.now(datetime.timezone.utc)
-           - datetime.datetime.fromisoformat(ts)).total_seconds()
+           - parse_rfc3339(ts)).total_seconds()
     backup_age_h = age / 3600
     backup_line = (f"{age/60:.0f}m ago" if age < 7200
                    else f"{age/3600:.0f}h ago" if age < 86400
