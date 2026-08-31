@@ -103,10 +103,10 @@ AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
 # headless librespot agent. spotify-ctl prints nothing and exits 0 when it has
 # no credentials or nothing is playing, so the section simply disappears.
 SPOT_STATE=""; SPOT_TRACK=""; SPOT_ARTIST=""
-SPOT_LINE="$(cache spotify 25 spotify-ctl now)"
+SPOT_LINE="$(cached spotify 25 spotify-ctl now)"
 # Cached longer than now-playing: the device list changes when a machine wakes
 # or librespot restarts, not between tracks.
-SPOT_DEVICES="$(cache spotify-devices 120 spotify-ctl devices)"
+SPOT_DEVICES="$(cached spotify-devices 120 spotify-ctl devices)"
 if [ -n "$SPOT_LINE" ]; then
   SPOT_STATE="$(printf '%s' "$SPOT_LINE" | cut -f1)"
   SPOT_ARTIST="$(printf '%s' "$SPOT_LINE" | cut -f2)"
