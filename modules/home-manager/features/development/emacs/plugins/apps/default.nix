@@ -1,3 +1,5 @@
+# development emacs plugins apps
+
 {
   imports = [
     ./browser.nix

@@ -1,18 +1,19 @@
 # checkov's own test suite has a broken case upstream:
-#
+
 #   tests/secrets/test_multiline_finding_line_number.py::TestMultilineFinding
 #     AssertionError: 0 != 1
-#
+
 # The secrets runner finds zero findings where the test expects one, so the
 # build fails at checkPhase and takes the whole home-manager profile down with
 # it (home-manager-path -> user-environment -> darwin-system). It is a test-only
 # failure: nothing in the shipped package is broken, and checkov itself runs
 # fine.
-#
+
 # nixpkgs already carries a disabledTests list for cases like this, so we append
 # to it rather than turning checkPhase off wholesale — every other test keeps
 # running, and the day upstream fixes this one the only cost of leaving the
 # entry here is that it stops matching.
+
 final: prev: {
   checkov = prev.checkov.overrideAttrs (old: {
     disabledTests = (old.disabledTests or [ ]) ++ [

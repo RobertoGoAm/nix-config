@@ -1,3 +1,5 @@
+# flake
+
 {
   description = "Your new nix config";
 
@@ -14,11 +16,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Zen is not in nixpkgs on any platform. This flake repackages the...
+
     # Zen is not in nixpkgs on any platform. This flake repackages the upstream
     # binary and ships a home-manager module built on mkFirefoxModule, so the
     # profile/extensions/settings schema is the same one programs.firefox uses --
     # which is what makes moving the old firefox.nix across a rename rather than
     # a rewrite. aarch64-darwin is a supported system (verified via flake show).
+
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -93,6 +98,8 @@
       inherit (nixpkgs) lib;
       user = "robertogoam";
 
+      # Per-machine platform. Hosts whose system ends in "darwin" get a...
+
       # Per-machine platform. Hosts whose system ends in "darwin" get a nix-darwin
       # system (built from modules/macos/<host>/<host>.nix); every host also gets a
       # standalone home-manager config "<user>@<host>" (built from
@@ -100,11 +107,14 @@
       # here and copy an existing host's module dir(s) — bootstrap.sh's "create a
       # new host" does both. Keep the marker line; the script inserts new hosts
       # directly above it.
+
       hosts = {
         prometheus = "aarch64-darwin";
         vulcan = "aarch64-darwin";
         perseus = "x86_64-linux";
+
         # bootstrap-hosts-marker (do not remove)
+
       };
 
       mkDarwin =
@@ -124,9 +134,13 @@
       mkHome =
         host: system:
         home-manager.lib.homeManagerConfiguration {
+
+          # Instantiate nixpkgs with config (vs raw legacyPackages) so...
+
           # Instantiate nixpkgs with config (vs raw legacyPackages) so standalone
           # home-manager hosts (perseus) allow unfree and permit the same insecure
           # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
+
           pkgs = import nixpkgs {
             inherit system;
             overlays = [
@@ -135,10 +149,13 @@
             ];
             config = {
               allowUnfree = true;
+
               # Linux Electron apps (obsidian/discord) + checkov's
+
               # python-ecdsa pull packages nixpkgs marks insecure; permit them by
               # name so it survives version bumps. (The macs avoid electron — their
               # obsidian is a prebuilt binary, not a from-source build.)
+
               allowInsecurePredicate =
                 pkg:
                 builtins.elem (lib.getName pkg) [
@@ -161,12 +178,15 @@
     {
       overlays = import ./overlays { inherit inputs; };
 
+      # `nix run .#check-pins` — reports the version pins nothing updates...
+
       # `nix run .#check-pins` — reports the version pins nothing updates for
       # you (the Chromium snapshot overlay and the marketplace extensions).
       # `nix run .#pin-prefs -- <domain> <file>` — regenerates a macOS defaults
       # module from an app's live preferences.
       # `nix run .#lit-tangle -- --check` — verifies the committed Nix still
       # matches the literate org sources it was generated from.
+
       packages = lib.genAttrs (lib.attrValues hosts) (system: {
         check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
         pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
@@ -175,13 +195,17 @@
       });
 
       # MacOS configuration entrypoint
+
       # Available through nix run nix-darwin -- switch --flake .
+
       darwinConfigurations = lib.mapAttrs mkDarwin (
         lib.filterAttrs (_: system: lib.hasSuffix "darwin" system) hosts
       );
 
       # Standalone home-manager configuration entrypoint
+
       # Available through 'home-manager switch --flake .#your-username@your-hostname'
+
       homeConfigurations = lib.mapAttrs' (
         host: system: lib.nameValuePair "${user}@${host}" (mkHome host system)
       ) hosts;

@@ -1,12 +1,15 @@
+# Reports drift on the two things in this repo that nothing updates...
+
 # Reports drift on the two things in this repo that nothing updates for you.
-#
+
 # flake.lock covers every nixpkgs package, and warpd rides prev.warpd.src, so
 # both move on `nix-update`. These do not:
-#
+
 #   - the marketplace extensions pinned by version + sha256 in the vscode module
-#
+
 # Read-only: it prints what has fallen behind and exits 1 so it can gate a
 # check, but never edits anything.
+
 {
   lib,
   writeShellApplication,
@@ -21,8 +24,11 @@ writeShellApplication {
     python3
   ];
 
+  # Pass every argument through: the script takes an optional repo root...
+
   # Pass every argument through: the script takes an optional repo root plus
   # --quiet/--update, and consuming only $1 here would silently drop the flags.
+
   text = ''
     exec python3 "${./check-pins.py}" "$@"
   '';

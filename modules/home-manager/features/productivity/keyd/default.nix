@@ -1,3 +1,5 @@
+# productivity keyd
+
 {
   config,
   lib,
@@ -5,23 +7,29 @@
   ...
 }:
 
+# Linux keyboard remapping (Colemak + nav/sym layers) — the...
+
 # Linux keyboard remapping (Colemak + nav/sym layers) — the counterpart to the
 # macOS Karabiner config. keyd is a root daemon that owns /etc/keyd and a systemd
 # unit, which a standalone home-manager setup can't manage. So this ships a
 # `keyd-setup` helper that (re-execs with sudo to) install keyd, drop the config
 # into /etc/keyd/default.conf, and enable + reload the service. Run `keyd-setup`
 # once after a rebuild, and again whenever you edit the config fragments.
+
 let
   colemak = config.features.productivity.keyboard.layout == "colemak";
+
+  # Assembled from fragments rather than shipped whole, so the base...
 
   # Assembled from fragments rather than shipped whole, so the base letter remap
   # can be dropped without touching the layers. The split follows the file's own
   # structure: the Colemak block was already the last thing in [main], and [nav]
   # and [sym] are keyed to physical positions, so they are identical either way.
-  #
+
   #   keyd-main.conf     [ids] + [main]: caps/alt/esc/super/shift behaviour
   #   keyd-colemak.conf  the 17 QWERTY-to-Colemak letter mappings (conditional)
   #   keyd-layers.conf   [nav] + [sym]
+
   conf = pkgs.concatTextFile {
     name = "keyd-default.conf";
     files = [ ./keyd-main.conf ] ++ lib.optional colemak ./keyd-colemak.conf ++ [ ./keyd-layers.conf ];

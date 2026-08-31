@@ -1,3 +1,5 @@
+# home-manager hosts perseus perseus
+
 {
   config,
   inputs,
@@ -32,6 +34,7 @@
     };
 
     # Fix for gnome apps not openning due to vulcan driver issues
+
     sessionVariables = {
       GDK_DISABLE = "gles-api";
     };

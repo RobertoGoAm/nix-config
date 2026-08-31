@@ -1,3 +1,5 @@
+# productivity
+
 {
   imports = [
     ./karabiner.nix

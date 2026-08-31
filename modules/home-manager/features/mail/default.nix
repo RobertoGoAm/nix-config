@@ -1,17 +1,17 @@
-# Mail — mbsync pulls into a Maildir, mu indexes it, mu4e reads it.
-#
+# Mail — mbsync pulls into a Maildir, mu indexes it, mu4e reads it
+
 # Nothing identifying is in this file, and that is the point. Addresses live in
 # the gitignored ~/.config/nix-secrets/mail-accounts.nix, read at eval under
 # --impure -- the same privatePath pattern as work-extras.nix -- and passwords
 # are sops secrets read at runtime from /var/run/secrets. An address is as
 # revealing as the password here: this repo is public and names the employer
 # nowhere else.
-#
+
 # With the private file absent the module defines no accounts and does nothing,
 # so a fresh machine, or an adopter, still builds.
-#
+
 # ~/.config/nix-secrets/mail-accounts.nix looks like:
-#
+
 #   { ... }:
 #   {
 #     accounts.work = {
@@ -22,6 +22,7 @@
 #       primary = true;               # exactly one account must set this
 #     };
 #   }
+
 {
   config,
   lib,
@@ -41,9 +42,12 @@ let
 
   maildir = "${config.home.homeDirectory}/Mail";
 
+  # mbsync and msmtp both take the password from a command rather than...
+
   # mbsync and msmtp both take the password from a command rather than a file
   # they read themselves, which keeps the secret out of every generated config
   # in the nix store -- those are world-readable.
+
   toAccount =
     _name: a:
     {
@@ -76,9 +80,12 @@ lib.mkIf enable {
     accounts = lib.mapAttrs toAccount mailAccounts;
   };
 
+  # services.mbsync is Linux-only (it asserts the platform and builds a...
+
   # services.mbsync is Linux-only (it asserts the platform and builds a systemd
   # timer), so darwin gets the same launchd shape as the restic agent: every 15
   # minutes, background priority, logs where you can find them.
+
   launchd.agents.mbsync = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     enable = true;
     config = {

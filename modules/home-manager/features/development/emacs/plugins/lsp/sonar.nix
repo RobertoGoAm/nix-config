@@ -1,3 +1,5 @@
+# development emacs plugins lsp sonar
+
 {
   lib,
   pkgs,

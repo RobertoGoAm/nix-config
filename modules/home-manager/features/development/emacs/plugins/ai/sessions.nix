@@ -1,13 +1,19 @@
+# development emacs plugins ai sessions
+
 { lib, pkgs, ... }:
 let
+
+  # Claude Code keeps every conversation as JSONL under...
+
   # Claude Code keeps every conversation as JSONL under ~/.claude/projects, one
   # directory per working directory. `claude --resume` can reopen them, but its
   # picker only lists the current project's -- so a conversation from another
   # repo is unreachable even though the transcript is right there on disk.
-  #
+
   # This indexes all of them. Reading the first 40 records of each file is enough
   # for the metadata and the opening prompt, which keeps a ~1000-session sweep
   # well under a second rather than parsing 700MB.
+
   index = pkgs.writers.writePython3Bin "claude-session-index" { flakeIgnore = [ "E501" ]; } ''
     import glob
     import json

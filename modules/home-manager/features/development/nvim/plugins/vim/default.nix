@@ -1,3 +1,5 @@
+# development nvim plugins vim
+
 {
   plugins = {
     auto-session = {

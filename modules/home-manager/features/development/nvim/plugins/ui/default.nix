@@ -1,3 +1,5 @@
+# development nvim plugins ui
+
 {
   imports = [
     ./dashboard.nix

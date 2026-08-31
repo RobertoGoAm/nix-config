@@ -1,3 +1,5 @@
+# home-manager hosts perseus packages
+
 {
   pkgs,
   ...
@@ -13,16 +15,23 @@ let
       };
 in
 {
+
+  # Aligned with the prometheus base for everything that builds on...
+
   # Aligned with the prometheus base for everything that builds on linux; the
   # darwin-only apps (raycast, iina, cyberduck, the-unarchiver, vlc-bin, chatgpt)
   # are dropped, and the GNOME/X11/linux-native bits below are perseus-specific.
+
   home.packages =
     (with pkgs; [
+
       # Desktop (linux)
+
       gnomeExtensions.forge
       gnomeExtensions.space-bar
 
       # Development
+
       cabal-install
       codex-acp
       gcc
@@ -37,6 +46,7 @@ in
       stack
 
       # DevOps
+
       actionlint
       age
       ansible
@@ -80,28 +90,34 @@ in
       yubikey-manager
 
       # Internet (linux)
+
       google-chrome
 
       # Media
+
       playerctl
       ffmpeg
       spotify
       vlc
 
       # Productivity
+
       anki-bin
       gnome-calendar
       obsidian
 
       # Security
+
       bitwarden-desktop
       libsecret
 
       # Social
+
       discord
       telegram-desktop
 
       # Tool
+
       coreutils
       gnutar
       graphviz
@@ -118,9 +134,11 @@ in
       xclip
 
       # Work
+
       git-credential-manager
 
       # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+
     ])
     ++ private.linuxPackages;
 }

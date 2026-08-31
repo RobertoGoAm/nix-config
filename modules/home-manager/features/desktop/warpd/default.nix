@@ -1,3 +1,5 @@
+# desktop warpd
+
 {
   config,
   lib,
@@ -10,12 +12,17 @@ in
 {
   imports = [ ../../productivity/keyboard-layout.nix ];
 
+  # warpd — keyboard-driven mouse pointer control. nixpkgs ships it for...
+
   # warpd — keyboard-driven mouse pointer control. nixpkgs ships it for Linux;
   # on darwin pkgs.warpd is built from source (overlays/warpd.nix). Linux pulls
   # it in here via home-manager; on darwin it's installed system-wide by the
   # launchd service module instead — the standalone darwin homeConfigurations use
   # an un-overlaid pkgs set where nixpkgs warpd is Linux-only and wouldn't eval.
+
   home.packages = lib.mkIf pkgs.stdenv.hostPlatform.isLinux [ pkgs.warpd ];
+
+  # Bindings are placed by PHYSICAL key position — each value is the...
 
   # Bindings are placed by PHYSICAL key position — each value is the Colemak
   # letter at the physical position of warpd's QWERTY default — so the finger
@@ -30,11 +37,12 @@ in
   # this file entirely under QWERTY and those three would fire a chord warpd no
   # longer listens for, so the chords stay put under both layouts and only the
   # in-mode bindings move.
-  #
+
   # Those in-mode bindings are all physical-position translations, and warpd's
   # defaults are the QWERTY originals they translate away from -- movement on
   # hjkl, hint labels on the QWERTY home row -- so omitting them IS the QWERTY
   # configuration.
+
   xdg.configFile."warpd/config".text = ''
     # Global activation chords. Layout-independent: these are what Karabiner,
     # keyd and GNOME send, and they are matched on the chord, not the physical

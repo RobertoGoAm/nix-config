@@ -1,3 +1,5 @@
+# development nvim plugins completion lspkind
+
 {
   plugins = {
     lspkind = {

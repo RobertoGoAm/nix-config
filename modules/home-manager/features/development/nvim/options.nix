@@ -1,3 +1,5 @@
+# development nvim options
+
 {
   extraConfigLua = ''
     local api = vim.api
@@ -55,79 +57,101 @@
   '';
 
   opts = {
+
     # Set encoding to UTF-8
+
     encoding = "utf-8";
     fileencoding = "utf-8";
 
     # Don't close unsaved files on switch, hide instead
+
     hidden = true;
 
     # Relative line numbers
+
     number = true;
     relativenumber = true;
 
     # Show commands while awaiting input
+
     showcmd = true;
 
     # Always show sign column
+
     signcolumn = "yes";
 
     # Highlight cursor line
+
     cursorline = true;
 
     # Taller command section
+
     cmdheight = 1;
 
     # Time before writting to swap file
+
     updatetime = 300;
 
     # Ask before closing buffers
+
     confirm = true;
 
     # Disable wrap
+
     wrap = false;
 
     # Limit popup suggestion
+
     pumheight = 10;
 
-    # Folding is configured in plugins/code/navigation.nix (nvim-ufo)
-
     # Search as characters are entered
+
     incsearch = true;
 
     # Highlight search matches
+
     hlsearch = true;
 
     # Autocomplete for command menu
+
     wildmenu = true;
 
     # Ignore case unless uppercase character is introduced
+
     ignorecase = true;
     smartcase = true;
 
     # New splits should appear down in the vertical axis
+
     splitbelow = true;
 
     # New splits should appear right in the horizontal axis
+
     splitright = true;
 
     # Typical backspace behavior
+
     backspace = "indent,eol,start";
 
     # Convert tabs to spaces
+
     expandtab = true;
 
     # Change tab to 2 spaces
+
     tabstop = 2;
     softtabstop = 2;
 
     # Automatic indent to 2 spaces
+
     shiftwidth = 2;
 
     # Colors
+
     background = "dark";
 
     # Leader timeout
+
     timeoutlen = 500;
   };
 }

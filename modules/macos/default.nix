@@ -1,3 +1,5 @@
+# macos
+
 {
   config,
   inputs,
@@ -17,20 +19,26 @@
     ../homebrew/homebrew.nix
   ]
   ++ (
+
     # Machine-local sops secrets (client/work SSH keys). Kept out of the
+
     # public nix-config repo because the secret KEY NAMES leak client
     # identities. The file declares additional `config.sops.secrets.*`
     # entries that merge into the set defined below.
+
     let
       privateSopsPath = "/Users/${user}/.config/nix-secrets/sops-secrets.nix";
     in
     if builtins.pathExists privateSopsPath then [ privateSopsPath ] else [ ]
   );
 
+  # Default: on when the age key exists, off otherwise — so a machine...
+
   # Default: on when the age key exists, off otherwise — so a machine with no
   # secrets (e.g. someone adopting this config) still builds; sops just no-ops.
   # Needs --impure (absolute pathExists), which this config already requires for
   # the conditional sops-secrets.nix import above.
+
   options.features.security.sops.enable = lib.mkOption {
     type = lib.types.bool;
     default = builtins.pathExists "/Users/${user}/.config/sops/age/system_keys.txt";
@@ -45,9 +53,12 @@
         keyFile = "/Users/${user}/.config/sops/age/system_keys.txt";
         sshKeyPaths = [ ];
       };
+
       # System-level secrets. Generic ones (your own personal keys + env
+
       # tokens) live here; anything that names a client lives in the
       # machine-local sops-secrets.nix that's conditionally imported above.
+
       secrets = {
         user_password = {
           owner = user;
@@ -73,14 +84,21 @@
           owner = user;
           path = "/Users/${user}/.ssh/id_rsa";
         };
+
         # *.pub files are not stored in sops — derive them from the private
+
         # keys above with the `pubkey-setup` command (see features/security).
+
       };
     };
 
     services.tailscale.enable = true;
+
+    # Application firewall — currently on; lock it on (the old...
+
     # Application firewall — currently on; lock it on (the old system.defaults.alf
     # was removed upstream in favour of this option).
+
     networking.applicationFirewall.enable = true;
     services.openssh = {
       enable = true;
@@ -133,9 +151,13 @@
       config = {
         allowUnfree = true;
         allowUnfreePredicate = (_: true);
+
+        # checkov pulls in python-ecdsa, marked insecure in nixpkgs...
+
         # checkov pulls in python-ecdsa, marked insecure in nixpkgs (CVE-2024-23342).
         # Matched by name rather than pinned to a version so it survives nixpkgs
         # bumping its default python (3.13 -> 3.14 renamed the derivation).
+
         allowInsecurePredicate = pkg: builtins.elem (lib.getName pkg) [ "ecdsa" ];
       };
       hostPlatform = system;
@@ -167,10 +189,14 @@
           NSAutomaticQuoteSubstitutionEnabled = false;
           NSAutomaticSpellingCorrectionEnabled = false;
           AppleKeyboardUIMode = 3;
+
+          # Pinned to documented macOS defaults (were unset) for full...
+
           # Pinned to documented macOS defaults (were unset) for full reproducibility.
           # NOT pinned, deliberately: AppleFontSmoothing (harms Retina text),
           # Apple{ICUForce24HourTime,MeasurementUnits,MetricUnits,TemperatureUnit}
           # (locale-driven), com.apple.mouse.tapBehavior (no clean off value).
+
           AppleEnableMouseSwipeNavigateWithScrolls = true;
           AppleEnableSwipeNavigateWithScrolls = true;
           AppleScrollerPagingBehavior = false;
@@ -203,13 +229,17 @@
           ShowStatusBar = true;
           QuitMenuItem = true;
           FXEnableExtensionChangeWarning = false;
-          # Desktop icons — locked to current state.
+
+          # Desktop icons — locked to current state
+
           ShowExternalHardDrivesOnDesktop = true;
           ShowHardDrivesOnDesktop = false;
           ShowRemovableMediaOnDesktop = true;
           ShowMountedServersOnDesktop = false;
           _FXShowPosixPathInTitle = false;
-          # Pinned to macOS defaults (were unset).
+
+          # Pinned to macOS defaults (were unset)
+
           AppleShowAllFiles = false;
           CreateDesktop = true;
           FXRemoveOldTrashItems = false;
@@ -221,13 +251,18 @@
           orientation = "left";
           mru-spaces = false; # don't auto-rearrange Spaces by most-recent use
           show-recents = false;
-          # Hot corners all disabled (1 = no action).
+
+          # Hot corners all disabled (1 = no action)
+
           wvous-tl-corner = 1;
           wvous-tr-corner = 1;
           wvous-bl-corner = 1;
           wvous-br-corner = 1;
+
           # Right-side folder stacks. Downloads sorted most-recent-first; the
+
           # ~/Development stack is created by features/development on activation.
+
           persistent-others = [
             {
               folder = {
@@ -237,7 +272,9 @@
             }
             { folder = "/Users/${user}/Development"; }
           ];
-          # Pinned to macOS defaults (were unset).
+
+          # Pinned to macOS defaults (were unset)
+
           appswitcher-all-displays = false;
           autohide-delay = 0.24;
           autohide-time-modifier = 1.0;
@@ -261,21 +298,29 @@
         SoftwareUpdate.AutomaticallyInstallMacOSUpdates = true;
 
         # Control Center / menu-bar items. true = show icon in the menu bar,
+
         # false = hide it. Bluetooth + Focus hidden per preference.
+
         controlcenter = {
           AirDrop = false;
           BatteryShowPercentage = false;
           Bluetooth = false;
           Display = false;
           FocusModes = false;
+
           # The menu bar already carries now-playing via the SwiftBar status
+
           # item, and this was re-asserting itself over every manual attempt to
           # hide it.
+
           NowPlaying = false;
           Sound = true;
         };
 
+        # Stage Manager off (current); standard edge-tiling on (macOS...
+
         # Stage Manager off (current); standard edge-tiling on (macOS defaults).
+
         WindowManager = {
           GloballyEnabled = false;
           AutoHide = false;
@@ -288,7 +333,8 @@
           StandardHideDesktopIcons = false;
         };
 
-        # Screenshots — PNG to Desktop (current behaviour, now explicit).
+        # Screenshots — PNG to Desktop (current behaviour, now explicit)
+
         screencapture = {
           target = "file";
           type = "png";
@@ -300,7 +346,10 @@
         spaces.spans-displays = false; # displays keep separate Spaces (default)
         magicmouse.MouseButtonMode = "TwoButton"; # enable right (secondary) click on the mouse
 
+        # Trackpad — locked to current state (tap-to-click off, two-finger...
+
         # Trackpad — locked to current state (tap-to-click off, two-finger right-click).
+
         trackpad = {
           Clicking = false;
           Dragging = false;
@@ -313,15 +362,20 @@
         };
 
         # Console access at the login window is a root shell behind a magic
+
         # username; GuestEnabled and SHOWFULLNAME are already set above.
+
         loginwindow.DisableConsoleAccess = true;
 
-        # Current menu-bar clock, declared rather than changed.
+        # Current menu-bar clock, declared rather than changed
+
         menuExtraClock = {
           ShowAMPM = true;
           ShowDate = 0;
           ShowDayOfWeek = true;
         };
+
+        # No universalaccess here: macOS keeps com.apple.universalaccess...
 
         # No universalaccess here: macOS keeps com.apple.universalaccess behind
         # a protected store, so activation only produces "Could not write domain
@@ -329,13 +383,16 @@
         # System Settings → Accessibility.
 
         CustomUserPreferences = {
-          # Opt out of ad personalisation and the advertising identifier.
+
+          # Opt out of ad personalisation and the advertising identifier
+
           "com.apple.AdLib" = {
             allowApplePersonalizedAdvertising = false;
             allowIdentifierForAdvertising = false;
           };
 
-          # Crash dialogs steal focus mid-work; the reports still get written.
+          # Crash dialogs steal focus mid-work; the reports still get written
+
           "com.apple.CrashReporter" = {
             DialogType = "none";
           };
@@ -355,12 +412,18 @@
       ];
       home = "/Users/${user}";
       openssh.authorizedKeys.keys = [
-        # Phone / mobile SSH clients.
+
+        # Phone / mobile SSH clients
+
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq mobile-ssh-1"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOwqeO12WNRNFxGNZKBG+VHJKLkc6JvOvRUdQkius4S mobile-ssh-2"
+
+        # Personal machine keys (laptop/perseus). SSH *public* keys are safe...
+
         # Personal machine keys (laptop/perseus). SSH *public* keys are safe to
         # commit — only the private half authenticates. Client/work keys are NOT
         # here on purpose (they'd leak client names and aren't for inbound access).
+
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOM0QfOlRBSF0bPOfWPBzQVpCH3h/9UaOFTKc5N0QpG7 robertogoam@perseus"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPXFC2MyOXYGjvQJMgbWBdz5EuYH3A+dCwz/17n9zpdv robertogoam"
       ];

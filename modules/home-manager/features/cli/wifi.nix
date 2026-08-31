@@ -1,5 +1,10 @@
+# cli wifi
+
 { pkgs, ... }:
 let
+
+  # Seed Wi-Fi from the encrypted secrets store. `wifi_names` is a...
+
   # Seed Wi-Fi from the encrypted secrets store. `wifi_names` is a space-separated
   # list of labels to register (e.g. "home_2g home_5g work"; defaults to
   # "home work"); each label <n> uses wifi_<n>_ssid / wifi_<n>_psk (+ optional
@@ -7,6 +12,7 @@ let
   # (macOS) or NetworkManager connection (Linux). No sops.secrets declaration
   # needed — it decrypts on demand with the local age key. Run once on a fresh
   # machine after that key is in place.
+
   wifi-setup = pkgs.writeShellScriptBin "wifi-setup" ''
     set -uo pipefail
     secrets="$HOME/.config/nix-secrets/secrets.yaml"

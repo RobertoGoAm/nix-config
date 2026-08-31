@@ -1,9 +1,15 @@
+# development emacs plugins ui report
+
 { lib, ... }:
 {
+
+  # One command that collects everything worth having when Emacs...
+
   # One command that collects everything worth having when Emacs misbehaves, so
   # a bug report is a file rather than a description. *Messages* alone is rarely
   # enough -- the useful context is usually the warning that scrolled past, the
   # backtrace nobody saved, and how long startup actually took.
+
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Diagnostics report.
 

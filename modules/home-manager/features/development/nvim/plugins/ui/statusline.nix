@@ -1,3 +1,5 @@
+# development nvim plugins ui statusline
+
 {
   plugins = {
     lualine = {

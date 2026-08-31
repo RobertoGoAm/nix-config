@@ -1,13 +1,17 @@
+# development emacs plugins apps browser
+
 {
   lib,
   pkgs,
   ...
 }:
 {
+
   # A real browser inside Emacs. This build has xwidgets compiled in
+
   # (withXwidgets = true, xwidget-internal present), so xwidget-webkit renders
   # actual WebKit -- CSS, JavaScript, logins -- not eww's text approximation.
-  #
+
   # It is not a replacement for the system browser, and two things in particular
   # must stay outside it:
   #   - Google Meet and anything else needing WebRTC. xwidget-webkit has no
@@ -15,6 +19,7 @@
   #   - Anything wanting your logged-in profile, extensions or a password
   #     manager. The xwidget has its own empty cookie jar.
   # my/browse-external exists for exactly those, and the Meet/Chat commands use it.
+
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Browser -- xwidget-webkit for reading, the system browser for the rest.
 

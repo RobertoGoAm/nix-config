@@ -1,3 +1,5 @@
+# home-manager modules iterm2
+
 {
   config,
   lib,
@@ -11,13 +13,17 @@ let
   cfg = config.programs.iterm2;
 
   # Convert hex color to iTerm2 color format
+
   hexToITermColor =
     hex:
     let
+
       # Remove the leading '#' if present
+
       hexColor = lib.strings.removePrefix "#" hex;
 
       # Hex digit to decimal value mapping
+
       hexDigits = {
         "0" = 0;
         "1" = 1;
@@ -44,6 +50,7 @@ let
       };
 
       # Convert two hex digits to decimal
+
       hexPairToDecimal =
         hexPair:
         let
@@ -53,6 +60,7 @@ let
         (upperDigit * 16 + lowerDigit) / 255.0;
 
       # Extract and convert RGB components
+
       r = hexPairToDecimal (lib.strings.substring 0 2 hexColor);
       g = hexPairToDecimal (lib.strings.substring 2 2 hexColor);
       b = hexPairToDecimal (lib.strings.substring 4 2 hexColor);
@@ -66,6 +74,7 @@ let
     };
 
   # Profile type for iTerm2 configuration
+
   profileType = types.submodule {
     options = {
       name = mkOption {
@@ -457,12 +466,17 @@ let
   };
 
   # Generate a deterministic GUID from a string
+
   mkGuid =
     str:
     let
+
       # Generate a deterministic hash from the string
+
       hash = builtins.hashString "sha256" str;
+
       # Format it as a GUID (8-4-4-4-12)
+
       guidParts = [
         (lib.strings.substring 0 8 hash)
         (lib.strings.substring 8 4 hash)
@@ -474,9 +488,12 @@ let
     concatStringsSep "-" guidParts;
 
   # Create the iTerm2 plist content
+
   iTerm2PlistContent =
     let
+
       # Process each profile to produce iTerm2 format
+
       processProfile = profile: {
         "Name" = profile.name;
         "Guid" = if profile.guid != "" then profile.guid else mkGuid profile.name;
@@ -505,7 +522,9 @@ let
         "Ansi 7 Color" = hexToITermColor profile.colors.white.normal;
         "Ansi 15 Color" = hexToITermColor profile.colors.white.bright;
         "Command" = if profile.command != "" then profile.command else "/bin/bash";
+
         # Cursor type: 0 = underline, 1 = vertical bar, 2 = box
+
         "Cursor Type" =
           if profile.cursor.type == "box" then
             2
@@ -515,7 +534,9 @@ let
             0
           else
             2;
+
         # Terminal settings
+
         "BM Growl" = if profile.terminal.showBellIcon then 1 else 0;
         "Visual Bell" = if profile.terminal.visualBell then 1 else 0;
         "Close Sessions On End" = if profile.terminal.closeSessionsOnEnd then 1 else 0;
@@ -523,13 +544,16 @@ let
         "Mouse Reporting" = if profile.terminal.mouseReporting then 1 else 0;
 
         # Window size
+
         "Columns" = profile.window.columns;
         "Rows" = profile.window.rows;
 
         # Transparency
+
         "Transparency" = profile.transparency;
 
         # Hotkey settings
+
         "Has Hotkey" = if profile.hotkey.enabled then 1 else 0;
         "HotKey Characters" = profile.hotkey.characters;
         "HotKey Characters Ignoring Modifiers" = profile.hotkey.characters;
@@ -544,16 +568,20 @@ let
         "Window Type" = if profile.hotkey.windowType == "quake" then 1 else 0;
 
         # Scrollback settings
+
         "Scrollback Lines" = profile.scrollback.lines;
         "Unlimited Scrollback" = if profile.scrollback.unlimited then 1 else 0;
 
         # Jobs to ignore
+
         "Jobs to Ignore" = profile.jobs.toIgnore;
 
         # Tags
+
         "Tags" = profile.tags;
 
         # Spacing and visual settings
+
         "Horizontal Spacing" = profile.spacing.horizontal;
         "Vertical Spacing" = profile.spacing.vertical;
         "Blend" = profile.blend;
@@ -562,9 +590,11 @@ let
       };
 
       # Process all profiles
+
       profilesData = map processProfile cfg.profiles;
 
       # Find the default profile GUID
+
       getProfileGuid = profile: if profile.guid != "" then profile.guid else mkGuid profile.name;
       defaultProfileGuid =
         let
@@ -573,6 +603,7 @@ let
         if length defaultProfiles > 0 then getProfileGuid (head defaultProfiles) else "";
 
       # Theme value mapping
+
       themeValue =
         if cfg.settings.appearance.theme == "regular" then
           0
@@ -584,12 +615,14 @@ let
           0;
 
       # Create the plist data structure
+
       plist = {
         "New Bookmarks" = profilesData;
         "Default Bookmark Guid" = defaultProfileGuid;
         "TabStyleWithAutomaticOption" = themeValue;
 
         # General settings
+
         "HapticFeedbackForEsc" = if cfg.settings.general.hapticFeedbackForEsc then 1 else 0;
         "SoundForEsc" = if cfg.settings.general.soundForEsc then 1 else 0;
         "VisualIndicatorForEsc" = if cfg.settings.general.visualIndicatorForEsc then 1 else 0;
@@ -608,6 +641,7 @@ let
         "LaunchAtLogin" = if cfg.settings.general.launchAtLogin then 1 else 0;
 
         # Keyboard shortcuts
+
         "Keyboard Map" = lib.listToAttrs (
           map (shortcut: {
             name = shortcut.action;
@@ -845,7 +879,9 @@ in
 
     xdg.configFile."iTerm2/com.googlecode.iterm2.plist".text =
       let
+
         # Convert a Nix value to XML plist representation
+
         plistValue =
           v:
           if builtins.isString v then

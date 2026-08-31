@@ -1,18 +1,24 @@
+# security pubkey-setup
+
 { pkgs, ... }:
 let
+
+  # Manual command to (re)generate ~/.ssh/*.pub from the private keys....
+
   # Manual command to (re)generate ~/.ssh/*.pub from the private keys. Public
   # keys aren't secrets, so they're derived rather than stored in sops.
-  #
+
   # This is a manual step (a sibling to `wifi-setup`), NOT an activation hook,
   # because `ssh-keygen -y` prompts for the passphrase on encrypted keys and
   # would otherwise block the non-interactive nix-build / home-manager switch.
   # Unencrypted keys (e.g. the sops-rendered ones on the macs) derive silently;
   # passphrase-protected keys prompt for their passphrase — only when you run
   # this by hand — and the private key is never modified or downgraded.
-  #
+
   # Cross-platform: iterates $HOME/.ssh on macOS and Linux alike. Run it once on
   # a fresh machine (bootstrap.sh does this for you) and after adding/rotating a
   # key whose .pub is missing or stale.
+
   pubkey-setup = pkgs.writeShellScriptBin "pubkey-setup" ''
     set -uo pipefail
     sshdir="$HOME/.ssh"

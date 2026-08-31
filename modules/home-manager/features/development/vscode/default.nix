@@ -1,3 +1,5 @@
+# development vscode
+
 {
   config,
   lib,
@@ -8,10 +10,13 @@
 let
   colemak = config.features.productivity.keyboard.layout == "colemak";
 
+  # The hnei rotation for the VS Code vim extension, shared by the...
+
   # The hnei rotation for the VS Code vim extension, shared by the normal,
   # operator-pending and visual lists -- all three carried an identical copy.
   # Empty under layout = "qwerty", which leaves the extension on stock vim
   # bindings; the vspacecode space entries are not layout-specific and stay.
+
   colemakVimSwaps = lib.optionals colemak [
     {
       "before" = [ "n" ];
@@ -64,8 +69,11 @@ let
   ];
 in
 let
-  # Extensions the work devcontainer.json already installs.
+
+  # Extensions the work devcontainer.json already installs
+
   # Personal extensions minus these become dev.containers.defaultExtensions.
+
   devcontainerExtensions = map lib.toLower [
     "antfu.vite"
     "anthropic.claude-code"
@@ -80,7 +88,10 @@ let
     "vue.volar"
   ];
 
+  # Host-side extensions that are pointless inside a container — never...
+
   # Host-side extensions that are pointless inside a container — never auto-install these.
+
   hostOnlyExtensions = map lib.toLower [
     "ms-vscode-remote.remote-containers"
   ];
@@ -179,12 +190,15 @@ in
               name = "terraform";
               publisher = "hashicorp";
               version = "2.40.0";
+
               # Rehashed 2026-08-31, same version. The marketplace served different
+
               # bytes for 2.40.0 than when this was pinned. Not a fetcher change:
               # vscode-utils.nix is byte-identical across the nixpkgs bump that
               # surfaced it. Not a release we were behind on either -- check-pins
               # still reports 2.40.0 as current. A re-publish under an unchanged
               # version number.
+
               sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
             }
             {
@@ -522,13 +536,17 @@ in
             "when" = "sideBarFocus && !inputFocus && !whichkeyActive";
           }
           {
+
             # for search input
+
             "key" = "escape";
             "command" = "search.action.focusSearchList";
             "when" = "inputFocus && searchViewletFocus";
           }
           {
+
             # for scm input box
+
             "key" = "escape";
             "command" = "workbench.scm.focus";
             "when" = "inputFocus && focusedView == 'workbench.scm'";
@@ -630,10 +648,13 @@ in
         ];
 
         userSettings = {
+
           # Accesibility
+
           "editor.accessibilitySupport" = "off";
 
           # Appearance
+
           "editor.rulers" = [ 100 ];
           "editor.fontFamily" = "'JetBrainsMono Nerd Font Mono', Menlo, Monaco, 'Courier New', monospace";
           "editor.minimap.enabled" = false;
@@ -642,6 +663,7 @@ in
           "window.autoDetectColorScheme" = false; # workbench.colorTheme decides, not the OS
 
           # Extensions
+
           "nix.formatterPath" = "${lib.getExe pkgs.nixfmt}";
           "nix.enableLanguageServer" = true;
           "nix.serverPath" = "${lib.getExe pkgs.nixd}";
@@ -657,6 +679,7 @@ in
           "geminicodeassist.displayInlineContextHint" = false;
 
           # Formatting
+
           "[javascript]" = {
             "editor.defaultFormatter" = "esbenp.prettier-vscode";
           };
@@ -677,6 +700,7 @@ in
           "editor.tabSize" = 2;
 
           # Git
+
           "diffEditor.ignoreTrimWhitespace" = true;
           "diffEditor.renderSideBySide" = false;
           "git.autofetch" = true;
@@ -685,14 +709,19 @@ in
           "git.ignoreRebaseWarning" = true;
 
           # i18n-ally
+
           "i18n-ally.dirStructure" = "auto";
           "i18n-ally.displayLanguage" = "es-ES";
 
           # Prisma
+
           "prisma.showPrismaDataPlatformNotification" = false;
+
+          # Sonarlint — use the nix-provided node (deterministic +...
 
           # Sonarlint — use the nix-provided node (deterministic + cross-platform)
           # instead of a hardcoded ~/.nvm path that only exists on one mac.
+
           "sonarlint.pathToNodeExecutable" = "${pkgs.nodejs}/bin/node";
           "sonarlint.rules" = {
             "Web =TableWithoutCaptionCheck" = {
@@ -704,8 +733,11 @@ in
           };
 
           # TotalTypescript
+
           "totalTypeScript.hideAllTips" = false;
           "totalTypeScript.hideBasicTips" = false;
+
+          # Updates — nix owns the version, so the built-in updater must stay...
 
           # Updates — nix owns the version, so the built-in updater must stay off.
           # Left on, Squirrel rewrites ~/Applications/Home Manager Apps/Visual Studio
@@ -714,11 +746,13 @@ in
           # and home-manager's copyApps rsync fails with "Operation not permitted"
           # on every subsequent rebuild. Extensions come from the read-only
           # mutableExtensionsDir = false store path, so their updater can't work either.
+
           "update.mode" = "none";
           "extensions.autoUpdate" = false;
           "extensions.autoCheckUpdates" = false;
 
           # Vim
+
           "vim.easymotion" = true;
           "vim.easymotionMarkerForegroundColorOneChar" = "#FF0000";
           "vim.easymotionMarkerForegroundColorTwoCharFirst" = "#FFFF00";
@@ -726,6 +760,7 @@ in
           "vim.useSystemClipboard" = true;
 
           # Vim COLEMAK remaps
+
           "vim.normalModeKeyBindingsNonRecursive" = [
             {
               "before" = [ " " ];
@@ -751,6 +786,7 @@ in
           ++ colemakVimSwaps;
 
           # VSpaceCode
+
           "vspacecode.bindingOverrides" = [
             {
               "keys" = "w.n";
@@ -780,18 +816,25 @@ in
           "whichkey.delay" = 700;
           "window.titleBarStyle" = "custom";
 
+          # Dev Containers — auto-install my personal extensions in every...
+
           # Dev Containers — auto-install my personal extensions in every container,
           # minus what the devcontainer already ships and host-only ones.
+
           "dev.containers.defaultExtensions" = lib.subtractLists (
             devcontainerExtensions ++ hostOnlyExtensions
           ) (map (e: lib.toLower e.vscodeExtUniqueId) config.programs.vscode.profiles.default.extensions);
 
           # Default the integrated terminal in Linux dev containers to the
+
           # "zsh (comfy)" profile the devcontainer defines.
+
           "terminal.integrated.defaultProfile.linux" = "zsh (comfy)";
 
           # VS Code auto-adds this when opening a remote/container and tries to
+
           # persist it; declare it so it never writes to this read-only settings file.
+
           "remote.autoForwardPortsSource" = "hybrid";
         };
       };

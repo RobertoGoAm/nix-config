@@ -1,3 +1,5 @@
+# development emacs plugins lsp diagnostics
+
 {
   lib,
   pkgs,

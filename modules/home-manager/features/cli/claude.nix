@@ -1,13 +1,18 @@
+# cli claude
+
 { ... }:
 {
   programs.claude-code = {
     enable = true;
+
+    # mcpServers is deliberately left undeclared. The module only emits...
 
     # mcpServers is deliberately left undeclared. The module only emits its
     # .mcp.json when the set is non-empty, and it never touches ~/.claude.json,
     # so servers registered with `claude mcp add` survive a rebuild. context,
     # skills and plugins are left out for the same reason: they would pull
     # pipeline content into this public repo.
+
     settings = {
       enabledMcpjsonServers = [
         "pipeline-rag"
@@ -17,7 +22,9 @@
       ];
       permissions = {
         allow = [
+
           # ── Core tool primitives ──────────────────────────────────────────
+
           "Read"
           "Glob"
           "Grep"
@@ -31,10 +38,14 @@
           "Skill(*)"
 
           # ── Generic shell ops (read-only inspection + safe write) ────────
+
           "Bash(ls)"
           "Bash(ls *)"
+
           # NOTE: to bypass the rtk `ls`→`rtk ls` rewrite for raw output, use
+
           # `rtk proxy ls …` (allow-listed via `Bash(rtk proxy *)`), NOT `/bin/ls`.
+
           "Bash(pwd)"
           "Bash(cd *)"
           "Bash(echo *)"
@@ -85,11 +96,14 @@
           "Bash(realpath *)"
           "Bash(readlink *)"
           "Bash(xargs *)"
+
           # `timeout <dur> <cmd>` — a command WRAPPER, so NOT blanket-allowed:
+
           # `Bash(timeout *)` would let `timeout 5 git push --force` / `timeout 5 rm
           # -rf …` slip past the prefix-match deny list. Treated like rtk — scoped to
           # safe inner commands only; any other timeout-wrapped command still prompts.
           # (Compound forms `timeout 5 X; <danger>` are split + checked per-segment.)
+
           "Bash(timeout * pnpm test*)"
           "Bash(timeout * pnpm build*)"
           "Bash(timeout * pnpm dev*)"
@@ -108,6 +122,7 @@
           "Bash(npx --version)"
 
           # ── Git read-only ────────────────────────────────────────────────
+
           "Bash(git status)"
           "Bash(git status *)"
           "Bash(git diff)"
@@ -148,10 +163,13 @@
           "Bash(git worktree list *)"
 
           # ── Git `-C <path>` (run in another repo — broad allow paired
+
           # with destructive-form denies below) ────────────────────────────
+
           "Bash(git -C *)"
 
           # ── Git write (local — no destructive history rewrites; see deny)
+
           "Bash(git add *)"
           "Bash(git commit *)"
           "Bash(git checkout -b *)"
@@ -175,18 +193,19 @@
           "Bash(git revert --abort)"
           "Bash(git revert --continue)"
 
-          # ── Git push: NOT global. Lives in each project's settings.local.json so
-          # push is a per-project opt-in (outward action). Force/delete remain denied
-          # below (bare + rtk-wrapped forms).
-
           # ── gh CLI (read + safe writes) ──────────────────────────────────
+
           "Bash(gh auth status)"
           "Bash(gh pr view *)"
           "Bash(gh pr list)"
           "Bash(gh pr list *)"
           "Bash(gh pr checks *)"
           "Bash(gh pr diff *)"
+
+          # gh pr create: per-project (project settings.local.json), like git...
+
           # gh pr create: per-project (project settings.local.json), like git push.
+
           "Bash(gh pr comment *)"
           "Bash(gh pr review *)"
           "Bash(gh issue view *)"
@@ -214,10 +233,14 @@
           "Bash(gh variable list *)"
           "Bash(gh variable get *)"
           "Bash(gh variable set *)"
+
+          # rtk proxy: wildcard allowed per user decision (consolidate rtk...
+
           # rtk proxy: wildcard allowed per user decision (consolidate rtk allows here).
           # ⚠ TRADEOFF: `rtk proxy <cmd>` bypasses the rtk output filter AND the deny
           # list (e.g. `rtk proxy git push --force` would NOT be blocked). The scoped
           # forms below are now redundant but kept for documentation.
+
           "Bash(rtk proxy *)"
           "Bash(rtk proxy gh run view *)"
           "Bash(rtk proxy gh run list *)"
@@ -226,25 +249,9 @@
           "Bash(rtk proxy gh pr checks *)"
           "Bash(rtk proxy pnpm lint)"
           "Bash(rtk proxy pnpm lint *)"
-          # ── rtk auto-rewrite forms (read-only only) ──────────────────────
-          # The rtk hook rewrites verbose dev commands to `rtk <cmd>` for token
-          # savings (RTK.md: `git status` -> `rtk git status`), which moves them
-          # out from under BOTH the allow-list and the deny-list — so the bare
-          # `find */grep *` allows don't cover them and `find ... | grep ...`
-          # prompts. Mirror only the read-only forms rtk wraps (command set per
-          # https://github.com/rtk-ai/rtk).
-          #
-          # HARD RULES (deny-list safety):
-          #   - For tools with destructive subcommands (git, gh, docker) scope to
-          #     the safe subcommand. NEVER `rtk git *` / `rtk docker *` — that
-          #     re-opens `rtk git push --force` etc. past the deny-list.
-          #   - NEVER `rtk *`, and never the generic wrappers `rtk test|err|smart|
-          #     proxy|summary|verify *` — they take an arbitrary command and would
-          #     wrap anything (`rtk err rm -rf /`).
-          #   - Tests/lint run via `pnpm test`/`pnpm lint` (already allowed), not
-          #     bare `vitest`/`eslint`, so their rtk wrappers are intentionally omitted.
 
           # filesystem / search / inspect (pure read-only)
+
           "Bash(rtk ls)"
           "Bash(rtk ls *)"
           "Bash(rtk tree)"
@@ -257,8 +264,11 @@
           "Bash(rtk env)"
           "Bash(rtk json *)"
 
+          # git under rtk — read-only subcommands + add/commit (writes). push...
+
           # git under rtk — read-only subcommands + add/commit (writes). push is NOT
           # here: it's per-project local, and force/delete are denied below (incl. rtk).
+
           "Bash(rtk git status)"
           "Bash(rtk git status *)"
           "Bash(rtk git log)"
@@ -272,6 +282,7 @@
           "Bash(rtk git commit *)"
 
           # gh — read-only subcommands only
+
           "Bash(rtk gh pr list)"
           "Bash(rtk gh pr list *)"
           "Bash(rtk gh pr view *)"
@@ -283,6 +294,7 @@
           "Bash(rtk gh run view *)"
 
           # docker — read-only subcommands only
+
           "Bash(rtk docker ps)"
           "Bash(rtk docker ps *)"
           "Bash(rtk docker images)"
@@ -292,9 +304,12 @@
           "Bash(rtk docker compose logs *)"
           "Bash(node --check *)"
           "Bash(shasum *)"
+
           # Makefile dev loop (non-destructive targets only). Deliberately NOT
+
           # `make dev-reset` (drops the DB volume) and NOT `make *` — destructive
           # targets must still prompt.
+
           "Bash(make)"
           "Bash(make help)"
           "Bash(make dev-up)"
@@ -306,6 +321,7 @@
           "Bash(gh search *)"
 
           # ── pnpm / npm ───────────────────────────────────────────────────
+
           "Bash(pnpm test)"
           "Bash(pnpm test *)"
           "Bash(pnpm test:*)"
@@ -338,7 +354,11 @@
           "Bash(node scripts/*)"
           "Bash(python3 scripts/*)"
           "Bash(python scripts/*)"
+
+          # node --test scoped to the pipeline's own kg/rag/graphify fixtures...
+
           # node --test scoped to the pipeline's own kg/rag/graphify fixtures only (run from the pipeline repo root), not blanket
+
           "Bash(node --test kg/*)"
           "Bash(node --test rag/*)"
           "Bash(node --test graphify/*)"
@@ -376,23 +396,30 @@
           "Bash(npm search *)"
 
           # ── Formatter (direct prettier invocation) ───────────────────────
+
           # `pnpm format` / `pnpm exec *` are covered above. These cover direct
           # prettier runs — including the ./node_modules/.bin form used when the
           # rtk hook mangles bare `prettier` / `npx prettier` (returns no output).
+
           "Bash(prettier *)"
           "Bash(npx prettier *)"
           "Bash(./node_modules/.bin/prettier *)"
 
           # ── Pipeline scripts (global home-manager path) ──────────────────
+
           # The broad pattern covers any pipeline script invocation; specific
           # patterns kept for documentation of common entry points.
+
           "Bash(bash $HOME/.claude/pipeline/scripts/*)"
           "Bash($HOME/.claude/pipeline/scripts/*)"
+
           # Env-prefixed form: only scaffold-ticket/openapi/component.sh read
+
           # PIPELINE_HOME; an agent may prepend the correct value when the
           # inherited env var is stale. Safe — it only sets PIPELINE_HOME and then
           # runs an already-allow-listed pipeline script. (The leading assignment
           # otherwise breaks the prefix-match above and forces an approval prompt.)
+
           "Bash(PIPELINE_HOME=* bash $HOME/.claude/pipeline/scripts/*)"
           "Bash(PIPELINE_HOME=* $HOME/.claude/pipeline/scripts/*)"
           "Bash(bash $HOME/.claude/pipeline/scripts/validate-scripts.sh)"
@@ -411,15 +438,18 @@
           "Bash(bash $HOME/.claude/pipeline/scripts/update-skills.sh *)"
 
           # ── Pipeline KG / RAG / graphify direct node invocation ──────────
+
           # The kg/ingest.js + scripts/check-*.mjs are invoked directly with
           # `node` for CLI testing / debugging; the MCP server invokes them
           # internally and doesn't need an allow entry.
+
           "Bash(node $HOME/.claude/pipeline/kg/*)"
           "Bash(node $HOME/.claude/pipeline/kg/ingest.js *)"
           "Bash(node $HOME/.claude/pipeline/scripts/*)"
           "Bash(graphify *)"
 
           # ── External tools (assets, security, validation, local probes) ──
+
           "Bash(sqlite3 *)"
           "Bash(ffmpeg *)"
           "Bash(svgo *)"
@@ -435,6 +465,8 @@
           "Bash(curl -sI http://localhost:*)"
           "Bash(curl -o /dev/null *)"
 
+          # ── Performance audit tooling (Phase 10 — measurement + localhost...
+
           # ── Performance audit tooling (Phase 10 — measurement + localhost load) ──
           # Scoped to the perf surfaces, NOT blanket `node *` / `npx *`. The perf
           # harnesses (autocannon, lighthouse Node API) live under tests/performance/;
@@ -442,6 +474,7 @@
           # listed, so the compound auto-approves); load tests hit localhost/127.0.0.1;
           # the dev server is started (`pnpm start`, allowed) and killed around the run.
           # (`pnpm exec lhci|autocannon|size-limit` is already covered by `pnpm exec *`.)
+
           "Bash(node tests/*)"
           "Bash(gzip *)" # reversible compression — gzip-size measurement, not destructive
           "Bash(gunzip *)"
@@ -458,6 +491,7 @@
           "Bash(pkill *)"
 
           # ── Docker (read-only) ───────────────────────────────────────────
+
           "Bash(docker ps)"
           "Bash(docker ps *)"
           "Bash(docker logs *)"
@@ -467,8 +501,12 @@
           "Bash(docker compose logs *)"
           "Bash(docker compose config)"
           "Bash(docker compose config *)"
+
+          # compose lifecycle (write). NOTE: `down -v` destroys volumes —...
+
           # compose lifecycle (write). NOTE: `down -v` destroys volumes — accepted;
           # the dev loop normally goes through the allowed `make dev-up/dev-down`.
+
           "Bash(docker compose up)"
           "Bash(docker compose up *)"
           "Bash(docker compose down)"
@@ -479,6 +517,7 @@
           "Bash(docker info)"
 
           # ── Nix / system management ──────────────────────────────────────
+
           "Bash(darwin-rebuild switch *)"
           "Bash(sudo darwin-rebuild switch *)"
           "Bash(nix flake check *)"
@@ -488,19 +527,24 @@
           "Bash(nix-instantiate --parse *)" # syntax-check a .nix file (parse only — no eval/build)
 
           # ── macOS launchd (read-only introspection) ──────────────────────
+
           # getenv/list only. setenv/unsetenv/bootout/kickstart mutate → still prompt.
+
           "Bash(launchctl getenv *)"
           "Bash(launchctl list)"
           "Bash(launchctl list *)"
 
           # ── Claude Code self-introspection (read-only) ───────────────────
+
           # `claude mcp list/get` only. `claude mcp add/remove` mutate config → prompt.
           # NEVER `claude *` (could spawn nested sessions).
+
           "Bash(claude mcp list)"
           "Bash(claude mcp list *)"
           "Bash(claude mcp get *)"
 
           # ── MCP: Pencil ──────────────────────────────────────────────────
+
           "mcp__pencil__open_document"
           "mcp__pencil__get_editor_state"
           "mcp__pencil__get_screenshot"
@@ -516,11 +560,13 @@
           "mcp__pencil__replace_all_matching_properties"
 
           # ── MCP: Pipeline RAG ────────────────────────────────────────────
+
           "mcp__pipeline-rag__query"
           "mcp__pipeline-rag__list_documents"
           "mcp__pipeline-rag__reindex"
 
           # ── MCP: Pipeline KG ─────────────────────────────────────────────
+
           "mcp__pipeline-kg__stats"
           "mcp__pipeline-kg__list"
           "mcp__pipeline-kg__context"
@@ -534,6 +580,7 @@
           "mcp__pipeline-kg__reindex"
 
           # ── MCP: OpenAPI ─────────────────────────────────────────────────
+
           "mcp__openapi__list_endpoints"
           "mcp__openapi__get_endpoint"
           "mcp__openapi__list_schemas"
@@ -543,6 +590,7 @@
           "mcp__openapi__validate"
 
           # ── MCP: Stack ───────────────────────────────────────────────────
+
           "mcp__stack__get"
           "mcp__stack__frontmatter"
           "mcp__stack__yaml_block"
@@ -556,6 +604,7 @@
           "mcp__stack__validate"
 
           # ── MCP: Progress ────────────────────────────────────────────────
+
           "mcp__progress__read"
           "mcp__progress__set_phase_status"
           "mcp__progress__add_artifact"
@@ -568,6 +617,7 @@
           "mcp__progress__validate"
 
           # ── MCP: Storybook ───────────────────────────────────────────────
+
           "mcp__storybook__preview-stories"
           "mcp__storybook__get-storybook-story-instructions"
           "mcp__storybook__list-all-documentation"
@@ -576,9 +626,11 @@
           "mcp__storybook__run-story-tests"
 
           # ── MCP: Playwright (wildcard — unsafe variant explicitly denied) ─
+
           "mcp__playwright__*"
 
           # ── MCP: Claude Preview ──────────────────────────────────────────
+
           "mcp__Claude_Preview__preview_screenshot"
           "mcp__Claude_Preview__preview_resize"
           "mcp__Claude_Preview__preview_console_logs"
@@ -590,7 +642,9 @@
           "mcp__Claude_Preview__preview_start"
 
           # ── MCP: Serena (code-symbol navigation + memory + editing) ──────
+
           # Read-only navigation:
+
           "mcp__serena__find_declaration"
           "mcp__serena__find_file"
           "mcp__serena__find_implementations"
@@ -605,23 +659,33 @@
           "mcp__serena__read_file"
           "mcp__serena__read_memory"
           "mcp__serena__search_for_pattern"
+
+          # Editing (LSP-precise structural ops; same safety class as...
+
           # Editing (LSP-precise structural ops; same safety class as Edit/Write):
+
           "mcp__serena__insert_after_symbol"
           "mcp__serena__insert_before_symbol"
           "mcp__serena__replace_symbol_body"
           "mcp__serena__rename_symbol"
           "mcp__serena__safe_delete_symbol"
           "mcp__serena__replace_content"
+
           # Memory write/edit:
+
           "mcp__serena__write_memory"
           "mcp__serena__edit_memory"
           "mcp__serena__delete_memory"
           "mcp__serena__rename_memory"
+
           # Onboarding (writes initial memory):
+
           "mcp__serena__onboarding"
 
           # ── MCP: Vercel ──────────────────────────────────────────────────
+
           # Read-only listings + getters
+
           "mcp__vercel__list_projects"
           "mcp__vercel__list_deployments"
           "mcp__vercel__list_environments"
@@ -636,13 +700,17 @@
           "mcp__vercel__get_domain"
           "mcp__vercel__get_speed_insights"
           "mcp__vercel__get_web_analytics"
+
           # Auth (OAuth flow opens browser; not a destructive op)
+
           "mcp__vercel__authenticate"
           "mcp__vercel__complete_authentication"
         ];
 
         deny = [
+
           # ── Sensitive file paths (Edit) ──────────────────────────────────
+
           "Edit(~/.ssh/**)"
           "Edit(~/.aws/**)"
           "Edit(~/.gcp/**)"
@@ -657,14 +725,8 @@
           "Edit(~/.gitconfig)"
           "Edit(/etc/**)"
 
-          # No Write(...) twins for the Edit rules above. File permission checks
-          # only ever match Edit(path), which covers every file-editing tool --
-          # Write included -- so a Write(path) deny rule matches nothing and
-          # Claude Code prints a warning for each one at startup. The paths were
-          # already protected by the Edit rules; the duplicates only looked like
-          # extra protection.
-
           # ── Shell-pipe-execute (untrusted code from network) ─────────────
+
           "Bash(curl * | sh*)"
           "Bash(curl * | bash*)"
           "Bash(wget * | sh*)"
@@ -672,6 +734,7 @@
           "Bash(eval *)"
 
           # ── Privilege escalation (except darwin-rebuild allowed above) ───
+
           "Bash(sudo cat *)"
           "Bash(sudo cp *)"
           "Bash(sudo mv *)"
@@ -680,11 +743,13 @@
           "Bash(sudo chown *)"
 
           # ── Catastrophic file deletion ───────────────────────────────────
+
           # Block only the patterns that cannot be legitimate. Patterns that
           # *could* hit a real project path (`rm -rf /Users/*`, `rm -rf ~/*`,
           # `rm -rf $HOME/*`) are intentionally NOT denied — the prompt
           # interception is preferable to a false-positive block on legitimate
           # project-internal rm-rf calls (e.g. `rm -rf <project>/build/`).
+
           "Bash(rm -rf /)"
           "Bash(rm -rf /*)"
           "Bash(rm -rf ~)"
@@ -695,11 +760,13 @@
           "Bash(rm -rf /Applications/*)"
 
           # ── Permission destruction ───────────────────────────────────────
+
           "Bash(chmod 777 *)"
           "Bash(chmod -R 777 *)"
           "Bash(chown -R *)"
 
           # ── Disk / filesystem destruction ────────────────────────────────
+
           "Bash(dd if=* of=/dev/*)"
           "Bash(mkfs.*)"
           "Bash(mkfs *)"
@@ -708,10 +775,12 @@
           "Bash(diskutil eraseVolume *)"
 
           # ── Destructive git (history rewrites, hard reset) ──────────────
+
           # NOTE: push is intentionally NOT denied. Destructive push (--force / -f /
           # --delete) prompts for approval instead (per user: ask, don't block). Safe
           # push forms (normal + --force-with-lease) are allowed per-project in
           # settings.local.json; --force / --delete fall through to a prompt.
+
           "Bash(git reset --hard *)"
           "Bash(git reset --hard)"
           "Bash(git filter-branch *)"
@@ -719,9 +788,12 @@
           "Bash(git checkout --orphan *)"
           "Bash(git clean -fdx *)"
           "Bash(git clean -fdX *)"
+
           # `-C <path>` variants of the destructive set above — must mirror
+
           # because the broad `Bash(git -C *)` allow otherwise lets these
           # through against a different repo's path.
+
           "Bash(git -C * reset --hard *)"
           "Bash(git -C * reset --hard)"
           "Bash(git -C * filter-branch *)"
@@ -731,6 +803,7 @@
           "Bash(git -C * clean -fdX *)"
 
           # ── cp / mv from sensitive sources (paired with broad cp/mv allow) ──
+
           "Bash(cp ~/.ssh/* *)"
           "Bash(cp ~/.aws/* *)"
           "Bash(cp ~/.gcp/* *)"
@@ -744,6 +817,7 @@
           "Bash(mv ~/.gitconfig *)"
 
           # ── Accidental package publishing ────────────────────────────────
+
           "Bash(npm publish *)"
           "Bash(pnpm publish *)"
           "Bash(yarn publish *)"
@@ -752,6 +826,7 @@
           "Bash(yarn publish)"
 
           # ── MCP escape hatches that can execute arbitrary code ───────────
+
           "mcp__playwright__browser_run_code_unsafe"
           "mcp__serena__execute_shell_command"
           "mcp__Claude_in_Chrome__javascript_tool"
@@ -868,6 +943,8 @@
   };
 
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
+
   # Claude Code hook subshells (/bin/sh -c …) and login shells.
+
   home.sessionPath = [ "$HOME/.local/bin" ];
 }

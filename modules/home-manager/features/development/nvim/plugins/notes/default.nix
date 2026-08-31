@@ -1,3 +1,5 @@
+# development nvim plugins notes
+
 {
   imports = [
     ./markview.nix

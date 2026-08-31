@@ -1,17 +1,19 @@
+# Automatic restic backup of this machine (prometheus, the work...
+
 # Automatic restic backup of this machine (prometheus, the work laptop) -> vulcan,
 # over Tailscale, every 30 min. Incremental + client-side encrypted; then a
 # rewind-friendly prune. vulcan separately copies the repo OFFSITE to Backblaze
 # B2 (that half lives in the private vulcan-services layer, since it holds the B2
 # credentials).
-#
+
 # There are ZERO secrets in this file, so it's safe in the public repo. All
 # instance data lives in two runtime files the user drops in (Bitwarden-synced),
 # and the agent NO-OPS until they exist — so importing/rebuilding never breaks:
-#
+
 #   ~/.config/restic/repository  — e.g. sftp:USER@vulcan.<tailnet>:Backups/restic/prometheus
 #   ~/.config/restic/password    — the repo password (chmod 600). LOSE THIS = the
 #                                  backups are unrecoverable, so store it in Bitwarden.
-#
+
 # First-time setup (once):
 #   1. On vulcan: `mkdir -p ~/Backups/restic`
 #   2. `ssh USER@vulcan.<tailnet>` once so its host key is trusted (the agent runs
@@ -19,6 +21,7 @@
 #   3. Create the two files above.
 #   4. Seed on the LAN by running the agent's script by hand once (it auto-inits
 #      the repo). After that the 30-min agent just does incrementals.
+
 {
   config,
   lib,
@@ -28,9 +31,12 @@
 let
   enable = pkgs.stdenv.hostPlatform.isDarwin;
 
+  # The reproducible bulk — dependencies, build output, bytecode,...
+
   # The reproducible bulk — dependencies, build output, bytecode, caches. `.git`
   # is deliberately KEPT (that's your uncommitted work). Mostly base-name patterns
   # so they match at any depth; we verify real coverage with `--dry-run` at seed.
+
   excludes = pkgs.writeText "restic-excludes.txt" ''
     # dependencies / vendored
     node_modules
@@ -179,7 +185,10 @@ in
 lib.mkIf enable {
   home.packages = [ pkgs.restic ];
 
+  # Every 30 min, at login, background + low-IO so it never gets in...
+
   # Every 30 min, at login, background + low-IO so it never gets in your way.
+
   launchd.agents.restic-backup = {
     enable = true;
     config = {

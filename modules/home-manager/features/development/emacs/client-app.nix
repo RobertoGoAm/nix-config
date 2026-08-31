@@ -1,5 +1,7 @@
+# A GUI entry point that attaches to the daemon instead of starting a...
+
 # A GUI entry point that attaches to the daemon instead of starting a rival Emacs.
-#
+
 # services.emacs already runs `emacs --fg-daemon' under launchd, and the `em'
 # wrapper opens terminal frames against it -- but the Emacs.app that
 # home-manager copies into ~/Applications/Home Manager Apps is the raw NS build.
@@ -8,14 +10,15 @@
 # for the same projects. The two never meet, so a file open in the app is
 # invisible to `em', and the daemon this config is built around ends up
 # unused.
-#
+
 # This bundle is the icon to click instead. --alternate-editor="" means a
 # missing daemon is started rather than an error, so it works before launchd
 # has got there and on a machine where the agent is off.
-#
+
 # The stock Emacs.app is deliberately left in place: it is what home-manager
 # installs, and it is still the way to get a clean instance for testing a
 # config change without disturbing the running one.
+
 {
   config,
   pkgs,
@@ -23,28 +26,46 @@
   ...
 }:
 lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-  # One Emacs icon, not two.
-  #
+
+  # One Emacs icon, not two
+
   # copyApps rsyncs the Applications directory of every package in
   # home.packages into ~/Applications/Home Manager Apps, and the emacs package
   # ships Emacs.app. That bundle starts a SECOND, independent Emacs instead of
   # attaching to the daemon -- precisely what Emacs Client.app exists to avoid
   # -- and two near-identical icons is an invitation to click the wrong one.
-  #
+
   # Removed on every activation rather than excluded, because copyApps offers
   # no per-app filter and its rsync re-creates the bundle each rebuild.
-  #
+
   # Renaming the launcher to Emacs.app instead would collide: both bundles feed
   # the same buildEnv, so two Applications/Emacs.app entries fail the build
   # outright. Hence the distinct name.
-  #
+
   # The store path is untouched -- the daemon and the launcher both still run
   # that emacs. For a deliberately clean instance, launch the bundle from the
   # store directly:
-  #
+
   #   open -n "$(readlink -f ~/.nix-profile/bin/emacs | xargs dirname | xargs dirname)/Applications/Emacs.app"
+
   home.activation.hideStockEmacsApp = lib.hm.dag.entryAfter [ "copyApps" ] ''
     run rm -rf "$HOME/Applications/Home Manager Apps/Emacs.app"
+  '';
+
+  programs.emacs.extraConfig = ''
+    ;; Clicking the app icon should bring Emacs forward, not add a frame.
+    ;;
+    ;; The launcher calls this instead of `emacsclient -c'. Every frame the
+    ;; daemon creates lands at the same position, so an unconditional create
+    ;; stacks them perfectly and the click looks like it did nothing -- six
+    ;; accumulated at 98,49 before it was clear they were separate windows.
+    (defun my/raise-or-create-frame ()
+      "Raise an existing graphical frame, or make one if there is none."
+      (let ((f (seq-find (lambda (fr)
+                           (and (eq (framep fr) 'ns) (frame-visible-p fr)))
+                         (frame-list))))
+        (select-frame-set-input-focus (or f (make-frame '((window-system . ns)))))
+        t))
   '';
 
   home.packages = [
@@ -67,6 +88,14 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       # LSUIElement would hide that icon outright, and was tried here, but the
       # bundle then stopped launching from Finder and Spotlight altogether.
       # Not worth it for a second of Dock icon.
+      # Raise a frame that already exists rather than stacking another
+      # exactly on top of it. emacsclient -c always creates, and every
+      # frame the daemon makes lands at the same position, so clicking
+      # the icon read as a no-op while six identical frames piled up at
+      # 98,49. The -c line below is the no-daemon fallback, where the
+      # eval cannot succeed and --alternate-editor starts one.
+      "${config.programs.emacs.finalPackage}/bin/emacsclient" \
+        -e '(my/raise-or-create-frame)' >/dev/null 2>&1 && exit 0
       exec "${config.programs.emacs.finalPackage}/bin/emacsclient" \
         -c -n --alternate-editor="" "\$@"
       SCRIPT

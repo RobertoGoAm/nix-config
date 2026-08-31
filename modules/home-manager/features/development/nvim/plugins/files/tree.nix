@@ -1,3 +1,5 @@
+# development nvim plugins files tree
+
 {
   plugins = {
     nvim-tree = {

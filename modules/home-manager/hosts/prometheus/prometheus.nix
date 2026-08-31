@@ -1,3 +1,5 @@
+# home-manager hosts prometheus prometheus
+
 {
   config,
   inputs,
@@ -16,10 +18,13 @@
     username = user;
   };
 
+  # Tried and not kept. The workspace pills were the only real draw,...
+
   # Tried and not kept. The workspace pills were the only real draw, and they
   # did not outweigh rebuilding a menu bar that already worked — app menus alone
   # would have needed a helper that is not packaged. The module stays in the
   # tree so turning it back on is this one line.
+
   features.desktop.sketchybar.enable = false;
 
   programs.home-manager = {

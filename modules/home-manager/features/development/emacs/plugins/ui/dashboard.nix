@@ -1,3 +1,5 @@
+# development emacs plugins ui dashboard
+
 {
   ...
 }:
@@ -7,9 +9,12 @@
       dashboard
     ];
 
+  # The nvim dashboard spells NIXVIM in ANSI Shadow block letters; this...
+
   # The nvim dashboard spells NIXVIM in ANSI Shadow block letters; this is the same
   # font saying EMACS. dashboard.el reads its banner from a file rather than a list
   # of strings, so it lands next to the rest of the generated config.
+
   home.file.".config/emacs/banner.txt".text = ''
     ███████╗███╗   ███╗ █████╗  ██████╗███████╗
     ██╔════╝████╗ ████║██╔══██╗██╔════╝██╔════╝

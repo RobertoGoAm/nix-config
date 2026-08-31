@@ -1,3 +1,5 @@
+# cli
+
 {
   imports = [
     ./alacritty.nix

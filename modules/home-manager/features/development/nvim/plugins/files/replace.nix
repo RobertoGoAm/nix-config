@@ -1,3 +1,5 @@
+# development nvim plugins files replace
+
 {
   plugins = {
     grug-far = {

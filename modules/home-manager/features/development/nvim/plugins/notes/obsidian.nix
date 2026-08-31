@@ -1,3 +1,5 @@
+# development nvim plugins notes obsidian
+
 {
   plugins.obsidian = {
     enable = true;

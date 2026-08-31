@@ -1,3 +1,5 @@
+# productivity karabiner
+
 {
   config,
   lib,
@@ -219,8 +221,11 @@ let
                   type = "basic";
                 }
                 {
+
                   # Caps + M -> warpd hint. Sends the daemon's Cmd+Option+x chord
+
                   # (hint_activation_key), so it doesn't depend on warpd's path.
+
                   conditions = [
                     {
                       name = "nav_layer";
@@ -246,8 +251,11 @@ let
                   type = "basic";
                 }
                 {
+
                   # Caps + D -> warpd grid. "d" is on the physical g key in Colemak,
+
                   # so this fires on g; sends Cmd+Option+d (grid_activation_key).
+
                   conditions = [
                     {
                       name = "nav_layer";
@@ -273,8 +281,11 @@ let
                   type = "basic";
                 }
                 {
+
                   # Caps + C -> warpd normal/cursor. Sends Cmd+Option+c (the
+
                   # oneshot_key); c isn't remapped by Colemak, so it fires on c.
+
                   conditions = [
                     {
                       name = "nav_layer";
@@ -935,10 +946,13 @@ let
             }
             {
               description = "Base Colemak letters (disabled while Symbols layer is active)";
+
               # Empty under layout = "qwerty": this rule IS the Colemak remap, so
+
               # dropping its manipulators leaves letters untouched while every other
               # rule here (nav, symbols, warpd, the Raycast taps) keeps working --
               # those are keyed to physical positions, not to Colemak output.
+
               manipulators = lib.optionals colemak [
                 {
                   conditions = [
@@ -1257,9 +1271,12 @@ let
               ];
             }
             {
+
               # Tap Left Command alone = Raycast "Switch Windows" (the Cmd-Tab
+
               # replacement). Holding it (with any other key) is a normal Command,
               # so ⌘C/⌘V/etc. are unaffected — only a solo tap fires the deeplink.
+
               description = "Tap Left Command = Raycast Switch Windows; hold = Command";
               manipulators = [
                 {
@@ -1283,10 +1300,13 @@ let
               ];
             }
             {
+
               # Tap Right Shift alone = switch to the last app (one Cmd-Tab);
+
               # hold = normal Shift. Right Shift (not Right Command) so the
               # behaviour is identical on the Bridge75 firmware and on perseus's
               # keyd — every keyboard has a Right Shift, not every one a Right Cmd.
+
               description = "Tap Right Shift = switch to last app; hold = Shift";
               manipulators = [
                 {
@@ -1316,11 +1336,14 @@ let
         };
         devices = [
           {
+
             # The QMK Bridge75 (Shortcut, 3141:65278) does its own Colemak +
+
             # layers in firmware — tell Karabiner to ignore it so it isn't
             # double-processed. The built-in + Apple keyboards still get all the
             # modifications above. (nix owns karabiner.json, so this scoping must
             # live here, not in the Karabiner Devices GUI which gets overwritten.)
+
             identifiers = {
               vendor_id = 3141;
               product_id = 65278;
@@ -1346,11 +1369,16 @@ in
 {
   imports = [ ./keyboard-layout.nix ];
 
+  # macOS only — Linux uses keyd (features/productivity/keyd)....
+
   # macOS only — Linux uses keyd (features/productivity/keyd). karabiner-elements
   # isn't available off darwin, so an ungated import would break perseus's build.
+
   config = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     home.packages = [ pkgs.karabiner-elements ];
     home.file.".config/karabiner".source = karabinerDir;
+
+    # darwin-rebuild swaps the ~/.config/karabiner symlink to a new store...
 
     # darwin-rebuild swaps the ~/.config/karabiner symlink to a new store path,
     # but Karabiner's file watcher doesn't notice the swap, so rule changes don't
@@ -1358,6 +1386,7 @@ in
     # symlink is in place so a plain `darwin-rebuild switch` is enough — no manual
     # "reload Karabiner" step. (The grabber daemon then re-reads the config and
     # re-grabs devices; harmless ~1s blip.)
+
     home.activation.karabinerReload = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
       uid="$(id -u)"
       run /bin/launchctl kickstart -k "gui/$uid/org.pqrs.service.agent.karabiner_console_user_server" || true

@@ -1,17 +1,23 @@
+# cli devcontainer
+
 { lib, pkgs, ... }:
 let
+
+  # Add --ignore-scripts to a host install when the project has a...
+
   # Add --ignore-scripts to a host install when the project has a devcontainer.
-  #
+
   # In that setup the container owns the real install: its node_modules is a
   # named volume, built for Linux, matching CI. The host copy exists only so the
   # editor's TypeScript server can resolve types, and for that the packages need
   # to be present, not built -- so running lifecycle scripts on the host is at
   # best wasted time and at worst a native module that fails to compile on
   # darwin and takes the whole install down with it.
-  #
+
   # The flag is only ever right in that one case, which is exactly the kind of
   # thing that gets forgotten. This adds it there and nowhere else, so the
   # command you type is the same everywhere.
+
   pmRun = pkgs.writeShellScriptBin "pm-run" ''
     set -euo pipefail
 
@@ -63,9 +69,12 @@ in
 {
   home.packages = [ pmRun ];
 
+  # Functions rather than aliases or PATH shims: anything that execs a...
+
   # Functions rather than aliases or PATH shims: anything that execs a binary
   # directly is unaffected, so MCP servers, opencode and emacs subprocesses keep
   # the real pnpm.
+
   programs.zsh.initContent = lib.mkAfter ''
     pnpm() { pm-run pnpm "$@"; }
     npm()  { pm-run npm  "$@"; }

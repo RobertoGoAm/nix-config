@@ -1,3 +1,5 @@
+# cli gh
+
 {
   programs.gh = {
     enable = true;

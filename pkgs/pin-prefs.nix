@@ -1,5 +1,8 @@
+# Regenerates the macOS defaults modules from an app's live...
+
 # Regenerates the macOS defaults modules from an app's live preferences.
 # See pin-prefs.py for what it filters and why.
+
 {
   lib,
   writeShellApplication,
