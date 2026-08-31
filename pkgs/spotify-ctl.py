@@ -36,11 +36,19 @@ SCOPES = "user-read-playback-state user-modify-playback-state"
 
 
 def secret(name):
+    """Read a sops secret, falling back to the environment.
+
+    The environment fallback exists for `auth', which runs before the
+    credentials are in sops -- you cannot obtain the refresh token to store
+    without the client id, and you cannot get the client id out of sops until
+    a rebuild has installed it. Reading SPOTIFY_CLIENT_ID and
+    SPOTIFY_CLIENT_SECRET from the environment collapses that into one pass.
+    """
     try:
         with open(os.path.join(SECRETS, name)) as fh:
             return fh.read().strip()
     except OSError:
-        return None
+        return os.environ.get(name.upper()) or None
 
 
 def _post_token(data):
@@ -102,7 +110,10 @@ def main():
     if cmd == "auth":
         cid = secret("spotify_client_id")
         if not cid:
-            print("no spotify_client_id in /var/run/secrets", file=sys.stderr)
+            print("No spotify_client_id yet. Before it is in sops, pass the pair"
+                  " from developer.spotify.com in the environment:\n\n"
+                  "  SPOTIFY_CLIENT_ID=... SPOTIFY_CLIENT_SECRET=... spotify-ctl auth\n",
+                  file=sys.stderr)
             return 1
         q = urllib.parse.urlencode({"client_id": cid, "response_type": "code",
                                     "redirect_uri": REDIRECT, "scope": SCOPES})
