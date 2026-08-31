@@ -46,18 +46,24 @@
 
     (defun my/claude-toggle ()
       "Show this project's Claude Code session, starting one if there is none.
-    Hides it again when it is already on screen: the binding is called a toggle
-    and previously only ever opened, which left no way back to a full-width
-    buffer short of reaching for the mouse."
+    Hides it again when it is already on screen, so the binding behaves as its
+    name says rather than only ever opening.
+
+    Asking claude-code for the buffer, rather than calling
+    `claude-code-switch-to-buffer' and catching a failure: that command reports
+    a missing session with `message' and returns normally, so a condition-case
+    around it never fires and the session was never started -- which is why this
+    used to need a manual `claude-code-run' first.
+
+    `pop-to-buffer' rather than `switch-to-buffer-other-window', so the session
+    lands in the side drawer that `display-buffer-alist' defines for it."
       (interactive)
-      (let ((win (seq-find (lambda (w)
-                             (string-prefix-p "*claude:" (buffer-name (window-buffer w))))
-                           (window-list))))
-        (if win
-            (delete-window win)
-          (condition-case nil
-              (claude-code-switch-to-buffer)
-            (error (claude-code-run))))))
+      (require 'claude-code)
+      (let* ((buf (claude-code-get-buffer))
+             (win (and buf (get-buffer-window buf))))
+        (cond (win (delete-window win))
+              (buf (pop-to-buffer buf))
+              (t   (claude-code-run)))))
 
     (defun my/claude-send-region-or-file ()
       "Send the region to Claude, or a reference to this file when nothing is selected."
