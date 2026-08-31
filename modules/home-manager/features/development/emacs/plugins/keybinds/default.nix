@@ -249,6 +249,11 @@
       "mp" '(my/music-previous :which-key "previous track")
       "mc" '(my/music-current :which-key "what is playing")
       "mo" '(my/music-open :which-key "open spotify")
+      ;; smudge, over the Web API -- these reach librespot and the phone alike,
+      ;; where the osascript commands above only reach a running desktop app.
+      "ms" '(smudge-track-search :which-key "search tracks")
+      "ml" '(smudge-my-playlists :which-key "my playlists")
+      "md" '(smudge-select-device :which-key "select device")
       "m=" '(my/music-louder :which-key "louder")
       "m-" '(my/music-quieter :which-key "quieter")
 

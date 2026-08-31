@@ -43,8 +43,11 @@
           ;; generators defined below.
           dashboard-items '((backup   . 1)
                             (unread   . 1)
-                            (recents  . 15)
-                            (projects . 10))
+                            (config   . 1)
+                            (claude   . 5)
+                            (recents  . 12)
+                            (projects . 8)
+                            (bookmarks . 5))
           ;; change_to_vcs_root = true
           dashboard-projects-switch-function #'projectile-persp-switch-project
           dashboard-projects-backend 'projectile)
@@ -110,8 +113,45 @@
          (error "mu index unavailable")))
       (insert "\n"))
 
+    (defun my/dashboard-config (_list-size)
+      "Insert the state of the nix config: uncommitted, unpushed, drifted."
+      (dashboard-insert-heading "nix-config:" nil)
+      (insert "\n    ")
+      (insert
+       (condition-case nil
+           (let* ((default-directory (expand-file-name "~/nix-config"))
+                  (dirty (string-to-number
+                          (shell-command-to-string "git status --porcelain 2>/dev/null | wc -l")))
+                  (ahead (string-to-number
+                          (shell-command-to-string
+                           "git rev-list --count @{u}..HEAD 2>/dev/null || echo 0")))
+                  (parts (delq nil
+                               (list (when (> dirty 0) (format "%d uncommitted" dirty))
+                                     (when (> ahead 0) (format "%d unpushed" ahead))))))
+             (if parts (propertize (string-join parts ", ") (quote face) (quote warning))
+               "clean"))
+         (error "unavailable")))
+      (insert "\n"))
+
+    (defun my/dashboard-claude (list-size)
+      "Insert the most recent Claude conversations, newest first."
+      (dashboard-insert-heading "Claude sessions:" nil)
+      (insert "\n")
+      (condition-case nil
+          (let ((rows (seq-take (my/claude--sessions) (or list-size 5))))
+            (if (null rows)
+                (insert "    none recorded\n")
+              (dolist (r rows)
+                (insert (format "    %-16s %-22s %s\n"
+                                (nth 0 r)
+                                (truncate-string-to-width (nth 1 r) 22)
+                                (truncate-string-to-width (nth 3 r) 60))))))
+        (error (insert "    index unavailable\n"))))
+
     (add-to-list (quote dashboard-item-generators) (quote (backup . my/dashboard-backup)))
     (add-to-list (quote dashboard-item-generators) (quote (unread . my/dashboard-unread)))
+    (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
+    (add-to-list (quote dashboard-item-generators) (quote (claude . my/dashboard-claude)))
 
     (dashboard-setup-startup-hook)
 
