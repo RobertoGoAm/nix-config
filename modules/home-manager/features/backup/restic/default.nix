@@ -67,7 +67,12 @@ let
 
   backup = pkgs.writeShellScript "restic-backup" ''
     set -u
-    export PATH=${lib.makeBinPath [ pkgs.restic pkgs.openssh ]}:/usr/bin:/bin
+    export PATH=${
+      lib.makeBinPath [
+        pkgs.restic
+        pkgs.openssh
+      ]
+    }:/usr/bin:/bin
     REPO_FILE="$HOME/.config/restic/repository"
     export RESTIC_PASSWORD_FILE="$HOME/.config/restic/password"
 

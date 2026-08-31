@@ -110,7 +110,14 @@
       mkDarwin =
         host: system:
         nix-darwin.lib.darwinSystem {
-          specialArgs = { inherit inputs outputs user system; };
+          specialArgs = {
+            inherit
+              inputs
+              outputs
+              user
+              system
+              ;
+          };
           modules = [ ./modules/macos/${host}/${host}.nix ];
         };
 
@@ -133,10 +140,21 @@
               # name so it survives version bumps. (The macs avoid electron — their
               # obsidian is a prebuilt binary, not a from-source build.)
               allowInsecurePredicate =
-                pkg: builtins.elem (lib.getName pkg) [ "electron" "ecdsa" ];
+                pkg:
+                builtins.elem (lib.getName pkg) [
+                  "electron"
+                  "ecdsa"
+                ];
             };
           };
-          extraSpecialArgs = { inherit inputs nixgl outputs user; };
+          extraSpecialArgs = {
+            inherit
+              inputs
+              nixgl
+              outputs
+              user
+              ;
+          };
           modules = [ ./modules/home-manager/hosts/${host}/${host}.nix ];
         };
     in
@@ -149,14 +167,12 @@
       # module from an app's live preferences.
       # `nix run .#lit-tangle -- --check` — verifies the committed Nix still
       # matches the literate org sources it was generated from.
-      packages = lib.genAttrs (lib.attrValues hosts) (
-        system: {
-          check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
-          pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
-          clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
-          lit-tangle = (import nixpkgs { inherit system; }).callPackage ./pkgs/lit-tangle.nix { };
-        }
-      );
+      packages = lib.genAttrs (lib.attrValues hosts) (system: {
+        check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
+        pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
+        clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
+        lit-tangle = (import nixpkgs { inherit system; }).callPackage ./pkgs/lit-tangle.nix { };
+      });
 
       # MacOS configuration entrypoint
       # Available through nix run nix-darwin -- switch --flake .

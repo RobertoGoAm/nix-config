@@ -31,7 +31,10 @@
 let
   privatePath = "${config.home.homeDirectory}/.config/nix-secrets/mail-accounts.nix";
   private =
-    if builtins.pathExists privatePath then import privatePath { inherit lib pkgs; } else { accounts = { }; };
+    if builtins.pathExists privatePath then
+      import privatePath { inherit lib pkgs; }
+    else
+      { accounts = { }; };
 
   mailAccounts = private.accounts or { };
   enable = mailAccounts != { };
@@ -41,22 +44,25 @@ let
   # mbsync and msmtp both take the password from a command rather than a file
   # they read themselves, which keeps the secret out of every generated config
   # in the nix store -- those are world-readable.
-  toAccount = _name: a: {
-    inherit (a) address realName;
-    primary = a.primary or false;
-    flavor = a.flavor or "plain";
-    userName = a.userName or a.address;
-    passwordCommand = "cat /var/run/secrets/${a.passwordSecret}";
+  toAccount =
+    _name: a:
+    {
+      inherit (a) address realName;
+      primary = a.primary or false;
+      flavor = a.flavor or "plain";
+      userName = a.userName or a.address;
+      passwordCommand = "cat /var/run/secrets/${a.passwordSecret}";
 
-    mbsync = {
-      enable = true;
-      create = "maildir";
-      expunge = "both";
-      patterns = a.patterns or [ "*" ];
-    };
-    msmtp.enable = true;
-    mu.enable = true;
-  } // (a.extra or { });
+      mbsync = {
+        enable = true;
+        create = "maildir";
+        expunge = "both";
+        patterns = a.patterns or [ "*" ];
+      };
+      msmtp.enable = true;
+      mu.enable = true;
+    }
+    // (a.extra or { });
 in
 lib.mkIf enable {
   programs.mbsync.enable = true;

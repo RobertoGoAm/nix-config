@@ -69,7 +69,10 @@ in
   };
 
   config = lib.mkIf (cfg.enable && pkgs.stdenv.hostPlatform.isDarwin) {
-    home.packages = [ pkgs.readeck pkgs.calibre-web ];
+    home.packages = [
+      pkgs.readeck
+      pkgs.calibre-web
+    ];
 
     # The secret key is generated once, here, rather than left to readeck.
     #

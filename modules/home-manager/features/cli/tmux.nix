@@ -1,9 +1,26 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   colemak = config.features.productivity.keyboard.layout == "colemak";
   # tmux has no directional defaults to fall back on, so unlike vim or warpd
   # the QWERTY case needs its keys written out rather than simply omitted.
-  nav = if colemak then { d = "n"; u = "e"; r = "i"; } else { d = "j"; u = "k"; r = "l"; };
+  nav =
+    if colemak then
+      {
+        d = "n";
+        u = "e";
+        r = "i";
+      }
+    else
+      {
+        d = "j";
+        u = "k";
+        r = "l";
+      };
 in
 {
   imports = [ ../productivity/keyboard-layout.nix ];
@@ -14,10 +31,10 @@ in
     shell = "${pkgs.zsh}/bin/zsh";
     baseIndex = 1;
     historyLimit = 10000;
-    
+
     # Change prefix to Ctrl-Space to avoid conflicts and match "Space" leader vibes
     prefix = "C-Space";
-    
+
     keyMode = "vi";
     customPaneNavigationAndResize = true;
 

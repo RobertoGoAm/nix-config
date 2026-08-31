@@ -19,51 +19,52 @@ in
 {
   homebrew = {
     enable = true;
-    casks = greedy [
-      # Development
-      "imageoptim"
-      "orbstack"
+    casks =
+      greedy [
+        # Development
+        "imageoptim"
+        "orbstack"
 
-      # Internet
-      "google-chrome"
+        # Internet
+        "google-chrome"
 
-      # Media
-      "macmediakeyforwarder"
+        # Media
+        "macmediakeyforwarder"
 
-      # Office
-      "pdf-expert"
+        # Office
+        "pdf-expert"
 
-      # Productivity
-      "claude"
-      "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
+        # Productivity
+        "claude"
+        "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
 
-      # Security
-      "bitwarden"
-      "blockblock"
-      "gpg-suite"
-      "oversight"
-      "ransomwhere"
+        # Security
+        "bitwarden"
+        "blockblock"
+        "gpg-suite"
+        "oversight"
+        "ransomwhere"
 
-      # Social
-      # Telegram for macOS, the AppKit client. nixpkgs has no package for it
-      # (telegram-macos/telegram-mac are both absent) and only ships the Qt
-      # telegram-desktop, which is the lighter-on-resources loser of the two and
-      # whose updates make a rebuild noticeably slower. Revisit only if the
-      # AppKit client ever lands in nixpkgs.
-      "telegram"
+        # Social
+        # Telegram for macOS, the AppKit client. nixpkgs has no package for it
+        # (telegram-macos/telegram-mac are both absent) and only ships the Qt
+        # telegram-desktop, which is the lighter-on-resources loser of the two and
+        # whose updates make a rebuild noticeably slower. Revisit only if the
+        # AppKit client ever lands in nixpkgs.
+        "telegram"
 
-      # Tool
-      "calibre" # nixpkgs marks calibre broken on darwin
-      "filen" # nixpkgs filen-desktop is Electron, Linux-only
-      "multipass"
-      "omnidisksweeper"
-      "qmk-toolbox"
-      "utm" # local Linux VMs (Apple Virtualization / QEMU); hosts the bridged Omada controller VM
-      "via"
+        # Tool
+        "calibre" # nixpkgs marks calibre broken on darwin
+        "filen" # nixpkgs filen-desktop is Electron, Linux-only
+        "multipass"
+        "omnidisksweeper"
+        "qmk-toolbox"
+        "utm" # local Linux VMs (Apple Virtualization / QEMU); hosts the bridged Omada controller VM
+        "via"
 
-      # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
-    ]
-    ++ private.macCasks;
+        # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+      ]
+      ++ private.macCasks;
 
     # These app IDs are from using the mas CLI app
     # mas = mac app store

@@ -1,4 +1,9 @@
-{ config, inputs, user, ... }:
+{
+  config,
+  inputs,
+  user,
+  ...
+}:
 let
   # Read through the home-manager user: the option lives in the HM tree and
   # this is a nix-darwin module.
@@ -8,9 +13,17 @@ let
   # Left is h under both layouts, since Colemak leaves h in place.
   nav =
     if colemak then
-      { down = "n"; up = "e"; right = "i"; }
+      {
+        down = "n";
+        up = "e";
+        right = "i";
+      }
     else
-      { down = "j"; up = "k"; right = "l"; };
+      {
+        down = "j";
+        up = "k";
+        right = "l";
+      };
 in
 {
   imports = [ inputs.paneru.darwinModules.paneru ];

@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.features.development.antigravity;
   binDir = "${cfg.appPath}/Contents/Resources/app/bin";

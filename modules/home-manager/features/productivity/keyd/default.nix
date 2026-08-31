@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 # Linux keyboard remapping (Colemak + nav/sym layers) — the counterpart to the
 # macOS Karabiner config. keyd is a root daemon that owns /etc/keyd and a systemd

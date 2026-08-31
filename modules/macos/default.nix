@@ -371,7 +371,12 @@
       useGlobalPkgs = true;
       useUserPackages = true;
       extraSpecialArgs = {
-        inherit inputs outputs user system;
+        inherit
+          inputs
+          outputs
+          user
+          system
+          ;
       };
     };
   };
