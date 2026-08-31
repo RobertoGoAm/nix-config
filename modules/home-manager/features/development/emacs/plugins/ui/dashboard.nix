@@ -78,7 +78,7 @@
     ;; every session.
     (defun my/dashboard-backup (_list-size)
       "Insert how long ago restic last completed."
-      (dashboard-insert-heading "Backup:" nil)
+      (dashboard-insert-heading "Backup:" "k")
       (insert "\n    ")
       (insert
        (condition-case nil
@@ -102,7 +102,7 @@
 
     (defun my/dashboard-unread (_list-size)
       "Insert the number of unread messages mu knows about."
-      (dashboard-insert-heading "Unread mail:" nil)
+      (dashboard-insert-heading "Unread mail:" "u")
       (insert "\n    ")
       (insert
        (condition-case nil
@@ -115,7 +115,7 @@
 
     (defun my/dashboard-config (_list-size)
       "Insert the state of the nix config: uncommitted, unpushed, drifted."
-      (dashboard-insert-heading "nix-config:" nil)
+      (dashboard-insert-heading "nix-config:" "g")
       (insert "\n    ")
       (insert
        (condition-case nil
@@ -165,7 +165,7 @@
 
     (defun my/dashboard-claude (list-size)
       "Insert the most recent Claude conversations, newest first."
-      (dashboard-insert-heading "Claude sessions:" nil)
+      (dashboard-insert-heading "Claude sessions:" "c")
       (insert "\n")
       (condition-case nil
           (let ((rows (seq-take (my/claude--sessions) (or list-size 5))))
@@ -191,6 +191,11 @@
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
     (add-to-list (quote dashboard-item-generators) (quote (claude . my/dashboard-claude)))
 
+    ;; The key each heading advertises is the SECOND argument to
+    ;; dashboard-insert-heading. Passing nil there -- as these did at first --
+    ;; registers the shortcut but prints no hint, so the keys worked and were
+    ;; invisible.
+    ;;
     ;; Section shortcuts. dashboard drives these through a
     ;; dashboard-jump-to-<section> function, which it only defines for its own
     ;; built-in sections -- a custom generator gets a shortcut that silently
