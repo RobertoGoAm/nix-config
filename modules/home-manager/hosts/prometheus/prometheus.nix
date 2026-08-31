@@ -53,5 +53,6 @@
     ../../features/desktop/sketchybar
     ../../features/desktop/warpd
     ../../features/backup/restic
+    ../../features/mail
   ];
 }
