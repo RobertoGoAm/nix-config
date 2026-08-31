@@ -1,0 +1,14 @@
+#+TITLE: development nvim plugins code languages
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins code languages
+
+#+begin_src nix
+{
+  plugins = {
+    schemastore = {
+      enable = true;
+    };
+  };
+}
+#+end_src

@@ -1,0 +1,99 @@
+#+TITLE: macos services aerospace
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* macos services aerospace
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  user,
+  ...
+}:
+let
+#+end_src
+
+* Read through the home-manager user: the option is declared in the...
+
+Read through the home-manager user: the option is declared in the HM tree
+(features/productivity/keyboard-layout.nix) and this is a nix-darwin module,
+so there is no shared namespace to reach it from directly.
+
+#+begin_src nix
+  colemak = config.home-manager.users.${user}.features.productivity.keyboard.layout == "colemak";
+#+end_src
+
+* aerospace defines no directional bindings of its own, so unlike vim...
+
+aerospace defines no directional bindings of its own, so unlike vim or warpd
+the QWERTY case has to be spelled out rather than simply omitted. Left stays
+h under both layouts, since Colemak leaves h in place.
+
+#+begin_src nix
+  nav =
+    if colemak then
+      {
+        down = "n";
+        up = "e";
+        right = "i";
+      }
+    else
+      {
+        down = "j";
+        up = "k";
+        right = "l";
+      };
+
+  base = pkgs.lib.importTOML ./config.toml;
+#+end_src
+
+* The TOML keeps its Colemak bindings as the committed default; only...
+
+The TOML keeps its Colemak bindings as the committed default; only the eight
+directional entries are rewritten, and only when the layout says so.
+
+#+begin_src nix
+  directional = {
+    "alt-h" = "focus left";
+    "alt-${nav.down}" = "focus down";
+    "alt-${nav.up}" = "focus up";
+    "alt-${nav.right}" = "focus right";
+    "alt-shift-h" = "move left";
+    "alt-shift-${nav.down}" = "move down";
+    "alt-shift-${nav.up}" = "move up";
+    "alt-shift-${nav.right}" = "move right";
+  };
+#+end_src
+
+* Drop the Colemak directional keys before merging, or a QWERTY build...
+
+Drop the Colemak directional keys before merging, or a QWERTY build would
+keep alt-n/e/i alongside the new alt-j/k/l and bind eight keys instead of four.
+
+#+begin_src nix
+  stripped = lib.filterAttrs (
+    k: _:
+    !(builtins.elem k [
+      "alt-e"
+      "alt-i"
+      "alt-n"
+      "alt-shift-e"
+      "alt-shift-i"
+      "alt-shift-n"
+    ])
+  ) base.mode.main.binding;
+in
+{
+  services.aerospace = {
+    enable = true;
+    settings = base // {
+      mode = base.mode // {
+        main = base.mode.main // {
+          binding = stripped // directional;
+        };
+      };
+    };
+  };
+}
+#+end_src

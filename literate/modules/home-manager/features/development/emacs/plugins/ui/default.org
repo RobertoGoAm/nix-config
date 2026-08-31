@@ -1,0 +1,20 @@
+#+TITLE: development emacs plugins ui
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins ui
+
+#+begin_src nix
+{
+  imports = [
+    ./dashboard.nix
+    ./icons.nix
+    ./indents.nix
+    ./linenumbers.nix
+    ./notifications.nix
+    ./report.nix
+    ./statusline.nix
+    ./twilight.nix
+    ./virt-column.nix
+  ];
+}
+#+end_src

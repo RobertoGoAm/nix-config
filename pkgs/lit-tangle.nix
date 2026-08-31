@@ -1,9 +1,10 @@
 # lit-tangle: turn the literate .org sources into the .nix files this repo commits.
 #
-# The org sources live in their own private repository -- nix-config-literate --
-# and are never committed here. What lands in this repo is the tangled output:
-# ordinary, commented Nix, indistinguishable from hand-written, because the
-# prose around each block is emitted as `#' comments.
+# The org sources live in literate/ in this repository, mirroring the tree they
+# generate: literate/modules/.../foo.org tangles to modules/.../foo.nix. Both
+# are committed. The tangled output is ordinary, commented Nix, indistinguishable
+# from hand-written, because the prose around each block is emitted as `#'
+# comments -- so the .nix files stay readable for anyone who never opens the org.
 #
 # Two modes:
 #   lit-tangle            write the .nix files
@@ -28,7 +29,7 @@ writeShellApplication {
     nixfmt
   ];
   text = ''
-    src="''${LIT_SRC:-$HOME/nix-config-literate}"
+    src="''${LIT_SRC:-$HOME/nix-config/literate}"
     out="''${LIT_OUT:-$HOME/nix-config}"
     check=0
 
@@ -40,7 +41,7 @@ writeShellApplication {
         -h|--help)
           echo "usage: lit-tangle [--check] [--src DIR] [--out DIR]"
           echo "  --check   tangle to a scratch tree and report drift; writes nothing"
-          echo "  --src     literate org sources (default: \$HOME/nix-config-literate)"
+          echo "  --src     literate org sources (default: \$HOME/nix-config/literate)"
           echo "  --out     nix-config checkout to tangle into (default: \$HOME/nix-config)"
           exit 0 ;;
         *) echo "lit-tangle: unknown argument: $1" >&2; exit 2 ;;
@@ -50,7 +51,7 @@ writeShellApplication {
 
     if [ ! -d "$src" ]; then
       echo "lit-tangle: no literate sources at $src" >&2
-      echo "  (clone nix-config-literate there, or pass --src)" >&2
+      echo "  (the literate/ tree is missing from this checkout)" >&2
       exit 1
     fi
 

@@ -1,0 +1,13 @@
+#+TITLE: development emacs plugins apps
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins apps
+
+#+begin_src nix
+{
+  imports = [
+    ./browser.nix
+    ./music.nix
+  ];
+}
+#+end_src

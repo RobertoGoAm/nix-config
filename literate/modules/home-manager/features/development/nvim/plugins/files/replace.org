@@ -1,0 +1,18 @@
+#+TITLE: development nvim plugins files replace
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins files replace
+
+#+begin_src nix
+{
+  plugins = {
+    grug-far = {
+      enable = true;
+
+      settings = {
+        transient = true;
+      };
+    };
+  };
+}
+#+end_src

@@ -1,0 +1,123 @@
+#+TITLE: macos vulcan casks
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* macos vulcan casks
+
+#+begin_src nix
+let
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { }
+    else
+      {
+        macCasks = [ ];
+      };
+#+end_src
+
+* `brew bundle --upgrade` skips any cask that declares auto_updates...
+
+`brew bundle --upgrade` skips any cask that declares auto_updates upstream,
+which is most of this list, so rebuilds would install-then-never-touch them.
+Marking every entry greedy makes rebuilds upgrade them too; it is a no-op for
+casks that don't self-update.
+
+#+begin_src nix
+  greedy = map (name: {
+    inherit name;
+    greedy = true;
+  });
+in
+{
+  homebrew = {
+    enable = true;
+    casks =
+      greedy [
+#+end_src
+
+* Development
+
+#+begin_src nix
+        "imageoptim"
+        "orbstack"
+#+end_src
+
+* Internet
+
+#+begin_src nix
+        "google-chrome"
+#+end_src
+
+* Media
+
+#+begin_src nix
+        "macmediakeyforwarder"
+#+end_src
+
+* Office
+
+#+begin_src nix
+        "pdf-expert"
+#+end_src
+
+* Productivity
+
+#+begin_src nix
+        "claude"
+        "hammerspoon" # drives the Alacritty quake terminal (Cmd+`); needs an Accessibility grant
+#+end_src
+
+* Security
+
+#+begin_src nix
+        "bitwarden"
+        "blockblock"
+        "gpg-suite"
+        "oversight"
+        "ransomwhere"
+#+end_src
+
+* Social
+
+Telegram for macOS, the AppKit client. nixpkgs has no package for it
+(telegram-macos/telegram-mac are both absent) and only ships the Qt
+telegram-desktop, which is the lighter-on-resources loser of the two and
+whose updates make a rebuild noticeably slower. Revisit only if the
+AppKit client ever lands in nixpkgs.
+
+#+begin_src nix
+        "telegram"
+#+end_src
+
+* Tool
+
+#+begin_src nix
+        "calibre" # nixpkgs marks calibre broken on darwin
+        "filen" # nixpkgs filen-desktop is Electron, Linux-only
+        "multipass"
+        "omnidisksweeper"
+        "qmk-toolbox"
+        "utm" # local Linux VMs (Apple Virtualization / QEMU); hosts the bridged Omada controller VM
+        "via"
+#+end_src
+
+* Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+
+#+begin_src nix
+      ]
+      ++ private.macCasks;
+#+end_src
+
+* These app IDs are from using the mas CLI app
+
+mas = mac app store
+https://github.com/mas-cli/mas
+
+$ nix shell nixpkgs#mas
+$ mas search <app name>
+
+#+begin_src nix
+    masApps = { };
+  };
+}
+#+end_src

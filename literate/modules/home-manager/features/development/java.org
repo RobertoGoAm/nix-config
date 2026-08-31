@@ -1,0 +1,14 @@
+#+TITLE: development java
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development java
+
+#+begin_src nix
+{ pkgs, ... }:
+{
+  programs.java = {
+    enable = true;
+    package = pkgs.zulu;
+  };
+}
+#+end_src

@@ -1,0 +1,1067 @@
+#+TITLE: cli claude
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli claude
+
+#+begin_src nix
+{ ... }:
+{
+  programs.claude-code = {
+    enable = true;
+#+end_src
+
+* mcpServers is deliberately left undeclared. The module only emits...
+
+mcpServers is deliberately left undeclared. The module only emits its
+.mcp.json when the set is non-empty, and it never touches ~/.claude.json,
+so servers registered with `claude mcp add` survive a rebuild. context,
+skills and plugins are left out for the same reason: they would pull
+pipeline content into this public repo.
+
+#+begin_src nix
+    settings = {
+      enabledMcpjsonServers = [
+        "pipeline-rag"
+        "storybook"
+        "playwright"
+        "vercel"
+      ];
+      permissions = {
+        allow = [
+#+end_src
+
+* ── Core tool primitives ──────────────────────────────────────────
+
+#+begin_src nix
+          "Read"
+          "Glob"
+          "Grep"
+          "BashOutput"
+          "Edit"
+          "Write"
+          "NotebookEdit"
+          "TodoWrite"
+          "WebFetch"
+          "WebSearch"
+          "Skill(*)"
+#+end_src
+
+* ── Generic shell ops (read-only inspection + safe write) ────────
+
+#+begin_src nix
+          "Bash(ls)"
+          "Bash(ls *)"
+#+end_src
+
+* NOTE: to bypass the rtk `ls`→`rtk ls` rewrite for raw output, use
+
+`rtk proxy ls …` (allow-listed via `Bash(rtk proxy *)`), NOT `/bin/ls`.
+
+#+begin_src nix
+          "Bash(pwd)"
+          "Bash(cd *)"
+          "Bash(echo *)"
+          "Bash(cat *)"
+          "Bash(head *)"
+          "Bash(tail *)"
+          "Bash(find *)"
+          "Bash(grep *)"
+          "Bash(rg *)"
+          "Bash(wc *)"
+          "Bash(which *)"
+          "Bash(file *)"
+          "Bash(stat *)"
+          "Bash(du *)"
+          "Bash(df *)"
+          "Bash(tree *)"
+          "Bash(env)"
+          "Bash(printenv *)"
+          "Bash(jq)"
+          "Bash(jq *)"
+          "Bash(yq)"
+          "Bash(yq *)"
+          "Bash(awk *)"
+          "Bash(sort *)"
+          "Bash(uniq *)"
+          "Bash(diff *)"
+          "Bash(cmp *)"
+          "Bash(ps *)"
+          "Bash(pgrep *)" # read-only process lookup (sibling of the allowed ps)
+          "Bash(lsof *)"
+          "Bash(mkdir -p *)"
+          "Bash(touch *)"
+          "Bash(mktemp)"
+          "Bash(mktemp *)"
+          "Bash(mktemp -d)"
+          "Bash(cp *)"
+          "Bash(mv *)"
+          "Bash(ln -s *)"
+          "Bash(ln -sfn *)"
+          "Bash(chmod *)" # mode bits / +x — 777 variants denied below
+          "Bash(bash -n *)"
+          "Bash(printf *)"
+          "Bash(seq *)"
+          "Bash(date)"
+          "Bash(date *)"
+          "Bash(basename *)"
+          "Bash(dirname *)"
+          "Bash(realpath *)"
+          "Bash(readlink *)"
+          "Bash(xargs *)"
+#+end_src
+
+* `timeout <dur> <cmd>` — a command WRAPPER, so NOT blanket-allowed:
+
+`Bash(timeout *)` would let `timeout 5 git push --force` / `timeout 5 rm
+-rf …` slip past the prefix-match deny list. Treated like rtk — scoped to
+safe inner commands only; any other timeout-wrapped command still prompts.
+(Compound forms `timeout 5 X; <danger>` are split + checked per-segment.)
+
+#+begin_src nix
+          "Bash(timeout * pnpm test*)"
+          "Bash(timeout * pnpm build*)"
+          "Bash(timeout * pnpm dev*)"
+          "Bash(timeout * pnpm storybook*)"
+          "Bash(timeout * pnpm docs:dev*)"
+          "Bash(timeout * curl http://localhost:*)"
+          "Bash(timeout * curl -s http://localhost:*)"
+          "Bash(timeout * bash $HOME/.claude/pipeline/scripts/*)"
+          "Bash(timeout * node scripts/*)"
+          "Bash(timeout * python3 scripts/*)"
+          "Bash(tar tzf *)"
+          "Bash(tar tvf *)"
+          "Bash(node --version)"
+          "Bash(npm --version)"
+          "Bash(pnpm --version)"
+          "Bash(npx --version)"
+#+end_src
+
+* ── Git read-only ────────────────────────────────────────────────
+
+#+begin_src nix
+          "Bash(git status)"
+          "Bash(git status *)"
+          "Bash(git diff)"
+          "Bash(git diff *)"
+          "Bash(git diff --stat)"
+          "Bash(git diff --stat *)"
+          "Bash(git diff --no-color *)"
+          "Bash(git log)"
+          "Bash(git log *)"
+          "Bash(git show *)"
+          "Bash(git branch)"
+          "Bash(git branch *)"
+          "Bash(git remote)"
+          "Bash(git remote *)"
+          "Bash(git config --get *)"
+          "Bash(git config --list)"
+          "Bash(git rev-parse *)"
+          "Bash(git rev-list *)"
+          "Bash(git ls-files *)"
+          "Bash(git ls-tree *)"
+          "Bash(git ls-remote *)"
+          "Bash(git blame *)"
+          "Bash(git merge-base *)"
+          "Bash(git symbolic-ref *)"
+          "Bash(git for-each-ref *)"
+          "Bash(git reflog)"
+          "Bash(git reflog *)"
+          "Bash(git stash list)"
+          "Bash(git stash show *)"
+          "Bash(git tag)"
+          "Bash(git tag *)"
+          "Bash(git fetch)"
+          "Bash(git fetch *)"
+          "Bash(git pull)"
+          "Bash(git pull *)"
+          "Bash(git check-ignore *)"
+          "Bash(git worktree list)"
+          "Bash(git worktree list *)"
+#+end_src
+
+* ── Git `-C <path>` (run in another repo — broad allow paired
+
+with destructive-form denies below) ────────────────────────────
+
+#+begin_src nix
+          "Bash(git -C *)"
+#+end_src
+
+* ── Git write (local — no destructive history rewrites; see deny)
+
+#+begin_src nix
+          "Bash(git add *)"
+          "Bash(git commit *)"
+          "Bash(git checkout -b *)"
+          "Bash(git switch -c *)"
+          "Bash(git switch *)" # switch to an existing branch (file-safe; no --discard by default). NOT `git checkout <branch>` — that form also discards files.
+          "Bash(git stash)"
+          "Bash(git stash push *)"
+          "Bash(git stash save *)"
+          "Bash(git stash pop)"
+          "Bash(git stash pop *)"
+          "Bash(git stash apply *)"
+          "Bash(git stash drop *)"
+          "Bash(git merge --no-commit --no-ff *)"
+          "Bash(git merge --abort)"
+          "Bash(git merge --continue)"
+          "Bash(git rebase --abort)"
+          "Bash(git rebase --continue)"
+          "Bash(git rebase --skip)"
+          "Bash(git cherry-pick --abort)"
+          "Bash(git cherry-pick --continue)"
+          "Bash(git revert --abort)"
+          "Bash(git revert --continue)"
+#+end_src
+
+* ── gh CLI (read + safe writes) ──────────────────────────────────
+
+#+begin_src nix
+          "Bash(gh auth status)"
+          "Bash(gh pr view *)"
+          "Bash(gh pr list)"
+          "Bash(gh pr list *)"
+          "Bash(gh pr checks *)"
+          "Bash(gh pr diff *)"
+#+end_src
+
+* gh pr create: per-project (project settings.local.json), like git...
+
+gh pr create: per-project (project settings.local.json), like git push.
+
+#+begin_src nix
+          "Bash(gh pr comment *)"
+          "Bash(gh pr review *)"
+          "Bash(gh issue view *)"
+          "Bash(gh issue list)"
+          "Bash(gh issue list *)"
+          "Bash(gh issue create *)"
+          "Bash(gh issue comment *)"
+          "Bash(gh repo view)"
+          "Bash(gh repo view *)"
+          "Bash(gh run list)"
+          "Bash(gh run list *)"
+          "Bash(gh run view *)"
+          "Bash(gh run watch *)"
+          "Bash(gh run rerun *)"
+          "Bash(gh api *)"
+          "Bash(gh workflow list)"
+          "Bash(gh workflow list *)"
+          "Bash(gh workflow view *)"
+          "Bash(gh release list)"
+          "Bash(gh release list *)"
+          "Bash(gh release view *)"
+          "Bash(gh secret list)"
+          "Bash(gh secret list *)"
+          "Bash(gh variable list)"
+          "Bash(gh variable list *)"
+          "Bash(gh variable get *)"
+          "Bash(gh variable set *)"
+#+end_src
+
+* rtk proxy: wildcard allowed per user decision (consolidate rtk...
+
+rtk proxy: wildcard allowed per user decision (consolidate rtk allows here).
+⚠ TRADEOFF: `rtk proxy <cmd>` bypasses the rtk output filter AND the deny
+list (e.g. `rtk proxy git push --force` would NOT be blocked). The scoped
+forms below are now redundant but kept for documentation.
+
+#+begin_src nix
+          "Bash(rtk proxy *)"
+          "Bash(rtk proxy gh run view *)"
+          "Bash(rtk proxy gh run list *)"
+          "Bash(rtk proxy gh api *)"
+          "Bash(rtk proxy gh pr view *)"
+          "Bash(rtk proxy gh pr checks *)"
+          "Bash(rtk proxy pnpm lint)"
+          "Bash(rtk proxy pnpm lint *)"
+#+end_src
+
+* filesystem / search / inspect (pure read-only)
+
+#+begin_src nix
+          "Bash(rtk ls)"
+          "Bash(rtk ls *)"
+          "Bash(rtk tree)"
+          "Bash(rtk tree *)"
+          "Bash(rtk cat *)"
+          "Bash(rtk find *)"
+          "Bash(rtk grep *)"
+          "Bash(rtk rg *)"
+          "Bash(rtk diff *)"
+          "Bash(rtk env)"
+          "Bash(rtk json *)"
+#+end_src
+
+* git under rtk — read-only subcommands + add/commit (writes). push...
+
+git under rtk — read-only subcommands + add/commit (writes). push is NOT
+here: it's per-project local, and force/delete are denied below (incl. rtk).
+
+#+begin_src nix
+          "Bash(rtk git status)"
+          "Bash(rtk git status *)"
+          "Bash(rtk git log)"
+          "Bash(rtk git log *)"
+          "Bash(rtk git diff)"
+          "Bash(rtk git diff *)"
+          "Bash(rtk git show *)"
+          "Bash(rtk git branch)"
+          "Bash(rtk git branch *)"
+          "Bash(rtk git add *)"
+          "Bash(rtk git commit *)"
+#+end_src
+
+* gh — read-only subcommands only
+
+#+begin_src nix
+          "Bash(rtk gh pr list)"
+          "Bash(rtk gh pr list *)"
+          "Bash(rtk gh pr view *)"
+          "Bash(rtk gh pr checks *)"
+          "Bash(rtk gh issue list)"
+          "Bash(rtk gh issue list *)"
+          "Bash(rtk gh run list)"
+          "Bash(rtk gh run list *)"
+          "Bash(rtk gh run view *)"
+#+end_src
+
+* docker — read-only subcommands only
+
+#+begin_src nix
+          "Bash(rtk docker ps)"
+          "Bash(rtk docker ps *)"
+          "Bash(rtk docker images)"
+          "Bash(rtk docker images *)"
+          "Bash(rtk docker logs *)"
+          "Bash(rtk docker compose ps *)"
+          "Bash(rtk docker compose logs *)"
+          "Bash(node --check *)"
+          "Bash(shasum *)"
+#+end_src
+
+* Makefile dev loop (non-destructive targets only). Deliberately NOT
+
+`make dev-reset` (drops the DB volume) and NOT `make *` — destructive
+targets must still prompt.
+
+#+begin_src nix
+          "Bash(make)"
+          "Bash(make help)"
+          "Bash(make dev-up)"
+          "Bash(make dev-down)"
+          "Bash(make migrate)"
+          "Bash(make seed)"
+          "Bash(gh label list)"
+          "Bash(gh label list *)"
+          "Bash(gh search *)"
+#+end_src
+
+* ── pnpm / npm ───────────────────────────────────────────────────
+
+#+begin_src nix
+          "Bash(pnpm test)"
+          "Bash(pnpm test *)"
+          "Bash(pnpm test:*)"
+          "Bash(pnpm lint)"
+          "Bash(pnpm lint *)"
+          "Bash(pnpm lint:*)"
+          "Bash(pnpm typecheck)"
+          "Bash(pnpm typecheck *)"
+          "Bash(pnpm format)"
+          "Bash(pnpm format *)"
+          "Bash(pnpm build)"
+          "Bash(pnpm build *)"
+          "Bash(pnpm build:*)"
+          "Bash(pnpm build-storybook)"
+          "Bash(pnpm build-storybook *)"
+          "Bash(pnpm verify)"
+          "Bash(pnpm verify *)"
+          "Bash(pnpm verify:*)"
+          "Bash(pnpm quality)"
+          "Bash(pnpm quality *)"
+          "Bash(pnpm quality:*)"
+          "Bash(pnpm doc-lint)"
+          "Bash(pnpm doc-lint *)"
+          "Bash(pnpm doc-lint:*)"
+          "Bash(pnpm exec *)"
+          "Bash(pnpm drizzle-kit *)"
+          "Bash(pnpm db:*)"
+          "Bash(bash scripts/*)"
+          "Bash(bash scripts/*.sh)"
+          "Bash(node scripts/*)"
+          "Bash(python3 scripts/*)"
+          "Bash(python scripts/*)"
+#+end_src
+
+* node --test scoped to the pipeline's own kg/rag/graphify fixtures...
+
+node --test scoped to the pipeline's own kg/rag/graphify fixtures only (run from the pipeline repo root), not blanket
+
+#+begin_src nix
+          "Bash(node --test kg/*)"
+          "Bash(node --test rag/*)"
+          "Bash(node --test graphify/*)"
+          "Bash(pnpm dev)"
+          "Bash(pnpm dev *)"
+          "Bash(pnpm dev:*)"
+          "Bash(pnpm start)"
+          "Bash(pnpm start *)"
+          "Bash(pnpm storybook)"
+          "Bash(pnpm storybook *)"
+          "Bash(pnpm test-storybook)"
+          "Bash(pnpm test-storybook *)"
+          "Bash(pnpm lighthouse)"
+          "Bash(pnpm lighthouse *)"
+          "Bash(pnpm docs:build)"
+          "Bash(pnpm docs:dev)"
+          "Bash(pnpm docs:dev *)"
+          "Bash(pnpm prisma:generate)"
+          "Bash(pnpm prisma:studio)"
+          "Bash(pnpm prisma:migrate:dev)"
+          "Bash(pnpm prisma:migrate:deploy)"
+          "Bash(pnpm audit)"
+          "Bash(pnpm audit *)"
+          "Bash(pnpm list)"
+          "Bash(pnpm list *)"
+          "Bash(pnpm ls)"
+          "Bash(pnpm ls *)"
+          "Bash(pnpm view *)"
+          "Bash(pnpm why *)"
+          "Bash(pnpm outdated)"
+          "Bash(pnpm outdated *)"
+          "Bash(pnpm search *)"
+          "Bash(npm view *)"
+          "Bash(npm info *)"
+          "Bash(npm search *)"
+#+end_src
+
+* ── Formatter (direct prettier invocation) ───────────────────────
+
+`pnpm format` / `pnpm exec *` are covered above. These cover direct
+prettier runs — including the ./node_modules/.bin form used when the
+rtk hook mangles bare `prettier` / `npx prettier` (returns no output).
+
+#+begin_src nix
+          "Bash(prettier *)"
+          "Bash(npx prettier *)"
+          "Bash(./node_modules/.bin/prettier *)"
+#+end_src
+
+* ── Pipeline scripts (global home-manager path) ──────────────────
+
+The broad pattern covers any pipeline script invocation; specific
+patterns kept for documentation of common entry points.
+
+#+begin_src nix
+          "Bash(bash $HOME/.claude/pipeline/scripts/*)"
+          "Bash($HOME/.claude/pipeline/scripts/*)"
+#+end_src
+
+* Env-prefixed form: only scaffold-ticket/openapi/component.sh read
+
+PIPELINE_HOME; an agent may prepend the correct value when the
+inherited env var is stale. Safe — it only sets PIPELINE_HOME and then
+runs an already-allow-listed pipeline script. (The leading assignment
+otherwise breaks the prefix-match above and forces an approval prompt.)
+
+#+begin_src nix
+          "Bash(PIPELINE_HOME=* bash $HOME/.claude/pipeline/scripts/*)"
+          "Bash(PIPELINE_HOME=* $HOME/.claude/pipeline/scripts/*)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/validate-scripts.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/check-env-compose-drift.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/check-ports.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/pipeline-status.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/quality-gate.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/dev-up.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/dev-up.sh *)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/dev-db-setup.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/pipeline-gc.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/pipeline-gc.sh *)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/graphify-here.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/graphify-here.sh *)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/update-skills.sh)"
+          "Bash(bash $HOME/.claude/pipeline/scripts/update-skills.sh *)"
+#+end_src
+
+* ── Pipeline KG / RAG / graphify direct node invocation ──────────
+
+The kg/ingest.js + scripts/check-*.mjs are invoked directly with
+`node` for CLI testing / debugging; the MCP server invokes them
+internally and doesn't need an allow entry.
+
+#+begin_src nix
+          "Bash(node $HOME/.claude/pipeline/kg/*)"
+          "Bash(node $HOME/.claude/pipeline/kg/ingest.js *)"
+          "Bash(node $HOME/.claude/pipeline/scripts/*)"
+          "Bash(graphify *)"
+#+end_src
+
+* ── External tools (assets, security, validation, local probes) ──
+
+#+begin_src nix
+          "Bash(sqlite3 *)"
+          "Bash(ffmpeg *)"
+          "Bash(svgo *)"
+          "Bash(oxipng *)"
+          "Bash(sharp *)"
+          "Bash(mozjpeg *)"
+          "Bash(gitleaks *)"
+          "Bash(spectral *)"
+          "Bash(npx spectral *)"
+          "Bash(curl http://localhost:*)"
+          "Bash(curl -s http://localhost:*)"
+          "Bash(curl -sS http://localhost:*)"
+          "Bash(curl -sI http://localhost:*)"
+          "Bash(curl -o /dev/null *)"
+#+end_src
+
+* ── Performance audit tooling (Phase 10 — measurement + localhost...
+
+── Performance audit tooling (Phase 10 — measurement + localhost load) ──
+Scoped to the perf surfaces, NOT blanket `node *` / `npx *`. The perf
+harnesses (autocannon, lighthouse Node API) live under tests/performance/;
+bundle size is measured via `gzip -c … | wc -c` (both segments now allow-
+listed, so the compound auto-approves); load tests hit localhost/127.0.0.1;
+the dev server is started (`pnpm start`, allowed) and killed around the run.
+(`pnpm exec lhci|autocannon|size-limit` is already covered by `pnpm exec *`.)
+
+#+begin_src nix
+          "Bash(node tests/*)"
+          "Bash(gzip *)" # reversible compression — gzip-size measurement, not destructive
+          "Bash(gunzip *)"
+          "Bash(zcat *)"
+          "Bash(curl http://127.0.0.1:*)"
+          "Bash(curl -s http://127.0.0.1:*)"
+          "Bash(curl -sS http://127.0.0.1:*)"
+          "Bash(curl -sI http://127.0.0.1:*)"
+          "Bash(npx lhci *)"
+          "Bash(npx autocannon *)"
+          "Bash(npx size-limit *)"
+          "Bash(npx lighthouse *)"
+          "Bash(kill *)" # stop the backgrounded dev server after the load test
+          "Bash(pkill *)"
+#+end_src
+
+* ── Docker (read-only) ───────────────────────────────────────────
+
+#+begin_src nix
+          "Bash(docker ps)"
+          "Bash(docker ps *)"
+          "Bash(docker logs *)"
+          "Bash(docker compose ps)"
+          "Bash(docker compose ps *)"
+          "Bash(docker compose logs)"
+          "Bash(docker compose logs *)"
+          "Bash(docker compose config)"
+          "Bash(docker compose config *)"
+#+end_src
+
+* compose lifecycle (write). NOTE: `down -v` destroys volumes —...
+
+compose lifecycle (write). NOTE: `down -v` destroys volumes — accepted;
+the dev loop normally goes through the allowed `make dev-up/dev-down`.
+
+#+begin_src nix
+          "Bash(docker compose up)"
+          "Bash(docker compose up *)"
+          "Bash(docker compose down)"
+          "Bash(docker compose down *)"
+          "Bash(docker images)"
+          "Bash(docker images *)"
+          "Bash(docker version)"
+          "Bash(docker info)"
+#+end_src
+
+* ── Nix / system management ──────────────────────────────────────
+
+#+begin_src nix
+          "Bash(darwin-rebuild switch *)"
+          "Bash(sudo darwin-rebuild switch *)"
+          "Bash(nix flake check *)"
+          "Bash(nix flake show *)"
+          "Bash(nix flake metadata *)"
+          "Bash(nix-store --query *)"
+          "Bash(nix-instantiate --parse *)" # syntax-check a .nix file (parse only — no eval/build)
+#+end_src
+
+* ── macOS launchd (read-only introspection) ──────────────────────
+
+getenv/list only. setenv/unsetenv/bootout/kickstart mutate → still prompt.
+
+#+begin_src nix
+          "Bash(launchctl getenv *)"
+          "Bash(launchctl list)"
+          "Bash(launchctl list *)"
+#+end_src
+
+* ── Claude Code self-introspection (read-only) ───────────────────
+
+`claude mcp list/get` only. `claude mcp add/remove` mutate config → prompt.
+NEVER `claude *` (could spawn nested sessions).
+
+#+begin_src nix
+          "Bash(claude mcp list)"
+          "Bash(claude mcp list *)"
+          "Bash(claude mcp get *)"
+#+end_src
+
+* ── MCP: Pencil ──────────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__pencil__open_document"
+          "mcp__pencil__get_editor_state"
+          "mcp__pencil__get_screenshot"
+          "mcp__pencil__get_variables"
+          "mcp__pencil__batch_get"
+          "mcp__pencil__snapshot_layout"
+          "mcp__pencil__get_guidelines"
+          "mcp__pencil__find_empty_space_on_canvas"
+          "mcp__pencil__search_all_unique_properties"
+          "mcp__pencil__export_nodes"
+          "mcp__pencil__batch_design"
+          "mcp__pencil__set_variables"
+          "mcp__pencil__replace_all_matching_properties"
+#+end_src
+
+* ── MCP: Pipeline RAG ────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__pipeline-rag__query"
+          "mcp__pipeline-rag__list_documents"
+          "mcp__pipeline-rag__reindex"
+#+end_src
+
+* ── MCP: Pipeline KG ─────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__pipeline-kg__stats"
+          "mcp__pipeline-kg__list"
+          "mcp__pipeline-kg__context"
+          "mcp__pipeline-kg__related"
+          "mcp__pipeline-kg__impact"
+          "mcp__pipeline-kg__coverage"
+          "mcp__pipeline-kg__orphans"
+          "mcp__pipeline-kg__usages"
+          "mcp__pipeline-kg__path"
+          "mcp__pipeline-kg__drift"
+          "mcp__pipeline-kg__reindex"
+#+end_src
+
+* ── MCP: OpenAPI ─────────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__openapi__list_endpoints"
+          "mcp__openapi__get_endpoint"
+          "mcp__openapi__list_schemas"
+          "mcp__openapi__get_schema"
+          "mcp__openapi__info"
+          "mcp__openapi__create"
+          "mcp__openapi__validate"
+#+end_src
+
+* ── MCP: Stack ───────────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__stack__get"
+          "mcp__stack__frontmatter"
+          "mcp__stack__yaml_block"
+          "mcp__stack__table"
+          "mcp__stack__list"
+          "mcp__stack__create"
+          "mcp__stack__set"
+          "mcp__stack__set_yaml_block"
+          "mcp__stack__add_section"
+          "mcp__stack__batch"
+          "mcp__stack__validate"
+#+end_src
+
+* ── MCP: Progress ────────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__progress__read"
+          "mcp__progress__set_phase_status"
+          "mcp__progress__add_artifact"
+          "mcp__progress__add_decision"
+          "mcp__progress__add_waiver"
+          "mcp__progress__add_pending"
+          "mcp__progress__set_next_step"
+          "mcp__progress__set_design_track"
+          "mcp__progress__batch"
+          "mcp__progress__validate"
+#+end_src
+
+* ── MCP: Storybook ───────────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__storybook__preview-stories"
+          "mcp__storybook__get-storybook-story-instructions"
+          "mcp__storybook__list-all-documentation"
+          "mcp__storybook__get-documentation"
+          "mcp__storybook__get-documentation-for-story"
+          "mcp__storybook__run-story-tests"
+#+end_src
+
+* ── MCP: Playwright (wildcard — unsafe variant explicitly denied) ─
+
+#+begin_src nix
+          "mcp__playwright__*"
+#+end_src
+
+* ── MCP: Claude Preview ──────────────────────────────────────────
+
+#+begin_src nix
+          "mcp__Claude_Preview__preview_screenshot"
+          "mcp__Claude_Preview__preview_resize"
+          "mcp__Claude_Preview__preview_console_logs"
+          "mcp__Claude_Preview__preview_snapshot"
+          "mcp__Claude_Preview__preview_inspect"
+          "mcp__Claude_Preview__preview_logs"
+          "mcp__Claude_Preview__preview_network"
+          "mcp__Claude_Preview__preview_list"
+          "mcp__Claude_Preview__preview_start"
+#+end_src
+
+* ── MCP: Serena (code-symbol navigation + memory + editing) ──────
+
+Read-only navigation:
+
+#+begin_src nix
+          "mcp__serena__find_declaration"
+          "mcp__serena__find_file"
+          "mcp__serena__find_implementations"
+          "mcp__serena__find_referencing_symbols"
+          "mcp__serena__find_symbol"
+          "mcp__serena__get_current_config"
+          "mcp__serena__get_diagnostics_for_file"
+          "mcp__serena__get_symbols_overview"
+          "mcp__serena__initial_instructions"
+          "mcp__serena__list_dir"
+          "mcp__serena__list_memories"
+          "mcp__serena__read_file"
+          "mcp__serena__read_memory"
+          "mcp__serena__search_for_pattern"
+#+end_src
+
+* Editing (LSP-precise structural ops; same safety class as...
+
+Editing (LSP-precise structural ops; same safety class as Edit/Write):
+
+#+begin_src nix
+          "mcp__serena__insert_after_symbol"
+          "mcp__serena__insert_before_symbol"
+          "mcp__serena__replace_symbol_body"
+          "mcp__serena__rename_symbol"
+          "mcp__serena__safe_delete_symbol"
+          "mcp__serena__replace_content"
+#+end_src
+
+* Memory write/edit:
+
+#+begin_src nix
+          "mcp__serena__write_memory"
+          "mcp__serena__edit_memory"
+          "mcp__serena__delete_memory"
+          "mcp__serena__rename_memory"
+#+end_src
+
+* Onboarding (writes initial memory):
+
+#+begin_src nix
+          "mcp__serena__onboarding"
+#+end_src
+
+* ── MCP: Vercel ──────────────────────────────────────────────────
+
+Read-only listings + getters
+
+#+begin_src nix
+          "mcp__vercel__list_projects"
+          "mcp__vercel__list_deployments"
+          "mcp__vercel__list_environments"
+          "mcp__vercel__list_env_vars"
+          "mcp__vercel__list_domains"
+          "mcp__vercel__list_teams"
+          "mcp__vercel__get_project"
+          "mcp__vercel__get_deployment"
+          "mcp__vercel__get_deployment_logs"
+          "mcp__vercel__get_deployment_events"
+          "mcp__vercel__get_env_var"
+          "mcp__vercel__get_domain"
+          "mcp__vercel__get_speed_insights"
+          "mcp__vercel__get_web_analytics"
+#+end_src
+
+* Auth (OAuth flow opens browser; not a destructive op)
+
+#+begin_src nix
+          "mcp__vercel__authenticate"
+          "mcp__vercel__complete_authentication"
+        ];
+
+        deny = [
+#+end_src
+
+* ── Sensitive file paths (Edit) ──────────────────────────────────
+
+#+begin_src nix
+          "Edit(~/.ssh/**)"
+          "Edit(~/.aws/**)"
+          "Edit(~/.gcp/**)"
+          "Edit(~/.config/gcloud/**)"
+          "Edit(~/.npmrc)"
+          "Edit(~/.yarnrc)"
+          "Edit(~/.bashrc)"
+          "Edit(~/.zshrc)"
+          "Edit(~/.profile)"
+          "Edit(~/.bash_profile)"
+          "Edit(~/.zprofile)"
+          "Edit(~/.gitconfig)"
+          "Edit(/etc/**)"
+#+end_src
+
+* ── Shell-pipe-execute (untrusted code from network) ─────────────
+
+#+begin_src nix
+          "Bash(curl * | sh*)"
+          "Bash(curl * | bash*)"
+          "Bash(wget * | sh*)"
+          "Bash(wget * | bash*)"
+          "Bash(eval *)"
+#+end_src
+
+* ── Privilege escalation (except darwin-rebuild allowed above) ───
+
+#+begin_src nix
+          "Bash(sudo cat *)"
+          "Bash(sudo cp *)"
+          "Bash(sudo mv *)"
+          "Bash(sudo rm *)"
+          "Bash(sudo chmod *)"
+          "Bash(sudo chown *)"
+#+end_src
+
+* ── Catastrophic file deletion ───────────────────────────────────
+
+Block only the patterns that cannot be legitimate. Patterns that
+*could* hit a real project path (`rm -rf /Users/*`, `rm -rf ~/*`,
+`rm -rf $HOME/*`) are intentionally NOT denied — the prompt
+interception is preferable to a false-positive block on legitimate
+project-internal rm-rf calls (e.g. `rm -rf <project>/build/`).
+
+#+begin_src nix
+          "Bash(rm -rf /)"
+          "Bash(rm -rf /*)"
+          "Bash(rm -rf ~)"
+          "Bash(rm -rf $HOME)"
+          "Bash(rm -rf -- /*)"
+          "Bash(rm -rf /System/*)"
+          "Bash(rm -rf /Library/*)"
+          "Bash(rm -rf /Applications/*)"
+#+end_src
+
+* ── Permission destruction ───────────────────────────────────────
+
+#+begin_src nix
+          "Bash(chmod 777 *)"
+          "Bash(chmod -R 777 *)"
+          "Bash(chown -R *)"
+#+end_src
+
+* ── Disk / filesystem destruction ────────────────────────────────
+
+#+begin_src nix
+          "Bash(dd if=* of=/dev/*)"
+          "Bash(mkfs.*)"
+          "Bash(mkfs *)"
+          "Bash(fdisk *)"
+          "Bash(diskutil eraseDisk *)"
+          "Bash(diskutil eraseVolume *)"
+#+end_src
+
+* ── Destructive git (history rewrites, hard reset) ──────────────
+
+NOTE: push is intentionally NOT denied. Destructive push (--force / -f /
+--delete) prompts for approval instead (per user: ask, don't block). Safe
+push forms (normal + --force-with-lease) are allowed per-project in
+settings.local.json; --force / --delete fall through to a prompt.
+
+#+begin_src nix
+          "Bash(git reset --hard *)"
+          "Bash(git reset --hard)"
+          "Bash(git filter-branch *)"
+          "Bash(git filter-repo *)"
+          "Bash(git checkout --orphan *)"
+          "Bash(git clean -fdx *)"
+          "Bash(git clean -fdX *)"
+#+end_src
+
+* `-C <path>` variants of the destructive set above — must mirror
+
+because the broad `Bash(git -C *)` allow otherwise lets these
+through against a different repo's path.
+
+#+begin_src nix
+          "Bash(git -C * reset --hard *)"
+          "Bash(git -C * reset --hard)"
+          "Bash(git -C * filter-branch *)"
+          "Bash(git -C * filter-repo *)"
+          "Bash(git -C * checkout --orphan *)"
+          "Bash(git -C * clean -fdx *)"
+          "Bash(git -C * clean -fdX *)"
+#+end_src
+
+* ── cp / mv from sensitive sources (paired with broad cp/mv allow) ──
+
+#+begin_src nix
+          "Bash(cp ~/.ssh/* *)"
+          "Bash(cp ~/.aws/* *)"
+          "Bash(cp ~/.gcp/* *)"
+          "Bash(cp ~/.config/gcloud/* *)"
+          "Bash(cp /etc/* *)"
+          "Bash(mv ~/.ssh/* *)"
+          "Bash(mv ~/.aws/* *)"
+          "Bash(mv ~/.gcp/* *)"
+          "Bash(mv ~/.config/gcloud/* *)"
+          "Bash(mv /etc/* *)"
+          "Bash(mv ~/.gitconfig *)"
+#+end_src
+
+* ── Accidental package publishing ────────────────────────────────
+
+#+begin_src nix
+          "Bash(npm publish *)"
+          "Bash(pnpm publish *)"
+          "Bash(yarn publish *)"
+          "Bash(npm publish)"
+          "Bash(pnpm publish)"
+          "Bash(yarn publish)"
+#+end_src
+
+* ── MCP escape hatches that can execute arbitrary code ───────────
+
+#+begin_src nix
+          "mcp__playwright__browser_run_code_unsafe"
+          "mcp__serena__execute_shell_command"
+          "mcp__Claude_in_Chrome__javascript_tool"
+        ];
+      };
+      hooks = {
+        Notification = [
+          {
+            matcher = "*";
+            hooks = [
+              {
+                type = "command";
+                command = "curl -d 'Claude needs your attention' https://ntfy.sh/$NTFY_TOPIC_ID";
+                async = true;
+                description = "Send notification when Claude needs attention";
+              }
+            ];
+          }
+        ];
+        Stop = [
+          {
+            hooks = [
+              {
+                type = "command";
+                command = "curl -d 'Claude is done!' https://ntfy.sh/$NTFY_TOPIC_ID";
+                async = true;
+                description = "Send notification when Claude finishes responding";
+              }
+            ];
+          }
+        ];
+        PreToolUse = [
+          {
+            matcher = "Bash";
+            hooks = [
+              {
+                type = "command";
+                command = "rtk hook claude";
+                description = "RTK token-killer proxy — rewrites Bash calls for token savings";
+              }
+              {
+                type = "command";
+                command = "bash $HOME/.claude/pipeline/scripts/hook-allow-safe-compound.sh 2>/dev/null || true";
+                description = "Pipeline (optional): auto-approve compound commands (A|B, A&&B, A;B) whose every segment is allow-listed or a vetted read-only command, and none matches a deny rule; default-deny, no-op when pipeline not installed";
+              }
+            ];
+          }
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                command = "serena-hooks remind --client=claude-code";
+                description = "Serena: general drift-prevention reminder before every tool use";
+              }
+            ];
+          }
+          {
+            matcher = "mcp__serena__*";
+            hooks = [
+              {
+                type = "command";
+                command = "serena-hooks auto-approve --client=claude-code";
+                description = "Serena: auto-approve safe Serena MCP tool calls";
+              }
+            ];
+          }
+        ];
+        SessionStart = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                command = "serena-hooks activate --client=claude-code";
+                description = "Serena: prompt project activation at session start";
+              }
+            ];
+          }
+        ];
+        SessionEnd = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                command = "serena-hooks cleanup --client=claude-code";
+                description = "Serena: cleanup on session end";
+              }
+            ];
+          }
+        ];
+        PostToolUse = [
+          {
+            matcher = "Edit|MultiEdit|Write";
+            hooks = [
+              {
+                type = "command";
+                command = "node $HOME/.claude/hooks/enforce-comment-policy.mjs";
+                timeout = 15;
+                description = "Enforce the code-comment policy: flag added non-conforming comments (JSDoc / directives / tooling markers / obscure-only)";
+              }
+            ];
+          }
+        ];
+      };
+      agentPushNotifEnabled = true;
+    };
+  };
+
+  home.file.".claude/hooks/enforce-comment-policy.mjs" = {
+    force = true;
+    source = ./enforce-comment-policy.mjs;
+  };
+#+end_src
+
+* Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
+
+Claude Code hook subshells (/bin/sh -c …) and login shells.
+
+#+begin_src nix
+  home.sessionPath = [ "$HOME/.local/bin" ];
+}
+#+end_src

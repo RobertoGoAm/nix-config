@@ -1,0 +1,23 @@
+#+TITLE: development nvim plugins files browsing
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins files browsing
+
+#+begin_src nix
+{
+  plugins = {
+    project-nvim = {
+      enable = true;
+    };
+
+    telescope = {
+      enable = true;
+
+      extensions = {
+        file-browser.enable = true;
+        frecency.enable = true;
+      };
+    };
+  };
+}
+#+end_src

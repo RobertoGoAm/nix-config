@@ -1,0 +1,38 @@
+#+TITLE: development nvim plugins ui dashboard
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui dashboard
+
+#+begin_src nix
+{
+  plugins = {
+    dashboard = {
+      enable = true;
+
+      settings = {
+        change_to_vcs_root = true;
+        config = {
+          footer = [
+            "Made with ❤️"
+          ];
+          header = [
+            "███╗   ██╗██╗██╗  ██╗██╗   ██╗██╗███╗   ███╗"
+            "████╗  ██║██║╚██╗██╔╝██║   ██║██║████╗ ████║"
+            "██╔██╗ ██║██║ ╚███╔╝ ██║   ██║██║██╔████╔██║"
+            "██║╚██╗██║██║ ██╔██╗ ╚██╗ ██╔╝██║██║╚██╔╝██║"
+            "██║ ╚████║██║██╔╝ ██╗ ╚████╔╝ ██║██║ ╚═╝ ██║"
+            "╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚═╝     ╚═╝"
+          ];
+          mru = {
+            limit = 20;
+          };
+          project = {
+            enable = true;
+          };
+        };
+        theme = "hyper";
+      };
+    };
+  };
+}
+#+end_src

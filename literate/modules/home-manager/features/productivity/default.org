@@ -1,0 +1,16 @@
+#+TITLE: productivity
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* productivity
+
+#+begin_src nix
+{
+  imports = [
+    ./karabiner.nix
+    ./keyd
+    ./kanata # disabled — a ready-to-flip kanata mirror of karabiner + keyd
+    ./obsidian
+    ./thunderbird.nix
+  ];
+}
+#+end_src

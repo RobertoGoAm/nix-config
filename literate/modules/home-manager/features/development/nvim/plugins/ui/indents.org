@@ -1,0 +1,38 @@
+#+TITLE: development nvim plugins ui indents
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui indents
+
+#+begin_src nix
+{
+  plugins = {
+    indent-blankline = {
+      enable = true;
+
+      settings = {
+        exclude = {
+          buftypes = [
+            "terminal"
+            "quickfix"
+          ];
+
+          filetypes = [
+            ""
+            "checkhealth"
+            "dashboard"
+            "help"
+            "lspinfo"
+            "packer"
+            "TelescopePrompt"
+            "TelescopeResults"
+            "yaml"
+            "markdown" # prose: no indent guides (markdown / plain text / git messages)
+            "text"
+            "gitcommit"
+          ];
+        };
+      };
+    };
+  };
+}
+#+end_src

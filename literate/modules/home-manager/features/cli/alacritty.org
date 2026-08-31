@@ -1,0 +1,112 @@
+#+TITLE: cli alacritty
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli alacritty
+
+#+begin_src nix
+{
+  config,
+  lib,
+  nixgl,
+  pkgs,
+  ...
+}:
+let
+  nixGLConfig = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+    packages = nixgl.packages;
+    defaultWrapper = "mesa";
+    installScripts = [ "mesa" ];
+  };
+in
+{
+  targets.genericLinux.nixGL = nixGLConfig;
+
+  programs.alacritty = {
+    enable = true;
+    package = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+      config.lib.nixGL.wrap pkgs.alacritty or pkgs.alacritty
+    );
+
+    settings = {
+      colors = {
+        bright = {
+          black = "#444b6a";
+          blue = "#7da6ff";
+          cyan = "#0db9d7";
+          green = "#b9f27c";
+          magenta = "#bb9af7";
+          red = "#ff7a93";
+          white = "#acb0d0";
+          yellow = "#ff9e64";
+        };
+
+        normal = {
+          black = "#32344a";
+          blue = "#7aa2f7";
+          cyan = "#449dab";
+          green = "#9ece6a";
+          magenta = "#ad8ee6";
+          red = "#f7768e";
+          yellow = "#e0af68";
+          white = "#9699a8";
+        };
+
+        primary = {
+          background = "#24283b";
+          foreground = "#a9b1d6";
+        };
+      };
+
+      env = {
+        TERM = "xterm-256color";
+      };
+
+      font = {
+        normal = {
+          family = "JetBrainsMono Nerd Font";
+        };
+
+        size = lib.mkMerge [
+          (lib.mkIf pkgs.stdenv.hostPlatform.isLinux 10)
+          (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin 14)
+        ];
+      };
+
+      window = {
+        padding = {
+          x = 5;
+          y = 5;
+        };
+
+        dynamic_padding = true;
+      };
+#+end_src
+
+* Fullscreen toggle on Cmd/Super+Shift+Return. macOS uses...
+
+Fullscreen toggle on Cmd/Super+Shift+Return. macOS uses ToggleSimpleFullscreen
+(non-native — no separate Space, so aerospace stays happy); Linux has no Space
+concept, so it gets plain ToggleFullscreen on Super+Shift+Return.
+
+#+begin_src nix
+      keyboard.bindings =
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          [
+            {
+              key = "Enter";
+              mods = "Command|Shift";
+              action = "ToggleSimpleFullscreen";
+            }
+          ]
+        else
+          [
+            {
+              key = "Enter";
+              mods = "Super|Shift";
+              action = "ToggleFullscreen";
+            }
+          ];
+    };
+  };
+}
+#+end_src

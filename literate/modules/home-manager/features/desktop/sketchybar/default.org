@@ -1,0 +1,53 @@
+#+TITLE: desktop sketchybar
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* desktop sketchybar
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.features.desktop.sketchybar;
+in
+{
+  options.features.desktop.sketchybar.enable = lib.mkEnableOption ''
+    SketchyBar. Off by default: it is on trial, and the point of the flag is
+    that abandoning it is one line rather than an unpick. It runs alongside the
+    macOS menu bar and SwiftBar rather than replacing them, so turning it off
+    leaves no gap
+  '';
+
+  config = lib.mkIf (cfg.enable && pkgs.stdenv.hostPlatform.isDarwin) {
+#+end_src
+
+* icon_map.sh maps an app name to its glyph, and the font has to be
+
+installed for the glyph to render rather than showing a tofu box.
+
+#+begin_src nix
+    home.packages = [ pkgs.sketchybar-app-font ];
+
+    programs.sketchybar = {
+      enable = true;
+      configType = "bash";
+      config = {
+        source = ./.;
+        recursive = true;
+      };
+    };
+#+end_src
+
+* The bar only redraws workspaces when aerospace says something...
+
+The bar only redraws workspaces when aerospace says something changed, so
+the items carry no update_freq of their own.
+
+#+begin_src nix
+    home.file.".config/sketchybar/plugins".source = ./plugins;
+  };
+}
+#+end_src

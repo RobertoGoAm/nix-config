@@ -1,0 +1,19 @@
+#+TITLE: development grype
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development grype
+
+#+begin_src nix
+{
+#+end_src
+
+* Same reasoning as uv.nix: the module owns the package so grype's...
+
+Same reasoning as uv.nix: the module owns the package so grype's scanning
+config can be declared later without moving the dependency around. Trivy
+already carries the local scanner config (see trivy.nix).
+
+#+begin_src nix
+  programs.grype.enable = true;
+}
+#+end_src

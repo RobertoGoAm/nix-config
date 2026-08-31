@@ -1,0 +1,80 @@
+#+TITLE: development emacs plugins ai
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins ai
+
+#+begin_src nix
+{
+  lib,
+  ...
+}:
+{
+  imports = [ ./sessions.nix ];
+
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      claude-code
+      gptel
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; AI — claude-code.el drives the Claude Code CLI; gptel is the chat buffer.
+    ;;;
+    ;;; Nothing in the nvim config to mirror here. claude-code.el runs the same
+    ;;; `claude' binary the terminal does, inside a vterm, so it is one Claude
+    ;;; session whichever editor is in front — and it can hand it the region, a file
+    ;;; reference, or the diagnostic under the cursor.
+    ;;;
+    ;;; Autoloaded rather than required: the package pulls in an MCP client with its
+    ;;; own timers and connection retries, none of which is wanted until a session is
+    ;;; actually open. Every command bound on SPC a comes from its autoloads.
+
+    (setq claude-code-executable "claude")
+
+    ;; claude-code-core only `declare-function's the vterm major mode; the
+    ;; definition lives in claude-code-ui, which nothing requires. Loading the
+    ;; package through its autoloads -- deliberate, see above -- means
+    ;; claude-code-run creates its buffer and then dies on
+    ;;
+    ;;   (void-function claude-code-vterm-mode)
+    ;;
+    ;; leaving a fundamental-mode buffer with no process in it. That is the
+    ;; empty pane that shows up when the chat window is toggled: the window is
+    ;; real, the session behind it never started, and the error lands in the
+    ;; echo area where it is easy to miss.
+    ;;
+    ;; Pulling the UI in after core keeps the lazy loading and costs nothing
+    ;; until claude-code is actually used.
+    (with-eval-after-load 'claude-code-core
+      (require 'claude-code-ui))
+
+    (defun my/claude-toggle ()
+      "Show this project's Claude Code session, starting one if there is none."
+      (interactive)
+      (condition-case nil
+          (claude-code-switch-to-buffer)
+        (error (claude-code-run))))
+
+    (defun my/claude-send-region-or-file ()
+      "Send the region to Claude, or a reference to this file when nothing is selected."
+      (interactive)
+      (if (use-region-p)
+          (claude-code-send-region)
+        (claude-code-insert-current-file-path-to-session)))
+
+    ;; gptel for the ask-a-question case, where a chat buffer beats a coding agent.
+    ;; The key is read from the auth source at call time, never stored in the config:
+    ;;   machine api.anthropic.com login apikey password <key>
+    ;; in ~/.authinfo.gpg, which the existing gpg setup already unlocks.
+    (require 'gptel)
+    (setq gptel-default-mode 'markdown-mode
+          gptel-model 'claude-sonnet-4-5-20250929
+          gptel-backend (gptel-make-anthropic "Claude"
+                          :stream t
+                          :key (lambda ()
+                                 (or (auth-source-pick-first-password
+                                      :host "api.anthropic.com" :user "apikey")
+                                     (getenv "ANTHROPIC_API_KEY")))))
+  '';
+}
+#+end_src

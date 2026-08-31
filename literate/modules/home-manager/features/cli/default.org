@@ -1,0 +1,27 @@
+#+TITLE: cli
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli
+
+#+begin_src nix
+{
+  imports = [
+    ./alacritty.nix
+    ./claude.nix
+    ./cli-tools.nix
+    ./devforge.nix
+    ./gh.nix
+    ./gpg.nix
+    ./hammerspoon.nix # macOS quake terminal (Alacritty drop-down); no-op off darwin
+    ./aider.nix
+    ./devcontainer.nix
+    ./opencode.nix
+    ./ripgrep.nix
+    ./ssh.nix
+    ./starship.nix
+    ./tmux.nix
+    ./wifi.nix
+    ./zsh.nix
+  ];
+}
+#+end_src

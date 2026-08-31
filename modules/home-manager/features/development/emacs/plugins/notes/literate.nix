@@ -1,15 +1,15 @@
 # Literate Nix: author the config as org prose, commit the tangled .nix.
 #
-# The org sources live in their own private repository, cloned to
-# ~/nix-config-literate, and are never committed to nix-config. Saving one
-# writes the .nix it describes into the matching path here, with the prose
-# around each block emitted as `#' comments -- so what lands in the public
-# repo is ordinary commented Nix, the same thing that was there before.
+# The org sources live in literate/ inside nix-config, mirroring the tree they
+# generate: literate/modules/.../foo.org tangles to modules/.../foo.nix. Saving
+# one writes the .nix immediately, with the prose around each block emitted as
+# `#' comments -- so the committed Nix stays ordinary and readable for anyone
+# who never opens the org.
 #
-# The separate repo is the reason lit-tangle --check exists. Nothing stops you
-# editing a .nix in nix-config directly, on a host that has no clone of the
-# sources; it will work, and it will be silently overwritten the next time the
-# org file it came from is saved. The check catches that before a commit does.
+# Both halves being committed is what makes lit-tangle --check matter. Nothing
+# stops you editing a .nix directly, and it will work, and it will be silently
+# overwritten the next time the org it came from is saved. The check catches
+# that before a commit does.
 { pkgs, config, ... }:
 {
   home.packages = [ pkgs.lit-tangle ];
@@ -21,7 +21,7 @@
         (require 'ob-tangle)
 
         (defvar my/lit-src-root
-          (file-name-as-directory "${config.home.homeDirectory}/nix-config-literate")
+          (file-name-as-directory "${config.home.homeDirectory}/nix-config/literate")
           "Root of the literate org sources.")
 
         (defvar my/lit-out-root

@@ -1,0 +1,173 @@
+#+TITLE: home-manager hosts perseus packages
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* home-manager hosts perseus packages
+
+#+begin_src nix
+{
+  pkgs,
+  ...
+}:
+let
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { inherit pkgs; }
+    else
+      {
+        linuxPackages = [ ];
+      };
+in
+{
+#+end_src
+
+* Aligned with the prometheus base for everything that builds on...
+
+Aligned with the prometheus base for everything that builds on linux; the
+darwin-only apps (raycast, iina, cyberduck, the-unarchiver, vlc-bin, chatgpt)
+are dropped, and the GNOME/X11/linux-native bits below are perseus-specific.
+
+#+begin_src nix
+  home.packages =
+    (with pkgs; [
+#+end_src
+
+* Desktop (linux)
+
+#+begin_src nix
+      gnomeExtensions.forge
+      gnomeExtensions.space-bar
+#+end_src
+
+* Development
+
+#+begin_src nix
+      cabal-install
+      codex-acp
+      gcc
+      ghc
+      glab
+      gnumake
+      haskell-language-server
+      ngrok
+      nixd
+      nixfmt
+      postman
+      stack
+#+end_src
+
+* DevOps
+
+#+begin_src nix
+      actionlint
+      age
+      ansible
+      argocd
+      bitwarden-cli
+      checkov
+      cilium-cli
+      cosign
+      devcontainer
+      docker
+      docker-buildx
+      docker-compose
+      dive
+      gitleaks
+      hadolint
+      hcloud
+      httpie
+      jq
+      k6
+      kind
+      kubeconform
+      kube-linter
+      kubectl
+      kubectx
+      kubernetes-helm
+      kustomize
+      pre-commit
+      semgrep
+      sops
+      step-cli
+      stern
+      syft
+      terraform
+      testssl
+      tflint
+      trivy
+      vault
+      velero
+      yamllint
+      yq-go
+      yubikey-manager
+#+end_src
+
+* Internet (linux)
+
+#+begin_src nix
+      google-chrome
+#+end_src
+
+* Media
+
+#+begin_src nix
+      playerctl
+      ffmpeg
+      spotify
+      vlc
+#+end_src
+
+* Productivity
+
+#+begin_src nix
+      anki-bin
+      gnome-calendar
+      obsidian
+#+end_src
+
+* Security
+
+#+begin_src nix
+      bitwarden-desktop
+      libsecret
+#+end_src
+
+* Social
+
+#+begin_src nix
+      discord
+      telegram-desktop
+#+end_src
+
+* Tool
+
+#+begin_src nix
+      coreutils
+      gnutar
+      graphviz
+      mdfried
+      mozjpeg
+      nanum
+      nerd-fonts.jetbrains-mono
+      oxipng
+      poppler-utils
+      procps
+      qbittorrent
+      syncthing
+      tree
+      xclip
+#+end_src
+
+* Work
+
+#+begin_src nix
+      git-credential-manager
+#+end_src
+
+* Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+
+#+begin_src nix
+    ])
+    ++ private.linuxPackages;
+}
+#+end_src

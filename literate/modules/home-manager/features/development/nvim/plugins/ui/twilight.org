@@ -1,0 +1,14 @@
+#+TITLE: development nvim plugins ui twilight
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui twilight
+
+#+begin_src nix
+{
+  plugins = {
+    twilight = {
+      enable = true;
+    };
+  };
+}
+#+end_src

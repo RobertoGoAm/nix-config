@@ -1,0 +1,24 @@
+#+TITLE: development trivy
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development trivy
+
+#+begin_src nix
+{
+#+end_src
+
+* Local Trivy config (devops guide, Phase 0). Keeps `trivy fs .` fast...
+
+Local Trivy config (devops guide, Phase 0). Keeps `trivy fs .` fast during
+the dev loop by flagging only HIGH/CRITICAL; CI can scan wider.
+
+#+begin_src nix
+  xdg.configFile."trivy/trivy.yaml".text = ''
+    severity: HIGH,CRITICAL
+    ignore-unfixed: false
+    timeout: 5m
+    db:
+      no-progress: true
+  '';
+}
+#+end_src

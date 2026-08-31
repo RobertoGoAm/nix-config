@@ -1,0 +1,35 @@
+#+TITLE: development nvim plugins ui linenumbers
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui linenumbers
+
+#+begin_src nix
+{
+  plugins = {
+    numbertoggle = {
+      enable = true;
+    };
+  };
+#+end_src
+
+* Prose-filetype tweaks (markdown / plain text / git messages): no...
+
+Prose-filetype tweaks (markdown / plain text / git messages): no gutter — drop
+line numbers and the fold column — and soft-wrap long lines at word boundaries
+with a hanging indent. (numbertoggle only flips relativenumber when 'number' is
+set, so turning 'number' off keeps it away too.)
+
+#+begin_src nix
+  autoCmd = [
+    {
+      event = "FileType";
+      pattern = [
+        "markdown"
+        "text"
+        "gitcommit"
+      ];
+      command = "setlocal nonumber norelativenumber foldcolumn=0 wrap linebreak breakindent";
+    }
+  ];
+}
+#+end_src

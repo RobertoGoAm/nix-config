@@ -1,0 +1,14 @@
+#+TITLE: development nvim plugins ui notifications
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui notifications
+
+#+begin_src nix
+{
+  plugins = {
+    notify = {
+      enable = true;
+    };
+  };
+}
+#+end_src

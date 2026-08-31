@@ -1,0 +1,18 @@
+#+TITLE: development nvim plugins code comments
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins code comments
+
+#+begin_src nix
+{
+  plugins = {
+    comment = {
+      enable = true;
+    };
+
+    todo-comments = {
+      enable = true;
+    };
+  };
+}
+#+end_src

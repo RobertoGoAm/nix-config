@@ -1,0 +1,15 @@
+#+TITLE: cli gh
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli gh
+
+#+begin_src nix
+{
+  programs.gh = {
+    enable = true;
+    settings = {
+      git_protocol = "ssh";
+    };
+  };
+}
+#+end_src

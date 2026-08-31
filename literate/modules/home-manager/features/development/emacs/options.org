@@ -1,0 +1,186 @@
+#+TITLE: development emacs options
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs options
+
+#+begin_src nix
+{
+  lib,
+  pkgs,
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      adaptive-wrap
+      evil-terminal-cursor-changer
+    ];
+
+  programs.emacs.extraConfig = lib.mkOrder 200 ''
+    ;;; Editor options — the nvim `opts' table and its extraConfigLua.
+
+    ;; encoding / fileencoding
+    (set-language-environment "UTF-8")
+    (prefer-coding-system 'utf-8)
+    (setq default-buffer-file-coding-system 'utf-8-unix)
+
+    ;; number + relativenumber. Emacs' `relative' numbers the cursor line 0, so
+    ;; display-line-numbers-current-absolute is what produces nvim's hybrid gutter.
+    (setq display-line-numbers-type 'relative
+          display-line-numbers-current-absolute t
+          display-line-numbers-width 3)
+    (global-display-line-numbers-mode 1)
+
+    ;; showcmd, but which-key does that job here.
+    ;;
+    ;; This was 0.02, so a partial key sequence echoed almost instantly. While
+    ;; that echo is live Emacs APPENDS later message text to it instead of
+    ;; replacing it, and at 0.02 nearly every message lands during an echo. The
+    ;; echo area became one long multi-line string:
+    ;;
+    ;;   "SPC b- (C-h for help)\nSPC b h is undefined\nSPC- (C-h for help)\n..."
+    ;;
+    ;; read straight out of ` *Echo Area 0*'. Eight lines of half-typed
+    ;; prefixes at the bottom of the frame, and resize-mini-windows sizing the
+    ;; window faithfully to fit them -- the growth was the symptom, this is the
+    ;; cause.
+    ;;
+    ;; 0 turns keystroke echo off. Nothing is lost: which-key already shows the
+    ;; pending prefix and its whole keymap after 0.5s, which is the showcmd
+    ;; behaviour this was reaching for, in a side window that replaces itself.
+    (setq echo-keystrokes 0)
+
+    ;; Let the echo area shrink again, not just grow.
+    ;;
+    ;; The default is `grow-only': the minibuffer window expands to fit a tall
+    ;; message and then stays that tall for the rest of the session, so one
+    ;; long message leaves a permanently oversized echo area.
+    ;;
+    ;; This is not what produced the stack of half-typed prefixes at the bottom
+    ;; of the frame -- that was keystroke echo concatenating messages, fixed
+    ;; above by turning echo-keystrokes off. `grow-only' only made it stick
+    ;; around afterwards. Worth having either way: the window is now only ever
+    ;; as tall as the message currently in it.
+    (setq resize-mini-windows t)
+
+    ;; signcolumn = yes — reserve the gutter so text never shifts sideways when a
+    ;; diagnostic or a git sign appears.
+    (setq-default left-fringe-width 12
+                  right-fringe-width 4
+                  indicate-empty-lines nil)
+
+    ;; cursorline
+    (global-hl-line-mode 1)
+
+    ;; updatetime = 300
+    (setq idle-update-delay 0.3)
+
+    ;; confirm
+    (setq confirm-kill-processes t
+          confirm-nonexistent-file-or-buffer t)
+
+    ;; wrap = false
+    (setq-default truncate-lines t)
+
+    ;; incsearch + hlsearch
+    (setq evil-ex-search-highlight-all t
+          evil-ex-substitute-highlight-all t
+          search-highlight t
+          isearch-lazy-highlight t)
+
+    ;; ignorecase + smartcase
+    (setq case-fold-search t
+          evil-ex-search-case 'smart
+          evil-ex-substitute-case 'smart
+          completion-ignore-case t
+          read-file-name-completion-ignore-case t
+          read-buffer-completion-ignore-case t)
+
+    ;; expandtab, tabstop/softtabstop/shiftwidth = 2
+    (setq-default indent-tabs-mode nil
+                  tab-width 2
+                  standard-indent 2
+                  evil-shift-width 2)
+    (setq js-indent-level 2
+          typescript-ts-mode-indent-offset 2
+          json-ts-mode-indent-offset 2
+          css-indent-offset 2
+          sgml-basic-offset 2
+          sh-basic-offset 2
+          lua-indent-level 2
+          yaml-indent-offset 2
+          web-mode-markup-indent-offset 2
+          web-mode-css-indent-offset 2
+          web-mode-code-indent-offset 2
+          web-mode-attr-indent-offset 2)
+
+    ;; background = dark
+    (setq frame-background-mode 'dark)
+
+    ;; No bell, and the mouse works in the terminal too (hardtime kept it enabled).
+    (setq ring-bell-function #'ignore
+          visible-bell nil
+          use-short-answers t)
+    (unless (display-graphic-p)
+      (xterm-mouse-mode 1))
+
+    ;; Trim trailing whitespace on save — the BufWritePre autocmd. Whole buffer, as
+    ;; that autocmd does; ws-butler would touch only edited lines if you ever want
+    ;; the gentler version.
+    (add-hook 'before-save-hook #'delete-trailing-whitespace)
+
+    ;; Undo, backup and swap. nvim points these at $XDG_CONFIG_HOME/nvim/.{undo,
+    ;; backup,swp}; the Emacs equivalents live under ~/.config/emacs for the same
+    ;; reason — nothing scattered next to the file being edited.
+    (let ((backups (expand-file-name "backup/" user-emacs-directory))
+          (saves   (expand-file-name "swap/" user-emacs-directory)))
+      (make-directory backups t)
+      (make-directory saves t)
+      (setq backup-directory-alist `((".*" . ,backups))
+            auto-save-file-name-transforms `((".*" ,saves t))
+            auto-save-list-file-prefix (expand-file-name "swap/.saves-" user-emacs-directory)
+            backup-by-copying t
+            delete-old-versions t
+            kept-new-versions 6
+            kept-old-versions 2
+            version-control t
+            create-lockfiles nil))
+
+    ;; Cursor shape follows the mode, as the t_SI/t_SR/t_EI sequences do. GUI frames
+    ;; read these variables directly; evil-terminal-cursor-changer emits the escape
+    ;; sequence for iTerm2 and Alacritty, so both runtimes behave the same.
+    (setq evil-normal-state-cursor  '(box)
+          evil-insert-state-cursor  '(bar . 2)
+          evil-replace-state-cursor '(hbar . 2)
+          evil-visual-state-cursor  '(hollow)
+          evil-emacs-state-cursor   '(bar . 4))
+    (unless (display-graphic-p)
+      (require 'evil-terminal-cursor-changer)
+      (evil-terminal-cursor-changer-activate))
+
+    ;; clipboard = unnamedplus. GUI frames share the system clipboard already; a
+    ;; terminal frame on macOS has no window-system connection, so it needs pbcopy
+    ;; and pbpaste wired in by hand or yanking silently stays inside Emacs.
+    (setq select-enable-clipboard t
+          select-enable-primary nil
+          save-interprogram-paste-before-kill t)
+    ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+      (unless (display-graphic-p)
+        (defun my/pbcopy (text &optional _push)
+          "Send TEXT to the macOS clipboard."
+          (let* ((process-connection-type nil)
+                 (proc (start-process "pbcopy" nil "/usr/bin/pbcopy")))
+            (process-send-string proc text)
+            (process-send-eof proc)))
+        (defun my/pbpaste ()
+          "Read the macOS clipboard."
+          (shell-command-to-string "/usr/bin/pbpaste -Prefer txt"))
+        (setq interprogram-cut-function #'my/pbcopy
+              interprogram-paste-function #'my/pbpaste))
+    ''}
+
+    ;; The prose-filetype layout lives in plugins/ui/linenumbers.nix, next to
+    ;; numbertoggle — same split as the nvim config.
+  '';
+}
+#+end_src

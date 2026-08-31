@@ -1,0 +1,114 @@
+#+TITLE: mail
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Mail — mbsync pulls into a Maildir, mu indexes it, mu4e reads it
+
+
+Nothing identifying is in this file, and that is the point. Addresses live in
+the gitignored ~/.config/nix-secrets/mail-accounts.nix, read at eval under
+--impure -- the same privatePath pattern as work-extras.nix -- and passwords
+are sops secrets read at runtime from /var/run/secrets. An address is as
+revealing as the password here: this repo is public and names the employer
+nowhere else.
+
+With the private file absent the module defines no accounts and does nothing,
+so a fresh machine, or an adopter, still builds.
+
+~/.config/nix-secrets/mail-accounts.nix looks like:
+
+  { ... }:
+  {
+    accounts.work = {
+      address = "someone@example.com";
+      realName = "Some One";
+      flavor = "gmail.com";        # sets imap/smtp hosts for you
+      passwordSecret = "mail_work"; # -> /var/run/secrets/mail_work
+      primary = true;               # exactly one account must set this
+    };
+  }
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  privatePath = "${config.home.homeDirectory}/.config/nix-secrets/mail-accounts.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { inherit lib pkgs; }
+    else
+      { accounts = { }; };
+
+  mailAccounts = private.accounts or { };
+  enable = mailAccounts != { };
+
+  maildir = "${config.home.homeDirectory}/Mail";
+#+end_src
+
+* mbsync and msmtp both take the password from a command rather than...
+
+mbsync and msmtp both take the password from a command rather than a file
+they read themselves, which keeps the secret out of every generated config
+in the nix store -- those are world-readable.
+
+#+begin_src nix
+  toAccount =
+    _name: a:
+    {
+      inherit (a) address realName;
+      primary = a.primary or false;
+      flavor = a.flavor or "plain";
+      userName = a.userName or a.address;
+      passwordCommand = "cat /var/run/secrets/${a.passwordSecret}";
+
+      mbsync = {
+        enable = true;
+        create = "maildir";
+        expunge = "both";
+        patterns = a.patterns or [ "*" ];
+      };
+      msmtp.enable = true;
+      mu.enable = true;
+    }
+    // (a.extra or { });
+in
+lib.mkIf enable {
+  programs.mbsync.enable = true;
+  programs.msmtp.enable = true;
+  programs.mu.enable = true;
+
+  programs.emacs.extraPackages = epkgs: [ epkgs.mu4e ];
+
+  accounts.email = {
+    maildirBasePath = maildir;
+    accounts = lib.mapAttrs toAccount mailAccounts;
+  };
+#+end_src
+
+* services.mbsync is Linux-only (it asserts the platform and builds a...
+
+services.mbsync is Linux-only (it asserts the platform and builds a systemd
+timer), so darwin gets the same launchd shape as the restic agent: every 15
+minutes, background priority, logs where you can find them.
+
+#+begin_src nix
+  launchd.agents.mbsync = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        "${pkgs.isync}/bin/mbsync"
+        "-a"
+      ];
+      RunAtLoad = true;
+      StartInterval = 900;
+      ProcessType = "Background";
+      LowPriorityIO = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mbsync.out.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mbsync.err.log";
+    };
+  };
+}
+#+end_src

@@ -1,0 +1,12 @@
+#+TITLE: development nvim plugins lsp diagnostics
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins lsp diagnostics
+
+#+begin_src nix
+{
+  plugins.trouble = {
+    enable = true;
+  };
+}
+#+end_src

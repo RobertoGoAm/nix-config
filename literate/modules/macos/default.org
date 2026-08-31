@@ -1,0 +1,499 @@
+#+TITLE: macos
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* macos
+
+#+begin_src nix
+{
+  config,
+  inputs,
+  lib,
+  outputs,
+  pkgs,
+  system,
+  user,
+  ...
+}:
+{
+  imports = [
+    inputs.mac-app-util.darwinModules.default
+    inputs.home-manager.darwinModules.home-manager
+    inputs.nix-homebrew.darwinModules.nix-homebrew
+    inputs.sops-nix.darwinModules.sops
+    ../homebrew/homebrew.nix
+  ]
+  ++ (
+#+end_src
+
+* Machine-local sops secrets (client/work SSH keys). Kept out of the
+
+public nix-config repo because the secret KEY NAMES leak client
+identities. The file declares additional `config.sops.secrets.*`
+entries that merge into the set defined below.
+
+#+begin_src nix
+    let
+      privateSopsPath = "/Users/${user}/.config/nix-secrets/sops-secrets.nix";
+    in
+    if builtins.pathExists privateSopsPath then [ privateSopsPath ] else [ ]
+  );
+#+end_src
+
+* Default: on when the age key exists, off otherwise — so a machine...
+
+Default: on when the age key exists, off otherwise — so a machine with no
+secrets (e.g. someone adopting this config) still builds; sops just no-ops.
+Needs --impure (absolute pathExists), which this config already requires for
+the conditional sops-secrets.nix import above.
+
+#+begin_src nix
+  options.features.security.sops.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = builtins.pathExists "/Users/${user}/.config/sops/age/system_keys.txt";
+    description = "Enable SOPS secret management (auto-detected from the age key).";
+  };
+
+  config = {
+    sops = lib.mkIf config.features.security.sops.enable {
+      defaultSopsFile = "/Users/${user}/.config/nix-secrets/secrets.yaml";
+      validateSopsFiles = false;
+      age = {
+        keyFile = "/Users/${user}/.config/sops/age/system_keys.txt";
+        sshKeyPaths = [ ];
+      };
+#+end_src
+
+* System-level secrets. Generic ones (your own personal keys + env
+
+tokens) live here; anything that names a client lives in the
+machine-local sops-secrets.nix that's conditionally imported above.
+
+#+begin_src nix
+      secrets = {
+        user_password = {
+          owner = user;
+        };
+        npm_token = {
+          owner = user;
+        };
+        gitlab_access_token = {
+          owner = user;
+        };
+        ntfy_topic_id = {
+          owner = user;
+        };
+        ssh_id_ed25519 = {
+          owner = user;
+          path = "/Users/${user}/.ssh/id_ed25519";
+        };
+        ssh_id_ed25519_robertogoam = {
+          owner = user;
+          path = "/Users/${user}/.ssh/id_ed25519_robertogoam";
+        };
+        ssh_id_rsa = {
+          owner = user;
+          path = "/Users/${user}/.ssh/id_rsa";
+        };
+#+end_src
+
+* *.pub files are not stored in sops — derive them from the private
+
+keys above with the `pubkey-setup` command (see features/security).
+
+#+begin_src nix
+      };
+    };
+
+    services.tailscale.enable = true;
+#+end_src
+
+* Application firewall — currently on; lock it on (the old...
+
+Application firewall — currently on; lock it on (the old system.defaults.alf
+was removed upstream in favour of this option).
+
+#+begin_src nix
+    networking.applicationFirewall.enable = true;
+    services.openssh = {
+      enable = true;
+      extraConfig = ''
+        PasswordAuthentication no
+        PermitRootLogin no
+      '';
+    };
+
+    security.pam.services.sudo_local = {
+      touchIdAuth = true;
+      watchIdAuth = true;
+      reattach = true;
+    };
+
+    nix =
+      let
+        flakeInputs = lib.filterAttrs (_: lib.isType "flake") inputs;
+      in
+      {
+        channel.enable = false;
+        gc = {
+          automatic = true;
+          interval = {
+            Weekday = 0;
+            Hour = 2;
+            Minute = 0;
+          };
+          options = "--delete-older-than 7d";
+        };
+        nixPath = lib.mapAttrsToList (n: _: "${n}=flake:${n}") flakeInputs;
+        optimise.automatic = true;
+        registry = lib.mapAttrs (_: flake: { inherit flake; }) flakeInputs;
+        settings = {
+          experimental-features = "nix-command flakes";
+          flake-registry = "";
+          nix-path = config.nix.nixPath;
+        };
+      };
+
+    nixpkgs = {
+      overlays = [
+        outputs.overlays.check-pins
+        outputs.overlays.checkov
+        outputs.overlays.lit-tangle
+        outputs.overlays.neovim
+        outputs.overlays.pin-prefs
+        outputs.overlays.warpd
+      ];
+      config = {
+        allowUnfree = true;
+        allowUnfreePredicate = (_: true);
+#+end_src
+
+* checkov pulls in python-ecdsa, marked insecure in nixpkgs...
+
+checkov pulls in python-ecdsa, marked insecure in nixpkgs (CVE-2024-23342).
+Matched by name rather than pinned to a version so it survives nixpkgs
+bumping its default python (3.13 -> 3.14 renamed the derivation).
+
+#+begin_src nix
+        allowInsecurePredicate = pkg: builtins.elem (lib.getName pkg) [ "ecdsa" ];
+      };
+      hostPlatform = system;
+    };
+
+    system = {
+      primaryUser = user;
+      activationScripts.postActivation.text = ''
+        sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+        killall SystemUIServer || true
+        killall Finder || true
+        killall Dock || true
+      '';
+
+      defaults = {
+        NSGlobalDomain = {
+          ApplePressAndHoldEnabled = false;
+          AppleInterfaceStyle = "Dark";
+          "com.apple.swipescrolldirection" = false;
+          KeyRepeat = 2;
+          InitialKeyRepeat = 25;
+          AppleShowAllExtensions = true;
+          NSNavPanelExpandedStateForSaveMode = true;
+          NSNavPanelExpandedStateForSaveMode2 = true;
+          AppleShowScrollBars = "Always";
+          NSAutomaticCapitalizationEnabled = false;
+          NSAutomaticDashSubstitutionEnabled = false;
+          NSAutomaticPeriodSubstitutionEnabled = false;
+          NSAutomaticQuoteSubstitutionEnabled = false;
+          NSAutomaticSpellingCorrectionEnabled = false;
+          AppleKeyboardUIMode = 3;
+#+end_src
+
+* Pinned to documented macOS defaults (were unset) for full...
+
+Pinned to documented macOS defaults (were unset) for full reproducibility.
+NOT pinned, deliberately: AppleFontSmoothing (harms Retina text),
+Apple{ICUForce24HourTime,MeasurementUnits,MetricUnits,TemperatureUnit}
+(locale-driven), com.apple.mouse.tapBehavior (no clean off value).
+
+#+begin_src nix
+          AppleEnableMouseSwipeNavigateWithScrolls = true;
+          AppleEnableSwipeNavigateWithScrolls = true;
+          AppleScrollerPagingBehavior = false;
+          AppleSpacesSwitchOnActivate = true;
+          AppleWindowTabbingMode = "fullscreen";
+          NSAutomaticInlinePredictionEnabled = true;
+          NSAutomaticWindowAnimationsEnabled = true;
+          NSDisableAutomaticTermination = false;
+          NSDocumentSaveNewDocumentsToCloud = true;
+          NSScrollAnimationEnabled = true;
+          NSTableViewDefaultSizeMode = 2;
+          NSTextShowsControlCharacters = false;
+          NSUseAnimatedFocusRing = true;
+          NSWindowResizeTime = 0.2;
+          _HIHideMenuBar = false;
+          "com.apple.keyboard.fnState" = false;
+          "com.apple.sound.beep.feedback" = 1;
+          "com.apple.sound.beep.volume" = 0.6784667;
+          "com.apple.springing.delay" = 0.5;
+          "com.apple.springing.enabled" = true;
+          "com.apple.trackpad.enableSecondaryClick" = true;
+          "com.apple.trackpad.forceClick" = true;
+          "com.apple.trackpad.scaling" = 0.875;
+        };
+        finder = {
+          FXDefaultSearchScope = "SCcf";
+          FXPreferredViewStyle = "Nlsv";
+          NewWindowTarget = "Home";
+          ShowPathbar = true;
+          ShowStatusBar = true;
+          QuitMenuItem = true;
+          FXEnableExtensionChangeWarning = false;
+#+end_src
+
+* Desktop icons — locked to current state
+
+#+begin_src nix
+          ShowExternalHardDrivesOnDesktop = true;
+          ShowHardDrivesOnDesktop = false;
+          ShowRemovableMediaOnDesktop = true;
+          ShowMountedServersOnDesktop = false;
+          _FXShowPosixPathInTitle = false;
+#+end_src
+
+* Pinned to macOS defaults (were unset)
+
+#+begin_src nix
+          AppleShowAllFiles = false;
+          CreateDesktop = true;
+          FXRemoveOldTrashItems = false;
+          _FXSortFoldersFirst = false;
+        };
+        dock = {
+          autohide = false;
+          tilesize = 38;
+          orientation = "left";
+          mru-spaces = false; # don't auto-rearrange Spaces by most-recent use
+          show-recents = false;
+#+end_src
+
+* Hot corners all disabled (1 = no action)
+
+#+begin_src nix
+          wvous-tl-corner = 1;
+          wvous-tr-corner = 1;
+          wvous-bl-corner = 1;
+          wvous-br-corner = 1;
+#+end_src
+
+* Right-side folder stacks. Downloads sorted most-recent-first; the
+
+~/Development stack is created by features/development on activation.
+
+#+begin_src nix
+          persistent-others = [
+            {
+              folder = {
+                path = "/Users/${user}/Downloads";
+                arrangement = "date-modified";
+              };
+            }
+            { folder = "/Users/${user}/Development"; }
+          ];
+#+end_src
+
+* Pinned to macOS defaults (were unset)
+
+#+begin_src nix
+          appswitcher-all-displays = false;
+          autohide-delay = 0.24;
+          autohide-time-modifier = 1.0;
+          expose-group-apps = false;
+          launchanim = true;
+          magnification = false;
+          mineffect = "genie";
+          minimize-to-application = false;
+          mouse-over-hilite-stack = false;
+          scroll-to-open = false;
+          show-process-indicators = true;
+          showhidden = false;
+          static-only = false;
+        };
+        loginwindow.GuestEnabled = false;
+        loginwindow.SHOWFULLNAME = true;
+        screensaver = {
+          askForPassword = true;
+          askForPasswordDelay = 0;
+        };
+        SoftwareUpdate.AutomaticallyInstallMacOSUpdates = true;
+#+end_src
+
+* Control Center / menu-bar items. true = show icon in the menu bar,
+
+false = hide it. Bluetooth + Focus hidden per preference.
+
+#+begin_src nix
+        controlcenter = {
+          AirDrop = false;
+          BatteryShowPercentage = false;
+          Bluetooth = false;
+          Display = false;
+          FocusModes = false;
+#+end_src
+
+* The menu bar already carries now-playing via the SwiftBar status
+
+item, and this was re-asserting itself over every manual attempt to
+hide it.
+
+#+begin_src nix
+          NowPlaying = false;
+          Sound = true;
+        };
+#+end_src
+
+* Stage Manager off (current); standard edge-tiling on (macOS...
+
+Stage Manager off (current); standard edge-tiling on (macOS defaults).
+
+#+begin_src nix
+        WindowManager = {
+          GloballyEnabled = false;
+          AutoHide = false;
+          AppWindowGroupingBehavior = true;
+          EnableTiledWindowMargins = false;
+          HideDesktop = true;
+          EnableStandardClickToShowDesktop = true;
+          EnableTilingByEdgeDrag = true;
+          EnableTopTilingByEdgeDrag = true;
+          StandardHideDesktopIcons = false;
+        };
+#+end_src
+
+* Screenshots — PNG to Desktop (current behaviour, now explicit)
+
+#+begin_src nix
+        screencapture = {
+          target = "file";
+          type = "png";
+          disable-shadow = false;
+          show-thumbnail = true;
+          location = "~/Desktop";
+        };
+
+        spaces.spans-displays = false; # displays keep separate Spaces (default)
+        magicmouse.MouseButtonMode = "TwoButton"; # enable right (secondary) click on the mouse
+#+end_src
+
+* Trackpad — locked to current state (tap-to-click off, two-finger...
+
+Trackpad — locked to current state (tap-to-click off, two-finger right-click).
+
+#+begin_src nix
+        trackpad = {
+          Clicking = false;
+          Dragging = false;
+          TrackpadRightClick = true;
+          TrackpadThreeFingerDrag = false;
+          ActuationStrength = 1;
+          FirstClickThreshold = 1;
+          SecondClickThreshold = 1;
+          TrackpadMomentumScroll = true;
+        };
+#+end_src
+
+* Console access at the login window is a root shell behind a magic
+
+username; GuestEnabled and SHOWFULLNAME are already set above.
+
+#+begin_src nix
+        loginwindow.DisableConsoleAccess = true;
+#+end_src
+
+* Current menu-bar clock, declared rather than changed
+
+#+begin_src nix
+        menuExtraClock = {
+          ShowAMPM = true;
+          ShowDate = 0;
+          ShowDayOfWeek = true;
+        };
+#+end_src
+
+* No universalaccess here: macOS keeps com.apple.universalaccess...
+
+No universalaccess here: macOS keeps com.apple.universalaccess behind
+a protected store, so activation only produces "Could not write domain
+com.apple.universalaccess; exiting". Set reduce-motion and friends in
+System Settings → Accessibility.
+
+#+begin_src nix
+        CustomUserPreferences = {
+#+end_src
+
+* Opt out of ad personalisation and the advertising identifier
+
+#+begin_src nix
+          "com.apple.AdLib" = {
+            allowApplePersonalizedAdvertising = false;
+            allowIdentifierForAdvertising = false;
+          };
+#+end_src
+
+* Crash dialogs steal focus mid-work; the reports still get written
+
+#+begin_src nix
+          "com.apple.CrashReporter" = {
+            DialogType = "none";
+          };
+        };
+      };
+      keyboard.enableKeyMapping = true;
+      stateVersion = 5;
+    };
+
+    environment.systemPackages = [
+      pkgs.age-plugin-yubikey
+    ];
+
+    users.users.${user} = {
+      packages = [
+        pkgs.home-manager
+      ];
+      home = "/Users/${user}";
+      openssh.authorizedKeys.keys = [
+#+end_src
+
+* Phone / mobile SSH clients
+
+#+begin_src nix
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq mobile-ssh-1"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOwqeO12WNRNFxGNZKBG+VHJKLkc6JvOvRUdQkius4S mobile-ssh-2"
+#+end_src
+
+* Personal machine keys (laptop/perseus). SSH *public* keys are safe...
+
+Personal machine keys (laptop/perseus). SSH *public* keys are safe to
+commit — only the private half authenticates. Client/work keys are NOT
+here on purpose (they'd leak client names and aren't for inbound access).
+
+#+begin_src nix
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOM0QfOlRBSF0bPOfWPBzQVpCH3h/9UaOFTKc5N0QpG7 robertogoam@perseus"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPXFC2MyOXYGjvQJMgbWBdz5EuYH3A+dCwz/17n9zpdv robertogoam"
+      ];
+    };
+
+    home-manager = {
+      backupFileExtension = "backup";
+      useGlobalPkgs = true;
+      useUserPackages = true;
+      extraSpecialArgs = {
+        inherit
+          inputs
+          outputs
+          user
+          system
+          ;
+      };
+    };
+  };
+}
+#+end_src
