@@ -72,9 +72,15 @@
         ;;
         ;; Nothing is lost: gnus is not used here, so these two faces are only
         ;; ever realised as part of building a frame's face table.
+        ;; No `facep' guard on the reset. At this point doom-themes has put a
+        ;; `theme-face' property on both symbols but neither is a real face
+        ;; yet -- gnus is not loaded, so nothing has run their defface -- and
+        ;; guarding on facep skipped the reset entirely. The property is what
+        ;; carries the cycle, and custom-theme-reset-faces clears it whether or
+        ;; not the face exists; set-face-attribute is the call that needs one.
         (dolist (f '(gnus-group-news-low gnus-group-news-low-empty))
+          (custom-theme-reset-faces 'doom-tokyo-night (list f nil))
           (when (facep f)
-            (custom-theme-reset-faces 'doom-tokyo-night (list f nil))
             (set-face-attribute f nil :inherit 'unspecified)))
 
         ;; doom-tokyo-night ships the "night" variant; these four faces are the visible
