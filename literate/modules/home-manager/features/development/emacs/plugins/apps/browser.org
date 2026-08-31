@@ -96,6 +96,43 @@ my/browse-external exists for exactly those, and the Meet/Chat commands use it.
       (let ((url (my/agenda-next-meet-url)))
         (my/browse-external (or url "https://meet.google.com/"))))
 
+    ;;; ---- Atlassian ----------------------------------------------------
+    ;;
+    ;; Jira and Confluence both render and sign in inside the xwidget. Their
+    ;; login form is an ordinary one, so it does not hit the refusal Google
+    ;; answers embedded WebKit with -- but an instance fronted by Google or
+    ;; Microsoft SSO inherits that refusal, which is what my/open-jira-external
+    ;; is for.
+    ;;
+    ;; The site URL comes from sops rather than being written here: this repo is
+    ;; public and the subdomain names the client. With no secret in place the
+    ;; commands prompt, so they still work on a machine without one.
+
+    (defun my/atlassian-site ()
+      "Return the Atlassian site URL, prompting when the secret is absent."
+      (let ((f "/var/run/secrets/atlassian_site"))
+        (string-trim
+         (if (file-readable-p f)
+             (with-temp-buffer (insert-file-contents f) (buffer-string))
+           (read-string "Atlassian site (https://example.atlassian.net): ")))))
+
+    (defun my/open-jira ()
+      "Open Jira in Emacs."
+      (interactive)
+      (my/browse-internal (concat (my/atlassian-site) "/jira")))
+
+    (defun my/open-confluence ()
+      "Open Confluence in Emacs."
+      (interactive)
+      (my/browse-internal (concat (my/atlassian-site) "/wiki")))
+
+    (defun my/open-jira-external ()
+      "Open Jira in the system browser.
+    For an instance behind Google or Microsoft SSO, where the embedded WebKit
+    view cannot get past the identity provider's sign-in screen."
+      (interactive)
+      (my/browse-external (concat (my/atlassian-site) "/jira")))
+
     ;; eww stays available for the cases where text really is better -- man
     ;; pages, RFCs, anything you want to search and yank as plain text.
     (setq browse-url-browser-function 'browse-url-default-browser
