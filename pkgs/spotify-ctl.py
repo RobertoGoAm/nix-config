@@ -90,9 +90,13 @@ def access_token():
     return body.get("access_token")
 
 
-def call(method, path, token):
-    req = urllib.request.Request(API + path, method=method,
-                                 headers={"Authorization": f"Bearer {token}"})
+def call(method, path, token, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Authorization": f"Bearer {token}"}
+    if data:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(API + path, method=method, data=data,
+                                 headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             raw = r.read()
@@ -145,6 +149,24 @@ def main():
         elif cmd == "playpause":
             d = call("GET", "/me/player", token) or {}
             call("PUT", "/me/player/pause" if d.get("is_playing") else "/me/player/play", token)
+        elif cmd == "devices":
+            d = call("GET", "/me/player/devices", token) or {}
+            for dev in d.get("devices", []):
+                did = dev.get("id") or ""
+                name = dev.get("name") or "?"
+                mark = "active" if dev.get("is_active") else ""
+                print(f"{did}\t{name}\t{mark}")
+        elif cmd == "use":
+            # Transfer playback. Accepts a device id, or a name to look up --
+            # ids change between librespot restarts, names do not.
+            want = sys.argv[2] if len(sys.argv) > 2 else "Emacs"
+            d = call("GET", "/me/player/devices", token) or {}
+            devs = d.get("devices", [])
+            match = next((x for x in devs if x.get("id") == want), None) \
+                or next((x for x in devs if (x.get("name") or "").lower() == want.lower()), None)
+            if match:
+                call("PUT", "/me/player", token,
+                     {"device_ids": [match["id"]], "play": True})
         elif cmd == "next":
             call("POST", "/me/player/next", token)
         elif cmd == "previous":

@@ -262,3 +262,19 @@ if track:
     print(f"Play/Pause | bash={ctl} param1=playpause terminal=false refresh=true")
     print(f"Next | bash={ctl} param1=next terminal=false refresh=true")
     print(f"Previous | bash={ctl} param1=previous terminal=false refresh=true")
+
+    # Where it plays. Transferring by NAME rather than id on purpose: librespot
+    # gets a fresh device id every restart, and the name is stable, so a menu
+    # item built now still works after the agent has bounced.
+    devices = [ln.split("\t") for ln in env("SPOT_DEVICES", "").splitlines() if ln.strip()]
+    if devices:
+        print("Play on...")
+        for parts in devices:
+            name = parts[1] if len(parts) > 1 else "?"
+            active = (len(parts) > 2 and parts[2] == "active")
+            mark = "● " if active else "  "
+            print(f"--{mark}{name} | bash={ctl} param1=use param2={name!r} "
+                  f"terminal=false refresh=true")
+    else:
+        print(f"Play on Emacs | bash={ctl} param1=use param2=Emacs "
+              f"terminal=false refresh=true")
