@@ -243,6 +243,7 @@
       "N"  '(:ignore t :which-key "nix config")
       "Ne" '(my/config-edit :which-key "edit config (literate)")
       "Nr" '(my/config-rebuild :which-key "rebuild")
+      "NR" '(my/emacs-restart :which-key "restart emacs daemon")
       "Nu" '(my/config-update :which-key "update inputs + rebuild")
       "Ng" '(my/config-gc :which-key "collect garbage")
       "Np" '(my/config-pins :which-key "check pins")
