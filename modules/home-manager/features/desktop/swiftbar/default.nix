@@ -27,7 +27,12 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # gets CPU/GPU temperature and power without sudo — powermetrics would have
   # needed root, which a menu bar plugin must never have.
 
-  home.packages = [ pkgs.macmon ];
+  # spotify-ctl is on PATH for the plugin, which shells out to it for
+  # now-playing and for the transport buttons.
+  home.packages = [
+    pkgs.macmon
+    pkgs.spotify-ctl
+  ];
 
   # Plugins run detached from a login shell, so each one sets its own...
 

@@ -29,6 +29,10 @@
 
   neovim = import ./neovim.nix;
 
+  # spotify-ctl: Web API now-playing and controls for the menu bar
+
+  spotify-ctl = import ./spotify-ctl.nix;
+
   # When applied, the unstable nixpkgs set (declared in the flake...
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will

@@ -98,11 +98,16 @@ REPO="$HOME/nix-config"
 DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | grep -vc '^??' || echo 0)"
 AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
 
+# Now-playing over the Web API rather than AppleScript, so this works with no
+# desktop app: it reports whatever Connect device is active, normally the
+# headless librespot agent. spotify-ctl prints nothing and exits 0 when it has
+# no credentials or nothing is playing, so the section simply disappears.
 SPOT_STATE=""; SPOT_TRACK=""; SPOT_ARTIST=""
-if [ "$(osascript -e 'application "Spotify" is running' 2>/dev/null || echo false)" = "true" ]; then
-  SPOT_STATE="$(osascript -e 'tell application "Spotify" to player state as string' 2>/dev/null || true)"
-  SPOT_TRACK="$(osascript -e 'tell application "Spotify" to name of current track' 2>/dev/null || true)"
-  SPOT_ARTIST="$(osascript -e 'tell application "Spotify" to artist of current track' 2>/dev/null || true)"
+SPOT_LINE="$(cache spotify 25 spotify-ctl now)"
+if [ -n "$SPOT_LINE" ]; then
+  SPOT_STATE="$(printf '%s' "$SPOT_LINE" | cut -f1)"
+  SPOT_ARTIST="$(printf '%s' "$SPOT_LINE" | cut -f2)"
+  SPOT_TRACK="$(printf '%s' "$SPOT_LINE" | cut -f3)"
 fi
 
 export BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST

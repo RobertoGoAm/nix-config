@@ -145,6 +145,7 @@
         outputs.overlays.checkov
         outputs.overlays.lit-tangle
         outputs.overlays.neovim
+        outputs.overlays.spotify-ctl
         outputs.overlays.pin-prefs
         outputs.overlays.warpd
       ];
