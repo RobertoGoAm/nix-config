@@ -12,7 +12,11 @@
   # telega renders the login QR code by shelling out to qrencode. Without it on
   # PATH the QR branch is skipped silently and telega falls back to asking for a
   # phone number -- see the login note in extraConfig below.
-  home.packages = [ pkgs.qrencode ];
+  home.packages = [
+    pkgs.qrencode
+  ]
+  # Notification transport on macOS -- see the notify override in extraConfig.
+  ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.terminal-notifier;
 
   programs.emacs.extraConfig = ''
     ;;; Telegram — telega.el, a real client rather than a bridge.
@@ -95,6 +99,41 @@
     ;; mode is enabled for the bookkeeping, not the string.
     (with-eval-after-load 'telega
       (telega-mode-line-mode 1))
+
+    ;; Desktop notifications on macOS.
+    ;;
+    ;; telega-notifications--notify calls `notifications-notify', which is
+    ;; D-Bus and therefore Linux-only: on darwin telega-notifications-mode runs
+    ;; and silently produces nothing. terminal-notifier is the usual bridge to
+    ;; Notification Center for a program that is not itself an .app.
+    ;;
+    ;; -sender org.gnu.Emacs makes the banner carry the Emacs icon and raise
+    ;; Emacs when clicked, and -group replaces the previous banner rather than
+    ;; stacking one per message -- the same intent as the
+    ;; notifications-close-notification call in the function being replaced.
+    ;;
+    ;; Properties are stripped: telega's :title and :body carry faces and image
+    ;; specs for the Emacs display, and terminal-notifier wants plain argv.
+    ;; call-process with a destination of 0 does not wait, so a slow banner
+    ;; never blocks the chat.
+    ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+      (defun my/telega-notify-macos (notify-spec)
+        "Show NOTIFY-SPEC through terminal-notifier instead of D-Bus."
+        (let ((title (substring-no-properties
+                      (or (plist-get notify-spec :title) "Telegram")))
+              (body (substring-no-properties
+                     (or (plist-get notify-spec :body) ""))))
+          (call-process "${lib.getExe pkgs.terminal-notifier}" nil 0 nil
+                        "-title" title
+                        "-message" body
+                        "-group" "emacs.telega"
+                        "-sender" "org.gnu.Emacs")))
+
+      (with-eval-after-load 'telega
+        (advice-add 'telega-notifications--notify
+                    :override #'my/telega-notify-macos)
+        (telega-notifications-mode 1))
+    ''}
 
     (setq telega-directory (expand-file-name "~/.telega")
           telega-emoji-use-images nil

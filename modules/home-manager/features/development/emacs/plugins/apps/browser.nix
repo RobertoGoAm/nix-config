@@ -43,10 +43,13 @@
 
     ;;; ---- Google Workspace surfaces ------------------------------------
     ;;
-    ;; Gmail and Chat render inside the xwidget; Meet does not (WebRTC), so it
-    ;; goes to the system browser. Chat is a web app here because there is no
-    ;; Emacs client for Google Chat -- the protocol is not open and nothing on
-    ;; MELPA speaks it.
+    ;; Gmail renders inside the xwidget. Meet and Chat do not, for different
+    ;; reasons: Meet needs camera and microphone access xwidget-webkit cannot
+    ;; grant, and Chat is blocked at sign-in because Google rejects embedded
+    ;; browsers. Both go to the system browser.
+    ;;
+    ;; Chat is a web app either way -- there is no Emacs client for Google
+    ;; Chat, the protocol is not open and nothing on MELPA speaks it.
 
     (defun my/open-gmail ()
       "Open Gmail in Emacs."
@@ -59,9 +62,15 @@
       (my/browse-internal "https://calendar.google.com/"))
 
     (defun my/open-gchat ()
-      "Open Google Chat in Emacs."
+      "Open Google Chat in the system browser.
+    Deliberately not an xwidget, for the same reason as Meet but a different
+    cause: Google refuses to complete sign-in inside an embedded WebKit view,
+    answering with \"This browser or app may not be secure\". Workspace
+    policies tighten that further, so an account under an organisation cannot
+    get past the login screen in xwidget at all. The session lives in the
+    system browser, where the org's sign-in already works."
       (interactive)
-      (my/browse-internal "https://chat.google.com/"))
+      (my/browse-external "https://chat.google.com/"))
 
     (defun my/open-meet ()
       "Start or join a Google Meet in the system browser.
