@@ -1,0 +1,61 @@
+#+TITLE: media spotify
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* librespot, a headless Spotify Connect device
+
+The point is not another player, it is not running the desktop app. Spotify's
+Electron client sits at several hundred megabytes resident; librespot is a
+Rust daemon with no UI at all, advertising itself as a Connect target that
+anything -- smudge in Emacs, the phone, the web player -- can push playback to.
+
+Premium is required: Connect playback is a paid feature, and librespot cannot
+work around that.
+
+Authentication is interactive exactly once. Spotify withdrew username and
+password auth in 2024, so librespot 0.8 signs in through OAuth and caches the
+result; the agent below reuses that cache and never prompts again. Until that
+first sign-in has happened the agent will start, fail to authenticate and be
+restarted by launchd, which is noisy but harmless. Run this once by hand:
+
+: librespot --name "$(scutil --get ComputerName)" --enable-oauth \
+:   --cache ~/.cache/librespot
+
+* The agent
+
+KeepAlive rather than RunAtLoad alone: a Connect device that has quietly died
+is worse than one that never started, because the phone still lists it.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+  home.packages = [ pkgs.librespot ];
+
+  launchd.agents.librespot = {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        "${pkgs.librespot}/bin/librespot"
+        "--name"
+        "Emacs"
+        "--cache"
+        "${config.home.homeDirectory}/.cache/librespot"
+        "--disable-audio-cache"
+        "--bitrate"
+        "320"
+        "--initial-volume"
+        "60"
+      ];
+      RunAtLoad = true;
+      KeepAlive = true;
+      ProcessType = "Adaptive";
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/librespot.out.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/librespot.err.log";
+    };
+  };
+}
+#+end_src

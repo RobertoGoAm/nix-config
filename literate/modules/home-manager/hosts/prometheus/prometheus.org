@@ -65,6 +65,7 @@ tree so turning it back on is this one line.
     ../../features/desktop/warpd
     ../../features/backup/restic
     ../../features/mail
+    ../../features/media/spotify.nix
   ];
 }
 #+end_src
