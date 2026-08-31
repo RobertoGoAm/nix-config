@@ -28,25 +28,32 @@
       # Quick tmux remote session access
       alias tm='tmux attach-session -t remote || tmux new-session -s remote'
 
-      # Claude wrapper to ensure persistence
-      claude() {
+      # Run an interactive agent CLI inside the persistent `remote' tmux session.
+      #
+      # Each invocation gets its own tmux window, so starting a second agent
+      # never interrupts a conversation already in flight, and closing the
+      # terminal detaches instead of killing it. Already inside tmux there is
+      # nothing to arrange, so the binary runs directly -- which is also what
+      # stops the window we just created from re-entering this function.
+      _agent_in_tmux() {
+        local cmd="$1"; shift
         local current_dir="$PWD"
         if [[ -n "$TMUX" ]]; then
-          command claude "$@"
+          command "$cmd" "$@"
+        elif tmux has-session -t remote 2>/dev/null; then
+          tmux new-window -t remote -n "$cmd" -c "$current_dir"
+          tmux send-keys -t remote "$cmd $*" C-m
+          tmux attach-session -t remote
         else
-          # Check if session exists
-          if tmux has-session -t remote 2>/dev/null; then
-            # Create a new window for the task to avoid interrupting existing work
-            # and ensure we are in the correct directory
-            tmux new-window -t remote -n "claude" -c "$current_dir"
-            tmux send-keys -t remote "claude $*" C-m
-            tmux attach-session -t remote
-          else
-            # Create new session starting in the current directory
-            tmux new-session -s remote -c "$current_dir" "claude $*; zsh -i"
-          fi
+          tmux new-session -s remote -c "$current_dir" "$cmd $*; zsh -i"
         fi
       }
+
+      # Resuming a conversation is the same idea in both CLIs, but spelled
+      # differently: `claude --resume' / `-c', against `codex resume' with
+      # `--last'. Both open a picker with no argument.
+      claude() { _agent_in_tmux claude "$@" }
+      codex()  { _agent_in_tmux codex "$@" }
 
       # The rebuild's copyApps step rsyncs into ~/Applications/Home Manager Apps,
       # which macOS gates behind the App Management privilege. That grant is tied
