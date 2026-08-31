@@ -15,13 +15,27 @@ in
 {
 #+end_src
 
-* No package. smudge, the usual Emacs Spotify client, drives the Web...
+* smudge over the Web API, driving librespot
 
-No package. smudge, the usual Emacs Spotify client, drives the Web API and
-needs an OAuth app registered with Spotify plus a token refresh loop. The
-desktop client is already running and already scriptable, and the SwiftBar
-status item talks to it the same way -- so this is the same osascript calls,
-which need no credentials and keep one source of truth for "what is playing".
+This used to be osascript against the running desktop client, on the grounds
+that it needed no credentials and the SwiftBar status item read the same
+source. That reasoning held while the app was running; it stops holding once
+the point is not to run it. Electron costs several hundred megabytes, and
+librespot (features/media/spotify.nix) is a headless Connect device that does
+the same job in tens.
+
+So: smudge drives the Web API, and the device it drives is librespot. That
+does mean an OAuth app registered with Spotify -- client id and secret, read
+from sops so neither lands in this repo.
+
+The osascript commands stay as a fallback, chosen at call time by whether the
+desktop app happens to be running. It usually is not, but when it is, talking
+to it directly is cheaper than a round trip to Spotify.
+
+One consequence worth stating plainly: the SwiftBar now-playing item still
+reads the desktop app over AppleScript, so with the app closed it shows
+nothing. Porting it needs the same Web API token this uses, which is a
+separate change.
 
 #+begin_src nix
   programs.emacs.extraConfig = lib.mkOrder 1450 (
