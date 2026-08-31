@@ -8,7 +8,6 @@
     epkgs: with epkgs; [
       cape
       corfu
-      corfu-terminal
       yasnippet
       yasnippet-snippets
     ];
@@ -51,11 +50,11 @@
             corfu-popupinfo-max-height 20)
       (corfu-popupinfo-mode 1))
 
-    ;; Child frames need a GUI; in the terminal corfu-terminal draws the same menu
-    ;; with overlays instead, so both runtimes complete identically.
-    (unless (display-graphic-p)
-      (require 'corfu-terminal)
-      (corfu-terminal-mode 1))
+    ;; corfu-terminal used to be loaded here for terminal frames, guarded by
+    ;; (display-graphic-p) at load time -- which under a daemon is always nil,
+    ;; so it loaded in GUI sessions too and Emacs 31 warned that it "is not
+    ;; needed on Emacs 31". It is not: 31 draws child frames in a terminal, so
+    ;; corfu's own popup works in both runtimes and the shim is gone.
 
     ;; friendly-snippets / luasnip
     (require 'yasnippet)

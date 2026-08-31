@@ -97,8 +97,13 @@ lib.mkIf enable {
           message-sendmail-f-is-evil t
           message-sendmail-extra-arguments '("--read-envelope-from"))
 
-    (setq mu4e-contexts
-          (list
+    ;; after-load, because make-mu4e-context does not exist until mu4e is
+    ;; loaded -- calling it at init time aborts the whole init file with
+    ;; "Symbol's function definition is void". mu4e is autoloaded, so this
+    ;; runs when `mu4e' first opens, before it reads mu4e-contexts.
+    (with-eval-after-load 'mu4e
+      (setq mu4e-contexts
+            (list
     ${
       lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: a: ''
@@ -114,7 +119,7 @@ lib.mkIf enable {
                    (mu4e-drafts-folder . "/${name}/Drafts")
                    (mu4e-trash-folder  . "/${name}/Trash")))'') mailAccounts
       )
-    }))
+    })))
   '';
 
   accounts.email = {
