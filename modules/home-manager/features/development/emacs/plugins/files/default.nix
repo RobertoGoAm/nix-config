@@ -1,3 +1,5 @@
+# development emacs plugins files
+
 {
   imports = [
     ./browsing.nix

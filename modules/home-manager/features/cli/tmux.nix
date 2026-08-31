@@ -1,3 +1,5 @@
+# cli tmux
+
 {
   config,
   lib,
@@ -6,8 +8,12 @@
 }:
 let
   colemak = config.features.productivity.keyboard.layout == "colemak";
+
+  # tmux has no directional defaults to fall back on, so unlike vim or...
+
   # tmux has no directional defaults to fall back on, so unlike vim or warpd
   # the QWERTY case needs its keys written out rather than simply omitted.
+
   nav =
     if colemak then
       {
@@ -32,7 +38,10 @@ in
     baseIndex = 1;
     historyLimit = 10000;
 
+    # Change prefix to Ctrl-Space to avoid conflicts and match "Space"...
+
     # Change prefix to Ctrl-Space to avoid conflicts and match "Space" leader vibes
+
     prefix = "C-Space";
 
     keyMode = "vi";

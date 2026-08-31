@@ -1,3 +1,5 @@
+# services reading
+
 {
   config,
   lib,
@@ -7,11 +9,14 @@
 let
   cfg = config.features.services.reading;
 
+  # Readeck keeps everything -- SQLite, extracted article bodies,...
+
   # Readeck keeps everything -- SQLite, extracted article bodies, images -- under
   # one data directory, so the config is small and the whole service is one
   # directory to back up. The secret is generated on first run into the data dir
   # rather than declared here, which is what keeps this file safe for a public
   # repo (see features/backup/restic for the same reasoning).
+
   readeckConfig = pkgs.writeText "readeck.toml" ''
     [main]
     log_level = "warn"
@@ -74,14 +79,15 @@ in
       pkgs.calibre-web
     ];
 
-    # The secret key is generated once, here, rather than left to readeck.
-    #
+    # The secret key is generated once, here, rather than left to readeck
+
     # readeck writes a generated key back into its config file on first run --
     # but the config is a nix store path, so the write silently fails and a new
     # key is minted on every start, invalidating every session each time the
     # agent restarts. READECK_SECRET_KEY overrides the file, so the key lives in
     # the data directory (0600, never in the store or this repo) and the config
     # stays declarative.
+
     home.activation.readingDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       run mkdir -p "${cfg.dataDir}/readeck" "${cfg.dataDir}/calibre-web"
       if [ ! -s "${cfg.dataDir}/readeck/secret_key" ]; then
@@ -94,9 +100,12 @@ in
     launchd.agents.readeck = {
       enable = true;
       config = {
+
         # Wrapped so the key can be read at start time. launchd's
+
         # EnvironmentVariables are fixed at build time and cannot hold a value
         # generated on the machine.
+
         ProgramArguments = [
           "${pkgs.writeShellScript "readeck-start" ''
             export READECK_SECRET_KEY="$(cat "${cfg.dataDir}/readeck/secret_key")"
@@ -111,10 +120,13 @@ in
       };
     };
 
+    # calibre-web is wrapped rather than run directly: it needs the...
+
     # calibre-web is wrapped rather than run directly: it needs the library path
     # and its settings db passed as flags, and it must not start at all without a
     # library -- launchd would otherwise restart it forever against a metadata.db
     # that is never going to appear on its own.
+
     launchd.agents.calibre-web = {
       enable = true;
       config = {

@@ -1,3 +1,5 @@
+# development nvim plugins files browsing
+
 {
   plugins = {
     project-nvim = {

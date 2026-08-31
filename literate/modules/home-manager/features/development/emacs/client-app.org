@@ -59,6 +59,22 @@ store directly:
     run rm -rf "$HOME/Applications/Home Manager Apps/Emacs.app"
   '';
 
+  programs.emacs.extraConfig = ''
+    ;; Clicking the app icon should bring Emacs forward, not add a frame.
+    ;;
+    ;; The launcher calls this instead of `emacsclient -c'. Every frame the
+    ;; daemon creates lands at the same position, so an unconditional create
+    ;; stacks them perfectly and the click looks like it did nothing -- six
+    ;; accumulated at 98,49 before it was clear they were separate windows.
+    (defun my/raise-or-create-frame ()
+      "Raise an existing graphical frame, or make one if there is none."
+      (let ((f (seq-find (lambda (fr)
+                           (and (eq (framep fr) 'ns) (frame-visible-p fr)))
+                         (frame-list))))
+        (select-frame-set-input-focus (or f (make-frame '((window-system . ns)))))
+        t))
+  '';
+
   home.packages = [
     (pkgs.runCommand "emacs-client-app" { } ''
       app="$out/Applications/Emacs Client.app"
@@ -79,6 +95,14 @@ store directly:
       # LSUIElement would hide that icon outright, and was tried here, but the
       # bundle then stopped launching from Finder and Spotlight altogether.
       # Not worth it for a second of Dock icon.
+      # Raise a frame that already exists rather than stacking another
+      # exactly on top of it. emacsclient -c always creates, and every
+      # frame the daemon makes lands at the same position, so clicking
+      # the icon read as a no-op while six identical frames piled up at
+      # 98,49. The -c line below is the no-daemon fallback, where the
+      # eval cannot succeed and --alternate-editor starts one.
+      "${config.programs.emacs.finalPackage}/bin/emacsclient" \
+        -e '(my/raise-or-create-frame)' >/dev/null 2>&1 && exit 0
       exec "${config.programs.emacs.finalPackage}/bin/emacsclient" \
         -c -n --alternate-editor="" "\$@"
       SCRIPT

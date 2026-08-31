@@ -1,3 +1,5 @@
+# development nvim plugins ui virt-column
+
 {
   plugins = {
     virt-column = {

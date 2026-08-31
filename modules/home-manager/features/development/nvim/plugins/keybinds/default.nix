@@ -1,3 +1,5 @@
+# development nvim plugins keybinds
+
 {
   plugins = {
     toggleterm = {
@@ -187,7 +189,9 @@
   };
 
   keymaps = [
+
     # Leader
+
     {
       key = "<leader><leader>";
       action = ":";
@@ -215,6 +219,7 @@
     }
 
     # Buffers
+
     {
       key = "<leader>bb";
       action = "<cmd>Telescope buffers<CR>";
@@ -232,6 +237,7 @@
     }
 
     # Diagnostics
+
     {
       key = "<leader>db";
       action = "<cmd>Lspsaga show_buf_diagnostics<CR>";
@@ -259,6 +265,7 @@
     }
 
     # Errors
+
     {
       key = "<leader>ed";
       action = "<cmd>Lspsaga show_cursor_diagnostics<CR>";
@@ -281,6 +288,7 @@
     }
 
     # Files
+
     {
       key = "<leader>fd";
       action = "<cmd>Telescope file_browser path=%:p:h<CR>";
@@ -313,6 +321,7 @@
     }
 
     # Git
+
     {
       key = "<leader>ga";
       action = "<cmd>Git add .<CR>";
@@ -425,6 +434,7 @@
     }
 
     # Jump
+
     {
       key = "<leader>jb";
       action = "<cmd>HopWordBC<CR>";
@@ -457,6 +467,7 @@
     }
 
     # Lsp
+
     {
       key = "<leader>lb";
       action = "<cmd>Telescope diagnostics bufnr=0 theme=get_ivy<CR>";
@@ -504,6 +515,7 @@
     }
 
     # Notes
+
     {
       key = "<leader>nn";
       action = "<cmd>Obsidian new<CR>";
@@ -526,6 +538,7 @@
     }
 
     # Project
+
     {
       key = "<leader>pe";
       action = "<cmd>Telescope env<CR>";
@@ -558,6 +571,7 @@
     }
 
     # Quit
+
     {
       key = "<leader>qq";
       action = "<cmd>qa<CR>";
@@ -570,6 +584,7 @@
     }
 
     # Replace
+
     {
       key = "<leader>rb";
       action = "<cmd>lua require('grug-far').open({ prefills = { paths = vim.fn.expand(\"%]\") } })<CR>";
@@ -592,6 +607,7 @@
     }
 
     # Search
+
     {
       key = "<leader>sp";
       action = "<cmd>lua require('telescope.builtin').live_grep({ additional_args = { '--fixed-strings' }})<CR>";
@@ -624,6 +640,7 @@
     }
 
     # Tests
+
     {
       key = "<leader>tf";
       action = "<cmd>lua require(\"neotest\").run.run(vim.fn.expand(\"%\"))<CR>";
@@ -651,6 +668,7 @@
     }
 
     # Toggles
+
     {
       key = "<leader>Ts";
       action = "<cmd>noh<CR>";
@@ -668,6 +686,7 @@
     }
 
     # Windows
+
     {
       key = "<leader>wd";
       action = "<C-W>c";
@@ -740,6 +759,7 @@
     }
 
     # Text
+
     {
       key = "<leader>xd";
       action = "<cmd>%s/\\s\\+$//e<CR>";
@@ -747,6 +767,7 @@
     }
 
     # Code
+
     {
       key = "<localleader>ca";
       action = "<cmd>lua vim.lsp.buf.code_action()<CR>";

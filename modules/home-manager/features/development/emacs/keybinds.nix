@@ -1,3 +1,5 @@
+# development emacs keybinds
+
 {
   config,
   lib,
@@ -9,17 +11,18 @@ in
 {
   imports = [ ../../productivity/keyboard-layout.nix ];
 
-  # Split deliberately across two points in the generated file.
-  #
+  # Split deliberately across two points in the generated file
+
   # The machinery and its hooks go FIRST, at 90 — ahead of the core block that calls
   # `evil-collection-init'. That ordering is load-bearing: evil-collection sets each
   # mode up through `with-eval-after-load', and for packages already loaded those run
   # immediately, so a hook added afterwards never sees them. Installed at 90, the hook
   # is in place before the first mode is ever evilified, and every plugin keymap gets
   # rotated as it appears.
-  #
+
   # The global state maps and the remaining literal remaps go LAST, at 1500, once
   # every plugin has had its say.
+
   programs.emacs.extraConfig = lib.mkMerge (
     lib.optionals colemak [
       (lib.mkOrder 90 ''
@@ -150,8 +153,11 @@ in
       '')
     ]
     ++ [
+
       # Layout-neutral: these mirror the nvim config but touch no letter the
+
       # rotation moves, so they apply under both layouts.
+
       (lib.mkOrder 1500 ''
         ;; Delete without copying: x, X and Del write to the black-hole register.
         (defun my/delete-char-no-yank (count)

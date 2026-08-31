@@ -1,3 +1,5 @@
+# development nvim plugins version-control git
+
 {
   plugins = {
     fugitive.enable = true;

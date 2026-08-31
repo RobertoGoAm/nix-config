@@ -1,3 +1,5 @@
+# desktop gnome
+
 { lib, pkgs, ... }:
 
 with lib.hm.gvariant;
@@ -10,7 +12,9 @@ with lib.hm.gvariant;
   ];
 
   dconf.settings = {
+
     # Extensions
+
     "org/gnome/shell" = {
       disable-user-extensions = false;
       last-selected-power-profile = "performance";
@@ -42,7 +46,10 @@ with lib.hm.gvariant;
       ];
     };
 
+    # --- Mirror the macOS interface prefs from modules/macos/default.nix...
+
     # --- Mirror the macOS interface prefs from modules/macos/default.nix ---
+
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark"; # ≈ AppleInterfaceStyle = "Dark"
       enable-hot-corners = false; # ≈ mac hot corners disabled
@@ -58,8 +65,11 @@ with lib.hm.gvariant;
       delay = mkUint32 250; # short initial delay (≈ mac InitialKeyRepeat)
     };
 
+    # Workspace switching aligned with aerospace/paneru on the macs:...
+
     # Workspace switching aligned with aerospace/paneru on the macs: Alt+1-6 to
     # switch, Shift+Alt+1-6 to send the window there.
+
     "org/gnome/desktop/wm/keybindings" = {
       switch-to-workspace-1 = [ "<Alt>1" ];
       switch-to-workspace-2 = [ "<Alt>2" ];
@@ -75,10 +85,13 @@ with lib.hm.gvariant;
       move-to-workspace-6 = [ "<Shift><Alt>6" ];
     };
 
+    # warpd pointer control — Wayland can't grab global hotkeys, so bind...
+
     # warpd pointer control — Wayland can't grab global hotkeys, so bind GNOME
     # custom shortcuts to invoke warpd directly (mirrors the macs' Alt+Cmd as
     # Alt+Super), on the same PHYSICAL keys as QWERTY warpd: hint = x, grid =
     # QWERTY-g position = Colemak d, normal = c. In-mode keys: features/desktop/warpd.
+
     "org/gnome/settings-daemon/plugins/media-keys".custom-keybindings = [
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-hint/"
       "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/warpd-grid/"
@@ -103,39 +116,58 @@ with lib.hm.gvariant;
       command = "${pkgs.warpd}/bin/warpd --normal";
       binding = "<Alt><Super>c";
     };
+
+    # Window switcher = the Raycast "Switch Windows" analog (flat fuzzy...
+
     # Window switcher = the Raycast "Switch Windows" analog (flat fuzzy list).
     # keyd maps a Super tap to this combo (see keyd-default.conf), so tapping
     # Super pops the list. X11 only — rofi can't enumerate windows on Wayland.
+
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher" = {
       name = "Window switcher";
       command = "${pkgs.rofi}/bin/rofi -show window";
       binding = "<Control><Alt>w";
     };
+
+    # Same switcher on bare F18: the Bridge75 sends F18 on tap-Cmd (it's...
+
     # Same switcher on bare F18: the Bridge75 sends F18 on tap-Cmd (it's excluded
     # from keyd, so the firmware's tap reaches GNOME directly as F18).
+
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/window-switcher-f18" = {
       name = "Window switcher (F18)";
       command = "${pkgs.rofi}/bin/rofi -show window";
       binding = "F18";
     };
+
+    # Quake-style drop-down Alacritty (like the iTerm2 quake on the...
+
     # Quake-style drop-down Alacritty (like the iTerm2 quake on the Macs): tdrop
     # toggles one Alacritty window down from the top. Super+` mirrors Cmd+` there.
     # X11 only; geometry is tweakable — verify/tune on perseus.
+
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-term" = {
       name = "Quake terminal";
       command = "${pkgs.tdrop}/bin/tdrop -ma -w 100% -h 45% -x 0 -y 0 alacritty";
       binding = "<Super>grave";
     };
+
+    # Toggle the focused window's opacity (e.g. the quake terminal)....
+
     # Toggle the focused window's opacity (e.g. the quake terminal). Relies on
     # GNOME/mutter honouring _NET_WM_WINDOW_OPACITY on X11.
+
     "org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/quake-transparency" = {
       name = "Toggle window transparency";
       command = "${pkgs.transset}/bin/transset --actual --toggle 0.85";
       binding = "<Super><Shift>grave";
     };
 
+    # Forge general settings live under .../forge (NOT...
+
     # Forge general settings live under .../forge (NOT .../forge/keybindings) —
     # otherwise the gap settings are written to the wrong path and ignored.
+
     "org/gnome/shell/extensions/forge" = {
       window-gap-hidden-on-single = true;
       window-gap-size = mkUint32 6;

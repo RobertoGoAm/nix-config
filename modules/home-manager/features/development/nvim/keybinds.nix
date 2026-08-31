@@ -1,13 +1,20 @@
+# Called from ./default.nix with the layout flag, NOT imported as a...
+
 # Called from ./default.nix with the layout flag, NOT imported as a module:
 # nixvim submodules get nixvim's own `config`, so this file cannot read
 # features.productivity.keyboard.layout for itself.
+
 { colemak, lib }:
 let
+
+  # The hnei rotation: n/e/i take over j/k/l movement and j/k/l inherit...
+
   # The hnei rotation: n/e/i take over j/k/l movement and j/k/l inherit the
   # displaced n/e/i (search-next, end-of-word, insert), so nothing is lost.
   # Under layout = "qwerty" this list is empty and nvim keeps stock vim
   # bindings -- dropping the override IS the QWERTY config, because vim is
   # already a QWERTY tool.
+
   colemakKeymaps = [
     {
       key = "n";
@@ -80,7 +87,9 @@ in
   globals.maplocalleader = ",";
 
   keymaps = lib.optionals colemak colemakKeymaps ++ [
+
     # Delete without copying text
+
     {
       key = "x";
       action = "\"_x";
@@ -95,6 +104,7 @@ in
     }
 
     # Escape term with ESC
+
     {
       mode = "t";
       key = "<Esc>";
@@ -102,6 +112,7 @@ in
     }
 
     # Increment and decrement stuff
+
     {
       key = "+";
       action = "<C-x>";

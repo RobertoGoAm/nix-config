@@ -1,3 +1,5 @@
+# development nvim plugins files
+
 {
   imports = [
     ./browsing.nix

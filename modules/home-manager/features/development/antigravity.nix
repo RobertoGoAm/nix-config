@@ -1,3 +1,5 @@
+# development antigravity
+
 {
   config,
   lib,
@@ -8,8 +10,12 @@ let
   cfg = config.features.development.antigravity;
   binDir = "${cfg.appPath}/Contents/Resources/app/bin";
   ideCli =
+
+    # Linux: the IDE comes from the nix package (no macOS .app layout),...
+
     # Linux: the IDE comes from the nix package (no macOS .app layout), so point
     # the agy/agy-ide shims straight at its binary. macOS: resolve inside the .app.
+
     if !pkgs.stdenv.hostPlatform.isDarwin then
       lib.getExe pkgs.antigravity-ide
     else if builtins.pathExists "${binDir}/antigravity-ide" then
@@ -23,9 +29,12 @@ in
   options.features.development.antigravity = {
     appPath = lib.mkOption {
       type = lib.types.str;
+
       # The nix copy, so the agy-ide shim and the dock resolve to the same
+
       # bundle. A hand-installed /Applications copy would drift from the
       # pkgs.antigravity-ide version this config pins.
+
       default = "${config.home.homeDirectory}/Applications/Home Manager Apps/Antigravity IDE.app";
       defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/Applications/Home Manager Apps/Antigravity IDE.app"'';
       description = "Path to Antigravity IDE.app (must contain Contents/Resources/app/bin/antigravity-ide).";
@@ -36,16 +45,20 @@ in
     home.packages = [
       pkgs.antigravity-ide
 
+      # The standalone TUI agent client. It owns `agy`, which is why the...
+
       # The standalone TUI agent client. It owns `agy`, which is why the shim
       # below only covers `agy-ide` — two packages claiming bin/agy would
       # collide when home-manager builds the profile.
-      #
+
       # Not routed through programs.antigravity-cli: that module is a single
       # option set shared with the renamed programs.gemini-cli, and its package
       # defaults to gemini-cli, so enabling it installs gemini and drops agy.
+
       pkgs.antigravity-cli
 
-      # Gemini /ide install looks for agy-ide; the IDE ships antigravity-ide.
+      # Gemini /ide install looks for agy-ide; the IDE ships antigravity-ide
+
       (pkgs.writeShellScriptBin "agy-ide" ''
         exec "${ideCli}" "$@"
       '')
@@ -55,7 +68,10 @@ in
       export ANTIGRAVITY_CLI_ALIAS=agy-ide
     '';
 
+    # Antigravity is a VS Code fork; share the HM-managed VS Code...
+
     # Antigravity is a VS Code fork; share the HM-managed VS Code extensions.
+
     home.file.".antigravity-ide/extensions" = {
       source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.vscode/extensions";
       force = true;

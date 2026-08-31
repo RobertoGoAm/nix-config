@@ -1,3 +1,5 @@
+# development emacs plugins social
+
 {
   lib,
   pkgs,
@@ -9,13 +11,20 @@
       telega
     ];
 
+  # telega renders the login QR code by shelling out to qrencode....
+
   # telega renders the login QR code by shelling out to qrencode. Without it on
   # PATH the QR branch is skipped silently and telega falls back to asking for a
   # phone number -- see the login note in extraConfig below.
+
   home.packages = [
     pkgs.qrencode
   ]
+
+  # Notification transport on macOS -- see the notify override in...
+
   # Notification transport on macOS -- see the notify override in extraConfig.
+
   ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.terminal-notifier;
 
   programs.emacs.extraConfig = ''

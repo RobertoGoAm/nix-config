@@ -1,3 +1,5 @@
+# development emacs plugins lsp lsp
+
 {
   lib,
   pkgs,
@@ -13,9 +15,12 @@
       lsp-ui
     ];
 
+  # The servers themselves. nixvim wires these into nvim for you; here...
+
   # The servers themselves. nixvim wires these into nvim for you; here they go on
   # PATH and lsp-mode finds them there (the daemon gets the login PATH via
   # exec-path-from-shell, set up in plugins/vim/default.nix).
+
   home.packages = with pkgs; [
     angular-language-server
     bash-language-server

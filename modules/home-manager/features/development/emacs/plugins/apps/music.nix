@@ -1,3 +1,5 @@
+# development emacs plugins apps music
+
 {
   lib,
   pkgs,
@@ -7,11 +9,15 @@ let
   darwin = pkgs.stdenv.hostPlatform.isDarwin;
 in
 {
+
+  # No package. smudge, the usual Emacs Spotify client, drives the Web...
+
   # No package. smudge, the usual Emacs Spotify client, drives the Web API and
   # needs an OAuth app registered with Spotify plus a token refresh loop. The
   # desktop client is already running and already scriptable, and the SwiftBar
   # status item talks to it the same way -- so this is the same osascript calls,
   # which need no credentials and keep one source of truth for "what is playing".
+
   programs.emacs.extraConfig = lib.mkOrder 1450 (
     if darwin then
       ''

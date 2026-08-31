@@ -1,9 +1,15 @@
+# development nvim plugins code navigation
+
 {
   pkgs,
   ...
 }:
 {
+
+  # nvim-ufo requires promise-async; nixvim does not pull it in...
+
   # nvim-ufo requires promise-async; nixvim does not pull it in automatically.
+
   extraPlugins = [ pkgs.vimPlugins.promise-async ];
 
   opts = {
@@ -74,7 +80,9 @@
       enable = true;
 
       # refactoring.nvim pulls in async.nvim, which registers a conflicting
+
       # require("async") before nvim-ufo loads (needs promise-async).
+
       luaConfig.pre = ''
         for _, rtp in ipairs(vim.api.nvim_list_runtime_paths()) do
           if rtp:match("promise%-async$") then

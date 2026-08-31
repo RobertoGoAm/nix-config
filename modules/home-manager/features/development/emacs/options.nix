@@ -1,3 +1,5 @@
+# development emacs options
+
 {
   lib,
   pkgs,

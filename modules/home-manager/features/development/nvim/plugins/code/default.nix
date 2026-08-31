@@ -1,3 +1,5 @@
+# development nvim plugins code
+
 {
   imports = [
     ./comments.nix

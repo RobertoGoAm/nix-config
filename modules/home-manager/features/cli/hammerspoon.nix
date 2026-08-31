@@ -1,4 +1,8 @@
+# cli hammerspoon
+
 { lib, pkgs, ... }:
+
+# macOS quake terminal via Hammerspoon — a drop-down Alacritty on...
 
 # macOS quake terminal via Hammerspoon — a drop-down Alacritty on Cmd+` (mirroring
 # the perseus tdrop setup and the keyboard's Cmd/Super+`), plus a transparency
@@ -6,6 +10,7 @@
 # casks.nix) and needs a ONE-TIME Accessibility grant (System Settings → Privacy &
 # Security → Accessibility → Hammerspoon). It replaces the iTerm2 quake, whose
 # hotkey is disabled in iterm2.nix so Cmd+` is free.
+
 lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   home.file.".hammerspoon/init.lua".text = ''
     -- Quake-style drop-down Alacritty on Cmd+`: reveal if hidden, hide if frontmost.

@@ -1,3 +1,5 @@
+# development emacs plugins notes org
+
 { lib, ... }:
 {
   programs.emacs.extraPackages =
@@ -6,11 +8,14 @@
       evil-org
     ];
 
+  # Org is here for the agenda, not for notes. Notes stay in Obsidian...
+
   # Org is here for the agenda, not for notes. Notes stay in Obsidian markdown
   # (plugins/notes/obsidian.nix) -- that is where the vault, the templates and
   # the links already are, and moving them would buy nothing. What Obsidian has
   # no answer for is a timed agenda, which is what the calendar work needs to
   # land in, so org owns dates and tasks and nothing else.
+
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Org -- agenda and capture only.
 

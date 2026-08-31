@@ -1,4 +1,5 @@
 # Example iTerm2 configuration based on the provided plist
+
 { config, pkgs, ... }:
 
 {
@@ -54,8 +55,11 @@
         transparency = 0.35;
 
         hotkey = {
+
           # Disabled: the Alacritty quake (Hammerspoon, see cli/hammerspoon.nix)
+
           # owns Cmd+` now. Flip back to true to restore the iTerm2 quake instead.
+
           enabled = false;
           characters = "'";
           modifierFlags = 1048576; # Command key

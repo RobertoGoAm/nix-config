@@ -1,12 +1,17 @@
+# productivity kanata
+
 { lib, pkgs, ... }:
 
 let
+
+  # ── kanata: built, validated, and DISABLED...
+
   # ── kanata: built, validated, and DISABLED ──────────────────────────────────
   # A single cross-platform config (kanata-colemak.kbd) that mirrors the macOS
   # Karabiner (../karabiner.nix) and Linux keyd (../keyd/keyd-default.conf) setups,
   # kept in sync here as a ready-to-flip replacement for both. It is OFF because
   # kanata on macOS needs manual, non-nix-automatable setup.
-  #
+
   # To enable:
   #   1. macOS: install the Karabiner-DriverKit-VirtualHIDDevice driver v6.2.0,
   #      grant the kanata binary Input Monitoring + Accessibility, and turn off
@@ -18,17 +23,21 @@ let
   #   3. Flip `enable` below to true and rebuild. Then retire Karabiner/keyd.
   #   4. Linux: run `kanata-setup` once (installs the service + loads uinput), and
   #      again after any edit to kanata-colemak.kbd (its store path changes).
-  #
+
   # KEEP ALIGNED: edits to the Colemak map / nav / sym / tap behaviours must also
   # land in ../karabiner.nix and ../keyd/keyd-default.conf (and the Bridge75 keymap
   # where relevant) — all are meant to behave identically.
+
   enable = false;
 
   cfg = ./kanata-colemak.kbd;
 
+  # Linux: kanata runs as a root systemd service (needs /dev/input +...
+
   # Linux: kanata runs as a root systemd service (needs /dev/input + /dev/uinput).
   # A standalone home-manager setup can't own that unit, so a sudo helper installs
   # it — same approach as keyd-setup.
+
   unit = pkgs.writeText "kanata.service" ''
     [Unit]
     Description=kanata keyboard remapper
@@ -66,8 +75,12 @@ lib.mkIf enable (
     })
 
     (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+
+      # User launchd agent. Needs the manual driver + permission grants...
+
       # User launchd agent. Needs the manual driver + permission grants above; the
       # exact invocation may want tuning when this is actually switched on.
+
       launchd.agents.kanata = {
         enable = true;
         config = {

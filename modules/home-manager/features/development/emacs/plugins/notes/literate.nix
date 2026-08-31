@@ -1,15 +1,18 @@
+# Literate Nix: author the config as org prose, commit the tangled...
+
 # Literate Nix: author the config as org prose, commit the tangled .nix.
-#
+
 # The org sources live in literate/ inside nix-config, mirroring the tree they
 # generate: literate/modules/.../foo.org tangles to modules/.../foo.nix. Saving
 # one writes the .nix immediately, with the prose around each block emitted as
 # `#' comments -- so the committed Nix stays ordinary and readable for anyone
 # who never opens the org.
-#
+
 # Both halves being committed is what makes lit-tangle --check matter. Nothing
 # stops you editing a .nix directly, and it will work, and it will be silently
 # overwritten the next time the org it came from is saved. The check catches
 # that before a commit does.
+
 { pkgs, config, ... }:
 {
   home.packages = [ pkgs.lit-tangle ];

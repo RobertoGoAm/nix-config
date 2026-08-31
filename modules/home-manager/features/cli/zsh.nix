@@ -1,3 +1,5 @@
+# cli zsh
+
 {
   programs.zsh = {
     enable = true;

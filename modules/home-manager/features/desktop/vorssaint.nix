@@ -1,16 +1,21 @@
+# desktop vorssaint
+
 { config, ... }:
 {
+
+  # com.vorssaint.utils preferences, pinned declaratively....
+
   # com.vorssaint.utils preferences, pinned declaratively. targets.darwin.defaults
   # writes only the keys listed here and leaves the rest of the domain
   # alone, but these keys are reset to these values on every activation.
-  #
+
   # Generated — change the setting in the app, then re-run:
   #   nix run .#pin-prefs -- com.vorssaint.utils <this file>
-  #
+
   # Not expressible as Nix values, left to the app:
   #   NSOSPLastRootDirectory (data blob)
   #   shelfItems (data blob)
-  #
+
   # Runtime state, deliberately excluded:
   #   NSNavPanelExpandedSizeForOpenMode
   #   appUpdatesLastCheck
@@ -19,6 +24,7 @@
   #   mediaLastTool
   #   settingsWindowHeight
   #   settingsWindowWidth
+
   targets.darwin.defaults."com.vorssaint.utils" = {
     "NSStatusItem Preferred Position VorssaintMenuBarItem" = 472.0;
     "autoQuitEnabled" = false;

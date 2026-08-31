@@ -1,11 +1,17 @@
+# home-manager hosts prometheus packages
+
 {
   pkgs,
   ...
 }:
 let
+
+  # Employer-revealing nixpkgs derivations live in the gitignored...
+
   # Employer-revealing nixpkgs derivations live in the gitignored private file
   # (work-extras.nix) so the public repo doesn't reveal corporate tooling.
   # Read only under --impure.
+
   privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
   private =
     if builtins.pathExists privatePath then
@@ -18,7 +24,9 @@ in
   home.packages =
     with pkgs;
     [
+
       # Development
+
       cabal-install
       chatgpt
       codex-acp
@@ -33,6 +41,7 @@ in
       stack
 
       # DevOps
+
       actionlint
       age
       ansible
@@ -76,16 +85,19 @@ in
       yubikey-manager
 
       # Productivity
+
       anki-bin
       notion-app
       raycast
 
       # Media
+
       ffmpeg
       iina
       spotify
 
       # Tool
+
       coreutils
       cyberduck
       graphviz
@@ -103,6 +115,7 @@ in
       yubikey-manager
 
       # Work
+
       git-credential-manager
     ]
     ++ private.macPackages;

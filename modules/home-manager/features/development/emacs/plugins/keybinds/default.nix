@@ -1,3 +1,5 @@
+# development emacs plugins keybinds
+
 {
   lib,
   ...
@@ -10,10 +12,13 @@
       vterm-toggle
     ];
 
+  # Ordered at 1400: after every plugin block, so each command it names...
+
   # Ordered at 1400: after every plugin block, so each command it names already
   # exists, and before the Colemak rotation at 1500. The leader tree lives in
   # general's `override' keymap, which the rotation never touches — so these keys
   # mean the same thing in a magit buffer as in a source file.
+
   programs.emacs.extraConfig = lib.mkOrder 1400 ''
     ;;; The leader tree — every nvim which-key group, key for key and label for
     ;;; label.

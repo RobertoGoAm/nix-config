@@ -1,3 +1,5 @@
+# home-manager hosts vulcan vulcan
+
 {
   config,
   inputs,
@@ -18,9 +20,12 @@
 
   programs.home-manager.enable = true;
 
+  # vulcan is the always-on machine, so the reading stack lives here:...
+
   # vulcan is the always-on machine, so the reading stack lives here: readeck
   # for read-it-later and calibre-web for the library and its OPDS feed, which
   # is what the e-reader browses.
+
   features.services.reading.enable = true;
 
   imports = [

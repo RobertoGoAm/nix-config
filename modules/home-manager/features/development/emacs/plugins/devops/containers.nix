@@ -1,15 +1,21 @@
+# development emacs plugins devops containers
+
 { lib, ... }:
 {
+
+  # Devcontainers, the VS Code way round: the language server runs...
+
   # Devcontainers, the VS Code way round: the language server runs INSIDE the
   # container, so it resolves the dependencies installed there rather than
   # whatever happens to be on the host.
-  #
+
   # The previous setup deliberately ran servers locally against the mounted
   # workspace, which is fine when host and container share a toolchain and wrong
   # the moment they do not -- a node_modules that only exists in the image, a
   # pinned python, a compiler the host lacks. Both paths are available now:
   # open the file locally for host tooling, or open it under /docker: for the
   # container's.
+
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
     ;;; Devcontainers.
 
