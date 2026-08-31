@@ -59,5 +59,6 @@
     ../../features/desktop/warpd
     ../../features/backup/restic
     ../../features/mail
+    ../../features/media/spotify.nix
   ];
 }
