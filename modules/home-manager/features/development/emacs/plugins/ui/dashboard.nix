@@ -74,9 +74,20 @@
         (dashboard-open)))
 
     (defun my/dashboard-on-client-frame ()
-      "Show the dashboard in a client frame that would otherwise show *scratch*."
-      (when (equal (buffer-name) "*scratch*")
-        (my/dashboard-home)))
+      "Show the dashboard alone in a client frame that has nothing else to show.
+
+    Two things had to be handled. The frame can arrive already displaying the
+    dashboard -- `dashboard-setup-startup-hook' points `initial-buffer-choice'
+    at it, and server.el honours that -- so matching only *scratch* missed
+    those and matching both is what makes this idempotent.
+
+    And the frame can arrive split, which is what produced two windows each
+    showing the dashboard with its own modeline. `delete-other-windows' leaves
+    the one window a home screen should be. A frame opened on a file is
+    untouched: its buffer is neither of these."
+      (when (member (buffer-name) '("*scratch*" "*dashboard*"))
+        (my/dashboard-home)
+        (delete-other-windows)))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
