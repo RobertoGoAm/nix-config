@@ -23,6 +23,30 @@
   ...
 }:
 lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+  # One Emacs icon, not two.
+  #
+  # copyApps rsyncs the Applications directory of every package in
+  # home.packages into ~/Applications/Home Manager Apps, and the emacs package
+  # ships Emacs.app. That bundle starts a SECOND, independent Emacs instead of
+  # attaching to the daemon -- precisely what Emacs Client.app exists to avoid
+  # -- and two near-identical icons is an invitation to click the wrong one.
+  #
+  # Removed on every activation rather than excluded, because copyApps offers
+  # no per-app filter and its rsync re-creates the bundle each rebuild.
+  #
+  # Renaming the launcher to Emacs.app instead would collide: both bundles feed
+  # the same buildEnv, so two Applications/Emacs.app entries fail the build
+  # outright. Hence the distinct name.
+  #
+  # The store path is untouched -- the daemon and the launcher both still run
+  # that emacs. For a deliberately clean instance, launch the bundle from the
+  # store directly:
+  #
+  #   open -n "$(readlink -f ~/.nix-profile/bin/emacs | xargs dirname | xargs dirname)/Applications/Emacs.app"
+  home.activation.hideStockEmacsApp = lib.hm.dag.entryAfter [ "copyApps" ] ''
+    run rm -rf "$HOME/Applications/Home Manager Apps/Emacs.app"
+  '';
+
   home.packages = [
     (pkgs.runCommand "emacs-client-app" { } ''
       app="$out/Applications/Emacs Client.app"
