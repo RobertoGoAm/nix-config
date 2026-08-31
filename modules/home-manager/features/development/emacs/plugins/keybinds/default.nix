@@ -227,15 +227,22 @@
 
       ;; music — the running Spotify client, same one the menu bar item reports.
       "m"  '(:ignore t :which-key "music")
-      ;; nix-config -- edit, rebuild, and the housekeeping around it
-      "c"  '(:ignore t :which-key "config")
-      "ce" '(my/config-edit :which-key "edit config (literate)")
-      "cr" '(my/config-rebuild :which-key "rebuild")
-      "cu" '(my/config-update :which-key "update inputs + rebuild")
-      "cg" '(my/config-gc :which-key "collect garbage")
-      "cp" '(my/config-pins :which-key "check pins")
-      "ct" '(my/config-tangle-check :which-key "check tangle drift")
-      "cd" '(my/config-diff :which-key "diff last generation")
+      ;; nix-config -- edit, rebuild, and the housekeeping around it.
+      ;;
+      ;; N, not c: SPC c is already my/add-cursors. Declaring it a prefix threw
+      ;; "Key sequence SPC c e starts with non-prefix key SPC c" at load, which
+      ;; aborted the whole init file -- so the Colemak rotation, every leader
+      ;; section defined below this point, and the Claude session index all
+      ;; silently failed to load. One binding conflict, three unrelated-looking
+      ;; symptoms.
+      "N"  '(:ignore t :which-key "nix config")
+      "Ne" '(my/config-edit :which-key "edit config (literate)")
+      "Nr" '(my/config-rebuild :which-key "rebuild")
+      "Nu" '(my/config-update :which-key "update inputs + rebuild")
+      "Ng" '(my/config-gc :which-key "collect garbage")
+      "Np" '(my/config-pins :which-key "check pins")
+      "Nt" '(my/config-tangle-check :which-key "check tangle drift")
+      "Nd" '(my/config-diff :which-key "diff last generation")
 
       ;; mail -- `m' is music, so the inbox gets `i'
       "i"  '(:ignore t :which-key "inbox")
