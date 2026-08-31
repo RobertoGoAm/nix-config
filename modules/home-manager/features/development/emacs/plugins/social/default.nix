@@ -9,13 +9,33 @@
       telega
     ];
 
+  # telega renders the login QR code by shelling out to qrencode. Without it on
+  # PATH the QR branch is skipped silently and telega falls back to asking for a
+  # phone number -- see the login note in extraConfig below.
+  home.packages = [ pkgs.qrencode ];
+
   programs.emacs.extraConfig = ''
     ;;; Telegram — telega.el, a real client rather than a bridge.
     ;;;
     ;;; It talks to Telegram through tdlib, the same library the official desktop
-    ;;; client uses, so chats, media and replies all work. First run asks for the
-    ;;; phone number and the login code; the session is then kept under
-    ;;; ~/.telega and survives restarts.
+    ;;; client uses, so chats, media and replies all work. The session is kept
+    ;;; under ~/.telega and survives restarts.
+    ;;;
+    ;;; First run should show a QR CODE to scan from a phone that is already
+    ;;; logged in, not ask for a phone number. telega only falls back to the
+    ;;; phone prompt when the QR branch is unavailable:
+    ;;;
+    ;;;   (if (and (not telega--relogin-with-phone-number)
+    ;;;            telega-use-images
+    ;;;            (or (executable-find "qrencode") telega-use-docker))
+    ;;;       (telega--requestQrCodeAuthentication)
+    ;;;     (telega--setAuthenticationPhoneNumber (read-string ...)))
+    ;;;
+    ;;; and that fallback is a dead end on an account whose login codes are
+    ;;; delivered in-app: Telegram reports next_type = null, so it never offers
+    ;;; SMS, and the code lands in a service chat that may not be visible.
+    ;;; qrencode is now installed above, and telega-use-images is set below when
+    ;;; telega loads rather than when this file does.
     ;;;
     ;;; Chrome, the Google suite and the rest of the app list stay outside the editor
     ;;; on purpose — nothing in Emacs improves on them, and pretending otherwise
@@ -55,8 +75,20 @@
         (when (file-readable-p f)
           (load f nil :nomessage))))
 
+    ;; Asked when telega loads, not when this file does.
+    ;;
+    ;; This was `telega-use-images (display-graphic-p)' in the setq below, and
+    ;; under `emacs --fg-daemon' that runs with no graphical frame in
+    ;; existence, so it was pinned nil for the life of the daemon. Images off
+    ;; also disables telega's QR login branch, which is why first run asked for
+    ;; a phone number instead of showing a code to scan.
+    ;;
+    ;; telega is autoloaded and opened deliberately, so load time is the frame
+    ;; you invoked it from -- the right one to ask.
+    (with-eval-after-load 'telega
+      (setq telega-use-images (display-graphic-p)))
+
     (setq telega-directory (expand-file-name "~/.telega")
-          telega-use-images (display-graphic-p)
           telega-emoji-use-images nil
           telega-chat-fill-column 80
           telega-completing-read-function #'completing-read)
