@@ -196,8 +196,8 @@ in
             {
               name = "turbo-console-log";
               publisher = "chakrounanas";
-              version = "3.27.0";
-              sha256 = "sha256-qF96//flnSHkG06RJ3lQUFoCjgmpcNjr2iM2Oq52LwQ=";
+              version = "3.28.0";
+              sha256 = "sha256-S93wRGW1qT71SIOAj0HSBgWMA5pPZkccXSpRBiUO4p0=";
             }
             {
               name = "vite";

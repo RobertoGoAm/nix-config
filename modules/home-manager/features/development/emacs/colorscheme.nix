@@ -43,6 +43,40 @@
               doom-themes-treemacs-theme "doom-colors")
         (load-theme 'doom-tokyo-night :no-confirm)
 
+        ;; Break a face inheritance cycle the theme introduces.
+        ;;
+        ;; Under Emacs 31 creating a graphical frame died with
+        ;;
+        ;;   (error "Face inheritance results in inheritance cycle"
+        ;;          gnus-group-news-low)
+        ;;
+        ;; so `emacsclient -c' could not open a window at all. A standalone
+        ;; Emacs.app was unaffected, which is why this looked like a launcher
+        ;; problem rather than a theme one.
+        ;;
+        ;; The cycle is between the theme and the stock defface:
+        ;;
+        ;;   theme: gnus-group-news-low-empty -> gnus-group-news-low  (t, always)
+        ;;   stock: gnus-group-news-low       -> gnus-group-news-low-empty
+        ;;
+        ;; The theme only points news-low somewhere else for displays matching
+        ;; (min-colors 257); wherever that clause does not apply the defface
+        ;; stands and the two face each other. Emacs 30 tolerated the cycle,
+        ;; 31 raises on it.
+        ;;
+        ;; custom-theme-reset-faces, not set-face-attribute: the latter is
+        ;; undone on every new frame, since each one re-applies the theme's
+        ;; specs -- which is exactly why overriding the attribute appeared to
+        ;; work and then did not. Both ends are reset because resetting only
+        ;; the entry point restores its defface and the cycle survives.
+        ;;
+        ;; Nothing is lost: gnus is not used here, so these two faces are only
+        ;; ever realised as part of building a frame's face table.
+        (dolist (f '(gnus-group-news-low gnus-group-news-low-empty))
+          (when (facep f)
+            (custom-theme-reset-faces 'doom-tokyo-night (list f nil))
+            (set-face-attribute f nil :inherit 'unspecified)))
+
         ;; doom-tokyo-night ships the "night" variant; these four faces are the visible
         ;; difference from "storm", so overriding them lands on the same colours the
         ;; terminal and nvim already use.
