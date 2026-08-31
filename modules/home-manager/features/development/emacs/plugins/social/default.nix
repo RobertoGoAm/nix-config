@@ -88,6 +88,14 @@
     (with-eval-after-load 'telega
       (setq telega-use-images (display-graphic-p)))
 
+    ;; Keeps telega's unread counters current, and calls
+    ;; `force-mode-line-update' when they change -- which is what makes the
+    ;; my/telega segment in statusline.nix refresh. Its own mode-line string
+    ;; goes to `mode-line-misc-info', which this modeline does not render; the
+    ;; mode is enabled for the bookkeeping, not the string.
+    (with-eval-after-load 'telega
+      (telega-mode-line-mode 1))
+
     (setq telega-directory (expand-file-name "~/.telega")
           telega-emoji-use-images nil
           telega-chat-fill-column 80
