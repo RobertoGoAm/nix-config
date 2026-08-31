@@ -133,6 +133,36 @@
          (error "unavailable")))
       (insert "\n"))
 
+    ;; Each row carries its session id and directory as text properties, and a
+    ;; keymap for RET and mouse-1. Properties rather than a closure per line:
+    ;; this file is generated without a lexical-binding cookie, so a lambda
+    ;; cannot capture the row it was made for -- every one would resume
+    ;; whichever session happened to be last.
+    (defvar my/dashboard-claude-map
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "RET") #'my/dashboard-claude-resume)
+        (define-key m [mouse-1] #'my/dashboard-claude-resume)
+        m)
+      "Keymap active on a Claude session row in the dashboard.")
+
+    (defun my/dashboard-claude-resume ()
+      "Resume the Claude conversation on this line, in its own directory.
+
+    Claude resolves a session against the project it belongs to, so this has
+    to run there -- resuming from anywhere else simply does not find it."
+      (interactive)
+      (let ((sid (get-text-property (point) 'my/claude-sid))
+            (cwd (get-text-property (point) 'my/claude-cwd)))
+        (cond
+         ((null sid) (message "No Claude session on this line"))
+         ((not (file-directory-p cwd))
+          (user-error "That conversation's directory no longer exists: %s" cwd))
+         (t (let ((default-directory (file-name-as-directory cwd)))
+              (vterm (format "*claude:%s*" (file-name-nondirectory
+                                            (directory-file-name cwd))))
+              (vterm-send-string (format "claude --resume %s" sid))
+              (vterm-send-return))))))
+
     (defun my/dashboard-claude (list-size)
       "Insert the most recent Claude conversations, newest first."
       (dashboard-insert-heading "Claude sessions:" nil)
@@ -142,16 +172,51 @@
             (if (null rows)
                 (insert "    none recorded\n")
               (dolist (r rows)
-                (insert (format "    %-16s %-22s %s\n"
-                                (nth 0 r)
-                                (truncate-string-to-width (nth 1 r) 22)
-                                (truncate-string-to-width (nth 3 r) 60))))))
+                (let ((start (point)))
+                  (insert (format "    %-16s %-22s %s\n"
+                                  (nth 0 r)
+                                  (truncate-string-to-width (nth 1 r) 22)
+                                  (truncate-string-to-width (nth 3 r) 60)))
+                  (add-text-properties
+                   start (point)
+                   (list 'my/claude-sid (nth 4 r)
+                         'my/claude-cwd (nth 5 r)
+                         'keymap my/dashboard-claude-map
+                         'mouse-face 'highlight
+                         'help-echo "RET or click: resume this conversation"))))))
         (error (insert "    index unavailable\n"))))
 
     (add-to-list (quote dashboard-item-generators) (quote (backup . my/dashboard-backup)))
     (add-to-list (quote dashboard-item-generators) (quote (unread . my/dashboard-unread)))
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
     (add-to-list (quote dashboard-item-generators) (quote (claude . my/dashboard-claude)))
+
+    ;; Section shortcuts. dashboard drives these through a
+    ;; dashboard-jump-to-<section> function, which it only defines for its own
+    ;; built-in sections -- a custom generator gets a shortcut that silently
+    ;; does nothing unless the function exists, so define one per section.
+    (defun my/dashboard--jump-to (heading)
+      "Move point to the first line under HEADING."
+      (goto-char (point-min))
+      (when (search-forward heading nil t)
+        (beginning-of-line)
+        (forward-line 1)))
+
+    (defun dashboard-jump-to-backup () (interactive) (my/dashboard--jump-to "Backup:"))
+    (defun dashboard-jump-to-unread () (interactive) (my/dashboard--jump-to "Unread mail:"))
+    (defun dashboard-jump-to-config () (interactive) (my/dashboard--jump-to "nix-config:"))
+    (defun dashboard-jump-to-claude () (interactive) (my/dashboard--jump-to "Claude sessions:"))
+
+    ;; c for Claude, k for backup (b is taken by bookmarks), u for unread,
+    ;; g for the config since n is nothing here and c is spoken for.
+    (setq dashboard-item-shortcuts
+          '((backup    . "k")
+            (unread    . "u")
+            (config    . "g")
+            (claude    . "c")
+            (recents   . "r")
+            (projects  . "p")
+            (bookmarks . "m")))
 
     (dashboard-setup-startup-hook)
 
