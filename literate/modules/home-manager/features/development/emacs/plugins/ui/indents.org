@@ -1,0 +1,57 @@
+#+TITLE: development emacs plugins ui indents
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins ui indents
+
+#+begin_src nix
+{
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      highlight-indent-guides
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; Indent guides — highlight-indent-guides in place of indent-blankline.
+
+    (require 'highlight-indent-guides)
+    (setq highlight-indent-guides-method 'character
+          highlight-indent-guides-character ?│
+          highlight-indent-guides-responsive nil
+          highlight-indent-guides-suppress-auto-error t
+          highlight-indent-guides-auto-enabled nil)
+
+    (custom-set-faces
+     `(highlight-indent-guides-character-face ((t (:foreground ,(my/tn 'bg-hl))))))
+
+    ;; The exclude list, mode for mode with the indent-blankline settings: no guides
+    ;; in prose (markdown, plain text, commit messages), in the popups, or in
+    ;; anything that is not really a buffer of code.
+    (defvar my/indent-guides-excluded-modes
+      '(dashboard-mode
+        gfm-mode
+        git-commit-mode
+        help-mode
+        markdown-mode
+        special-mode
+        term-mode
+        text-mode
+        treemacs-mode
+        vterm-mode
+        yaml-mode
+        yaml-ts-mode)
+      "Modes that never get indent guides.")
+
+    (defun my/maybe-indent-guides ()
+      "Turn guides on unless this mode is excluded."
+      (unless (or (apply #'derived-mode-p my/indent-guides-excluded-modes)
+                  (minibufferp))
+        (highlight-indent-guides-mode 1)))
+
+    (add-hook 'prog-mode-hook #'my/maybe-indent-guides)
+    (add-hook 'conf-mode-hook #'my/maybe-indent-guides)
+  '';
+}
+#+end_src

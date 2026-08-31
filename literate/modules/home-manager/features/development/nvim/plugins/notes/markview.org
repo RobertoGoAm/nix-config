@@ -1,0 +1,12 @@
+#+TITLE: development nvim plugins notes markview
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins notes markview
+
+#+begin_src nix
+{
+  plugins.markview = {
+    enable = true;
+  };
+}
+#+end_src

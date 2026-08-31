@@ -1,0 +1,12 @@
+#+TITLE: overlays lit-tangle
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* lit-tangle: tangles the literate org sources into this repo's .nix...
+
+lit-tangle: tangles the literate org sources into this repo's .nix files.
+
+#+begin_src nix
+final: _prev: {
+  lit-tangle = final.callPackage ../pkgs/lit-tangle.nix { };
+}
+#+end_src

@@ -1,0 +1,138 @@
+#+TITLE: desktop vorssaint
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* desktop vorssaint
+
+#+begin_src nix
+{ config, ... }:
+{
+#+end_src
+
+* com.vorssaint.utils preferences, pinned declaratively....
+
+com.vorssaint.utils preferences, pinned declaratively. targets.darwin.defaults
+writes only the keys listed here and leaves the rest of the domain
+alone, but these keys are reset to these values on every activation.
+
+Generated — change the setting in the app, then re-run:
+  nix run .#pin-prefs -- com.vorssaint.utils <this file>
+
+Not expressible as Nix values, left to the app:
+  NSOSPLastRootDirectory (data blob)
+  shelfItems (data blob)
+
+Runtime state, deliberately excluded:
+  NSNavPanelExpandedSizeForOpenMode
+  appUpdatesLastCheck
+  appUpdatesLastCount
+  appUpdatesNotifiedIDs
+  mediaLastTool
+  settingsWindowHeight
+  settingsWindowWidth
+
+#+begin_src nix
+  targets.darwin.defaults."com.vorssaint.utils" = {
+    "NSStatusItem Preferred Position VorssaintMenuBarItem" = 472.0;
+    "autoQuitEnabled" = false;
+    "batteryLimitPercent" = 10;
+    "clipboardHistoryLimit" = 50;
+    "defaultDurationMinutes" = 0;
+    "dockClickCycleWindows" = false;
+    "dockClickMinimize" = true;
+    "dockPreviewEnabled" = true;
+    "featureAvailable.appUpdates" = true;
+    "featureAvailable.autoQuit" = true;
+    "featureAvailable.brightness" = true;
+    "featureAvailable.cameraPreview" = true;
+    "featureAvailable.cleaner" = true;
+    "featureAvailable.cleaningMode" = true;
+    "featureAvailable.clipboardHistory" = false;
+    "featureAvailable.colorPicker" = true;
+    "featureAvailable.commandBar" = false;
+    "featureAvailable.dockClick" = true;
+    "featureAvailable.dockPreview" = true;
+    "featureAvailable.extraBrightness" = true;
+    "featureAvailable.finderCutPaste" = true;
+    "featureAvailable.finderRename" = false;
+    "featureAvailable.homebrew" = true;
+    "featureAvailable.keepAwake" = true;
+    "featureAvailable.keyboardDebounce" = false;
+    "featureAvailable.mediaTools" = true;
+    "featureAvailable.micMute" = true;
+    "featureAvailable.middleClick" = false;
+    "featureAvailable.mixer" = true;
+    "featureAvailable.monitorCPU" = true;
+    "featureAvailable.monitorDisk" = true;
+    "featureAvailable.monitorGPU" = true;
+    "featureAvailable.monitorMemory" = true;
+    "featureAvailable.monitorNetwork" = true;
+    "featureAvailable.monitorPower" = true;
+    "featureAvailable.mouseButtonShortcuts" = false;
+    "featureAvailable.mouseNavigation" = false;
+    "featureAvailable.musicBlock" = true;
+    "featureAvailable.pastePlain" = true;
+    "featureAvailable.quickLauncher" = true;
+    "featureAvailable.quickToggles" = true;
+    "featureAvailable.radialMenu" = false;
+    "featureAvailable.scratchpad" = true;
+    "featureAvailable.screenOCR" = true;
+    "featureAvailable.screenRecorder" = true;
+    "featureAvailable.screenshot" = true;
+    "featureAvailable.scrollInverter" = false;
+    "featureAvailable.shelf" = true;
+    "featureAvailable.smoothScroll" = false;
+    "featureAvailable.soundOutputSwitcher" = false;
+    "featureAvailable.superKey" = false;
+    "featureAvailable.switcher" = true;
+    "featureAvailable.textSnippets" = false;
+    "featureAvailable.uninstaller" = true;
+    "featureAvailable.urlCleaner" = true;
+    "featureAvailable.windowLayout" = false;
+    "featureAvailable.windowMaximizer" = true;
+    "featuresOnboardingVersion" = 4;
+    "finderCutPasteEnabled" = true;
+    "hasOnboarded" = true;
+    "keepAwakeActiveIcon" = "vorssaint";
+    "keepAwakeIconTint" = "orange";
+    "keepAwakeMouseJiggleIntervalMinutes" = 5;
+    "lastUpdateIntroVersion" = "3.3.0";
+    "launchAtLoginWanted" = true;
+    "menuBarMetricAppearance" = "values";
+    "menuBarMetricSpacing" = "compact";
+    "menuBarUsageBarCriticalColor" = "#FF453A";
+    "menuBarUsageBarElevatedColor" = "#FFD60A";
+    "menuBarUsageBarHighThreshold" = 90;
+    "menuBarUsageBarMediumThreshold" = 70;
+    "menuBarUsageBarNormalColor" = "#64D2FF";
+    "mixerHeadphonesDisconnectVolumePercent" = 10;
+    "mixerLowerVolumeOnHeadphonesDisconnect" = false;
+    "monitorAlertBatteryPercent" = 15;
+    "monitorAlertCPU" = true;
+    "monitorAlertCPUTemperature" = true;
+    "monitorAlertCPUTemperatureThreshold" = 90;
+    "monitorAlertCPUThreshold" = 90;
+    "monitorAlertCooldownMinutes" = 15;
+    "monitorAlertDisk" = true;
+    "monitorAlertDiskFreePercent" = 10;
+    "monitorAlertMemory" = true;
+    "monitorIntervalSeconds" = 2;
+    "monitorShowFanControlBeta" = true;
+    "musicBlockEnabled" = true;
+    "musicBlockReplacementPath" =
+      "${config.home.homeDirectory}/Applications/Home Manager Apps/Spotify.app";
+    "onboardingStep" = 0;
+    "panelCollapsedResetVersion" = "2.15.1";
+    "panelControlFilesExpanded" = true;
+    "panelControlWindowsExpanded" = true;
+    "pastePlainEnabled" = true;
+    "shelfEnabled" = true;
+    "supportUpdateIntroVersion" = "3.3.0";
+    "updateHighlightsSeenVersion" = "3.3.0";
+    "urlCleanerEnabled" = true;
+    "whatsAppDownloadsAccessConfirmed" = true;
+    "whatsAppDownloadsRetentionDays" = 7;
+    "whatsAppOrganizerDelayMinutes" = 5;
+    "windowMaximizeEnabled" = true;
+  };
+}
+#+end_src

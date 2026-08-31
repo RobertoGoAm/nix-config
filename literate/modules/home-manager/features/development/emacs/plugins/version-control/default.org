@@ -1,0 +1,12 @@
+#+TITLE: development emacs plugins version-control
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins version-control
+
+#+begin_src nix
+{
+  imports = [
+    ./git.nix
+  ];
+}
+#+end_src

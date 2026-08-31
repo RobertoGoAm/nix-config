@@ -1,0 +1,73 @@
+#+TITLE: home-manager hosts perseus perseus
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* home-manager hosts perseus perseus
+
+#+begin_src nix
+{
+  config,
+  inputs,
+  lib,
+  outputs,
+  pkgs,
+  system,
+  user,
+  ...
+}:
+{
+  fonts.fontconfig.enable = true;
+
+  home = {
+    homeDirectory = "/home/${user}";
+    stateVersion = "25.11";
+    username = user;
+
+    activation = {
+      linkDesktopApplications = {
+        after = [
+          "writeBoundary"
+          "createXdgUserDirectories"
+        ];
+        before = [ ];
+        data = ''
+          rm -rf $HOME/.home-manager-share
+          mkdir -p $HOME/.home-manager-share
+          cp -Lr --no-preserve=mode,ownership $HOME/.nix-profile/share/* $HOME/.home-manager-share
+        '';
+      };
+    };
+#+end_src
+
+* Fix for gnome apps not openning due to vulcan driver issues
+
+#+begin_src nix
+    sessionVariables = {
+      GDK_DISABLE = "gles-api";
+    };
+  };
+
+  programs.home-manager.enable = true;
+
+  imports = [
+    inputs.nixvim.homeModules.nixvim
+    inputs.sops-nix.homeManagerModules.sops
+    ./packages.nix
+    ../../features/cli
+    ../../features/cli/k9s.nix
+    ../../features/security
+    ../../features/desktop/gnome
+    ../../features/development
+    ../../features/development/cursor.nix
+    ../../features/development/antigravity.nix
+    ../../features/internet/chrome-dev.nix
+    ../../features/internet/discord.nix
+    ../../features/internet/zen.nix
+    ../../features/media/yt-dlp.nix
+    ../../features/productivity
+    ../../features/productivity/ulauncher
+    ../../features/productivity/keyboard
+    ../../features/productivity/wallpaper
+    ../../features/desktop/warpd
+  ];
+}
+#+end_src

@@ -1,0 +1,86 @@
+#+TITLE: cli tmux
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli tmux
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  colemak = config.features.productivity.keyboard.layout == "colemak";
+#+end_src
+
+* tmux has no directional defaults to fall back on, so unlike vim or...
+
+tmux has no directional defaults to fall back on, so unlike vim or warpd
+the QWERTY case needs its keys written out rather than simply omitted.
+
+#+begin_src nix
+  nav =
+    if colemak then
+      {
+        d = "n";
+        u = "e";
+        r = "i";
+      }
+    else
+      {
+        d = "j";
+        u = "k";
+        r = "l";
+      };
+in
+{
+  imports = [ ../productivity/keyboard-layout.nix ];
+
+  programs.tmux = {
+    enable = true;
+    mouse = true;
+    shell = "${pkgs.zsh}/bin/zsh";
+    baseIndex = 1;
+    historyLimit = 10000;
+#+end_src
+
+* Change prefix to Ctrl-Space to avoid conflicts and match "Space"...
+
+Change prefix to Ctrl-Space to avoid conflicts and match "Space" leader vibes
+
+#+begin_src nix
+    prefix = "C-Space";
+
+    keyMode = "vi";
+    customPaneNavigationAndResize = true;
+
+    extraConfig = ''
+      # Split panes using | and -
+      bind | split-window -h
+      bind - split-window -v
+      unbind '"'
+      unbind %
+
+      # Reload config
+      bind r source-file ~/.config/tmux/tmux.conf \; display "Reloaded!"
+
+      # Pane navigation on the physical hjkl positions: hnei under Colemak,
+      # hjkl under QWERTY. Left is h either way, since Colemak leaves h alone.
+      bind -r h select-pane -L
+      bind -r ${nav.d} select-pane -D
+      bind -r ${nav.u} select-pane -U
+      bind -r ${nav.r} select-pane -R
+
+      # Resize panes with same keys (capitalized)
+      bind -r H resize-pane -L 5
+      bind -r ${lib.toUpper nav.d} resize-pane -D 5
+      bind -r ${lib.toUpper nav.u} resize-pane -U 5
+      bind -r ${lib.toUpper nav.r} resize-pane -R 5
+
+      # No delay for escape key press (essential for Vim)
+      set -s escape-time 0
+    '';
+  };
+}
+#+end_src

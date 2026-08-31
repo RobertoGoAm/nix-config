@@ -1,0 +1,19 @@
+#+TITLE: development uv
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development uv
+
+#+begin_src nix
+{
+#+end_src
+
+* Managed through the module rather than home.packages so uv's...
+
+Managed through the module rather than home.packages so uv's settings have a
+typed home when they are needed; nothing is declared yet, and with settings
+empty the module writes no config file.
+
+#+begin_src nix
+  programs.uv.enable = true;
+}
+#+end_src

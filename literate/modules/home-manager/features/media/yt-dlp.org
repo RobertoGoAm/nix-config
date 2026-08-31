@@ -1,0 +1,12 @@
+#+TITLE: media yt-dlp
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* media yt-dlp
+
+#+begin_src nix
+{
+  programs.yt-dlp = {
+    enable = true;
+  };
+}
+#+end_src

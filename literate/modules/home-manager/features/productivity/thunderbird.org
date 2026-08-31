@@ -1,0 +1,20 @@
+#+TITLE: productivity thunderbird
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* productivity thunderbird
+
+#+begin_src nix
+{
+  user,
+  ...
+}:
+{
+  programs.thunderbird = {
+    enable = true;
+
+    profiles.${user} = {
+      isDefault = true;
+    };
+  };
+}
+#+end_src

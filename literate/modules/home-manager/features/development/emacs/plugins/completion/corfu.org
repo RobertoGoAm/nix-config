@@ -1,0 +1,154 @@
+#+TITLE: development emacs plugins completion corfu
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins completion corfu
+
+#+begin_src nix
+{
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      cape
+      corfu
+      corfu-terminal
+      yasnippet
+      yasnippet-snippets
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; Completion — corfu + cape in place of nvim-cmp and its fourteen sources.
+    ;;;
+    ;;; The mapping is not one plugin per source: corfu is the popup, and cape turns
+    ;;; each extra source into a completion-at-point function. Ordering is by
+    ;;; position in `completion-at-point-functions' rather than a priority number,
+    ;;; so the list below is written in the same order as the cmp sources table.
+
+    (require 'corfu)
+    ;; auto-delay 0.1 with prefix 1 fires a completion on the first character and
+    ;; then again on every keystroke. The request is deferred to a timer, so on a
+    ;; slow source it lands after the window has moved on -- posn-at-point then
+    ;; returns nil and corfu logs
+    ;;   corfu--popup-show(nil ...) (wrong-type-argument number-or-marker-p nil)
+    ;; and shows nothing. corfu traps it, so it is noise rather than a crash, but
+    ;; the popup you were waiting for is the thing that went missing. 0.2s with a
+    ;; 2-character prefix asks far less often and still feels immediate.
+    (setq corfu-auto t
+          corfu-auto-prefix 2
+          corfu-auto-delay 0.2
+          ;; pumheight = 10
+          corfu-count 10
+          corfu-cycle t
+          corfu-quit-no-match 'separator
+          ;; preselect = cmp.PreselectMode.None: RET must not insert a candidate you
+          ;; never selected, so the prompt itself starts selected.
+          corfu-preselect 'prompt
+          corfu-on-exact-match nil
+          corfu-scroll-margin 2)
+    (global-corfu-mode 1)
+
+    ;; The documentation popup nvim-cmp shows beside the menu.
+    (require 'corfu-popupinfo nil t)
+    (when (fboundp 'corfu-popupinfo-mode)
+      (setq corfu-popupinfo-delay '(0.3 . 0.2)
+            corfu-popupinfo-max-height 20)
+      (corfu-popupinfo-mode 1))
+
+    ;; Child frames need a GUI; in the terminal corfu-terminal draws the same menu
+    ;; with overlays instead, so both runtimes complete identically.
+    (unless (display-graphic-p)
+      (require 'corfu-terminal)
+      (corfu-terminal-mode 1))
+
+    ;; friendly-snippets / luasnip
+    (require 'yasnippet)
+    (require 'yasnippet-snippets)
+    (yas-global-mode 1)
+
+    (require 'cape)
+
+    ;; The cmp sources, in order. nvim_lsp and its signature-help and
+    ;; document-symbol companions all arrive through lsp-mode's single capf;
+    ;; treesitter, buffer, rg and spell collapse into cape-dabbrev over open
+    ;; buffers, which is the same text from the same places.
+    (defun my/setup-capf ()
+      "Completion sources for a normal editing buffer."
+      (setq-local completion-at-point-functions
+                  (list (cape-capf-super
+                         #'cape-dabbrev
+                         #'cape-file
+                         #'cape-keyword)
+                        #'cape-abbrev)))
+    (add-hook 'prog-mode-hook #'my/setup-capf)
+    (add-hook 'text-mode-hook #'my/setup-capf)
+
+    ;; cmp-spell, cmp-emoji and cmp-calc, one cape each.
+    (setq cape-dabbrev-min-length 3
+          cape-dabbrev-check-other-buffers t
+          cape-dict-file "/usr/share/dict/words")
+    (dolist (capf (list #'cape-emoji #'cape-dict))
+      (add-to-list 'completion-at-point-functions capf t))
+
+    ;; cmp-cmdline: completion in the M-x and :ex minibuffer prompts. Corfu is a
+    ;; buffer popup, so the minibuffer gets its own instance.
+    (defun my/corfu-enable-in-minibuffer ()
+      "Enable corfu in the minibuffer when nothing else is completing there."
+      (when (and (not (bound-and-true-p vertico--input))
+                 (not (eq (current-local-map) read-passwd-map)))
+        (setq-local corfu-auto nil)
+        (corfu-mode 1)))
+    (add-hook 'minibuffer-setup-hook #'my/corfu-enable-in-minibuffer)
+
+    ;; The cmp mapping table, key for key.
+    (with-eval-after-load 'corfu
+      ;; scroll_docs(-4) scrolls the doc window towards the start of the text, which
+      ;; is corfu's scroll-down; C-s is its opposite, as in cmp.
+      (define-key corfu-map (kbd "C-f") #'corfu-popupinfo-scroll-down)
+      (define-key corfu-map (kbd "C-s") #'corfu-popupinfo-scroll-up)
+      (define-key corfu-map (kbd "C-SPC") #'completion-at-point)
+      (define-key corfu-map (kbd "C-t") #'corfu-quit)
+      (define-key corfu-map (kbd "TAB") #'corfu-next)
+      (define-key corfu-map (kbd "<tab>") #'corfu-next)
+      (define-key corfu-map (kbd "S-TAB") #'corfu-previous)
+      (define-key corfu-map (kbd "<backtab>") #'corfu-previous)
+      (define-key corfu-map (kbd "RET") #'corfu-insert)
+      ;; C-e and C-n belong to snippet navigation, not the menu — see below.
+      (define-key corfu-map (kbd "C-e") nil)
+      (define-key corfu-map (kbd "C-n") nil))
+
+    ;; Snippet jumping on C-e forward and C-n back, in insert and select state, as
+    ;; the two luasnip keymaps do. This is why insert-state C-e is not end-of-line.
+    (defun my/snippet-next ()
+      "Expand the snippet at point, or jump to its next field."
+      (interactive)
+      (cond ((yas-active-snippets) (yas-next-field))
+            ((yas-expand) t)
+            (t (message "No snippet here"))))
+
+    (defun my/snippet-prev ()
+      "Jump to the previous snippet field."
+      (interactive)
+      (if (yas-active-snippets)
+          (yas-prev-field)
+        (message "No active snippet")))
+
+    (evil-define-key '(insert) 'global
+      (kbd "C-e") #'my/snippet-next
+      (kbd "C-n") #'my/snippet-prev)
+
+    ;; Tab in insert state: take the menu selection if the popup is up, otherwise
+    ;; indent — intellitab's behaviour, and the same branch the nvim Tab keymap
+    ;; makes.
+    (defun my/insert-tab ()
+      "Complete if the popup is showing, expand a snippet if one is pending, else indent."
+      (interactive)
+      (cond ((and (bound-and-true-p corfu--candidates) (>= corfu--index 0)) (corfu-insert))
+            ((bound-and-true-p corfu--candidates) (corfu-next))
+            ((and (fboundp 'yas-active-snippets) (yas-active-snippets)) (yas-next-field))
+            (t (indent-for-tab-command))))
+
+    (evil-define-key 'insert 'global (kbd "TAB") #'my/insert-tab)
+  '';
+}
+#+end_src

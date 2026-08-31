@@ -1,0 +1,13 @@
+#+TITLE: development nvim plugins notes
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins notes
+
+#+begin_src nix
+{
+  imports = [
+    ./markview.nix
+    ./obsidian.nix
+  ];
+}
+#+end_src

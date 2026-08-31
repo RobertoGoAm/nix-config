@@ -1,0 +1,20 @@
+#+TITLE: development nvim plugins
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins
+
+#+begin_src nix
+{
+  imports = [
+    ./code
+    ./completion
+    ./files
+    ./keybinds
+    ./lsp
+    ./notes
+    ./ui
+    ./version-control
+    ./vim
+  ];
+}
+#+end_src

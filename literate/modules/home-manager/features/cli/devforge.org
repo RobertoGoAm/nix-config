@@ -1,0 +1,36 @@
+#+TITLE: cli devforge
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli devforge
+
+#+begin_src nix
+{ lib, pkgs, ... }:
+{
+#+end_src
+
+* envsubst (Dev Forge prompt templates)
+
+#+begin_src nix
+  home.packages = [ pkgs.gettext ];
+#+end_src
+
+* The Dev Forge location is a sops secret (its path names a work...
+
+The Dev Forge location is a sops secret (its path names a work project),
+read at runtime. df() no-ops cleanly when the secret isn't present
+(non-work hosts, or before it materializes). Function (not alias) because
+macOS /bin/df shadows a plain alias for many users.
+
+#+begin_src nix
+  programs.zsh.initContent = lib.mkAfter ''
+    df() {
+      local _dir
+      _dir=$(cat /var/run/secrets/devforge_dir 2>/dev/null) || {
+        echo "df: devforge_dir secret not available on this host" >&2
+        return 1
+      }
+      "$_dir/bin/devforge" "$@"
+    }
+  '';
+}
+#+end_src

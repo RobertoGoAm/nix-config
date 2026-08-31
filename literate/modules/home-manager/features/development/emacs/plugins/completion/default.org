@@ -1,0 +1,13 @@
+#+TITLE: development emacs plugins completion
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins completion
+
+#+begin_src nix
+{
+  imports = [
+    ./corfu.nix
+    ./icons.nix
+  ];
+}
+#+end_src

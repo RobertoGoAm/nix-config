@@ -1,0 +1,32 @@
+#+TITLE: development nvim plugins code test
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins code test
+
+#+begin_src nix
+{
+  plugins = {
+    dap = {
+      enable = true;
+    };
+
+    dap-ui = {
+      enable = true;
+    };
+
+    dap-virtual-text = {
+      enable = true;
+    };
+
+    neotest = {
+      enable = true;
+
+      adapters = {
+        jest.enable = true;
+        playwright.enable = true;
+        vitest.enable = true;
+      };
+    };
+  };
+}
+#+end_src

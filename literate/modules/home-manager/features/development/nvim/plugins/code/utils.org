@@ -1,0 +1,53 @@
+#+TITLE: development nvim plugins code utils
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins code utils
+
+#+begin_src nix
+{
+  plugins = {
+    colorizer = {
+      enable = true;
+    };
+
+    emmet = {
+      enable = true;
+      settings = {
+        leader_key = ",";
+        settings = {
+          javascript = {
+            extends = "jsx";
+          };
+          typescript = {
+            extends = "jsx";
+          };
+        };
+      };
+    };
+
+    multicursors = {
+      enable = true;
+    };
+
+    nvim-autopairs = {
+      enable = true;
+    };
+
+    rainbow-delimiters = {
+      enable = true;
+    };
+
+    refactoring = {
+      enable = true;
+    };
+
+    ts-autotag = {
+      enable = true;
+    };
+
+    vim-surround = {
+      enable = true;
+    };
+  };
+}
+#+end_src

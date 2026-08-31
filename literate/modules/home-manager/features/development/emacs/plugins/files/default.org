@@ -1,0 +1,14 @@
+#+TITLE: development emacs plugins files
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins files
+
+#+begin_src nix
+{
+  imports = [
+    ./browsing.nix
+    ./replace.nix
+    ./tree.nix
+  ];
+}
+#+end_src

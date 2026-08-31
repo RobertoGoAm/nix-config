@@ -1,0 +1,12 @@
+#+TITLE: cli starship
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli starship
+
+#+begin_src nix
+{
+  programs.starship = {
+    enable = true;
+  };
+}
+#+end_src

@@ -1,0 +1,36 @@
+#+TITLE: development nvim plugins vim
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins vim
+
+#+begin_src nix
+{
+  plugins = {
+    auto-session = {
+      enable = true;
+    };
+
+    firenvim = {
+      enable = true;
+    };
+
+    hardtime = {
+      enable = true;
+
+      settings = {
+        disable_mouse = false;
+        enable = true;
+        restriction_mode = "hint";
+      };
+    };
+
+    intellitab = {
+      enable = true;
+    };
+
+    repeat = {
+      enable = true;
+    };
+  };
+}
+#+end_src

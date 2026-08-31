@@ -1,0 +1,14 @@
+#+TITLE: development nvim plugins ui icons
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins ui icons
+
+#+begin_src nix
+{
+  plugins = {
+    web-devicons = {
+      enable = true;
+    };
+  };
+}
+#+end_src

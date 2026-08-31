@@ -1,0 +1,25 @@
+#+TITLE: development emacs plugins
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins
+
+#+begin_src nix
+{
+  imports = [
+    ./ai
+    ./apps
+    ./code
+    ./completion
+    ./data
+    ./devops
+    ./files
+    ./keybinds
+    ./lsp
+    ./notes
+    ./social
+    ./ui
+    ./version-control
+    ./vim
+  ];
+}
+#+end_src

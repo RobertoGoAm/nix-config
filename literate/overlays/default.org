@@ -1,0 +1,62 @@
+#+TITLE: overlays
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* This file defines overlays
+
+#+begin_src nix
+{ inputs, ... }:
+{
+#+end_src
+
+* pin-prefs: regenerates the macOS defaults modules from live prefs
+
+#+begin_src nix
+  pin-prefs = import ./pin-prefs.nix;
+#+end_src
+
+* check-pins: drift report for the hand-maintained version pins
+
+#+begin_src nix
+  check-pins = import ./check-pins.nix;
+#+end_src
+
+* warpd: nixpkgs ships it Linux-only; build it from source on darwin
+
+#+begin_src nix
+  warpd = import ./warpd.nix;
+#+end_src
+
+* checkov: skip one upstream-broken test that fails the build
+
+#+begin_src nix
+  checkov = import ./checkov.nix;
+#+end_src
+
+* lit-tangle: regenerates this repo's .nix from the literate org...
+
+lit-tangle: regenerates this repo's .nix from the literate org sources.
+
+#+begin_src nix
+  lit-tangle = import ./lit-tangle.nix;
+#+end_src
+
+* neovim: skip one darwin-flaky treesitter test that fails the build
+
+#+begin_src nix
+  neovim = import ./neovim.nix;
+#+end_src
+
+* When applied, the unstable nixpkgs set (declared in the flake...
+
+When applied, the unstable nixpkgs set (declared in the flake inputs) will
+be accessible through 'pkgs.unstable'
+unstable-packages = final: _prev: {
+  unstable = import inputs.nixpkgs-unstable {
+    system = final.system;
+    config.allowUnfree = true;
+  };
+};
+
+#+begin_src nix
+}
+#+end_src

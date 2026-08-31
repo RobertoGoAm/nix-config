@@ -1,0 +1,141 @@
+#+TITLE: home-manager hosts prometheus packages
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* home-manager hosts prometheus packages
+
+#+begin_src nix
+{
+  pkgs,
+  ...
+}:
+let
+#+end_src
+
+* Employer-revealing nixpkgs derivations live in the gitignored...
+
+Employer-revealing nixpkgs derivations live in the gitignored private file
+(work-extras.nix) so the public repo doesn't reveal corporate tooling.
+Read only under --impure.
+
+#+begin_src nix
+  privatePath = "/Users/robertogoam/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then
+      import privatePath { inherit pkgs; }
+    else
+      { macPackages = [ ]; };
+in
+{
+
+  home.packages =
+    with pkgs;
+    [
+#+end_src
+
+* Development
+
+#+begin_src nix
+      cabal-install
+      chatgpt
+      codex-acp
+      dbeaver-bin
+      ghc
+      glab
+      haskell-language-server
+      ngrok
+      nixd
+      nixfmt
+      postman
+      stack
+#+end_src
+
+* DevOps
+
+#+begin_src nix
+      actionlint
+      age
+      ansible
+      argocd
+      bitwarden-cli
+      checkov
+      cilium-cli
+      cosign
+      devcontainer
+      docker
+      docker-buildx
+      docker-compose
+      dive
+      gitleaks
+      hadolint
+      hcloud
+      httpie
+      jq
+      k6
+      kind
+      kubeconform
+      kube-linter
+      kubectl
+      kubectx
+      kubernetes-helm
+      kustomize
+      pre-commit
+      semgrep
+      sops
+      step-cli
+      stern
+      syft
+      terraform
+      testssl
+      tflint
+      trivy
+      vault
+      velero
+      yamllint
+      yq-go
+      yubikey-manager
+#+end_src
+
+* Productivity
+
+#+begin_src nix
+      anki-bin
+      notion-app
+      raycast
+#+end_src
+
+* Media
+
+#+begin_src nix
+      ffmpeg
+      iina
+      spotify
+#+end_src
+
+* Tool
+
+#+begin_src nix
+      coreutils
+      cyberduck
+      graphviz
+      mdfried
+      mozjpeg
+      nerd-fonts.jetbrains-mono
+      oxipng
+      poppler-utils
+      procps
+      qbittorrent
+      syncthing
+      the-unarchiver
+      tree
+      vlc-bin
+      yubikey-manager
+#+end_src
+
+* Work
+
+#+begin_src nix
+      git-credential-manager
+    ]
+    ++ private.macPackages;
+}
+#+end_src

@@ -1,0 +1,213 @@
+#+TITLE: backup restic
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Automatic restic backup of this machine (prometheus, the work...
+
+Automatic restic backup of this machine (prometheus, the work laptop) -> vulcan,
+over Tailscale, every 30 min. Incremental + client-side encrypted; then a
+rewind-friendly prune. vulcan separately copies the repo OFFSITE to Backblaze
+B2 (that half lives in the private vulcan-services layer, since it holds the B2
+credentials).
+
+There are ZERO secrets in this file, so it's safe in the public repo. All
+instance data lives in two runtime files the user drops in (Bitwarden-synced),
+and the agent NO-OPS until they exist — so importing/rebuilding never breaks:
+
+  ~/.config/restic/repository  — e.g. sftp:USER@vulcan.<tailnet>:Backups/restic/prometheus
+  ~/.config/restic/password    — the repo password (chmod 600). LOSE THIS = the
+                                 backups are unrecoverable, so store it in Bitwarden.
+
+First-time setup (once):
+  1. On vulcan: `mkdir -p ~/Backups/restic`
+  2. `ssh USER@vulcan.<tailnet>` once so its host key is trusted (the agent runs
+     non-interactively and can't accept it).
+  3. Create the two files above.
+  4. Seed on the LAN by running the agent's script by hand once (it auto-inits
+     the repo). After that the 30-min agent just does incrementals.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  enable = pkgs.stdenv.hostPlatform.isDarwin;
+#+end_src
+
+* The reproducible bulk — dependencies, build output, bytecode,...
+
+The reproducible bulk — dependencies, build output, bytecode, caches. `.git`
+is deliberately KEPT (that's your uncommitted work). Mostly base-name patterns
+so they match at any depth; we verify real coverage with `--dry-run` at seed.
+
+#+begin_src nix
+  excludes = pkgs.writeText "restic-excludes.txt" ''
+    # dependencies / vendored
+    node_modules
+    .venv
+    venv
+    vendor
+    Pods
+    .terraform
+    .direnv
+    # build output / bytecode
+    target
+    __pycache__
+    *.pyc
+    *.class
+    DerivedData
+    CoreSimulator
+    *.xcarchive
+    # tool caches (whole dirs — reproducible)
+    .gradle
+    .m2
+    .cargo
+    .rustup
+    .npm
+    .pnpm-store
+    .cache
+    Caches
+    .pytest_cache
+    .mypy_cache
+    # macOS / orbstack junk
+    .DS_Store
+    .Trash
+    .orbstack
+  '';
+
+  backup = pkgs.writeShellScript "restic-backup" ''
+    set -u
+    export PATH=${
+      lib.makeBinPath [
+        pkgs.restic
+        pkgs.openssh
+      ]
+    }:/usr/bin:/bin
+    REPO_FILE="$HOME/.config/restic/repository"
+    export RESTIC_PASSWORD_FILE="$HOME/.config/restic/password"
+
+    # Not configured yet -> no-op, so importing this feature never breaks a rebuild.
+    if [ ! -r "$REPO_FILE" ] || [ ! -r "$RESTIC_PASSWORD_FILE" ]; then
+      echo "restic-backup: ~/.config/restic/{repository,password} missing; skipping"
+      exit 0
+    fi
+    export RESTIC_REPOSITORY="$(cat "$REPO_FILE")"
+    # Optional healthchecks.io dead-man's switch. Secret-free: the ping URL lives in the
+    # runtime file ~/.config/restic/healthchecks.env (HC_PROMETHEUS), so nothing sensitive
+    # is in this public module. Absent -> no ping (the pinging is simply skipped).
+    [ -r "$HOME/.config/restic/healthchecks.env" ] && { set -a; . "$HOME/.config/restic/healthchecks.env"; set +a; }
+
+    # The launchd agent has no ssh-agent, so an sftp repo must be reached with an
+    # on-disk key (e.g. a sops-decrypted one) — the default identity search in the
+    # background otherwise hits the (approval-gated) Bitwarden agent and fails. If
+    # ~/.config/restic/ssh_key names a private key, force it for the transport;
+    # otherwise fall back to default ssh (non-sftp repos ignore this entirely).
+    SFTP_CMD=""
+    SSHKEY_FILE="$HOME/.config/restic/ssh_key"
+    case "$RESTIC_REPOSITORY" in
+      sftp:*)
+        if [ -r "$SSHKEY_FILE" ]; then
+          KEY="$(cat "$SSHKEY_FILE")"
+          TGT="''${RESTIC_REPOSITORY#sftp:}"; TGT="''${TGT%%:*}"   # user@host
+          SFTP_CMD="ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes $TGT -s sftp"
+        fi ;;
+    esac
+    # restic wrapper that injects the forced-key sftp.command when one is set.
+    rr() { if [ -n "$SFTP_CMD" ]; then restic -o "sftp.command=$SFTP_CMD" "$@"; else restic "$@"; fi; }
+
+    # Only the paths that actually exist (a missing ~/.aws etc. must not be fatal).
+    PATHS=""
+    for p in Development Documents Desktop Pictures .config .ssh .gnupg .aws .kube; do
+      [ -e "$HOME/$p" ] && PATHS="$PATHS $HOME/$p"
+    done
+    [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
+
+    # Clear stale locks FIRST, before anything that needs the repo. Order here has
+    # now caused two separate multi-day outages, in both directions:
+    #
+    #   unlock only when the probe fails -> a stale NON-exclusive lock does not
+    #     fail `cat config`, so the probe passed, backups kept succeeding and
+    #     pinging the dead-man's switch, and only forget/prune were blocked. Five
+    #     days of silently dead retention.
+    #   unlock only after the probe passes -> a stale EXCLUSIVE lock (left by a
+    #     crashed prune) DOES fail `cat config`, so the probe fell straight to
+    #     `init`, failed, and exited before ever reaching the recovery. Five days
+    #     of no backups at all, reported as "repo unreachable".
+    #
+    # Unconditional and first is the only ordering that survives both. `restic
+    # unlock` removes only locks whose owning process is gone (same host, dead
+    # PID) and never a live one, so it is safe even when another run is genuinely
+    # in flight, and a no-op on an unreachable repo.
+    LOCKS="$(rr unlock 2>&1)"
+    case "$LOCKS" in
+      ""|*"removed 0 locks"*) ;;
+      *) echo "restic-backup: $LOCKS (stale lock from a crashed run)" ;;
+    esac
+
+    # Now the probe means what it says: with locks cleared, a failure here is a
+    # genuinely unreachable or uninitialised repo.
+    if ! rr cat config >/dev/null 2>&1; then
+      if rr init >/dev/null 2>&1; then
+        echo "restic-backup: initialised a new repository"
+      else
+        echo "restic-backup: repo unreachable (network, host key or credentials); skipping"
+        exit 0
+      fi
+    fi
+
+    # --skip-if-unchanged (restic >=0.17) avoids identical 30-min snapshots; probe
+    # for it so an older restic doesn't hard-fail on an unknown flag.
+    SKIP=""; restic backup --help 2>&1 | grep -q -- --skip-if-unchanged && SKIP="--skip-if-unchanged"
+
+    # shellcheck disable=SC2086
+    rr backup $PATHS $SKIP --exclude-file=${excludes} --tag auto 2>&1 \
+      || { echo "restic-backup: backup failed after a successful repo probe; see the error above"; exit 0; }
+
+    # Backup to vulcan succeeded -> ping the dead-man's switch. (The offsite B2 copy is
+    # vulcan's own agent, watched by its own healthchecks check.)
+    [ -n "''${HC_PROMETHEUS:-}" ] && curl -fsS -m10 --retry 2 "$HC_PROMETHEUS" >/dev/null 2>&1 || true
+
+    # Fast: trim the snapshot list to the rewind-friendly policy (no repack here).
+    # --tag auto so any manual pre-refactor snapshots you make are left untouched.
+    # Non-fatal, but never silent: a swallowed failure here is invisible for as
+    # long as it lasts, because the backup itself keeps succeeding.
+    rr forget --tag auto \
+      --keep-within 3d --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --keep-yearly 2 \
+      2>&1 || echo "restic-backup: forget FAILED — retention is not being applied"
+
+    # Expensive repack at most ~once/day.
+    STAMP="$HOME/.config/restic/.last-prune"
+    if [ ! -f "$STAMP" ] || find "$STAMP" -mmin +1200 2>/dev/null | grep -q .; then
+      if rr prune 2>&1; then
+        : > "$STAMP"
+      else
+        echo "restic-backup: prune FAILED — reclaimable space is not being freed"
+      fi
+    fi
+  '';
+in
+lib.mkIf enable {
+  home.packages = [ pkgs.restic ];
+#+end_src
+
+* Every 30 min, at login, background + low-IO so it never gets in...
+
+Every 30 min, at login, background + low-IO so it never gets in your way.
+
+#+begin_src nix
+  launchd.agents.restic-backup = {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${backup}" ];
+      RunAtLoad = true;
+      StartInterval = 1800;
+      ProcessType = "Background";
+      LowPriorityIO = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/restic-backup.out.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/restic-backup.err.log";
+    };
+  };
+}
+#+end_src

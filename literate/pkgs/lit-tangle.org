@@ -1,19 +1,26 @@
-# lit-tangle: turn the literate .org sources into the .nix files this repo commits.
-#
-# The org sources live in literate/ in this repository, mirroring the tree they
-# generate: literate/modules/.../foo.org tangles to modules/.../foo.nix. Both
-# are committed. The tangled output is ordinary, commented Nix, indistinguishable
-# from hand-written, because the prose around each block is emitted as `#'
-# comments -- so the .nix files stay readable for anyone who never opens the org.
-#
-# Two modes:
-#   lit-tangle            write the .nix files
-#   lit-tangle --check    tangle to a scratch tree and diff, changing nothing
-#
-# --check is the guard that matters. With the sources in a separate repo it is
-# otherwise possible to edit a .nix here directly, have it work, and lose the
-# edit the next time anyone saves the org file it came from. The check turns
-# that silent overwrite into a failure you see first.
+#+TITLE: pkgs lit-tangle
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* lit-tangle: turn the literate .org sources into the .nix files this...
+
+lit-tangle: turn the literate .org sources into the .nix files this repo commits.
+
+The org sources live in literate/ in this repository, mirroring the tree they
+generate: literate/modules/.../foo.org tangles to modules/.../foo.nix. Both
+are committed. The tangled output is ordinary, commented Nix, indistinguishable
+from hand-written, because the prose around each block is emitted as `#'
+comments -- so the .nix files stay readable for anyone who never opens the org.
+
+Two modes:
+  lit-tangle            write the .nix files
+  lit-tangle --check    tangle to a scratch tree and diff, changing nothing
+
+--check is the guard that matters. With the sources in a separate repo it is
+otherwise possible to edit a .nix here directly, have it work, and lose the
+edit the next time anyone saves the org file it came from. The check turns
+that silent overwrite into a failure you see first.
+
+#+begin_src nix
 {
   lib,
   writeShellApplication,
@@ -122,3 +129,4 @@ writeShellApplication {
     mainProgram = "lit-tangle";
   };
 }
+#+end_src

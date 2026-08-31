@@ -1,0 +1,149 @@
+#+TITLE: development nvim keybinds
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Called from ./default.nix with the layout flag, NOT imported as a...
+
+Called from ./default.nix with the layout flag, NOT imported as a module:
+nixvim submodules get nixvim's own `config`, so this file cannot read
+features.productivity.keyboard.layout for itself.
+
+#+begin_src nix
+{ colemak, lib }:
+let
+#+end_src
+
+* The hnei rotation: n/e/i take over j/k/l movement and j/k/l inherit...
+
+The hnei rotation: n/e/i take over j/k/l movement and j/k/l inherit the
+displaced n/e/i (search-next, end-of-word, insert), so nothing is lost.
+Under layout = "qwerty" this list is empty and nvim keeps stock vim
+bindings -- dropping the override IS the QWERTY config, because vim is
+already a QWERTY tool.
+
+#+begin_src nix
+  colemakKeymaps = [
+    {
+      key = "n";
+      action = "j";
+    }
+    {
+      key = "N";
+      action = "J";
+    }
+    {
+      key = "e";
+      action = "k";
+    }
+    {
+      key = "E";
+      action = "K";
+    }
+    {
+      key = "i";
+      action = "l";
+    }
+    {
+      key = "I";
+      action = "L";
+    }
+    {
+      key = "j";
+      action = "n";
+    }
+    {
+      key = "J";
+      action = "N";
+    }
+    {
+      key = "k";
+      action = "e";
+    }
+    {
+      key = "K";
+      action = "E";
+    }
+    {
+      key = "l";
+      action = "i";
+    }
+    {
+      key = "L";
+      action = "I";
+    }
+    {
+      key = "<C-p>";
+      action = "<C-e>";
+    }
+    {
+      key = "<C-e>";
+      action = "<C-p>";
+    }
+    {
+      key = "<C-P>";
+      action = "<C-E>";
+    }
+    {
+      key = "<C-E>";
+      action = "<C-P>";
+    }
+  ];
+in
+{
+  globals.mapleader = " ";
+  globals.maplocalleader = ",";
+
+  keymaps = lib.optionals colemak colemakKeymaps ++ [
+#+end_src
+
+* Delete without copying text
+
+#+begin_src nix
+    {
+      key = "x";
+      action = "\"_x";
+    }
+    {
+      key = "X";
+      action = "\"_X";
+    }
+    {
+      key = "<Del>";
+      action = "\"_x";
+    }
+#+end_src
+
+* Escape term with ESC
+
+#+begin_src nix
+    {
+      mode = "t";
+      key = "<Esc>";
+      action = "<C-\\><C-n>";
+    }
+#+end_src
+
+* Increment and decrement stuff
+
+#+begin_src nix
+    {
+      key = "+";
+      action = "<C-x>";
+    }
+    {
+      key = "-";
+      action = "<C-a>";
+    }
+    {
+      key = "<Tab>";
+      action.__raw = ''
+        function(fallback) if cmp.visible() then
+            cmp.select_next_item() -- or whatever else you want nvim-cmp to do when you press tab
+          else
+            require("intellitab").indent()
+          end
+        end
+      '';
+    }
+  ];
+}
+#+end_src

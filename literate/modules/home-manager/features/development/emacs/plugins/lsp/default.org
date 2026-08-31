@@ -1,0 +1,15 @@
+#+TITLE: development emacs plugins lsp
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins lsp
+
+#+begin_src nix
+{
+  imports = [
+    ./diagnostics.nix
+    ./format.nix
+    ./lsp.nix
+    ./sonar.nix
+  ];
+}
+#+end_src

@@ -1,0 +1,120 @@
+#+TITLE: development emacs plugins apps music
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins apps music
+
+#+begin_src nix
+{
+  lib,
+  pkgs,
+  ...
+}:
+let
+  darwin = pkgs.stdenv.hostPlatform.isDarwin;
+in
+{
+#+end_src
+
+* No package. smudge, the usual Emacs Spotify client, drives the Web...
+
+No package. smudge, the usual Emacs Spotify client, drives the Web API and
+needs an OAuth app registered with Spotify plus a token refresh loop. The
+desktop client is already running and already scriptable, and the SwiftBar
+status item talks to it the same way -- so this is the same osascript calls,
+which need no credentials and keep one source of truth for "what is playing".
+
+#+begin_src nix
+  programs.emacs.extraConfig = lib.mkOrder 1450 (
+    if darwin then
+      ''
+        ;;; Music -- the running Spotify desktop client, over AppleScript.
+
+        (defun my/spotify-tell (script)
+          "Run SCRIPT against Spotify and return its output, trimmed."
+          (string-trim
+           (shell-command-to-string
+            (concat "osascript -e 'tell application \"Spotify\" to " script "' 2>/dev/null"))))
+
+        (defun my/spotify-running-p ()
+          "Non-nil when Spotify is running, without launching it."
+          (not (string-empty-p
+                (string-trim
+                 (shell-command-to-string
+                  "osascript -e 'application \"Spotify\" is running' 2>/dev/null | tr -d '\\n'")))))
+
+        (defun my/music-current ()
+          "Show the current track in the echo area."
+          (interactive)
+          (if (not (my/spotify-running-p))
+              (message "Spotify is not running")
+            (let ((artist (my/spotify-tell "artist of current track"))
+                  (track (my/spotify-tell "name of current track"))
+                  (state (my/spotify-tell "player state")))
+              (message "%s %s - %s"
+                       (if (string= state "playing") "|>" "||") artist track))))
+
+        (defun my/music-playpause ()
+          "Toggle play/pause, then report what happened."
+          (interactive)
+          (my/spotify-tell "playpause")
+          (my/music-current))
+
+        (defun my/music-next ()
+          "Next track."
+          (interactive)
+          ;; Spotify needs a beat to load the new track before it will name it.
+          (my/spotify-tell "next track")
+          (sleep-for 0.4)
+          (my/music-current))
+
+        (defun my/music-previous ()
+          "Previous track."
+          (interactive)
+          (my/spotify-tell "previous track")
+          (sleep-for 0.4)
+          (my/music-current))
+
+        (defun my/music-volume (delta)
+          "Shift Spotify's own volume by DELTA, clamped to 0..100."
+          (let* ((now (string-to-number (my/spotify-tell "sound volume")))
+                 (next (max 0 (min 100 (+ now delta)))))
+            (my/spotify-tell (format "set sound volume to %d" next))
+            (message "Spotify volume %d%%" next)))
+
+        (defun my/music-louder () "Volume up." (interactive) (my/music-volume 10))
+        (defun my/music-quieter () "Volume down." (interactive) (my/music-volume -10))
+
+        (defun my/music-open ()
+          "Bring the Spotify window forward."
+          (interactive)
+          (shell-command "open -a Spotify"))
+      ''
+    else
+      ''
+        ;;; Music -- playerctl on Linux, which covers Spotify and anything else
+        ;;; speaking MPRIS. Same command names as the darwin branch so the leader
+        ;;; bindings are identical on both.
+
+        (defun my/playerctl (args)
+          "Run playerctl with ARGS and return its output, trimmed."
+          (string-trim (shell-command-to-string (concat "playerctl " args " 2>/dev/null"))))
+
+        (defun my/music-current ()
+          "Show the current track in the echo area."
+          (interactive)
+          (let ((meta (my/playerctl "metadata --format '{{artist}} - {{title}}'"))
+                (state (my/playerctl "status")))
+            (if (string-empty-p meta)
+                (message "No player running")
+              (message "%s %s" (if (string= state "Playing") "|>" "||") meta))))
+
+        (defun my/music-playpause () "Toggle play/pause." (interactive) (my/playerctl "play-pause") (my/music-current))
+        (defun my/music-next () "Next track." (interactive) (my/playerctl "next") (sleep-for 0.4) (my/music-current))
+        (defun my/music-previous () "Previous track." (interactive) (my/playerctl "previous") (sleep-for 0.4) (my/music-current))
+        (defun my/music-louder () "Volume up." (interactive) (my/playerctl "volume 0.1+") (message "volume up"))
+        (defun my/music-quieter () "Volume down." (interactive) (my/playerctl "volume 0.1-") (message "volume down"))
+        (defun my/music-open () "Focus the player." (interactive) (my/playerctl "play"))
+      ''
+  );
+}
+#+end_src

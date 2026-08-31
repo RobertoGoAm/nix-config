@@ -1,0 +1,15 @@
+#+TITLE: development emacs plugins notes
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins notes
+
+#+begin_src nix
+{
+  imports = [
+    ./literate.nix
+    ./markview.nix
+    ./org.nix
+    ./obsidian.nix
+  ];
+}
+#+end_src

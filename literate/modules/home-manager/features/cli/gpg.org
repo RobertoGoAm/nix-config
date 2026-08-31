@@ -1,0 +1,44 @@
+#+TITLE: cli gpg
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* cli gpg
+
+#+begin_src nix
+{
+  services.gpg-agent = {
+    enable = true;
+    enableSshSupport = true;
+  };
+
+  programs =
+    let
+      fixGpg =
+#+end_src
+
+* bash
+
+#+begin_src nix
+        ''
+          gpgconf --launch gpg-agent
+        '';
+    in
+    {
+#+end_src
+
+* Start gpg-agent if it's not running or tunneled in
+
+SSH does not start it automatically, so this is needed to avoid having to use a gpg command at startup
+https://www.gnupg.org/faq/whats-new-in-2.1.html#autostart
+
+#+begin_src nix
+      bash.profileExtra = fixGpg;
+      fish.loginShellInit = fixGpg;
+      zsh.loginExtra = fixGpg;
+      nushell.extraLogin = fixGpg;
+
+      gpg = {
+        enable = true;
+      };
+    };
+}
+#+end_src

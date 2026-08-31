@@ -1,0 +1,12 @@
+#+TITLE: overlays pin-prefs
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* pin-prefs: regenerates the targets.darwin.defaults modules from...
+
+pin-prefs: regenerates the targets.darwin.defaults modules from live prefs.
+
+#+begin_src nix
+final: _prev: {
+  pin-prefs = final.callPackage ../pkgs/pin-prefs.nix { };
+}
+#+end_src

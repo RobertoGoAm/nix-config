@@ -1,0 +1,88 @@
+#+TITLE: development emacs plugins code utils
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins code utils
+
+#+begin_src nix
+{
+  ...
+}:
+{
+  programs.emacs.extraPackages =
+    epkgs: with epkgs; [
+      emr
+      evil-mc
+      rainbow-delimiters
+      rainbow-mode
+      restclient
+      smartparens
+      sudo-edit
+      verb
+    ];
+
+  programs.emacs.extraConfig = ''
+    ;;; Editing utilities — the code/utils plugin set.
+
+    ;; nvim-autopairs. smartparens' strict mode is deliberately off: it would start
+    ;; refusing to delete an unbalanced paren, which autopairs never does.
+    (require 'smartparens-config)
+    (setq sp-highlight-pair-overlay nil
+          sp-highlight-wrap-overlay nil
+          sp-max-pair-length 4)
+    (smartparens-global-mode 1)
+    (show-paren-mode 1)
+    (setq show-paren-delay 0
+          show-paren-style 'parenthesis
+          show-paren-when-point-inside-paren t)
+
+    ;; rainbow-delimiters
+    (require 'rainbow-delimiters)
+    (add-hook 'prog-mode-hook #'rainbow-delimiters-mode)
+
+    ;; colorizer: paint #rrggbb, rgb() and named colours as themselves. Useful in the
+    ;; same places nvim uses it — CSS, Tailwind config, theme files.
+    (require 'rainbow-mode)
+    (dolist (hook '(css-ts-mode-hook scss-mode-hook web-mode-hook
+                    html-mode-hook emacs-lisp-mode-hook conf-mode-hook
+                    js-ts-mode-hook typescript-ts-mode-hook tsx-ts-mode-hook))
+      (add-hook hook #'rainbow-mode))
+
+    ;; multicursors.nvim. evil-mc keeps evil's operators working at every cursor, so
+    ;; `ciw' edits them all.
+    (require 'evil-mc)
+    (global-evil-mc-mode 1)
+    (setq evil-mc-undo-cursors-on-keyboard-quit t)
+
+    (defun my/add-cursors ()
+      "Put a cursor on every match of the symbol at point — the MCstart reflex."
+      (interactive)
+      (if (evil-mc-has-cursors-p)
+          (evil-mc-undo-all-cursors)
+        (evil-mc-make-all-cursors)))
+
+    ;; refactoring.nvim's local half. The tree-sitter extract/inline rewrites come
+    ;; from the language server (see my/lsp-extract in plugins/lsp/lsp.nix); emr adds
+    ;; the language-specific refactorings Emacs implements itself, which for this
+    ;; stack mostly means elisp and JS.
+    (require 'emr)
+    (emr-initialize)
+
+    ;; HTTP scratchpads, for poking at the APIs behind the Drizzle/Prisma work
+    ;; without leaving the editor. restclient runs .http files; verb runs org blocks.
+    (require 'restclient)
+    (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
+
+    ;; verb is NOT required here. It is an org-mode client, so requiring it pulls
+    ;; in org, org-element, ol-gnus and embark-org at launch -- about 7 of the 9.6
+    ;; seconds this config used to spend starting up, for a feature that only
+    ;; applies inside an org buffer. Loading it with org moves all of that to the
+    ;; first org file of the session.
+    (with-eval-after-load 'org
+      (require 'verb)
+      (define-key org-mode-map (kbd "C-c C-r") verb-command-map))
+
+    ;; Reopen the file you are on with sudo, for the times a config edit needs it.
+    (require 'sudo-edit)
+  '';
+}
+#+end_src

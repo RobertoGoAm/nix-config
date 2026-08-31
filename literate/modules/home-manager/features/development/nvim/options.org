@@ -1,0 +1,208 @@
+#+TITLE: development nvim options
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim options
+
+#+begin_src nix
+{
+  extraConfigLua = ''
+    local api = vim.api
+    local cmd = vim.cmd
+    local env = vim.env
+    local fn = vim.fn
+    local o = vim.opt
+
+    -- Trim trailing whitespace on save
+    api.nvim_create_autocmd({ "BufWritePre" }, {
+      pattern = { "*" },
+      command = [[%s/\s\+$//e]],
+    })
+
+    -- Change cursor based on mode
+    cmd([[let &t_SI = '\<Esc>]50;CursorShape=1\x7']])
+    cmd([[let &t_SR = '\<Esc>]50;CursorShape=2\x7']])
+    cmd([[let &t_EI = '\<Esc>]50;CursorShape=0\x7']])
+
+    -- Format on save
+    api.nvim_create_autocmd("BufWritePre", {
+      callback = function()
+        vim.lsp.buf.format()
+      end,
+    })
+
+    -- Undo, backup and swap
+    local prefix = env.XDG_CONFIG_HOME or fn.expand("~/.config")
+    o.undofile = true
+    o.undodir = { prefix .. "/nvim/.undo//" }
+    o.backupdir = { prefix .. "/nvim/.backup//" }
+    o.directory = { prefix .. "/nvim/.swp//" }
+
+    -- True colors
+    if fn.has("nvim") then
+      cmd([[let $NVIM_TUI_ENABLE_TRUE_COLOR=1]])
+    end
+
+    if fn.has("termguicolors") then
+      o.termguicolors = true
+    end
+
+    cmd([[let &t_ZH='\e[3m']])
+    cmd([[let &t_ZR='\e[23m']])
+
+
+    -- Clipboard configuration
+    if vim.fn.has("macunix") then
+      o.clipboard:append { 'unnamedplus' }
+    end
+
+    if vim.fn.has("win32") then
+      o.clipboard:prepend { 'unnamed', 'unnamedplus' }
+    end
+  '';
+
+  opts = {
+#+end_src
+
+* Set encoding to UTF-8
+
+#+begin_src nix
+    encoding = "utf-8";
+    fileencoding = "utf-8";
+#+end_src
+
+* Don't close unsaved files on switch, hide instead
+
+#+begin_src nix
+    hidden = true;
+#+end_src
+
+* Relative line numbers
+
+#+begin_src nix
+    number = true;
+    relativenumber = true;
+#+end_src
+
+* Show commands while awaiting input
+
+#+begin_src nix
+    showcmd = true;
+#+end_src
+
+* Always show sign column
+
+#+begin_src nix
+    signcolumn = "yes";
+#+end_src
+
+* Highlight cursor line
+
+#+begin_src nix
+    cursorline = true;
+#+end_src
+
+* Taller command section
+
+#+begin_src nix
+    cmdheight = 1;
+#+end_src
+
+* Time before writting to swap file
+
+#+begin_src nix
+    updatetime = 300;
+#+end_src
+
+* Ask before closing buffers
+
+#+begin_src nix
+    confirm = true;
+#+end_src
+
+* Disable wrap
+
+#+begin_src nix
+    wrap = false;
+#+end_src
+
+* Limit popup suggestion
+
+#+begin_src nix
+    pumheight = 10;
+#+end_src
+
+* Search as characters are entered
+
+#+begin_src nix
+    incsearch = true;
+#+end_src
+
+* Highlight search matches
+
+#+begin_src nix
+    hlsearch = true;
+#+end_src
+
+* Autocomplete for command menu
+
+#+begin_src nix
+    wildmenu = true;
+#+end_src
+
+* Ignore case unless uppercase character is introduced
+
+#+begin_src nix
+    ignorecase = true;
+    smartcase = true;
+#+end_src
+
+* New splits should appear down in the vertical axis
+
+#+begin_src nix
+    splitbelow = true;
+#+end_src
+
+* New splits should appear right in the horizontal axis
+
+#+begin_src nix
+    splitright = true;
+#+end_src
+
+* Typical backspace behavior
+
+#+begin_src nix
+    backspace = "indent,eol,start";
+#+end_src
+
+* Convert tabs to spaces
+
+#+begin_src nix
+    expandtab = true;
+#+end_src
+
+* Change tab to 2 spaces
+
+#+begin_src nix
+    tabstop = 2;
+    softtabstop = 2;
+#+end_src
+
+* Automatic indent to 2 spaces
+
+#+begin_src nix
+    shiftwidth = 2;
+#+end_src
+
+* Colors
+
+#+begin_src nix
+    background = "dark";
+#+end_src
+
+* Leader timeout
+
+#+begin_src nix
+    timeoutlen = 500;
+  };
+}
+#+end_src

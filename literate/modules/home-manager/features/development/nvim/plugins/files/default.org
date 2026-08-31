@@ -1,0 +1,14 @@
+#+TITLE: development nvim plugins files
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development nvim plugins files
+
+#+begin_src nix
+{
+  imports = [
+    ./browsing.nix
+    ./replace.nix
+    ./tree.nix
+  ];
+}
+#+end_src
