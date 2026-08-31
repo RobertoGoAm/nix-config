@@ -13,10 +13,18 @@
     ;; numbertoggle: relative numbers while you are moving, absolute while you are
     ;; typing. nvim gets this by flipping 'relativenumber'; here it is the same flip
     ;; on the evil insert-state hooks.
+    ;;
+    ;; Guarded on the gutter already being visible. Unguarded, these hooks turned
+    ;; numbers ON in every buffer that had deliberately switched them off -- a
+    ;; vterm sits in insert state permanently, so the Claude and terminal panes
+    ;; grew a gutter the moment they were focused, whatever their mode hook had
+    ;; said. Prose buffers were hit the same way.
     (add-hook 'evil-insert-state-entry-hook
-              (lambda () (setq-local display-line-numbers t)))
+              (lambda () (when display-line-numbers
+                           (setq-local display-line-numbers t))))
     (add-hook 'evil-insert-state-exit-hook
-              (lambda () (setq-local display-line-numbers 'relative)))
+              (lambda () (when display-line-numbers
+                           (setq-local display-line-numbers 'relative))))
 
     ;; Prose filetypes get no gutter at all — no numbers, no fold indicators — and
     ;; soft wrap at word boundaries with a hanging indent. Same three filetypes as
