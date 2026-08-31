@@ -154,6 +154,24 @@
       (set-buffer-modified-p nil)
       (kill-buffer))
 
+    (defun my/quit-frame ()
+      "Close this frame, leaving the daemon running.
+
+    `save-buffers-kill-terminal' -- what SPC q q used to run -- closes only the
+    current frame when that frame belongs to an emacsclient. Frames made by
+    `make-frame' inside the daemon are not client frames, so there it killed
+    Emacs outright: every buffer, every LSP server, the mu index, gone, with a
+    prompt about live processes as the only warning. The launcher creates
+    frames that way now, so quitting has to be explicit about meaning the
+    frame.
+
+    The daemon surviving is the entire point of running one -- the next frame
+    opens instantly with the session intact. SPC q Q still kills it."
+      (interactive)
+      (if (cdr (frame-list))
+          (delete-frame)
+        (message "This is the only frame; SPC q Q kills the daemon")))
+
     (defun my/quit-force ()
       "Quit without saving — `qa!'."
       (interactive)

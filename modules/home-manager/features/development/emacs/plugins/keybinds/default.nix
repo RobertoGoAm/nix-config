@@ -287,7 +287,7 @@
 
       ;; quit
       "q"  '(:ignore t :which-key "quit")
-      "qq" '(save-buffers-kill-terminal :which-key "quit")
+      "qq" '(my/quit-frame :which-key "close frame")
       "qQ" '(my/quit-force :which-key "quit without saving")
 
       ;; replace
