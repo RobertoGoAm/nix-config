@@ -72,6 +72,18 @@
         ntfy_topic_id = {
           owner = user;
         };
+        openrouter_api_key = {
+          owner = user;
+        };
+        spotify_client_id = {
+          owner = user;
+        };
+        spotify_client_secret = {
+          owner = user;
+        };
+        spotify_refresh_token = {
+          owner = user;
+        };
         ssh_id_ed25519 = {
           owner = user;
           path = "/Users/${user}/.ssh/id_ed25519";
