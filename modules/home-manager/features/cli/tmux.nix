@@ -48,6 +48,25 @@ in
     customPaneNavigationAndResize = true;
 
     extraConfig = ''
+
+      # A second prefix, because C-Space does not always survive the trip.
+
+      #
+
+      # Ctrl+Space is sent as a NUL byte, and not every terminal emits it --
+
+      # Emacs vterm in particular translates the key without producing NUL, so
+
+      # tmux running inside a vterm never sees the prefix and appears dead.
+
+      # C-b is plain and always transmits, so it works everywhere as a fallback
+
+      # while C-Space stays the primary in a real terminal.
+
+      set -g prefix2 C-b
+
+      bind C-b send-prefix -2
+
       # Split panes using | and -
       bind | split-window -h
       bind - split-window -v
