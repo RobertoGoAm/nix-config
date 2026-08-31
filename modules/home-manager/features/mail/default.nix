@@ -87,7 +87,13 @@ lib.mkIf enable {
   programs.emacs.extraConfig = ''
     (setq mu4e-maildir "${maildir}"
           mu4e-get-mail-command "${pkgs.isync}/bin/mbsync -a"
-          mu4e-update-interval nil
+          ;; mbsync alone is not enough: the launchd agent pulls new mail into
+          ;; the Maildir every 15 minutes, but nothing indexes it, so mu4e
+          ;; keeps showing the store as it was when it last looked. This makes
+          ;; mu4e run the fetch AND the index itself while it is open. The
+          ;; agent still earns its place for the hours Emacs is closed -- the
+          ;; next update indexes whatever it collected.
+          mu4e-update-interval 300
           mu4e-change-filenames-when-moving t
           mu4e-completing-read-function #'completing-read
           mu4e-confirm-quit nil

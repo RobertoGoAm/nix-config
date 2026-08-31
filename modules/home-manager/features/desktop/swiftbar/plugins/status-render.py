@@ -9,6 +9,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 
 def parse_rfc3339(ts):
     """Parse an RFC3339 timestamp on the Python this actually runs under.
@@ -254,7 +255,10 @@ if track:
     # The controls sit at top level rather than in a submenu: SwiftBar renders a
     # row with no action as disabled, so a submenu parent looks dead and buries
     # the one thing here you actually want to click.
-    print(f"♫ {artist} — {track} | bash=/usr/bin/open param1=-a param2=Spotify terminal=false")
-    print("Play/Pause | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to playpause' terminal=false refresh=true")
-    print("Next | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to next track' terminal=false refresh=true")
-    print("Previous | bash=/usr/bin/osascript param1=-e param2='tell application \"Spotify\" to previous track' terminal=false refresh=true")
+    # Controls go through the Web API too. AppleScript would only reach a
+    # running Spotify.app, and the point of librespot is not to have one.
+    ctl = shutil.which("spotify-ctl") or "spotify-ctl"
+    print(f"♫ {artist} — {track} | bash={ctl} param1=playpause terminal=false refresh=true")
+    print(f"Play/Pause | bash={ctl} param1=playpause terminal=false refresh=true")
+    print(f"Next | bash={ctl} param1=next terminal=false refresh=true")
+    print(f"Previous | bash={ctl} param1=previous terminal=false refresh=true")

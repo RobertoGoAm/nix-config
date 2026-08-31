@@ -46,6 +46,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   neovim = import ./neovim.nix;
 #+end_src
 
+* spotify-ctl: Web API now-playing and controls for the menu bar
+
+#+begin_src nix
+  spotify-ctl = import ./spotify-ctl.nix;
+#+end_src
+
 * When applied, the unstable nixpkgs set (declared in the flake...
 
 When applied, the unstable nixpkgs set (declared in the flake inputs) will
