@@ -1,10 +1,17 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   colemak = config.features.productivity.keyboard.layout == "colemak";
 
   karabinerJson = {
-    global = { show_in_menu_bar = false; };
+    global = {
+      show_in_menu_bar = false;
+    };
     profiles = [
       {
         complex_modifications = {
@@ -21,7 +28,9 @@ let
                   ];
                   from = {
                     key_code = "left_command";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "left_control"; } ];
                   type = "basic";
@@ -35,7 +44,9 @@ let
                   ];
                   from = {
                     key_code = "right_command";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "right_control"; } ];
                   type = "basic";
@@ -48,7 +59,9 @@ let
                 {
                   from = {
                     key_code = "caps_lock";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
@@ -79,7 +92,9 @@ let
                   ];
                   from = {
                     key_code = "h";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "left_arrow"; } ];
                   type = "basic";
@@ -94,7 +109,9 @@ let
                   ];
                   from = {
                     key_code = "j";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "down_arrow"; } ];
                   type = "basic";
@@ -109,7 +126,9 @@ let
                   ];
                   from = {
                     key_code = "k";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "up_arrow"; } ];
                   type = "basic";
@@ -124,7 +143,9 @@ let
                   ];
                   from = {
                     key_code = "l";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "right_arrow"; } ];
                   type = "basic";
@@ -139,7 +160,9 @@ let
                   ];
                   from = {
                     key_code = "y";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "home"; } ];
                   type = "basic";
@@ -154,7 +177,9 @@ let
                   ];
                   from = {
                     key_code = "p";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "end"; } ];
                   type = "basic";
@@ -169,7 +194,9 @@ let
                   ];
                   from = {
                     key_code = "u";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "page_up"; } ];
                   type = "basic";
@@ -184,7 +211,9 @@ let
                   ];
                   from = {
                     key_code = "o";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "page_down"; } ];
                   type = "basic";
@@ -201,12 +230,17 @@ let
                   ];
                   from = {
                     key_code = "m";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
                       key_code = "x";
-                      modifiers = [ "left_command" "left_option" ];
+                      modifiers = [
+                        "left_command"
+                        "left_option"
+                      ];
                     }
                   ];
                   type = "basic";
@@ -223,12 +257,17 @@ let
                   ];
                   from = {
                     key_code = "g";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
                       key_code = "d";
-                      modifiers = [ "left_command" "left_option" ];
+                      modifiers = [
+                        "left_command"
+                        "left_option"
+                      ];
                     }
                   ];
                   type = "basic";
@@ -245,12 +284,17 @@ let
                   ];
                   from = {
                     key_code = "c";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
                       key_code = "c";
-                      modifiers = [ "left_command" "left_option" ];
+                      modifiers = [
+                        "left_command"
+                        "left_option"
+                      ];
                     }
                   ];
                   type = "basic";
@@ -263,7 +307,9 @@ let
                 {
                   from = {
                     key_code = "right_option";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
@@ -293,7 +339,9 @@ let
                   ];
                   from = {
                     key_code = "a";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "1"; } ];
                   type = "basic";
@@ -308,7 +356,9 @@ let
                   ];
                   from = {
                     key_code = "s";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "2"; } ];
                   type = "basic";
@@ -323,7 +373,9 @@ let
                   ];
                   from = {
                     key_code = "d";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "3"; } ];
                   type = "basic";
@@ -338,7 +390,9 @@ let
                   ];
                   from = {
                     key_code = "f";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "4"; } ];
                   type = "basic";
@@ -353,7 +407,9 @@ let
                   ];
                   from = {
                     key_code = "g";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "5"; } ];
                   type = "basic";
@@ -368,7 +424,9 @@ let
                   ];
                   from = {
                     key_code = "z";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "6"; } ];
                   type = "basic";
@@ -383,7 +441,9 @@ let
                   ];
                   from = {
                     key_code = "x";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "7"; } ];
                   type = "basic";
@@ -398,7 +458,9 @@ let
                   ];
                   from = {
                     key_code = "c";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "8"; } ];
                   type = "basic";
@@ -413,7 +475,9 @@ let
                   ];
                   from = {
                     key_code = "v";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "9"; } ];
                   type = "basic";
@@ -428,7 +492,9 @@ let
                   ];
                   from = {
                     key_code = "b";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "0"; } ];
                   type = "basic";
@@ -443,9 +509,16 @@ let
                   ];
                   from = {
                     key_code = "q";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "1"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "1";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -458,9 +531,16 @@ let
                   ];
                   from = {
                     key_code = "w";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "2"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "2";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -473,9 +553,16 @@ let
                   ];
                   from = {
                     key_code = "e";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "3"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "3";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -488,9 +575,16 @@ let
                   ];
                   from = {
                     key_code = "r";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "4"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "4";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -503,9 +597,16 @@ let
                   ];
                   from = {
                     key_code = "t";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "5"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "5";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -518,9 +619,16 @@ let
                   ];
                   from = {
                     key_code = "y";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "6"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "6";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -533,9 +641,16 @@ let
                   ];
                   from = {
                     key_code = "u";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "7"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "7";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -548,9 +663,16 @@ let
                   ];
                   from = {
                     key_code = "i";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "8"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "8";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -563,9 +685,16 @@ let
                   ];
                   from = {
                     key_code = "o";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "9"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "9";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -578,9 +707,16 @@ let
                   ];
                   from = {
                     key_code = "p";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "0"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "0";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -593,7 +729,9 @@ let
                   ];
                   from = {
                     key_code = "h";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "hyphen"; } ];
                   type = "basic";
@@ -608,7 +746,9 @@ let
                   ];
                   from = {
                     key_code = "j";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "equal_sign"; } ];
                   type = "basic";
@@ -623,7 +763,9 @@ let
                   ];
                   from = {
                     key_code = "k";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "open_bracket"; } ];
                   type = "basic";
@@ -638,7 +780,9 @@ let
                   ];
                   from = {
                     key_code = "l";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "close_bracket"; } ];
                   type = "basic";
@@ -653,7 +797,9 @@ let
                   ];
                   from = {
                     key_code = "semicolon";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "backslash"; } ];
                   type = "basic";
@@ -668,7 +814,9 @@ let
                   ];
                   from = {
                     key_code = "quote";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [ { key_code = "grave_accent_and_tilde"; } ];
                   type = "basic";
@@ -683,9 +831,16 @@ let
                   ];
                   from = {
                     key_code = "n";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "hyphen"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "hyphen";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -698,9 +853,16 @@ let
                   ];
                   from = {
                     key_code = "m";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "equal_sign"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "equal_sign";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -713,9 +875,16 @@ let
                   ];
                   from = {
                     key_code = "comma";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "open_bracket"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "open_bracket";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -728,9 +897,16 @@ let
                   ];
                   from = {
                     key_code = "period";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "close_bracket"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "close_bracket";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
                 {
@@ -743,9 +919,16 @@ let
                   ];
                   from = {
                     key_code = "slash";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
-                  to = [ { key_code = "backslash"; modifiers = [ "left_shift" ]; } ];
+                  to = [
+                    {
+                      key_code = "backslash";
+                      modifiers = [ "left_shift" ];
+                    }
+                  ];
                   type = "basic";
                 }
               ];
@@ -757,23 +940,295 @@ let
               # rule here (nav, symbols, warpd, the Raycast taps) keeps working --
               # those are keyed to physical positions, not to Colemak output.
               manipulators = lib.optionals colemak [
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "e"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "f"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "r"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "p"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "t"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "g"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "y"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "j"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "u"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "l"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "i"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "u"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "o"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "y"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "p"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "semicolon"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "s"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "r"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "d"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "s"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "f"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "t"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "g"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "d"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "j"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "n"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "k"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "e"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "l"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "i"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "semicolon"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "o"; } ]; type = "basic"; }
-                { conditions = [ { name = "sym_layer"; type = "variable_unless"; value = 1; } ]; from = { key_code = "n"; modifiers = { optional = [ "any" ]; }; }; to = [ { key_code = "k"; } ]; type = "basic"; }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "e";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "f"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "r";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "p"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "t";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "g"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "y";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "j"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "u";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "l"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "i";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "u"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "o";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "y"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "p";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "semicolon"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "s";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "r"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "d";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "s"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "f";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "t"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "g";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "d"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "j";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "n"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "k";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "e"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "l";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "i"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "semicolon";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "o"; } ];
+                  type = "basic";
+                }
+                {
+                  conditions = [
+                    {
+                      name = "sym_layer";
+                      type = "variable_unless";
+                      value = 1;
+                    }
+                  ];
+                  from = {
+                    key_code = "n";
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
+                  };
+                  to = [ { key_code = "k"; } ];
+                  type = "basic";
+                }
               ];
             }
             {
@@ -782,12 +1237,19 @@ let
                 {
                   from = {
                     key_code = "escape";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
                       key_code = "spacebar";
-                      modifiers = [ "left_command" "left_control" "left_option" "left_shift" ];
+                      modifiers = [
+                        "left_command"
+                        "left_control"
+                        "left_option"
+                        "left_shift"
+                      ];
                     }
                   ];
                   type = "basic";
@@ -803,7 +1265,9 @@ let
                 {
                   from = {
                     key_code = "left_command";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
@@ -828,7 +1292,9 @@ let
                 {
                   from = {
                     key_code = "right_shift";
-                    modifiers = { optional = [ "any" ]; };
+                    modifiers = {
+                      optional = [ "any" ];
+                    };
                   };
                   to = [
                     {
@@ -865,11 +1331,13 @@ let
         ];
         name = "Default profile";
         selected = true;
-        virtual_hid_keyboard = { keyboard_type_v2 = "ansi"; };
+        virtual_hid_keyboard = {
+          keyboard_type_v2 = "ansi";
+        };
       }
     ];
   };
-  karabinerDir = pkgs.runCommand "karabiner-config" {} ''
+  karabinerDir = pkgs.runCommand "karabiner-config" { } ''
     mkdir -p $out
     cp ${pkgs.writeText "karabiner.json" (builtins.toJSON karabinerJson)} $out/karabiner.json
     cp ${pkgs.writeText "karabiner.json.backup" (builtins.toJSON karabinerJson)} $out/karabiner.json.backup

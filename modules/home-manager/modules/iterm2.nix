@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
@@ -6,7 +11,8 @@ let
   cfg = config.programs.iterm2;
 
   # Convert hex color to iTerm2 color format
-  hexToITermColor = hex:
+  hexToITermColor =
+    hex:
     let
       # Remove the leading '#' if present
       hexColor = lib.strings.removePrefix "#" hex;
@@ -38,17 +44,20 @@ let
       };
 
       # Convert two hex digits to decimal
-      hexPairToDecimal = hexPair:
+      hexPairToDecimal =
+        hexPair:
         let
           upperDigit = hexDigits.${lib.strings.substring 0 1 hexPair};
           lowerDigit = hexDigits.${lib.strings.substring 1 1 hexPair};
-        in (upperDigit * 16 + lowerDigit) / 255.0;
+        in
+        (upperDigit * 16 + lowerDigit) / 255.0;
 
       # Extract and convert RGB components
       r = hexPairToDecimal (lib.strings.substring 0 2 hexColor);
       g = hexPairToDecimal (lib.strings.substring 2 2 hexColor);
       b = hexPairToDecimal (lib.strings.substring 4 2 hexColor);
-    in {
+    in
+    {
       "Alpha Component" = 1;
       "Color Space" = "sRGB";
       "Red Component" = r;
@@ -73,8 +82,7 @@ let
       guid = mkOption {
         type = types.str;
         default = "";
-        description =
-          "GUID for the profile. If empty, a fixed one will be assigned based on the profile name.";
+        description = "GUID for the profile. If empty, a fixed one will be assigned based on the profile name.";
       };
 
       command = mkOption {
@@ -225,28 +233,29 @@ let
         useNonAsciiFont = mkOption {
           type = types.bool;
           default = false;
-          description =
-            "Whether to use a separate font for non-ASCII characters.";
+          description = "Whether to use a separate font for non-ASCII characters.";
         };
 
         antiAlias = mkOption {
           type = types.bool;
           default = true;
-          description =
-            "Whether to use anti-aliasing for the font. Improves readability.";
+          description = "Whether to use anti-aliasing for the font. Improves readability.";
         };
 
         brightenBold = mkOption {
           type = types.bool;
           default = false;
-          description =
-            "Whether to brighten bold text. Makes bold text more visible.";
+          description = "Whether to brighten bold text. Makes bold text more visible.";
         };
       };
 
       cursor = {
         type = mkOption {
-          type = types.enum [ "box" "underline" "vertical-bar" ];
+          type = types.enum [
+            "box"
+            "underline"
+            "vertical-bar"
+          ];
           default = "box";
           description = ''
             The cursor shape:
@@ -261,8 +270,7 @@ let
         showBellIcon = mkOption {
           type = types.bool;
           default = false;
-          description =
-            "Whether to show a bell icon in the tab when a bell is rung.";
+          description = "Whether to show a bell icon in the tab when a bell is rung.";
         };
 
         visualBell = mkOption {
@@ -274,22 +282,19 @@ let
         closeSessionsOnEnd = mkOption {
           type = types.bool;
           default = true;
-          description =
-            "Whether to close the session when the terminal process exits.";
+          description = "Whether to close the session when the terminal process exits.";
         };
 
         warnShortLivedSessions = mkOption {
           type = types.bool;
           default = false;
-          description =
-            "Whether to warn when closing a session that has lasted a short time.";
+          description = "Whether to warn when closing a session that has lasted a short time.";
         };
 
         mouseReporting = mkOption {
           type = types.bool;
           default = true;
-          description =
-            "Whether to enable mouse reporting, allowing terminal applications to receive mouse events.";
+          description = "Whether to enable mouse reporting, allowing terminal applications to receive mouse events.";
         };
       };
 
@@ -297,8 +302,7 @@ let
         columns = mkOption {
           type = types.int;
           default = 80;
-          description =
-            "Number of columns (characters) in the terminal window.";
+          description = "Number of columns (characters) in the terminal window.";
         };
 
         rows = mkOption {
@@ -334,7 +338,10 @@ let
         };
 
         windowType = mkOption {
-          type = types.enum [ "normal" "quake" ];
+          type = types.enum [
+            "normal"
+            "quake"
+          ];
           default = "normal";
           description = "Window type for hotkey.";
         };
@@ -399,7 +406,12 @@ let
       jobs = {
         toIgnore = mkOption {
           type = types.listOf types.str;
-          default = [ "rlogin" "ssh" "slogin" "telnet" ];
+          default = [
+            "rlogin"
+            "ssh"
+            "slogin"
+            "telnet"
+          ];
           description = "Jobs to ignore for session management.";
         };
       };
@@ -445,7 +457,8 @@ let
   };
 
   # Generate a deterministic GUID from a string
-  mkGuid = str:
+  mkGuid =
+    str:
     let
       # Generate a deterministic hash from the string
       hash = builtins.hashString "sha256" str;
@@ -457,153 +470,159 @@ let
         (lib.strings.substring 16 4 hash)
         (lib.strings.substring 20 12 hash)
       ];
-    in concatStringsSep "-" guidParts;
+    in
+    concatStringsSep "-" guidParts;
 
   # Create the iTerm2 plist content
-  iTerm2PlistContent = let
-    # Process each profile to produce iTerm2 format
-    processProfile = profile: {
-      "Name" = profile.name;
-      "Guid" = if profile.guid != "" then profile.guid else mkGuid profile.name;
-      "Normal Font" = profile.font.normal;
-      "Non Ascii Font" = profile.font.nonAscii;
-      "Use Non-ASCII Font" = if profile.font.useNonAsciiFont then 1 else 0;
-      "ASCII Anti Aliased" = if profile.font.antiAlias then 1 else 0;
-      "Non-ASCII Anti Aliased" = if profile.font.antiAlias then 1 else 0;
-      "Brighten Bold Text" = if profile.font.brightenBold then 1 else 0;
-      "Background Color" = hexToITermColor profile.colors.background;
-      "Foreground Color" = hexToITermColor profile.colors.foreground;
-      "Ansi 0 Color" = hexToITermColor profile.colors.black.normal;
-      "Ansi 8 Color" = hexToITermColor profile.colors.black.bright;
-      "Ansi 1 Color" = hexToITermColor profile.colors.red.normal;
-      "Ansi 9 Color" = hexToITermColor profile.colors.red.bright;
-      "Ansi 2 Color" = hexToITermColor profile.colors.green.normal;
-      "Ansi 10 Color" = hexToITermColor profile.colors.green.bright;
-      "Ansi 3 Color" = hexToITermColor profile.colors.yellow.normal;
-      "Ansi 11 Color" = hexToITermColor profile.colors.yellow.bright;
-      "Ansi 4 Color" = hexToITermColor profile.colors.blue.normal;
-      "Ansi 12 Color" = hexToITermColor profile.colors.blue.bright;
-      "Ansi 5 Color" = hexToITermColor profile.colors.magenta.normal;
-      "Ansi 13 Color" = hexToITermColor profile.colors.magenta.bright;
-      "Ansi 6 Color" = hexToITermColor profile.colors.cyan.normal;
-      "Ansi 14 Color" = hexToITermColor profile.colors.cyan.bright;
-      "Ansi 7 Color" = hexToITermColor profile.colors.white.normal;
-      "Ansi 15 Color" = hexToITermColor profile.colors.white.bright;
-      "Command" =
-        if profile.command != "" then profile.command else "/bin/bash";
-      # Cursor type: 0 = underline, 1 = vertical bar, 2 = box
-      "Cursor Type" = if profile.cursor.type == "box" then
-        2
-      else if profile.cursor.type == "vertical-bar" then
-        1
-      else if profile.cursor.type == "underline" then
-        0
-      else
-        2;
-      # Terminal settings
-      "BM Growl" = if profile.terminal.showBellIcon then 1 else 0;
-      "Visual Bell" = if profile.terminal.visualBell then 1 else 0;
-      "Close Sessions On End" =
-        if profile.terminal.closeSessionsOnEnd then 1 else 0;
-      "Prompt Before Closing 2" =
-        if profile.terminal.warnShortLivedSessions then 1 else 0;
-      "Mouse Reporting" = if profile.terminal.mouseReporting then 1 else 0;
+  iTerm2PlistContent =
+    let
+      # Process each profile to produce iTerm2 format
+      processProfile = profile: {
+        "Name" = profile.name;
+        "Guid" = if profile.guid != "" then profile.guid else mkGuid profile.name;
+        "Normal Font" = profile.font.normal;
+        "Non Ascii Font" = profile.font.nonAscii;
+        "Use Non-ASCII Font" = if profile.font.useNonAsciiFont then 1 else 0;
+        "ASCII Anti Aliased" = if profile.font.antiAlias then 1 else 0;
+        "Non-ASCII Anti Aliased" = if profile.font.antiAlias then 1 else 0;
+        "Brighten Bold Text" = if profile.font.brightenBold then 1 else 0;
+        "Background Color" = hexToITermColor profile.colors.background;
+        "Foreground Color" = hexToITermColor profile.colors.foreground;
+        "Ansi 0 Color" = hexToITermColor profile.colors.black.normal;
+        "Ansi 8 Color" = hexToITermColor profile.colors.black.bright;
+        "Ansi 1 Color" = hexToITermColor profile.colors.red.normal;
+        "Ansi 9 Color" = hexToITermColor profile.colors.red.bright;
+        "Ansi 2 Color" = hexToITermColor profile.colors.green.normal;
+        "Ansi 10 Color" = hexToITermColor profile.colors.green.bright;
+        "Ansi 3 Color" = hexToITermColor profile.colors.yellow.normal;
+        "Ansi 11 Color" = hexToITermColor profile.colors.yellow.bright;
+        "Ansi 4 Color" = hexToITermColor profile.colors.blue.normal;
+        "Ansi 12 Color" = hexToITermColor profile.colors.blue.bright;
+        "Ansi 5 Color" = hexToITermColor profile.colors.magenta.normal;
+        "Ansi 13 Color" = hexToITermColor profile.colors.magenta.bright;
+        "Ansi 6 Color" = hexToITermColor profile.colors.cyan.normal;
+        "Ansi 14 Color" = hexToITermColor profile.colors.cyan.bright;
+        "Ansi 7 Color" = hexToITermColor profile.colors.white.normal;
+        "Ansi 15 Color" = hexToITermColor profile.colors.white.bright;
+        "Command" = if profile.command != "" then profile.command else "/bin/bash";
+        # Cursor type: 0 = underline, 1 = vertical bar, 2 = box
+        "Cursor Type" =
+          if profile.cursor.type == "box" then
+            2
+          else if profile.cursor.type == "vertical-bar" then
+            1
+          else if profile.cursor.type == "underline" then
+            0
+          else
+            2;
+        # Terminal settings
+        "BM Growl" = if profile.terminal.showBellIcon then 1 else 0;
+        "Visual Bell" = if profile.terminal.visualBell then 1 else 0;
+        "Close Sessions On End" = if profile.terminal.closeSessionsOnEnd then 1 else 0;
+        "Prompt Before Closing 2" = if profile.terminal.warnShortLivedSessions then 1 else 0;
+        "Mouse Reporting" = if profile.terminal.mouseReporting then 1 else 0;
 
-      # Window size
-      "Columns" = profile.window.columns;
-      "Rows" = profile.window.rows;
+        # Window size
+        "Columns" = profile.window.columns;
+        "Rows" = profile.window.rows;
 
-      # Transparency
-      "Transparency" = profile.transparency;
+        # Transparency
+        "Transparency" = profile.transparency;
 
-      # Hotkey settings
-      "Has Hotkey" = if profile.hotkey.enabled then 1 else 0;
-      "HotKey Characters" = profile.hotkey.characters;
-      "HotKey Characters Ignoring Modifiers" = profile.hotkey.characters;
-      "HotKey Modifier Flags" = profile.hotkey.modifierFlags;
-      "HotKey Key Code" = profile.hotkey.keyCode;
-      "HotKey Modifier Activation" = profile.hotkey.modifierActivation;
-      "HotKey Window AutoHides" = if profile.hotkey.autoHides then 1 else 0;
-      "HotKey Window Floats" = if profile.hotkey.floats then 1 else 0;
-      "HotKey Window Animates" = if profile.hotkey.animates then 1 else 0;
-      "HotKey Window Dock Click Action" = profile.hotkey.dockClickAction;
-      "HotKey Window Reopens On Activation" = if profile.hotkey.reopensOnActivation then 1 else 0;
-      "Window Type" = if profile.hotkey.windowType == "quake" then 1 else 0;
+        # Hotkey settings
+        "Has Hotkey" = if profile.hotkey.enabled then 1 else 0;
+        "HotKey Characters" = profile.hotkey.characters;
+        "HotKey Characters Ignoring Modifiers" = profile.hotkey.characters;
+        "HotKey Modifier Flags" = profile.hotkey.modifierFlags;
+        "HotKey Key Code" = profile.hotkey.keyCode;
+        "HotKey Modifier Activation" = profile.hotkey.modifierActivation;
+        "HotKey Window AutoHides" = if profile.hotkey.autoHides then 1 else 0;
+        "HotKey Window Floats" = if profile.hotkey.floats then 1 else 0;
+        "HotKey Window Animates" = if profile.hotkey.animates then 1 else 0;
+        "HotKey Window Dock Click Action" = profile.hotkey.dockClickAction;
+        "HotKey Window Reopens On Activation" = if profile.hotkey.reopensOnActivation then 1 else 0;
+        "Window Type" = if profile.hotkey.windowType == "quake" then 1 else 0;
 
-      # Scrollback settings
-      "Scrollback Lines" = profile.scrollback.lines;
-      "Unlimited Scrollback" = if profile.scrollback.unlimited then 1 else 0;
+        # Scrollback settings
+        "Scrollback Lines" = profile.scrollback.lines;
+        "Unlimited Scrollback" = if profile.scrollback.unlimited then 1 else 0;
 
-      # Jobs to ignore
-      "Jobs to Ignore" = profile.jobs.toIgnore;
+        # Jobs to ignore
+        "Jobs to Ignore" = profile.jobs.toIgnore;
 
-      # Tags
-      "Tags" = profile.tags;
+        # Tags
+        "Tags" = profile.tags;
 
-      # Spacing and visual settings
-      "Horizontal Spacing" = profile.spacing.horizontal;
-      "Vertical Spacing" = profile.spacing.vertical;
-      "Blend" = profile.blend;
-      "Blur" = if profile.blur then 1 else 0;
-      "Disable Window Resizing" = if profile.disableWindowResizing then 1 else 0;
-    };
+        # Spacing and visual settings
+        "Horizontal Spacing" = profile.spacing.horizontal;
+        "Vertical Spacing" = profile.spacing.vertical;
+        "Blend" = profile.blend;
+        "Blur" = if profile.blur then 1 else 0;
+        "Disable Window Resizing" = if profile.disableWindowResizing then 1 else 0;
+      };
 
-    # Process all profiles
-    profilesData = map processProfile cfg.profiles;
+      # Process all profiles
+      profilesData = map processProfile cfg.profiles;
 
-    # Find the default profile GUID
-    getProfileGuid = profile:
-      if profile.guid != "" then profile.guid else mkGuid profile.name;
-    defaultProfileGuid =
-      let defaultProfiles = filter (p: p.default) cfg.profiles;
-      in if length defaultProfiles > 0 then
-        getProfileGuid (head defaultProfiles)
-      else
-        "";
+      # Find the default profile GUID
+      getProfileGuid = profile: if profile.guid != "" then profile.guid else mkGuid profile.name;
+      defaultProfileGuid =
+        let
+          defaultProfiles = filter (p: p.default) cfg.profiles;
+        in
+        if length defaultProfiles > 0 then getProfileGuid (head defaultProfiles) else "";
 
-    # Theme value mapping
-    themeValue = if cfg.settings.appearance.theme == "regular" then
-      0
-    else if cfg.settings.appearance.theme == "minimal" then
-      5
-    else if cfg.settings.appearance.theme == "compact" then
-      6
-    else
-      0;
+      # Theme value mapping
+      themeValue =
+        if cfg.settings.appearance.theme == "regular" then
+          0
+        else if cfg.settings.appearance.theme == "minimal" then
+          5
+        else if cfg.settings.appearance.theme == "compact" then
+          6
+        else
+          0;
 
-    # Create the plist data structure
-    plist = {
-      "New Bookmarks" = profilesData;
-      "Default Bookmark Guid" = defaultProfileGuid;
-      "TabStyleWithAutomaticOption" = themeValue;
-      
-      # General settings
-      "HapticFeedbackForEsc" = if cfg.settings.general.hapticFeedbackForEsc then 1 else 0;
-      "SoundForEsc" = if cfg.settings.general.soundForEsc then 1 else 0;
-      "VisualIndicatorForEsc" = if cfg.settings.general.visualIndicatorForEsc then 1 else 0;
-      "NoSyncIgnoreSystemWindowRestoration" = if cfg.settings.general.ignoreSystemWindowRestoration then 1 else 0;
-      "NoSyncWindowRestoresWorkspaceAtLaunch" = if cfg.settings.general.windowRestoresWorkspaceAtLaunch then 1 else 0;
-      "HotkeyMigratedFromSingleToMulti" = if cfg.settings.general.hotkeyMigratedFromSingleToMulti then 1 else 0;
-      "PromptOnQuit" = if cfg.settings.general.confirmQuit then 1 else 0;
-      "HideMenuBarInFullscreen" = if cfg.settings.general.hideMenuBarInFullscreen then 1 else 0;
-      "ShowFullScreenTabBar" = if cfg.settings.general.showFullScreenTabBar then 1 else 0;
-      "FlashTabBarInFullscreen" = if cfg.settings.general.flashTabBarInFullscreen then 1 else 0;
-      "TabViewType" = if cfg.settings.general.tabViewType == "bottom" then 1 else 0;
-      "AppleWindowTabbingMode" = "manual";
-      "LaunchAtLogin" = if cfg.settings.general.launchAtLogin then 1 else 0;
+      # Create the plist data structure
+      plist = {
+        "New Bookmarks" = profilesData;
+        "Default Bookmark Guid" = defaultProfileGuid;
+        "TabStyleWithAutomaticOption" = themeValue;
 
-      # Keyboard shortcuts
-      "Keyboard Map" = lib.listToAttrs (map (shortcut: {
-        name = shortcut.action;
-        value = {
-          "Key Combination" = shortcut.key;
-          "Key Code" = shortcut.keyCode;
-          "Modifier Flags" = shortcut.modifierFlags;
-        };
-      }) cfg.settings.keyboardShortcuts);
-    };
-  in plist;
-in {
+        # General settings
+        "HapticFeedbackForEsc" = if cfg.settings.general.hapticFeedbackForEsc then 1 else 0;
+        "SoundForEsc" = if cfg.settings.general.soundForEsc then 1 else 0;
+        "VisualIndicatorForEsc" = if cfg.settings.general.visualIndicatorForEsc then 1 else 0;
+        "NoSyncIgnoreSystemWindowRestoration" =
+          if cfg.settings.general.ignoreSystemWindowRestoration then 1 else 0;
+        "NoSyncWindowRestoresWorkspaceAtLaunch" =
+          if cfg.settings.general.windowRestoresWorkspaceAtLaunch then 1 else 0;
+        "HotkeyMigratedFromSingleToMulti" =
+          if cfg.settings.general.hotkeyMigratedFromSingleToMulti then 1 else 0;
+        "PromptOnQuit" = if cfg.settings.general.confirmQuit then 1 else 0;
+        "HideMenuBarInFullscreen" = if cfg.settings.general.hideMenuBarInFullscreen then 1 else 0;
+        "ShowFullScreenTabBar" = if cfg.settings.general.showFullScreenTabBar then 1 else 0;
+        "FlashTabBarInFullscreen" = if cfg.settings.general.flashTabBarInFullscreen then 1 else 0;
+        "TabViewType" = if cfg.settings.general.tabViewType == "bottom" then 1 else 0;
+        "AppleWindowTabbingMode" = "manual";
+        "LaunchAtLogin" = if cfg.settings.general.launchAtLogin then 1 else 0;
+
+        # Keyboard shortcuts
+        "Keyboard Map" = lib.listToAttrs (
+          map (shortcut: {
+            name = shortcut.action;
+            value = {
+              "Key Combination" = shortcut.key;
+              "Key Code" = shortcut.keyCode;
+              "Modifier Flags" = shortcut.modifierFlags;
+            };
+          }) cfg.settings.keyboardShortcuts
+        );
+      };
+    in
+    plist;
+in
+{
   options.programs.iterm2 = {
     enable = mkEnableOption "iTerm2 terminal emulator";
 
@@ -622,14 +641,17 @@ in {
     copyPrefs = mkOption {
       type = types.bool;
       default = true;
-      description =
-        "Whether to copy the config to the default iTerm2 preferences location.";
+      description = "Whether to copy the config to the default iTerm2 preferences location.";
     };
 
     settings = {
       appearance = {
         theme = mkOption {
-          type = types.enum [ "regular" "minimal" "compact" ];
+          type = types.enum [
+            "regular"
+            "minimal"
+            "compact"
+          ];
           default = "regular";
           description = "Window theme style.";
         };
@@ -697,7 +719,10 @@ in {
         };
 
         tabViewType = mkOption {
-          type = types.enum [ "top" "bottom" ];
+          type = types.enum [
+            "top"
+            "bottom"
+          ];
           default = "top";
           description = "Tab view type (top or bottom).";
         };
@@ -710,26 +735,28 @@ in {
       };
 
       keyboardShortcuts = mkOption {
-        type = types.listOf (types.submodule {
-          options = {
-            key = mkOption {
-              type = types.str;
-              description = "Key combination (e.g., 'cmd+u').";
+        type = types.listOf (
+          types.submodule {
+            options = {
+              key = mkOption {
+                type = types.str;
+                description = "Key combination (e.g., 'cmd+u').";
+              };
+              action = mkOption {
+                type = types.str;
+                description = "Action to perform (e.g., 'toggle-transparency').";
+              };
+              keyCode = mkOption {
+                type = types.int;
+                description = "Key code for the shortcut.";
+              };
+              modifierFlags = mkOption {
+                type = types.int;
+                description = "Modifier flags for the shortcut.";
+              };
             };
-            action = mkOption {
-              type = types.str;
-              description = "Action to perform (e.g., 'toggle-transparency').";
-            };
-            keyCode = mkOption {
-              type = types.int;
-              description = "Key code for the shortcut.";
-            };
-            modifierFlags = mkOption {
-              type = types.int;
-              description = "Modifier flags for the shortcut.";
-            };
-          };
-        });
+          }
+        );
         default = [ ];
         description = "Custom keyboard shortcuts.";
       };
@@ -816,41 +843,48 @@ in {
       })
     ];
 
-    xdg.configFile."iTerm2/com.googlecode.iterm2.plist".text = let
-      # Convert a Nix value to XML plist representation
-      plistValue = v:
-        if builtins.isString v then
-          "<string>${lib.strings.escape [ "<" ">" "&" ] v}</string>"
-        else if builtins.isInt v then
-          "<integer>${toString v}</integer>"
-        else if builtins.isFloat v then
-          "<real>${toString v}</real>"
-        else if builtins.isBool v then
-          if v then "<true/>" else "<false/>"
-        else if builtins.isNull v then
-          "<null/>"
-        else if builtins.isAttrs v then
-          ''
-            <dict>
-          '' + lib.strings.concatStrings (lib.attrsets.mapAttrsToList (k: val:
-            "  <key>${lib.strings.escape [ "<" ">" "&" ] k}</key>\n  ${
-                plistValue val
-              }\n") v) + "</dict>"
-        else if builtins.isList v then
-          ''
-            <array>
-          '' + lib.strings.concatMapStrings (item: "  ${plistValue item}\n") v
-          + "</array>"
-        else
-          throw "Unsupported type for plist conversion";
+    xdg.configFile."iTerm2/com.googlecode.iterm2.plist".text =
+      let
+        # Convert a Nix value to XML plist representation
+        plistValue =
+          v:
+          if builtins.isString v then
+            "<string>${lib.strings.escape [ "<" ">" "&" ] v}</string>"
+          else if builtins.isInt v then
+            "<integer>${toString v}</integer>"
+          else if builtins.isFloat v then
+            "<real>${toString v}</real>"
+          else if builtins.isBool v then
+            if v then "<true/>" else "<false/>"
+          else if builtins.isNull v then
+            "<null/>"
+          else if builtins.isAttrs v then
+            ''
+              <dict>
+            ''
+            + lib.strings.concatStrings (
+              lib.attrsets.mapAttrsToList (
+                k: val: "  <key>${lib.strings.escape [ "<" ">" "&" ] k}</key>\n  ${plistValue val}\n"
+              ) v
+            )
+            + "</dict>"
+          else if builtins.isList v then
+            ''
+              <array>
+            ''
+            + lib.strings.concatMapStrings (item: "  ${plistValue item}\n") v
+            + "</array>"
+          else
+            throw "Unsupported type for plist conversion";
 
-      plistHeader = ''
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-      '';
+        plistHeader = ''
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+        '';
 
-      plistFooter = "</plist>";
-    in plistHeader + plistValue iTerm2PlistContent + plistFooter;
+        plistFooter = "</plist>";
+      in
+      plistHeader + plistValue iTerm2PlistContent + plistFooter;
   };
 }

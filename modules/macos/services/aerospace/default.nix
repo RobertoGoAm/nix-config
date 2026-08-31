@@ -1,4 +1,10 @@
-{ config, lib, pkgs, user, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  user,
+  ...
+}:
 let
   # Read through the home-manager user: the option is declared in the HM tree
   # (features/productivity/keyboard-layout.nix) and this is a nix-darwin module,
@@ -10,9 +16,17 @@ let
   # h under both layouts, since Colemak leaves h in place.
   nav =
     if colemak then
-      { down = "n"; up = "e"; right = "i"; }
+      {
+        down = "n";
+        up = "e";
+        right = "i";
+      }
     else
-      { down = "j"; up = "k"; right = "l"; };
+      {
+        down = "j";
+        up = "k";
+        right = "l";
+      };
 
   base = pkgs.lib.importTOML ./config.toml;
 
@@ -32,7 +46,15 @@ let
   # Drop the Colemak directional keys before merging, or a QWERTY build would
   # keep alt-n/e/i alongside the new alt-j/k/l and bind eight keys instead of four.
   stripped = lib.filterAttrs (
-    k: _: !(builtins.elem k [ "alt-e" "alt-i" "alt-n" "alt-shift-e" "alt-shift-i" "alt-shift-n" ])
+    k: _:
+    !(builtins.elem k [
+      "alt-e"
+      "alt-i"
+      "alt-n"
+      "alt-shift-e"
+      "alt-shift-i"
+      "alt-shift-n"
+    ])
   ) base.mode.main.binding;
 in
 {
@@ -40,7 +62,9 @@ in
     enable = true;
     settings = base // {
       mode = base.mode // {
-        main = base.mode.main // { binding = stripped // directional; };
+        main = base.mode.main // {
+          binding = stripped // directional;
+        };
       };
     };
   };

@@ -15,7 +15,10 @@
   # sends. That only matters to someone who owns one; on any other board this
   # option is the whole story.
   options.features.productivity.keyboard.layout = lib.mkOption {
-    type = lib.types.enum [ "colemak" "qwerty" ];
+    type = lib.types.enum [
+      "colemak"
+      "qwerty"
+    ];
     default = "colemak";
     description = ''
       Base letter layout for the software remappers. "colemak" applies the

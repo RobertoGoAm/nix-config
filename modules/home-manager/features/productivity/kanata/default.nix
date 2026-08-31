@@ -43,39 +43,45 @@ let
     WantedBy=multi-user.target
   '';
 in
-lib.mkIf enable (lib.mkMerge [
-  {
-    home.packages = [ pkgs.kanata ];
-    xdg.configFile."kanata/kanata.kbd".source = cfg;
-  }
+lib.mkIf enable (
+  lib.mkMerge [
+    {
+      home.packages = [ pkgs.kanata ];
+      xdg.configFile."kanata/kanata.kbd".source = cfg;
+    }
 
-  (lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-    home.packages = [
-      (pkgs.writeShellScriptBin "kanata-setup" ''
-        set -euo pipefail
-        if [ "$(id -u)" -ne 0 ]; then exec sudo "$0" "$@"; fi
-        install -Dm644 "${unit}" /etc/systemd/system/kanata.service
-        systemctl daemon-reload
-        systemctl enable --now kanata
-        systemctl restart kanata 2>/dev/null || true
-        echo "kanata configured: ${cfg} -> systemd service (started)."
-        echo "Tip: 'kanata --list' shows device names if the Bridge75 needs excluding."
-      '')
-    ];
-  })
+    (lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+      home.packages = [
+        (pkgs.writeShellScriptBin "kanata-setup" ''
+          set -euo pipefail
+          if [ "$(id -u)" -ne 0 ]; then exec sudo "$0" "$@"; fi
+          install -Dm644 "${unit}" /etc/systemd/system/kanata.service
+          systemctl daemon-reload
+          systemctl enable --now kanata
+          systemctl restart kanata 2>/dev/null || true
+          echo "kanata configured: ${cfg} -> systemd service (started)."
+          echo "Tip: 'kanata --list' shows device names if the Bridge75 needs excluding."
+        '')
+      ];
+    })
 
-  (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-    # User launchd agent. Needs the manual driver + permission grants above; the
-    # exact invocation may want tuning when this is actually switched on.
-    launchd.agents.kanata = {
-      enable = true;
-      config = {
-        ProgramArguments = [ "${pkgs.kanata}/bin/kanata" "--cfg" "${cfg}" ];
-        RunAtLoad = true;
-        KeepAlive = true;
-        StandardErrorPath = "/tmp/kanata.err.log";
-        StandardOutPath = "/tmp/kanata.out.log";
+    (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+      # User launchd agent. Needs the manual driver + permission grants above; the
+      # exact invocation may want tuning when this is actually switched on.
+      launchd.agents.kanata = {
+        enable = true;
+        config = {
+          ProgramArguments = [
+            "${pkgs.kanata}/bin/kanata"
+            "--cfg"
+            "${cfg}"
+          ];
+          RunAtLoad = true;
+          KeepAlive = true;
+          StandardErrorPath = "/tmp/kanata.err.log";
+          StandardOutPath = "/tmp/kanata.out.log";
+        };
       };
-    };
-  })
-])
+    })
+  ]
+)

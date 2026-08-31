@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   pluginDir = "${config.home.homeDirectory}/.config/swiftbar/plugins";
 
@@ -39,15 +44,15 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # A two-line shim at a fixed path never changes, so the identity is stable and
   # the logic still lives in the store.
   home.activation.swiftbarPlugin = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    run mkdir -p "${pluginDir}"
-    # Written with cat, not `install /dev/stdin`: this profile's install is GNU
-    # coreutils, which refuses that with "replaced while being copied". It failed
-    # silently and left no plugin at all, so SwiftBar showed its own icon.
-    cat > "${pluginDir}/status.30s.sh" <<'SHIM'
-#!/bin/sh
-exec "$HOME/.config/swiftbar/lib/status.sh"
-SHIM
-    run chmod 755 "${pluginDir}/status.30s.sh"
+        run mkdir -p "${pluginDir}"
+        # Written with cat, not `install /dev/stdin`: this profile's install is GNU
+        # coreutils, which refuses that with "replaced while being copied". It failed
+        # silently and left no plugin at all, so SwiftBar showed its own icon.
+        cat > "${pluginDir}/status.30s.sh" <<'SHIM'
+    #!/bin/sh
+    exec "$HOME/.config/swiftbar/lib/status.sh"
+    SHIM
+        run chmod 755 "${pluginDir}/status.30s.sh"
   '';
 
   # Point SwiftBar at the managed directory so the plugins are whatever this

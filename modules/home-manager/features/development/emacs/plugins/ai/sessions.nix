@@ -216,31 +216,35 @@ in
             ;; the tool-call records dwarf the prose in the raw file.
             (dolist (line (split-string
                            (shell-command-to-string
-                            (format "%s %s" "${lib.getExe (pkgs.writers.writePython3Bin "claude-transcript" { flakeIgnore = [ "E501" ]; } ''
-                              import json
-                              import sys
+                            (format "%s %s" "${
+                              lib.getExe (
+                                pkgs.writers.writePython3Bin "claude-transcript" { flakeIgnore = [ "E501" ]; } ''
+                                  import json
+                                  import sys
 
-                              for line in open(sys.argv[1], errors="replace"):
-                                  try:
-                                      d = json.loads(line)
-                                  except ValueError:
-                                      continue
-                                  if d.get("type") not in ("user", "assistant"):
-                                      continue
-                                  msg = d.get("message") or {}
-                                  content = msg.get("content")
-                                  parts = []
-                                  if isinstance(content, str):
-                                      parts.append(content)
-                                  elif isinstance(content, list):
-                                      for part in content:
-                                          if isinstance(part, dict) and part.get("type") == "text":
-                                              parts.append(part.get("text") or "")
-                                  body = "\n".join(p for p in parts if p.strip())
-                                  if body.strip():
-                                      who = "##" if d.get("type") == "user" else "###"
-                                      sys.stdout.write("%s %s\n\n%s\n\n" % (who, d.get("type"), body))
-                            '')}" (shell-quote-argument path)))
+                                  for line in open(sys.argv[1], errors="replace"):
+                                      try:
+                                          d = json.loads(line)
+                                      except ValueError:
+                                          continue
+                                      if d.get("type") not in ("user", "assistant"):
+                                          continue
+                                      msg = d.get("message") or {}
+                                      content = msg.get("content")
+                                      parts = []
+                                      if isinstance(content, str):
+                                          parts.append(content)
+                                      elif isinstance(content, list):
+                                          for part in content:
+                                              if isinstance(part, dict) and part.get("type") == "text":
+                                                  parts.append(part.get("text") or "")
+                                      body = "\n".join(p for p in parts if p.strip())
+                                      if body.strip():
+                                          who = "##" if d.get("type") == "user" else "###"
+                                          sys.stdout.write("%s %s\n\n%s\n\n" % (who, d.get("type"), body))
+                                ''
+                              )
+                            }" (shell-quote-argument path)))
                            "\n"))
               (insert line "\n"))
             (goto-char (point-min))

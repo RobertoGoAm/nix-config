@@ -106,7 +106,8 @@
     "monitorIntervalSeconds" = 2;
     "monitorShowFanControlBeta" = true;
     "musicBlockEnabled" = true;
-    "musicBlockReplacementPath" = "${config.home.homeDirectory}/Applications/Home Manager Apps/Spotify.app";
+    "musicBlockReplacementPath" =
+      "${config.home.homeDirectory}/Applications/Home Manager Apps/Spotify.app";
     "onboardingStep" = 0;
     "panelCollapsedResetVersion" = "2.15.1";
     "panelControlFilesExpanded" = true;

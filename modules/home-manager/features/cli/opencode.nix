@@ -8,7 +8,7 @@ let
   # Other Qwen 3.8 variants, if the 27b disappoints:
   #   openrouter/qwen/qwen3.8-max         $2.00 / $6.00  per M tokens
   #   openrouter/qwen/qwen3.8-2.4t-a95b   $2.00 / $6.00
-  qwen = "openrouter/qwen/qwen3.8-27b"; #  $0.40 / $3.00  per M tokens
+  qwen = "openrouter/qwen/qwen3.8-27b"; # $0.40 / $3.00  per M tokens
   strong = "openrouter/anthropic/claude-sonnet-4.5";
 
   # THE TOGGLE. `strong` splits the work — Qwen implements, a better model plans.

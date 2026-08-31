@@ -726,31 +726,29 @@ in
           "vim.useSystemClipboard" = true;
 
           # Vim COLEMAK remaps
-            "vim.normalModeKeyBindingsNonRecursive" =
-              [
-              {
-                "before" = [ " " ];
-                "commands" = [ "vspacecode.space" ];
-              }
-              {
-                "before" = [ "<space>" ];
-                "commands" = [ "vspacecode.space" ];
-              }
-              ]
-              ++ colemakVimSwaps;
-            "vim.operatorPendingModeKeyBindingsNonRecursive" = colemakVimSwaps;
-            "vim.visualModeKeyBindingsNonRecursive" =
-              [
-              {
-                "before" = [ " " ];
-                "commands" = [ "vspacecode.space" ];
-              }
-              {
-                "before" = [ "<space>" ];
-                "commands" = [ "vspacecode.space" ];
-              }
-              ]
-              ++ colemakVimSwaps;
+          "vim.normalModeKeyBindingsNonRecursive" = [
+            {
+              "before" = [ " " ];
+              "commands" = [ "vspacecode.space" ];
+            }
+            {
+              "before" = [ "<space>" ];
+              "commands" = [ "vspacecode.space" ];
+            }
+          ]
+          ++ colemakVimSwaps;
+          "vim.operatorPendingModeKeyBindingsNonRecursive" = colemakVimSwaps;
+          "vim.visualModeKeyBindingsNonRecursive" = [
+            {
+              "before" = [ " " ];
+              "commands" = [ "vspacecode.space" ];
+            }
+            {
+              "before" = [ "<space>" ];
+              "commands" = [ "vspacecode.space" ];
+            }
+          ]
+          ++ colemakVimSwaps;
 
           # VSpaceCode
           "vspacecode.bindingOverrides" = [
