@@ -27,6 +27,24 @@
           display-line-numbers-width 3)
     (global-display-line-numbers-mode 1)
 
+    ;; Not in terminals. A shell, a REPL and the Claude pane are not files: the
+    ;; numbers count wrapped output lines rather than anything you can navigate
+    ;; to, they shift on every redraw, and they take columns from output that is
+    ;; already width-constrained. Same for the dashboard, which is a menu.
+    (defun my/no-line-numbers ()
+      "Turn the gutter off in this buffer."
+      (display-line-numbers-mode -1))
+
+    (dolist (h '(vterm-mode-hook
+                 term-mode-hook
+                 eat-mode-hook
+                 shell-mode-hook
+                 eshell-mode-hook
+                 comint-mode-hook
+                 compilation-mode-hook
+                 dashboard-mode-hook))
+      (add-hook h #'my/no-line-numbers))
+
     ;; showcmd, but which-key does that job here.
     ;;
     ;; This was 0.02, so a partial key sequence echoed almost instantly. While
