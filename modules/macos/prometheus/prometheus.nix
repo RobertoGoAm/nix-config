@@ -21,6 +21,23 @@ in
 
   networking.hostName = "prometheus";
 
+  # And LocalHostName, or macOS renames it behind your back
+
+  # hostName and computerName were pinned; LocalHostName -- the Bonjour name, the
+  # one behind prometheus.local -- was not, so macOS was free to change it and
+  # did: it became "prometheus-2" after a name collision on the network. A Mac
+  # that sees its own advertisement on a second interface is enough to trigger
+  # that, and once renamed it stays renamed.
+
+  # Nothing broke, because `hostname -s' reads hostName and that is what selects
+  # the darwinConfiguration. But prometheus.local stopped resolving to this
+  # machine, and the rename is silent.
+
+  # Pinned here so activation restores it, and any future collision is undone by
+  # the next rebuild rather than persisting.
+
+  networking.localHostName = "prometheus";
+
   # Tailscale registers a node under the machine's ComputerName, not...
 
   # Tailscale registers a node under the machine's ComputerName, not hostName;
