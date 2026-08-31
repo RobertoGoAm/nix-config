@@ -104,11 +104,14 @@ AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
 # no credentials or nothing is playing, so the section simply disappears.
 SPOT_STATE=""; SPOT_TRACK=""; SPOT_ARTIST=""
 SPOT_LINE="$(cache spotify 25 spotify-ctl now)"
+# Cached longer than now-playing: the device list changes when a machine wakes
+# or librespot restarts, not between tracks.
+SPOT_DEVICES="$(cache spotify-devices 120 spotify-ctl devices)"
 if [ -n "$SPOT_LINE" ]; then
   SPOT_STATE="$(printf '%s' "$SPOT_LINE" | cut -f1)"
   SPOT_ARTIST="$(printf '%s' "$SPOT_LINE" | cut -f2)"
   SPOT_TRACK="$(printf '%s' "$SPOT_LINE" | cut -f3)"
 fi
 
-export BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST
+export BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST SPOT_DEVICES
 python3 "$HOME/.config/swiftbar/lib/status-render.py"
