@@ -213,10 +213,18 @@
     successful replay the selected buffer is one of the restored ones, so
     that hook's *scratch*/*dashboard* guard declines on its own."
           (let ((frame (or frame (selected-frame))))
+            ;; What the frame is *showing*, not `current-buffer'. Inside
+            ;; `server-after-make-frame-hook' the current buffer is " *server*",
+            ;; server.el's own internal buffer -- the dashboard visible in the
+            ;; frame got there through `initial-buffer-choice', not through any
+            ;; hook. Guarding on `buffer-name' therefore never matched and this
+            ;; function bailed every time, silently.
             (when (and (not my/window-state-restored)
                        (frame-live-p frame)
                        (display-graphic-p frame)
-                       (member (buffer-name) '("*scratch*" "*dashboard*"))
+                       (member (buffer-name
+                                (window-buffer (frame-selected-window frame)))
+                               '("*scratch*" "*dashboard*"))
                        (file-readable-p my/window-state-file))
               (setq my/window-state-restored t)
               ;; Any buffer still queued on the lazy-restore timer would be a
