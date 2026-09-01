@@ -143,8 +143,21 @@ lib.mkIf enable {
     enable = true;
     config = {
       ProgramArguments = [
-        "${pkgs.isync}/bin/mbsync"
-        "-a"
+        "${pkgs.writeShellScript "mbsync-and-index" ''
+          ${pkgs.isync}/bin/mbsync -a
+          # Index what was just fetched. Without this the Maildir grows while
+          # mu's view of it does not, so everything reading the index -- the
+          # dashboard count, the status-bar badge -- reports the store as mu
+          # last saw it, which stays wrong for as long as Emacs is closed.
+          #
+          # Skipped while mu4e holds the server open: mu4e indexes on its own
+          # timer, and a second indexer fights it for the write lock. With
+          # Emacs closed there is no contention, and this is then the only
+          # thing keeping the index current.
+          if ! ${pkgs.procps}/bin/pgrep -f "mu server" >/dev/null 2>&1; then
+            ${pkgs.mu}/bin/mu index --quiet || true
+          fi
+        ''}"
       ];
       RunAtLoad = true;
       StartInterval = 900;
