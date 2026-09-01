@@ -161,13 +161,101 @@ these plugins bound.
           desktop-save t
           ;; Buffers, not windows: the daemon owns frame geometry, and restoring saved
           ;; frames on top of that fights emacsclient over which frame you land in.
+          ;; The *split* is still worth keeping, and is handled separately below.
           desktop-restore-frames nil
+          ;; Every buffer up front rather than ten now and the rest on an idle
+          ;; timer. The layout replayed below places buffers by name, so a
+          ;; buffer that has not been restored yet is a window that comes back
+          ;; empty.
+          desktop-restore-eager t
           recentf-max-saved-items 200
           history-length 500)
     (desktop-save-mode 1)
     (savehist-mode 1)
     (save-place-mode 1)
     (recentf-mode 1)
+
+    ;; The window layout, saved apart from the desktop.
+    ;;
+    ;; desktop-save-mode brings the buffers back but not the panes, because
+    ;; desktop-restore-frames recreates whole frames and a daemon cannot have
+    ;; that -- it would build frames at login, before any client asked for one,
+    ;; and then argue with emacsclient about which one you land in. A window
+    ;; state is the half that is actually wanted: the splits and which buffer
+    ;; sits in each, with no opinion about frames at all.
+    (defvar my/window-state-file
+      (expand-file-name "window-state.el" user-emacs-directory)
+      "Where the last frame's pane layout is written.")
+
+    (defvar my/window-state-restored nil
+      "Non-nil once a layout has been replayed in this daemon's lifetime.")
+
+    (defun my/save-window-state (&optional frame)
+      "Write FRAME's pane layout for the next session.
+Hung on frame deletion rather than only on `kill-emacs-hook': the daemon
+usually outlives every frame, so by the time Emacs is actually exiting
+there is no layout left to record."
+      (let ((frame (or frame (selected-frame))))
+        (when (and (frame-live-p frame) (display-graphic-p frame))
+          (condition-case nil
+              (let ((state (window-state-get (frame-root-window frame) t)))
+                (with-temp-file my/window-state-file
+                  (prin1 state (current-buffer))))
+            ;; A layout that cannot be written is not worth an error on the way
+            ;; out the door.
+            (error nil)))))
+
+    (defun my/restore-window-state (&optional frame)
+      "Replay the saved layout into FRAME.
+
+Once per daemon lifetime, and only into a frame that has nothing of its
+own to show: `emacsclient -c somefile' must land on that file, and the
+second frame of the day should not have the first frame's panes forced
+onto it.
+
+Runs at depth -90 so it precedes the dashboard's own new-frame hook,
+which calls `delete-other-windows' and would flatten the layout. After a
+successful replay the selected buffer is one of the restored ones, so
+that hook's *scratch*/*dashboard* guard declines on its own."
+      (let ((frame (or frame (selected-frame))))
+        (when (and (not my/window-state-restored)
+                   (frame-live-p frame)
+                   (display-graphic-p frame)
+                   (member (buffer-name) '("*scratch*" "*dashboard*"))
+                   (file-readable-p my/window-state-file))
+          (setq my/window-state-restored t)
+          (condition-case err
+              (let ((state (with-temp-buffer
+                             (insert-file-contents my/window-state-file)
+                             (read (current-buffer)))))
+                ;; 'safe: replay a layout saved on a larger display without
+                ;; failing on minimum window sizes. No `with-selected-frame'
+                ;; here -- that macro restores `current-buffer' when it exits,
+                ;; which silently undoes the selection below. window-state-put
+                ;; takes the target window as an argument and does not need
+                ;; the frame selected anyway.
+                (window-state-put state (frame-root-window frame) 'safe)
+                ;; window-state-put restores which window is selected but
+                ;; leaves `current-buffer' pointing at whatever it was --
+                ;; *scratch*, in a fresh frame. The dashboard's new-frame hook
+                ;; decides by `buffer-name', so without this it saw *scratch*,
+                ;; called `delete-other-windows' and flattened the layout that
+                ;; had just been replayed.
+                (let ((w (frame-selected-window frame)))
+                  (when (window-live-p w) (select-window w t))))
+            (error (message "Saved layout not restored: %S" err))))))
+
+    (defun my/forget-window-state ()
+      "Discard the saved layout, so the next frame opens on the dashboard."
+      (interactive)
+      (when (file-exists-p my/window-state-file)
+        (delete-file my/window-state-file))
+      (setq my/window-state-restored t)
+      (message "Saved layout discarded."))
+
+    (add-hook 'delete-frame-functions #'my/save-window-state)
+    (add-hook 'kill-emacs-hook #'my/save-window-state)
+    (add-hook 'server-after-make-frame-hook #'my/restore-window-state -90)
 
     ;; nvim's undofile: undo survives closing the buffer and restarting Emacs. The
     ;; directory is set before the `require' so the defcustom does not compute — and
