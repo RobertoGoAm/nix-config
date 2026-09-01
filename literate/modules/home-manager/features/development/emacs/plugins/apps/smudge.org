@@ -112,6 +112,28 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (with-eval-after-load 'smudge
       (advice-add 'smudge-api-oauth2-token :before #'my/smudge-seed-token))
 
+    ;; Spotify caps /search at ten results.
+    ;;
+    ;; Anything larger comes back 400 "Invalid limit", which Emacs's url
+    ;; library surfaces as the famously unhelpful "peculiar error" because it
+    ;; has no handler for the status and throws the body away. smudge asks for
+    ;; fifty, so every search failed.
+    ;;
+    ;; The cap is specific to /search: probing the API directly, limit=10
+    ;; succeeds and limit=11 does not, while /users/../playlists,
+    ;; /albums/../tracks, /me/player/recently-played and /me/tracks all still
+    ;; accept fifty. smudge drives all six from the one variable, so it is
+    ;; rebound around the search call instead of being lowered globally --
+    ;; otherwise every listing in the package shrinks to a fifth of a page to
+    ;; fix one endpoint.
+    (defun my/smudge-search-limit (orig &rest args)
+      "Call ORIG with the page size clamped to what /search accepts."
+      (let ((smudge-api-search-limit (min smudge-api-search-limit 10)))
+        (apply orig args)))
+
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-search :around #'my/smudge-search-limit))
+
     (defun my/smudge-copy-refresh-token ()
       "Copy the live refresh token, to be pasted into the sops secrets.
 
