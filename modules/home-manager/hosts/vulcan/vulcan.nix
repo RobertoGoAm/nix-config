@@ -26,6 +26,19 @@
   # for read-it-later and calibre-web for the library and its OPDS feed, which
   # is what the e-reader browses.
 
+  # vulcan is a headless Mac mini reached over SSH, so there is nobody to run
+  # GUI applications on it and nothing to gain from copying them into
+  # ~/Applications/Home Manager Apps.
+  #
+  # It actively costs, though: that rsync is gated behind macOS App Management,
+  # a privilege granted per calling binary. Over SSH the caller is sshd, which
+  # does not have it, so the step fails with "Operation not permitted" — and
+  # because it runs before the launchd agents are installed, the whole
+  # home-manager activation stops there. The system half switched fine while
+  # readeck and calibre-web were never written at all, which reads as the
+  # services being broken rather than never installed.
+  targets.darwin.copyApps.enable = false;
+
   features.services.reading = {
     enable = true;
     # Calibre put the library at the top of $HOME here, not under books/. The
