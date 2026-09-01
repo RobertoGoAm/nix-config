@@ -31,7 +31,11 @@ import urllib.request
 SECRETS = "/var/run/secrets"
 CACHE = os.path.join(os.environ.get("TMPDIR", "/tmp"), "spotify-ctl-token.json")
 API = "https://api.spotify.com/v1"
-REDIRECT = "http://127.0.0.1:8080/smudge-api-callback"
+# Underscores: smudge serves this path from a hardcoded simple-httpd
+# servlet, so the application can register one URI that suits both.
+# Only the authorization_code exchange sends it; refreshing does not,
+# so changing it does not invalidate an existing refresh token.
+REDIRECT = "http://127.0.0.1:8080/smudge_api_callback"
 SCOPES = "user-read-playback-state user-modify-playback-state"
 
 
