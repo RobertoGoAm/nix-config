@@ -163,6 +163,29 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       (unless (fboundp 'smudge-get-track-duration)
         (defalias 'smudge-get-track-duration #'smudge-api-get-track-duration)))
 
+    ;; Spotify closed off /users/{id}/playlists.
+    ;;
+    ;; smudge lists playlists through that endpoint, and it now answers 403
+    ;; Forbidden even for your own account with a valid token. /me/playlists
+    ;; is the supported route and returns the same shape. Verified against the
+    ;; live API with a working token: /me is 200, /me/playlists is 200, and
+    ;; /users/<own-id>/playlists is 403.
+    ;;
+    ;; Rewritten at the request layer rather than by redefining
+    ;; `smudge-api-user-playlists', so the query string smudge built -- limit
+    ;; and offset, and therefore paging -- is carried across untouched.
+    (defun my/smudge-use-me-playlists (args)
+      "Point a /users/<id>/playlists request at /me/playlists instead."
+      (let ((uri (nth 1 args)))
+        (when (and (stringp uri)
+                   (string-match "\\`/users/[^/]+/playlists\\(\\?.*\\)?\\'" uri))
+          (setf (nth 1 args)
+                (concat "/me/playlists" (or (match-string 1 uri) "")))))
+      args)
+
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-call-async :filter-args #'my/smudge-use-me-playlists))
+
     (defun my/smudge-copy-refresh-token ()
       "Copy the live refresh token, to be pasted into the sops secrets.
 
