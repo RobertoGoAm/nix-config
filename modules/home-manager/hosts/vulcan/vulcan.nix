@@ -26,7 +26,14 @@
   # for read-it-later and calibre-web for the library and its OPDS feed, which
   # is what the e-reader browses.
 
-  features.services.reading.enable = true;
+  features.services.reading = {
+    enable = true;
+    # Calibre put the library at the top of $HOME here, not under books/. The
+    # default path also exists but holds an empty database that something
+    # created by accident, and calibre-web starting against that would serve a
+    # catalogue of nothing rather than fail loudly.
+    libraryDir = "${config.home.homeDirectory}/Calibre Library";
+  };
 
   imports = [
     inputs.nixvim.homeModules.nixvim
