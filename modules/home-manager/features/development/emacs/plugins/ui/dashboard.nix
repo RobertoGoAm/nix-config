@@ -33,7 +33,7 @@
           dashboard-banner-logo-title "Made with ❤️"
           dashboard-center-content t
           dashboard-vertically-center-content t
-          dashboard-show-shortcuts nil
+          dashboard-show-shortcuts t
           dashboard-set-heading-icons t
           dashboard-set-file-icons t
           dashboard-icon-type 'nerd-icons
@@ -171,8 +171,12 @@
                                   (nth 0 r)
                                   (truncate-string-to-width (nth 1 r) 22)
                                   (truncate-string-to-width (nth 3 r) 60)))
+                  ;; Stop one character short of point so the trailing newline stays
+                  ;; bare. A `mouse-face' covering the line break highlights past the
+                  ;; end of the line and into the row below, which made every session
+                  ;; light up together instead of just the one under the pointer.
                   (add-text-properties
-                   start (point)
+                   start (1- (point))
                    (list 'my/claude-sid (nth 4 r)
                          'my/claude-cwd (nth 5 r)
                          'keymap my/dashboard-claude-map
