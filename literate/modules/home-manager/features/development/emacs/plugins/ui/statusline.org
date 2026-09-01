@@ -213,16 +213,6 @@
     ;;
     ;; bound-and-true-p throughout: telega is autoloaded, so in most sessions
     ;; these variables never come into existence at all.
-    (doom-modeline-def-segment my/telega
-      (let ((n (or (and (bound-and-true-p telega--unread-chat-count)
-                        (plist-get telega--unread-chat-count :unread_unmuted_count))
-                   0)))
-        (when (> n 0)
-          (concat (doom-modeline-spc)
-                  (propertize (format "✈ %d" n)
-                              'face (if (facep 'telega-unmuted-count)
-                                        'telega-unmuted-count
-                                      'doom-modeline-warning))))))
 
     ;; Unread mail and the current track, on the same edge as the Telegram
     ;; badge. Ambient information: visible without being looked for, gone the
@@ -310,15 +300,36 @@ the badge rather than showing an error in the modeline."
                       (string-trim (format "%s %s — %s" state artist title))
                       44 nil nil "…"))))))))
 
-    (doom-modeline-def-segment my/mail
-      (when (and (doom-modeline--active) (not (string-empty-p my/status-mail)))
-        (concat (doom-modeline-spc)
-                (propertize my/status-mail 'face 'doom-modeline-info))))
+    ;; These live in the tab bar rather than the modeline -- see below. The
+    ;; modeline is drawn once per window, so in a three-way split the same
+    ;; track title appeared three times and competed with the code; the tab bar
+    ;; is drawn once per frame, which is what ambient status wants.
+    (defun my/status-telega ()
+      "Unmuted Telegram count, or nil when there is nothing unread.
 
-    (doom-modeline-def-segment my/music
-      (when (and (doom-modeline--active) (not (string-empty-p my/status-music)))
-        (concat (doom-modeline-spc)
-                (propertize my/status-music 'face 'doom-modeline-buffer-minor-mode))))
+    Unmuted rather than total: muted groups are muted precisely so they do not
+    ask for attention. bound-and-true-p throughout because telega is
+    autoloaded and in most sessions these never come into existence."
+      (let ((n (or (and (bound-and-true-p telega--unread-chat-count)
+                        (plist-get telega--unread-chat-count :unread_unmuted_count))
+                   0)))
+        (when (> n 0)
+          (propertize (format "✈ %d" n)
+                      'face (if (facep 'telega-unmuted-count)
+                                'telega-unmuted-count
+                              'warning)))))
+
+    (defun my/status-string ()
+      "The ambient status: track, unread mail, unread Telegram.
+    Empty when there is nothing to say, so the bar stays quiet."
+      (string-join
+       (delq nil
+             (list (unless (string-empty-p my/status-music)
+                     (propertize my/status-music 'face 'shadow))
+                   (unless (string-empty-p my/status-mail)
+                     (propertize my/status-mail 'face 'success))
+                   (my/status-telega)))
+       "   "))
 
     ;; Music moves on a track boundary, mail on a fetch. mbsync runs every five
     ;; minutes, so polling mu faster than that only burns cycles.
@@ -328,11 +339,34 @@ the badge rather than showing an error in the modeline."
             (list (run-with-timer 5 150 #'my/status-update-mail)
                   (run-with-timer 8 20 #'my/status-update-music))))
 
+    ;; A one-line status strip across the top of the frame.
+    ;;
+    ;; The tab bar is the only bar Emacs draws once per *frame* -- the modeline
+    ;; is per window and the tab line is per window too, so anything ambient
+    ;; put there is repeated by every split. There is no equivalent at the
+    ;; bottom: the only full-width thing down there is the echo area, which
+    ;; belongs to the minibuffer and cannot be borrowed without fighting every
+    ;; message and prompt for it.
+    ;;
+    ;; tab-bar-format is set without `tab-bar-format-tabs', so this is a status
+    ;; strip rather than a tab strip -- no tabs appear unless they are added
+    ;; back here.
+    (defun my/tab-bar-status ()
+      "Right-aligned ambient status for `tab-bar-format'."
+      (let ((s (my/status-string)))
+        (unless (string-empty-p s)
+          `((my/status menu-item ,(concat s "  ") ignore)))))
+
+    (setq tab-bar-format '(tab-bar-format-align-right my/tab-bar-status)
+          tab-bar-show t
+          tab-bar-new-button-show nil
+          tab-bar-close-button-show nil)
+    (tab-bar-mode 1)
+
     (doom-modeline-def-modeline 'my/eviline
       '(my/edge-bar my/mode-dot my/filesize my/filename buffer-position
         my/progress my/diagnostics)
-      '(my/music my/mail my/telega my/encoding my/fileformat my/branch my/diff
-        my/edge-bar))
+      '(my/encoding my/fileformat my/branch my/diff my/edge-bar))
 
     (defun my/set-eviline ()
       "Install the eviline layout as the default modeline."
