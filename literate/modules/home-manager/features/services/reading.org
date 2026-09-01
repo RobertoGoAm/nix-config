@@ -132,6 +132,22 @@ generated on the machine.
     };
 #+end_src
 
+* calibre-web restarts itself, and under nix that restart fails
+
+Saving anything in Admin > Database Configuration makes calibre-web
+re-exec itself. It does that by handing its own argv[0] to the Python
+interpreter -- but under nix ~bin/calibre-web~ is a shell wrapper, so Python
+tries to parse ~PATH=${PATH:+':'$PATH':'}~ and exits with a SyntaxError.
+
+With ~KeepAlive = false~ that was terminal: completing the setup wizard took
+the service down and left it down, with a dead port and a stack trace in the
+log, which reads as the wizard having broken something.
+
+~SuccessfulExit = false~ makes launchd relaunch it on a non-zero exit, so the
+self-restart becomes a real restart. Plain ~true~ would be wrong here: the
+start wrapper below deliberately exits 0 when there is no Calibre library
+yet, and that must stay a stop rather than a spin.
+
 * calibre-web is wrapped rather than run directly: it needs the...
 
 calibre-web is wrapped rather than run directly: it needs the library path
@@ -156,7 +172,7 @@ that is never going to appear on its own.
           ''}"
         ];
         RunAtLoad = true;
-        KeepAlive = false;
+        KeepAlive = { SuccessfulExit = false; };
         WorkingDirectory = cfg.dataDir;
         EnvironmentVariables = {
           CALIBRE_DBPATH = cfg.dataDir + "/calibre-web";
