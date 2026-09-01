@@ -199,6 +199,18 @@ in
       label="gui/$(id -u)/org.nix-community.home.emacs"
       echo "Restarting $label..."
       launchctl kickstart -k "$label"
+
+      # Reopen a frame. kickstart brings the daemon back headless -- it has no
+      # frames until a client asks for one -- so a bare restart looks like
+      # Emacs simply closed and never returned. Wait for the socket rather
+      # than sleeping a fixed amount, because the daemon spends several
+      # seconds restoring the desktop before it answers.
+      for _ in $(seq 1 100); do
+        emacsclient -e t >/dev/null 2>&1 && break
+        sleep 0.2
+      done
+      emacsclient -c -n >/dev/null 2>&1 || \
+        echo "daemon is up but no frame could be opened; run: emacsclient -c -n"
     '')
 
     (pkgs.writeShellScriptBin "em" ''

@@ -184,6 +184,46 @@
                          'help-echo "RET or click: resume this conversation"))))))
         (error (insert "    index unavailable\n"))))
 
+    ;; Jump to any single entry, not just to a section.
+    ;;
+    ;; The section shortcuts land you on a heading; from there it is n and p.
+    ;; With seven sections and a screenful of rows that is a lot of pressing,
+    ;; and there are far more entries than there are digits to number them
+    ;; with. avy labels every visible entry with a one or two character hint
+    ;; instead, so the number of rows stops mattering.
+    ;;
+    ;; The regex matches the four-space indent every generator here writes,
+    ;; which keeps hints on the entries and off the headings and blank lines.
+    (defun my/dashboard-jump-to-entry ()
+      "Label every dashboard entry with an avy hint and jump to the one picked."
+      (interactive)
+      (require 'avy)
+      (let ((avy-all-windows nil))
+        (avy-jump "^ \\{2,\\}[^ \n]")))
+
+    (defun my/dashboard-jump-and-open ()
+      "Pick a dashboard entry by hint and act on it."
+      (interactive)
+      (when (my/dashboard-jump-to-entry)
+        ;; Whatever RET does on that line -- open the file, resume the Claude
+        ;; session, follow the bookmark -- rather than second-guessing which.
+        (let ((cmd (key-binding (kbd "RET"))))
+          (when (commandp cmd) (call-interactively cmd)))))
+
+    ;; Bound through evil, not `define-key'. A plain mode-map binding loses to
+    ;; evil's normal state -- f there is `evil-find-char', which is worth far
+    ;; more than a dashboard shortcut. o and O are the pair chosen instead:
+    ;; both open a line in normal state, which is meaningless in a read-only
+    ;; buffer, and "open" is what this does anyway.
+    (with-eval-after-load 'dashboard
+      (require 'evil nil t)
+      (if (fboundp 'evil-define-key*)
+          (evil-define-key* 'normal dashboard-mode-map
+            (kbd "o") #'my/dashboard-jump-and-open
+            (kbd "O") #'my/dashboard-jump-to-entry)
+        (define-key dashboard-mode-map (kbd "o") #'my/dashboard-jump-and-open)
+        (define-key dashboard-mode-map (kbd "O") #'my/dashboard-jump-to-entry)))
+
     (add-to-list (quote dashboard-item-generators) (quote (backup . my/dashboard-backup)))
     (add-to-list (quote dashboard-item-generators) (quote (unread . my/dashboard-unread)))
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
