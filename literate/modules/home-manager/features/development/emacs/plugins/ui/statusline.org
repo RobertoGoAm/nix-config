@@ -227,8 +227,10 @@
     ;; Both are also gated on the active window. doom-modeline draws a modeline
     ;; per window, so an ungated badge appears three times in a three-way split
     ;; and starts competing with the code.
-    (defvar my/status-mail ""
-      "Cached unread-mail badge. Written by `my/status-update-mail'.")
+    (defvar my/status-mail-count 0
+      "Cached unread-mail count. Written by `my/status-update-mail'.
+    A number rather than a rendered badge: the badge is always shown, and
+    only the face depends on whether the count is zero.")
     (defvar my/status-music ""
       "Cached now-playing badge. Written by `my/status-update-music'.")
     (defvar my/status--procs (make-hash-table :test 'equal)
@@ -273,8 +275,7 @@ stale badge, not to an unbounded pile of processes."
          "mail"
          (list "sh" "-c" "mu find --fields m flag:unread 2>/dev/null | wc -l")
          (lambda (out)
-           (let ((n (string-to-number out)))
-             (setq my/status-mail (if (> n 0) (format "✉ %d" n) "")))))))
+           (setq my/status-mail-count (string-to-number out))))))
 
     (defun my/status-update-music ()
       "Refresh the now-playing line from spotify-ctl.
@@ -304,31 +305,40 @@ the badge rather than showing an error in the modeline."
     ;; modeline is drawn once per window, so in a three-way split the same
     ;; track title appeared three times and competed with the code; the tab bar
     ;; is drawn once per frame, which is what ambient status wants.
-    (defun my/status-telega ()
-      "Unmuted Telegram count, or nil when there is nothing unread.
+    (defun my/status-count (glyph n live-face)
+      "Render N after GLYPH, in LIVE-FACE when non-zero and dimmed at zero."
+      (propertize (format "%s %d" glyph n)
+                  'face (if (> n 0)
+                            (if (facep live-face) live-face 'warning)
+                          'shadow)))
 
-    Unmuted rather than total: muted groups are muted precisely so they do not
-    ask for attention. bound-and-true-p throughout because telega is
-    autoloaded and in most sessions these never come into existence."
-      (let ((n (or (and (bound-and-true-p telega--unread-chat-count)
-                        (plist-get telega--unread-chat-count :unread_unmuted_count))
-                   0)))
-        (when (> n 0)
-          (propertize (format "✈ %d" n)
-                      'face (if (facep 'telega-unmuted-count)
-                                'telega-unmuted-count
-                              'warning)))))
+    (defun my/status-telega ()
+      "Unmuted Telegram count. Unmuted rather than total: muted groups are
+    muted precisely so they do not ask for attention.
+
+    bound-and-true-p throughout because telega is autoloaded, so in most
+    sessions these variables never come into existence at all."
+      (my/status-count
+       "✈"
+       (or (and (bound-and-true-p telega--unread-chat-count)
+                (plist-get telega--unread-chat-count :unread_unmuted_count))
+           0)
+       'telega-unmuted-count))
 
     (defun my/status-string ()
-      "The ambient status: track, unread mail, unread Telegram.
-    Empty when there is nothing to say, so the bar stays quiet."
+      "The ambient status: unread mail, unread Telegram, then the track.
+
+    Counts first and always drawn, zero included. They are two glyphs and a
+    small number, so they hold their position; the track is a variable-width
+    string that changes on its own, and putting it first shoved the counts
+    sideways on every song. Dimmed at zero rather than hidden, so nothing
+    appears or disappears under a glance."
       (string-join
        (delq nil
-             (list (unless (string-empty-p my/status-music)
-                     (propertize my/status-music 'face 'shadow))
-                   (unless (string-empty-p my/status-mail)
-                     (propertize my/status-mail 'face 'success))
-                   (my/status-telega)))
+             (list (my/status-count "✉" my/status-mail-count 'success)
+                   (my/status-telega)
+                   (unless (string-empty-p my/status-music)
+                     (propertize my/status-music 'face 'shadow))))
        "   "))
 
     ;; Music moves on a track boundary, mail on a fetch. mbsync runs every five
