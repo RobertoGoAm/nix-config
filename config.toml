@@ -1,0 +1,12 @@
+
+[main]
+log_level = "INFO"
+secret_key = "VZ8FEteN8a3IDTRVcAWjr4xCzf/irpQai/VlyH1KoeV7TU4LeuWDl3dPt/Pa0Pqz"
+data_directory = "data"
+
+[server]
+host = "127.0.0.1"
+port = 8000
+
+[database]
+source = "sqlite3:data/db.sqlite3"

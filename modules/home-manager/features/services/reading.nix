@@ -143,7 +143,9 @@ in
           ''}"
         ];
         RunAtLoad = true;
-        KeepAlive = false;
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
         WorkingDirectory = cfg.dataDir;
         EnvironmentVariables = {
           CALIBRE_DBPATH = cfg.dataDir + "/calibre-web";
