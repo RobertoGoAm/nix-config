@@ -352,12 +352,17 @@ the badge rather than showing an error in the modeline."
     ;; strip rather than a tab strip -- no tabs appear unless they are added
     ;; back here.
     (defun my/tab-bar-status ()
-      "Right-aligned ambient status for `tab-bar-format'."
+      "Ambient status for `tab-bar-format', at the left of the bar."
       (let ((s (my/status-string)))
         (unless (string-empty-p s)
-          `((my/status menu-item ,(concat s "  ") ignore)))))
+          `((my/status menu-item ,(concat " " s) ignore)))))
 
-    (setq tab-bar-format '(tab-bar-format-align-right my/tab-bar-status)
+    ;; Left, not right. Right-aligned status sits at the far end of a wide
+    ;; frame, which is the corner of the screen furthest from where the cursor
+    ;; usually is; on the left it reads at a glance without moving your eyes
+    ;; off the code. tab-bar-format-align-right is simply dropped -- everything
+    ;; before it is left-aligned by default.
+    (setq tab-bar-format '(my/tab-bar-status)
           tab-bar-show t
           tab-bar-new-button-show nil
           tab-bar-close-button-show nil)
