@@ -84,6 +84,14 @@
         spotify_refresh_token = {
           owner = user;
         };
+        # smudge's own token, separate from spotify-ctl's above. That one was
+        # minted for user-read-playback-state and user-modify-playback-state
+        # alone, so sharing it would authenticate and then 403 on everything
+        # but transport controls; smudge also needs the playlist and library
+        # scopes. Without this the OAuth flow reruns on every daemon start.
+        spotify_smudge_refresh_token = {
+          owner = user;
+        };
         ssh_id_ed25519 = {
           owner = user;
           path = "/Users/${user}/.ssh/id_ed25519";
