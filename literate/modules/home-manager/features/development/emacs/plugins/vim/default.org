@@ -163,11 +163,12 @@ these plugins bound.
           ;; frames on top of that fights emacsclient over which frame you land in.
           ;; The *split* is still worth keeping, and is handled separately below.
           desktop-restore-frames nil
-          ;; Every buffer up front rather than ten now and the rest on an idle
-          ;; timer. The layout replayed below places buffers by name, so a
-          ;; buffer that has not been restored yet is a window that comes back
-          ;; empty.
-          desktop-restore-eager t
+          ;; Ten up front, the rest on an idle timer. Daemon startup already
+          ;; runs to about fifteen seconds because every restored project
+          ;; buffer triggers a synchronous direnv, and restoring everything
+          ;; eagerly only lengthens that. The layout replay below forces the
+          ;; remainder itself in the rare case a frame opens first.
+          desktop-restore-eager 10
           recentf-max-saved-items 200
           history-length 500)
     (desktop-save-mode 1)
@@ -224,6 +225,13 @@ that hook's *scratch*/*dashboard* guard declines on its own."
                    (member (buffer-name) '("*scratch*" "*dashboard*"))
                    (file-readable-p my/window-state-file))
           (setq my/window-state-restored t)
+          ;; Any buffer still queued on the lazy-restore timer would be a
+          ;; window that comes back empty, since the layout places buffers by
+          ;; name. Normally the queue has drained long before a frame is asked
+          ;; for; when it has not, finish it now rather than making every
+          ;; daemon startup pay for the rare case.
+          (when (bound-and-true-p desktop-buffer-args-list)
+            (ignore-errors (desktop-lazy-complete)))
           (condition-case err
               (let ((state (with-temp-buffer
                              (insert-file-contents my/window-state-file)
