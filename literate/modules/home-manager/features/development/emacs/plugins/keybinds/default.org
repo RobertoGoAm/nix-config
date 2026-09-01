@@ -228,6 +228,16 @@ mean the same thing in a magit buffer as in a source file.
       "hf" '(describe-function :which-key "describe function")
       "hv" '(describe-variable :which-key "describe variable")
 
+      ;; What can I press *here*. which-key already knows every binding the
+      ;; current buffer has; these just ask it to draw them without waiting for
+      ;; a prefix. It is the answer to "what are the keys in this mu4e /
+      ;; telega / smudge buffer", which is otherwise C-h m and a wall of prose.
+      ;;
+      ;; SPC ? is the buffer's own major-mode map; SPC h ? adds everything it
+      ;; inherits, which is longer and usually not what you wanted first.
+      "?"  '(which-key-show-major-mode :which-key "keys in this buffer")
+      "h?" '(which-key-show-full-major-mode :which-key "keys in this buffer (full)")
+
       ;; agenda — org owns dates and tasks; notes stay in Obsidian under "n".
       "k"  '(:ignore t :which-key "agenda")
       "kk" '(my/org-agenda-today :which-key "today")
