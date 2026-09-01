@@ -39,6 +39,14 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (with-eval-after-load 'smudge
       (setq smudge-oauth2-client-id (or (my/spotify--secret "spotify_client_id") "")
             smudge-oauth2-client-secret (or (my/spotify--secret "spotify_client_secret") "")
+            ;; smudge defaults this to "smudge_api_callback", with underscores.
+            ;; The application is registered with the hyphenated spelling,
+            ;; which is what spotify-ctl authenticates against, so leaving the
+            ;; default in place made smudge send a redirect_uri that Spotify
+            ;; had never heard of and fail every request with
+            ;; "redirect_uri: Not matching configuration". Host and port
+            ;; already agree at 127.0.0.1:8080; only the path differed.
+            smudge-oauth2-callback-endpoint "smudge-api-callback"
             smudge-transport 'connect
             smudge-status-location nil))
 
