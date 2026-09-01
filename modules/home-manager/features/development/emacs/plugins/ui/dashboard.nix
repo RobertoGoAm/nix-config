@@ -201,14 +201,31 @@
       (let ((avy-all-windows nil))
         (avy-jump "^ \\{2,\\}[^ \n]")))
 
+    (defun my/dashboard-open-at-point ()
+      "Act on the dashboard entry at point, whatever kind it is.
+
+    Not `(key-binding (kbd \"RET\"))'. dashboard-mode-map binds RET to
+    `dashboard-return', but evil's normal state sits above the major mode map
+    and answers with `evil-ret', which only moves down a line -- so asking
+    what RET does gets the wrong answer here, and plain RET on an entry has
+    never opened anything either.
+
+    The row's own keymap comes first, because the Claude rows carry one as a
+    text property to resume a session in its project directory; then
+    dashboard's own command; then the plain widget."
+      (interactive)
+      (let* ((km (get-char-property (point) 'keymap))
+             (own (and (keymapp km) (lookup-key km (kbd "RET"))))
+             (cmd (cond ((commandp own) own)
+                        ((fboundp 'dashboard-return) #'dashboard-return)
+                        (t #'widget-button-press))))
+        (call-interactively cmd)))
+
     (defun my/dashboard-jump-and-open ()
       "Pick a dashboard entry by hint and act on it."
       (interactive)
       (when (my/dashboard-jump-to-entry)
-        ;; Whatever RET does on that line -- open the file, resume the Claude
-        ;; session, follow the bookmark -- rather than second-guessing which.
-        (let ((cmd (key-binding (kbd "RET"))))
-          (when (commandp cmd) (call-interactively cmd)))))
+        (my/dashboard-open-at-point)))
 
     ;; Bound through evil, not `define-key'. A plain mode-map binding loses to
     ;; evil's normal state -- f there is `evil-find-char', which is worth far
@@ -220,7 +237,10 @@
       (if (fboundp 'evil-define-key*)
           (evil-define-key* 'normal dashboard-mode-map
             (kbd "o") #'my/dashboard-jump-and-open
-            (kbd "O") #'my/dashboard-jump-to-entry)
+            (kbd "O") #'my/dashboard-jump-to-entry
+            ;; RET too, for the same reason: evil-ret would otherwise swallow
+            ;; it and the entry under point would never open.
+            (kbd "RET") #'my/dashboard-open-at-point)
         (define-key dashboard-mode-map (kbd "o") #'my/dashboard-jump-and-open)
         (define-key dashboard-mode-map (kbd "O") #'my/dashboard-jump-to-entry)))
 
