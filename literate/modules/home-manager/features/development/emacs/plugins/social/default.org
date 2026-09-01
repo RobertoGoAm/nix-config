@@ -179,8 +179,24 @@ Notification transport on macOS -- see the notify override in extraConfig.
     ;; Bound twice for the root map on purpose: evil-collection may leave that
     ;; buffer in emacs state, where the plain map binding is what runs, or in
     ;; normal state, where only the evil one is consulted.
+    ;; Getting out of a chat.
+    ;;
+    ;; telega-chat-mode-map binds four keys -- TAB, S-TAB, RET and C-l -- and
+    ;; none of them leaves the buffer, so there is genuinely no way back to the
+    ;; chat list short of the generic buffer commands. q is the key every other
+    ;; Emacs list/detail pair uses, and in evil normal state it would otherwise
+    ;; start recording a macro, which is not something wanted mid-conversation.
+    (defun my/telega-back ()
+      "Return to the telega root buffer from a chat."
+      (interactive)
+      (let ((root (get-buffer telega-root-buffer-name)))
+        (if (buffer-live-p root)
+            (progn (bury-buffer) (switch-to-buffer root))
+          (bury-buffer))))
+
     (with-eval-after-load 'telega
       (require 'evil nil t)
+      (define-key telega-chat-mode-map (kbd "C-c C-q") #'my/telega-back)
       (define-key telega-root-mode-map (kbd "F") #'telega-view-folders)
       (define-key telega-root-mode-map (kbd "U") #'telega-filter-by-unread)
       (when (fboundp 'evil-define-key*)
@@ -194,7 +210,13 @@ Notification transport on macOS -- see the notify override in extraConfig.
           (kbd "RET") #'telega-chatbuf-input-send
           ;; gr, next to evil's other g-prefixed verbs. Opens telega's reaction
           ;; picker on the message at point.
-          (kbd "gr") #'telega-msg-add-reaction)))
+          (kbd "gr") #'telega-msg-add-reaction
+          (kbd "q") #'my/telega-back)
+        ;; V undoes F. telega-view-reset returns the root buffer to the plain
+        ;; chat list from the folder view -- without it F is a one-way door.
+        (evil-define-key* 'normal telega-root-mode-map
+          (kbd "V") #'telega-view-reset))
+      (define-key telega-root-mode-map (kbd "V") #'telega-view-reset))
   '';
 }
 #+end_src
