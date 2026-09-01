@@ -134,6 +134,35 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (with-eval-after-load 'smudge
       (advice-add 'smudge-api-search :around #'my/smudge-search-limit))
 
+    ;; Spotify stopped returning "popularity" on search results.
+    ;;
+    ;; smudge renders a popularity bar for every row, and the bar does
+    ;;
+    ;;   (truncate (/ popularity 10))
+    ;;
+    ;; so a missing field is a division on nil: "Wrong type argument:
+    ;; number-or-marker-p, nil". It happens inside the async callback, which is
+    ;; why it surfaced as "error in process sentinel" and left the results pane
+    ;; created but empty -- the request had succeeded, the rendering died.
+    ;;
+    ;; Checked against the live API: popularity is absent from all ten items of
+    ;; a track search, while album, artists, disc_number, duration_ms and
+    ;; track_number are all still there. Guarding the bar rather than the
+    ;; accessor covers every caller, and an absent value honestly draws as an
+    ;; empty bar.
+    (defun my/smudge-popularity-guard (args)
+      "Substitute 0 for a popularity Spotify did not send."
+      (list (or (car args) 0)))
+
+    ;; Unrelated upstream typo sitting in the same table: the Time column sorts
+    ;; with `smudge-get-track-duration', which does not exist -- the real one is
+    ;; `smudge-api-get-track-duration'. Clicking that header would fail with a
+    ;; void-function error, so the name is aliased rather than left as a trap.
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-popularity-bar :filter-args #'my/smudge-popularity-guard)
+      (unless (fboundp 'smudge-get-track-duration)
+        (defalias 'smudge-get-track-duration #'smudge-api-get-track-duration)))
+
     (defun my/smudge-copy-refresh-token ()
       "Copy the live refresh token, to be pasted into the sops secrets.
 

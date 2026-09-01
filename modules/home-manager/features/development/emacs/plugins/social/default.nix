@@ -152,5 +152,40 @@
     (custom-set-faces
      `(telega-msg-heading ((t (:foreground ,(my/tn 'blue) :weight bold))))
      `(telega-unmuted-count ((t (:foreground ,(my/tn 'green))))))
+
+    ;; Keys telega does not give you, and one it gives you that evil eats.
+    ;;
+    ;; RET in a chat buffer is `telega-chatbuf-newline-or-input-send', which
+    ;; decides between the two by looking at the input. Under evil's insert
+    ;; state that decision does not survive: RET drops back to normal state and
+    ;; sends nothing. Binding it per-state removes the guesswork -- RET sends
+    ;; from either state, S-RET is the newline -- which is also the behaviour
+    ;; every other chat client has.
+    ;;
+    ;; Folders have no key of their own upstream: `telega-filter-by-folder' is
+    ;; only reachable as "/ f". F opens the folder *view* (all folders as
+    ;; sections) and U filters to unread, which together are the "jump to work,
+    ;; jump to unread" that "/ f" makes into a two-step. Both keys are free in
+    ;; `telega-root-mode-map'.
+    ;;
+    ;; Bound twice for the root map on purpose: evil-collection may leave that
+    ;; buffer in emacs state, where the plain map binding is what runs, or in
+    ;; normal state, where only the evil one is consulted.
+    (with-eval-after-load 'telega
+      (require 'evil nil t)
+      (define-key telega-root-mode-map (kbd "F") #'telega-view-folders)
+      (define-key telega-root-mode-map (kbd "U") #'telega-filter-by-unread)
+      (when (fboundp 'evil-define-key*)
+        (evil-define-key* 'normal telega-root-mode-map
+          (kbd "F") #'telega-view-folders
+          (kbd "U") #'telega-filter-by-unread)
+        (evil-define-key* 'insert telega-chat-mode-map
+          (kbd "RET") #'telega-chatbuf-input-send
+          (kbd "S-<return>") #'newline)
+        (evil-define-key* 'normal telega-chat-mode-map
+          (kbd "RET") #'telega-chatbuf-input-send
+          ;; gr, next to evil's other g-prefixed verbs. Opens telega's reaction
+          ;; picker on the message at point.
+          (kbd "gr") #'telega-msg-add-reaction)))
   '';
 }
