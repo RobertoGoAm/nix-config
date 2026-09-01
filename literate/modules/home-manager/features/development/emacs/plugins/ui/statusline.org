@@ -33,7 +33,10 @@
 
     (setq doom-modeline-height 25
           doom-modeline-bar-width 0
-          doom-modeline-icon (display-graphic-p)
+          ;; Not (display-graphic-p): under --fg-daemon this file loads with no
+          ;; frame at all, so that reads nil once and disables icons for every
+          ;; GUI frame made later.
+          doom-modeline-icon t
           ;; lualine `path = 1' — one directory of context, not the whole path.
           doom-modeline-buffer-file-name-style 'relative-from-project
           doom-modeline-minor-modes nil
@@ -216,15 +219,120 @@
                    0)))
         (when (> n 0)
           (concat (doom-modeline-spc)
-                  (propertize (format "✉ %d" n)
+                  (propertize (format "✈ %d" n)
                               'face (if (facep 'telega-unmuted-count)
                                         'telega-unmuted-count
                                       'doom-modeline-warning))))))
 
+    ;; Unread mail and the current track, on the same edge as the Telegram
+    ;; badge. Ambient information: visible without being looked for, gone the
+    ;; moment there is nothing to say.
+    ;;
+    ;; The hard rule here is that a modeline segment runs on *every redisplay*
+    ;; -- every keystroke, every scroll. Shelling out to mu or spotify-ctl from
+    ;; inside one would put a process spawn in the input loop and make typing
+    ;; stutter. So nothing is computed in the segment: a timer refreshes a
+    ;; string asynchronously and the segment only reads it.
+    ;;
+    ;; Both are also gated on the active window. doom-modeline draws a modeline
+    ;; per window, so an ungated badge appears three times in a three-way split
+    ;; and starts competing with the code.
+    (defvar my/status-mail ""
+      "Cached unread-mail badge. Written by `my/status-update-mail'.")
+    (defvar my/status-music ""
+      "Cached now-playing badge. Written by `my/status-update-music'.")
+    (defvar my/status--procs (make-hash-table :test 'equal)
+      "Live status subprocesses, keyed by name, so they cannot stack up.")
+
+    ;; The callback travels on the process object rather than in a closure.
+    ;; This file is tangled without a `lexical-binding' cookie, so a lambda
+    ;; written inline here does *not* capture its enclosing `let' -- the
+    ;; sentinel would fire and die with "Symbol's value as variable is void:
+    ;; callback". process-put/process-get is the binding-agnostic way to carry
+    ;; per-process state, and works the same under either dialect.
+    (defun my/status--sentinel (proc _event)
+      "Hand PROC's output to the callback stashed on it, then repaint."
+      (unless (process-live-p proc)
+        (let ((cb (process-get proc 'my/status-callback))
+              (out (with-current-buffer (process-buffer proc)
+                     (string-trim (buffer-string)))))
+          (kill-buffer (process-buffer proc))
+          (when cb (funcall cb out))
+          (force-mode-line-update t))))
+
+    (defun my/status--run (key command callback)
+      "Run COMMAND, then call CALLBACK with its trimmed stdout.
+Asynchronous, so redisplay never waits on it. A second run for KEY is
+skipped while the first is still going: a hung mu should degrade to a
+stale badge, not to an unbounded pile of processes."
+      (let ((live (gethash key my/status--procs)))
+        (unless (and live (process-live-p live))
+          (let ((proc (make-process
+                       :name (format "status-%s" key)
+                       :buffer (generate-new-buffer (format " *status-%s*" key))
+                       :command command
+                       :noquery t
+                       :sentinel #'my/status--sentinel)))
+            (process-put proc 'my/status-callback callback)
+            (puthash key proc my/status--procs)))))
+
+    (defun my/status-update-mail ()
+      "Refresh the unread count from mu's index."
+      (when (executable-find "mu")
+        (my/status--run
+         "mail"
+         (list "sh" "-c" "mu find --fields m flag:unread 2>/dev/null | wc -l")
+         (lambda (out)
+           (let ((n (string-to-number out)))
+             (setq my/status-mail (if (> n 0) (format "✉ %d" n) "")))))))
+
+    (defun my/status-update-music ()
+      "Refresh the now-playing line from spotify-ctl.
+Empty output -- nothing playing, or no Web API credentials yet -- hides
+the badge rather than showing an error in the modeline."
+      (when (executable-find "spotify-ctl")
+        (my/status--run
+         "music"
+         (list "spotify-ctl" "now")
+         (lambda (out)
+           (setq my/status-music
+                 (if (string-empty-p out)
+                     ""
+                   ;; spotify-ctl emits three tab-separated fields: a state
+                   ;; glyph, the artist and the title. Tabs render as a ragged
+                   ;; gap in a modeline, and the state glyph already says
+                   ;; playing or paused, so no extra note icon is added.
+                   (let* ((f (split-string out "\t" t))
+                          (state (or (nth 0 f) ""))
+                          (artist (or (nth 1 f) ""))
+                          (title (or (nth 2 f) "")))
+                     (truncate-string-to-width
+                      (string-trim (format "%s %s — %s" state artist title))
+                      44 nil nil "…"))))))))
+
+    (doom-modeline-def-segment my/mail
+      (when (and (doom-modeline--active) (not (string-empty-p my/status-mail)))
+        (concat (doom-modeline-spc)
+                (propertize my/status-mail 'face 'doom-modeline-info))))
+
+    (doom-modeline-def-segment my/music
+      (when (and (doom-modeline--active) (not (string-empty-p my/status-music)))
+        (concat (doom-modeline-spc)
+                (propertize my/status-music 'face 'doom-modeline-buffer-minor-mode))))
+
+    ;; Music moves on a track boundary, mail on a fetch. mbsync runs every five
+    ;; minutes, so polling mu faster than that only burns cycles.
+    (defvar my/status--timers nil)
+    (unless my/status--timers
+      (setq my/status--timers
+            (list (run-with-timer 5 150 #'my/status-update-mail)
+                  (run-with-timer 8 20 #'my/status-update-music))))
+
     (doom-modeline-def-modeline 'my/eviline
       '(my/edge-bar my/mode-dot my/filesize my/filename buffer-position
         my/progress my/diagnostics)
-      '(my/telega my/encoding my/fileformat my/branch my/diff my/edge-bar))
+      '(my/music my/mail my/telega my/encoding my/fileformat my/branch my/diff
+        my/edge-bar))
 
     (defun my/set-eviline ()
       "Install the eviline layout as the default modeline."

@@ -25,7 +25,21 @@ p=sys.argv[1]
 print(1 if not os.path.exists(p) or time.time()-os.path.getmtime(p) > float(sys.argv[2]) else 0)
 " "$f" "$max")
   if [ "$stale" = "1" ]; then
-    "$@" >"$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" || : >"$f"
+    # $$ in the temp name: SwiftBar's scheduled run and a manual one can
+    # overlap, and with a shared "$f.tmp" the first mv wins while the second
+    # fails on a file that is already gone.
+    t="$f.$$.tmp"
+    if "$@" >"$t" 2>/dev/null; then
+      mv -f "$t" "$f"
+    else
+      # Keep the previous value rather than blanking it. A failed probe here
+      # is nearly always transient -- a network blip, a daemon restarting --
+      # and truncating meant one bad run made a whole menu section vanish
+      # until the TTL expired. mtime is deliberately left stale so the next
+      # run retries instead of waiting out the TTL on a value it never got.
+      rm -f "$t"
+      [ -e "$f" ] || : >"$f"
+    fi
   fi
   cat "$f" 2>/dev/null || true
 }
