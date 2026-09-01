@@ -65,6 +65,63 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       (when (fboundp 'httpd/smudge_api_callback)
         (defalias 'httpd/smudge-api-callback 'httpd/smudge_api_callback)))
 
+    ;; No plstore, and no pinentry window.
+    ;;
+    ;; oauth2.el persists tokens through plstore, which encrypts them with GPG.
+    ;; There is no GPG key on this machine -- git signs with SSH and every
+    ;; other secret lives in sops behind the YubiKey -- so plstore falls back
+    ;; to symmetric encryption and puts up a pinentry dialog asking you to
+    ;; invent a passphrase, Repeat field and all, in the middle of authorising
+    ;; Spotify. Cancelling it ends the flow with
+    ;;
+    ;;   plstore--insert-buffer: GPG error: "Encrypt failed", "Exit"
+    ;;
+    ;; after the token had already been fetched successfully.
+    ;;
+    ;; smudge is the only oauth2 consumer here, so the store is simply turned
+    ;; off. smudge calls oauth2--update-plstore itself as well as through
+    ;; oauth2-refresh-access, so overriding that one function covers both.
+    (with-eval-after-load 'oauth2
+      (advice-add 'oauth2--update-plstore :override #'ignore)
+      (advice-add 'oauth2--delete-plstore :override #'ignore))
+
+    ;; With the store gone the token lives only as long as the daemon, which
+    ;; would mean a browser round trip after every restart. So it is seeded
+    ;; from sops instead, the same way every other credential here works.
+    ;;
+    ;; This is a second refresh token, not spotify-ctl's: that one was minted
+    ;; for "user-read-playback-state user-modify-playback-state" alone, and
+    ;; smudge also wants the playlist and library scopes, so reusing it would
+    ;; authenticate fine and then 403 on anything but transport controls.
+    (defun my/smudge-seed-token (&rest _)
+      "Build smudge's token from the sops refresh token, if one is stored."
+      (unless (bound-and-true-p smudge-api-oauth2-token)
+        (let ((rt (my/spotify--secret "spotify_smudge_refresh_token")))
+          (when (and rt (not (string-empty-p rt)))
+            (setq smudge-api-oauth2-token
+                  (make-oauth2-token
+                   :client-id smudge-oauth2-client-id
+                   :client-secret smudge-oauth2-client-secret
+                   :refresh-token rt
+                   :token-url smudge-api-oauth2-token-url))))))
+
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-oauth2-token :before #'my/smudge-seed-token))
+
+    (defun my/smudge-copy-refresh-token ()
+      "Copy the live refresh token, to be pasted into the sops secrets.
+
+    Run this once after authorising in the browser; storing what it yields as
+    spotify_smudge_refresh_token is what stops the browser being needed
+    again."
+      (interactive)
+      (let* ((tok (bound-and-true-p smudge-api-oauth2-token))
+             (rt (and tok (oauth2-token-refresh-token tok))))
+        (if (and rt (not (string-empty-p rt)))
+            (progn (kill-new rt)
+                   (message "Refresh token copied. Store it as spotify_smudge_refresh_token."))
+          (message "No token yet -- authorise once with SPC m s."))))
+
     (autoload 'smudge-controller-toggle-play "smudge" nil t)
     (autoload 'smudge-controller-next-track "smudge" nil t)
     (autoload 'smudge-controller-previous-track "smudge" nil t)
