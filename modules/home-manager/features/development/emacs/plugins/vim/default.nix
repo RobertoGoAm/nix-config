@@ -222,9 +222,16 @@
             (when (and (not my/window-state-restored)
                        (frame-live-p frame)
                        (display-graphic-p frame)
-                       (member (buffer-name
-                                (window-buffer (frame-selected-window frame)))
-                               '("*scratch*" "*dashboard*"))
+                       ;; A frame with one window showing no file is a frame with
+                       ;; nothing of its own to display. Matching buffer *names*
+                       ;; was too brittle -- the frame can arrive on any of
+                       ;; *scratch*, the dashboard, or whatever desktop restored
+                       ;; last, and a list of names silently misses the rest.
+                       ;; `emacsclient -c somefile' lands on a file-visiting
+                       ;; buffer, which is exactly what must not be overwritten.
+                       (= 1 (length (window-list frame)))
+                       (not (buffer-file-name
+                             (window-buffer (frame-selected-window frame))))
                        (file-readable-p my/window-state-file))
               (setq my/window-state-restored t)
               ;; Any buffer still queued on the lazy-restore timer would be a
