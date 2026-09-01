@@ -186,6 +186,25 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (with-eval-after-load 'smudge
       (advice-add 'smudge-api-call-async :filter-args #'my/smudge-use-me-playlists))
 
+    ;; Spotify renamed a playlist's track-count field.
+    ;;
+    ;; smudge reads it as (gethash "total" (gethash "tracks" json)). The
+    ;; "tracks" key is gone, replaced by "items" carrying the same {href,
+    ;; total} shape, so the inner gethash returns nil and the outer one fails
+    ;; with "Wrong type argument: hash-table-p, nil" -- inside the async
+    ;; callback, so the whole listing dies and SPC m l shows nothing at all.
+    ;;
+    ;; Tries both names and falls back to zero, so a future rename degrades to
+    ;; a wrong count rather than an empty screen.
+    (defun my/smudge-playlist-track-count (json)
+      "Number of tracks in playlist JSON, under either field name."
+      (let ((h (or (gethash "tracks" json) (gethash "items" json))))
+        (or (and (hash-table-p h) (gethash "total" h)) 0)))
+
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-get-playlist-track-count
+                  :override #'my/smudge-playlist-track-count))
+
     (defun my/smudge-copy-refresh-token ()
       "Copy the live refresh token, to be pasted into the sops secrets.
 
