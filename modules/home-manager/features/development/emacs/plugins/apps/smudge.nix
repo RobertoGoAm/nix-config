@@ -10,8 +10,9 @@
 # osascript commands in music.nix still work against the desktop app.
 
 # The redirect URI on that application must be exactly
-# http://127.0.0.1:8080/smudge_api_callback , with underscores -- that
-# spelling is baked into smudge's servlet and is not configurable.
+# http://127.0.0.1:8080/smudge-api-callback . smudge's own servlet is spelled
+# with underscores, so the config aliases the hyphenated path onto it rather
+# than asking the application to register a second URI.
 
 # Credentials are read at runtime rather than interpolated: this file is
 # generated into the nix store, which is world-readable.
@@ -36,21 +37,33 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (with-eval-after-load 'smudge
       (setq smudge-oauth2-client-id (or (my/spotify--secret "spotify_client_id") "")
             smudge-oauth2-client-secret (or (my/spotify--secret "spotify_client_secret") "")
-            ;; smudge-oauth2-callback-endpoint is deliberately left alone.
-            ;; It looks like the knob for this, but the local server smudge
-            ;; runs is a simple-httpd servlet declared as
+            ;; Hyphens, matching the URI the application already has
+            ;; registered -- the one spotify-ctl authenticates against.
+            ;; Setting this alone is not enough, and on its own it is exactly
+            ;; the bug that produced a bare 404 and a hung Emacs: smudge's
+            ;; callback server is a simple-httpd servlet declared as
             ;;
             ;;   (defservlet* smudge_api_callback text/html (code state error)
             ;;
-            ;; and simple-httpd routes by function name, so the path it serves
-            ;; is the literal "smudge_api_callback" regardless of the
-            ;; defcustom. Setting the defcustom changes only the redirect_uri
-            ;; sent to Spotify, so the browser comes back to a path with no
-            ;; handler, gets a bare 404, and smudge blocks forever waiting for
-            ;; a code that was never delivered. The registered redirect URI has
-            ;; to be the underscored one instead.
+            ;; and simple-httpd routes by function name, so this defcustom
+            ;; moves only the redirect_uri sent to Spotify while the server
+            ;; keeps answering on the underscored path. The alias below
+            ;; supplies the other half.
+            smudge-oauth2-callback-endpoint "smudge-api-callback"
             smudge-transport 'connect
-            smudge-status-location nil))
+            smudge-status-location nil)
+
+      ;; The half that makes the setting above true. simple-httpd resolves a
+      ;; request path to the function named httpd/<path>, so aliasing the
+      ;; hyphenated name onto smudge's real servlet makes the already-registered
+      ;; URI serve the callback. Verified over real HTTP: the alias answers 200,
+      ;; and a path with no alias is the 404 that was seen before.
+      ;;
+      ;; This way round because the alternative is editing the redirect URIs on
+      ;; the Spotify application, and the hyphenated one is already registered
+      ;; and already working for spotify-ctl.
+      (when (fboundp 'httpd/smudge_api_callback)
+        (defalias 'httpd/smudge-api-callback 'httpd/smudge_api_callback)))
 
     (autoload 'smudge-controller-toggle-play "smudge" nil t)
     (autoload 'smudge-controller-next-track "smudge" nil t)
