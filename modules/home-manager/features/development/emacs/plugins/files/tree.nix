@@ -53,12 +53,32 @@
     (treemacs-follow-mode 1)
     (treemacs-project-follow-mode 1)
 
+    ;; treemacs keeps its own workspace, which has nothing to do with the
+    ;; project LSP found. `treemacs-find-file' only reveals a file that is
+    ;; already inside a workspace project, so in a repo that was never added it
+    ;; did nothing at all -- no tree, no error, no hint that a project needed
+    ;; registering first. That is what made SPC f t look broken in every new
+    ;; checkout while LSP was perfectly happy with the same directory.
+    ;;
+    ;; Adding the project first makes the toggle self-sufficient. Exclusively,
+    ;; so the tree shows the repo being worked in rather than accumulating
+    ;; every project ever opened.
     (defun my/treemacs-toggle ()
-      "Toggle the tree, revealing the current file — NvimTreeFindFileToggle."
+      "Toggle the tree, revealing the current file.
+
+    Registers the current project with treemacs if it is not already there,
+    which is what `treemacs-find-file' silently requires."
       (interactive)
       (pcase (treemacs-current-visibility)
         ('visible (delete-window (treemacs-get-local-window)))
-        (_ (treemacs-find-file))))
+        (_
+         (if (treemacs--find-current-user-project)
+             (treemacs-add-and-display-current-project-exclusively)
+           ;; Not in a project -- a stray file, or a directory with no VCS
+           ;; marker. Open the tree on its own rather than refusing.
+           (treemacs))
+         (when (buffer-file-name)
+           (ignore-errors (treemacs-find-file))))))
 
     ;; actions.open_file.quit_on_open = true: opening a file closes the tree, so the
     ;; tree is a picker rather than a permanent sidebar.
