@@ -63,6 +63,14 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # mid-flight: same pid, still answering.
 
   programs.emacs.extraConfig = ''
+    ;; The server came free with --fg-daemon; without the daemon it has to be
+    ;; started explicitly, or emacsclient has nothing to talk to -- EDITOR,
+    ;; GhostText and the Emacs Client launcher all go through it. Guarded,
+    ;; because starting a server that is already running warns on every frame.
+    (unless (and (boundp 'server-process) server-process (process-live-p server-process))
+      (require 'server)
+      (unless (server-running-p) (server-start)))
+
     ;; Clicking the app icon should bring Emacs forward, not add a frame.
     ;;
     ;; The launcher calls this instead of `emacsclient -c'. Every frame the

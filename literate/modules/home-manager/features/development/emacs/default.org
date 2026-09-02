@@ -95,7 +95,7 @@ does nothing for several seconds and then maybe opens a bare frame -- which
 is what "Emacs Client won't open" turned out to be.
 
 #+begin_src nix
-  launchd.agents.emacs.config.KeepAlive = lib.mkForce true;
+  # KeepAlive removed with the agent: see below.
 
   #+end_src
 
@@ -137,10 +137,14 @@ is what "Emacs Client won't open" turned out to be.
   # The path stays stable across rebuilds, which is the property this whole
   # block exists to protect -- ~/Applications/Home Manager Apps is a real
   # directory that copyApps refreshes in place, not a store path that moves.
-  launchd.agents.emacs.config.ProgramArguments = lib.mkForce [
-    "${config.home.homeDirectory}/Applications/Home Manager Apps/Emacs.app/Contents/MacOS/Emacs"
-    "--fg-daemon"
-  ];
+  # No agent. Emacs is started by clicking its icon and ends when its last
+  # frame closes, so nothing should be launching it at login or restarting it
+  # afterwards -- a KeepAlive daemon would come straight back frameless, and a
+  # frameless Emacs cannot be reopened from the Dock at all.
+  #
+  # The cost is a cold start each time, around fifteen seconds here, most of
+  # it direnv evaluating shells for the project buffers desktop restores.
+  launchd.agents.emacs.enable = lib.mkForce false;
 #+end_src
 
 * early-init runs before the first frame is drawn, so killing...
@@ -228,21 +232,24 @@ it). GUI frames are `emacsclient -c`; both attach to the same daemon.
     # frames belong to the daemon and go down with it.
     (pkgs.writeShellScriptBin "emacs-restart" ''
       set -eu
-      label="gui/$(id -u)/org.nix-community.home.emacs"
-      echo "Restarting $label..."
-      launchctl kickstart -k "$label"
-
-      # Reopen a frame. kickstart brings the daemon back headless -- it has no
-      # frames until a client asks for one -- so a bare restart looks like
-      # Emacs simply closed and never returned. Wait for the socket rather
-      # than sleeping a fixed amount, because the daemon spends several
-      # seconds restoring the desktop before it answers.
-      for _ in $(seq 1 100); do
-        emacsclient -e t >/dev/null 2>&1 && break
-        sleep 0.2
-      done
-      emacsclient -c -n >/dev/null 2>&1 || \
-        echo "daemon is up but no frame could be opened; run: emacsclient -c -n"
+      # No launchd agent any more, so this quits the app and opens it again.
+      # `open' rather than running the executable directly: it goes through
+      # LaunchServices, which is what gives the process its bundle identity
+      # and therefore the right Dock icon.
+      app="$HOME/Applications/Home Manager Apps/Emacs.app"
+      if emacsclient -e t >/dev/null 2>&1; then
+        echo "Quitting Emacs..."
+        emacsclient -e "(save-buffers-kill-emacs)" >/dev/null 2>&1 || true
+        for _ in $(seq 1 60); do
+          emacsclient -e t >/dev/null 2>&1 || break
+          sleep 0.25
+        done
+      fi
+      echo "Starting Emacs..."
+      # No frame call afterwards: launching the app is what creates the frame
+      # now. The daemon needed one because it started headless; asking for
+      # another here would just open a second window.
+      open -a "$app"
     '')
 
     (pkgs.writeShellScriptBin "em" ''
