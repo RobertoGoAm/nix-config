@@ -185,7 +185,14 @@
       (interactive)
       (if (cdr (frame-list))
           (delete-frame)
-        (message "This is the only frame; SPC q Q kills the daemon")))
+        ;; Last frame: quit outright rather than leaving a frameless Emacs
+        ;; behind. Emacs implements no macOS reopen handler --
+        ;; applicationShouldHandleReopen is absent from the binary -- so an
+        ;; Emacs with no frames cannot be brought back by clicking its Dock
+        ;; icon; it would sit there running and unreachable. Quitting makes
+        ;; the icon behave the way every other app's does: lit while open,
+        ;; clickable to start again.
+        (save-buffers-kill-emacs)))
 
     (defun my/quit-force ()
       "Quit without saving — `qa!'."
