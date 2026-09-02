@@ -79,6 +79,18 @@ Chrome is the work browser and comes from the homebrew cask, so it lives in
     "/Applications/Google Chrome.app"
 #+end_src
 
+* Emacs Client.app, not Emacs.app
+
+The dock entry has to be the client wrapper. Emacs.app would start a second,
+independent Emacs on every click, with none of the daemon's buffers or state --
+which is the whole reason the daemon exists. Emacs Client.app runs emacsclient
+against it instead, and is also why the stock bundle is removed during
+activation rather than left beside it: one icon, one Emacs.
+
+#+begin_src nix
+    "/Users/${user}/Applications/Home Manager Apps/Emacs Client.app"
+#+end_src
+
 * "Zen Browser (Beta).app" is the bundle name the package ships -- the
 
 darwin build is the beta channel, and the name carries that. It changes
