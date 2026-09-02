@@ -66,6 +66,16 @@ in
 
     "/Applications/Google Chrome.app"
 
+    # Emacs Client.app, not Emacs.app
+
+    # The dock entry has to be the client wrapper. Emacs.app would start a second,
+    # independent Emacs on every click, with none of the daemon's buffers or state --
+    # which is the whole reason the daemon exists. Emacs Client.app runs emacsclient
+    # against it instead, and is also why the stock bundle is removed during
+    # activation rather than left beside it: one icon, one Emacs.
+
+    "/Users/${user}/Applications/Home Manager Apps/Emacs Client.app"
+
     # "Zen Browser (Beta).app" is the bundle name the package ships -- the
 
     # darwin build is the beta channel, and the name carries that. It changes
