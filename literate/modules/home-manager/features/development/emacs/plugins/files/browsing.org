@@ -93,6 +93,30 @@
     (setq prefix-help-command #'embark-prefix-help-command)
     (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
 
+    ;; Acting on the thing under the cursor, in a completion list or a buffer.
+    ;;
+    ;; embark was required and its collect buffers configured, but embark-act
+    ;; itself was never bound to anything -- so the actions existed and there
+    ;; was no key that reached them. In consult-buffer that meant no way to
+    ;; kill a buffer from the switcher at all: C-. then k does it now, and K
+    ;; kills the window with it.
+    ;; C-. in the minibuffer maps rather than globally: evil's state maps sit
+    ;; above global-map and answer C-. with `evil-repeat-pop', so a global
+    ;; binding never reaches embark in a normal buffer. The completion list is
+    ;; where this is wanted anyway, and evil is not in the way there.
+    (global-set-key (kbd "C-;") #'embark-dwim)
+    (define-key minibuffer-local-map (kbd "C-.") #'embark-act)
+    (with-eval-after-load 'vertico
+      (define-key vertico-map (kbd "C-.") #'embark-act))
+
+    ;; Killing a buffer should not close the switcher. Acting normally quits
+    ;; the minibuffer, which is right for "jump to this" and wrong for
+    ;; "delete this" -- tidying up ten stale buffers would mean reopening the
+    ;; list ten times. Everything else keeps the default.
+    (setq embark-quit-after-action '((kill-buffer . nil)
+                                     (embark-kill-buffer-and-window . nil)
+                                     (t . t)))
+
     ;; project-nvim's replacement. The search path is the dev workspace root
     ;; features/development/default.nix creates, so SPC p p lists real projects on a
     ;; fresh machine without any manual registration.
