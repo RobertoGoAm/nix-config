@@ -79,6 +79,19 @@ Chrome is the work browser and comes from the homebrew cask, so it lives in
     "/Applications/Google Chrome.app"
 #+end_src
 
+* "Zen Browser (Beta).app" is the bundle name the package ships -- the
+
+darwin build is the beta channel, and the name carries that. It changes
+if the channel does, and a dock entry pointing at a missing path just
+silently shows nothing.
+
+#+begin_src nix
+    "/Users/${user}/Applications/Home Manager Apps/Zen Browser (Beta).app"
+    "/Users/${user}/Applications/Home Manager Apps/Chrome Dev.app"
+    "/System/Applications/Mail.app"
+    "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
+#+end_src
+
 * Emacs Client.app, not Emacs.app
 
 The dock entry has to be the client wrapper. Emacs.app would start a second,
@@ -91,17 +104,9 @@ activation rather than left beside it: one icon, one Emacs.
     "/Users/${user}/Applications/Home Manager Apps/Emacs Client.app"
 #+end_src
 
-* "Zen Browser (Beta).app" is the bundle name the package ships -- the
-
-darwin build is the beta channel, and the name carries that. It changes
-if the channel does, and a dock entry pointing at a missing path just
-silently shows nothing.
+* The editors, the terminal and chat
 
 #+begin_src nix
-    "/Users/${user}/Applications/Home Manager Apps/Zen Browser (Beta).app"
-    "/Users/${user}/Applications/Home Manager Apps/Chrome Dev.app"
-    "/System/Applications/Mail.app"
-    "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
     "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app"
     "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
