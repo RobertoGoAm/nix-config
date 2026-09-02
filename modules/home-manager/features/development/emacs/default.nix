@@ -111,8 +111,18 @@ in
   # Just the program: home-manager wraps ProgramArguments in its own
   # `/bin/sh -c "/bin/wait4path /nix/store && exec ..."', so supplying that
   # wrapper here too nests one inside the other.
+  #
+  # The bundle, not bin/emacs. Launched from bin/emacs the daemon has no
+  # bundle identity: macOS lists it as a bare process called "emacs", with a
+  # generic icon and nothing a Dock entry can point at. Launched from inside
+  # Emacs.app it is org.gnu.Emacs, which is what gives the Dock icon its
+  # running indicator and makes the frames emacsclient opens belong to it.
+  #
+  # The path stays stable across rebuilds, which is the property this whole
+  # block exists to protect -- ~/Applications/Home Manager Apps is a real
+  # directory that copyApps refreshes in place, not a store path that moves.
   launchd.agents.emacs.config.ProgramArguments = lib.mkForce [
-    "${config.home.profileDirectory}/bin/emacs"
+    "${config.home.homeDirectory}/Applications/Home Manager Apps/Emacs.app/Contents/MacOS/Emacs"
     "--fg-daemon"
   ];
 
