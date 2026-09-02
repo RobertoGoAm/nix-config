@@ -49,6 +49,21 @@ in
   programs.emacs = {
     enable = true;
     package = emacsPackage;
+
+    # The lexical-binding cookie, first line of the generated default.el.
+    #
+    # home-manager concatenates every extraConfig into one file and writes no
+    # header, so the whole configuration ran under dynamic binding. Emacs 30
+    # warns about that on every start, and the behaviour behind the warning is
+    # worse than the warning: a lambda does not capture its enclosing let, so
+    # any closure silently loses its variables. The async status-bar sentinel
+    # died exactly that way -- "Symbol's value as variable is void: callback"
+    # -- and there are thirty-nine lambdas in the file.
+    #
+    # mkBefore because the cookie is only honoured on the very first line.
+    # mkOrder 0, not mkBefore: another module already claims mkBefore (500),
+    # and the cookie is only honoured on the very first line of the file.
+    extraConfig = lib.mkOrder 0 ";;; -*- lexical-binding: t; -*-\n";
   };
 
   # A daemon under launchd (macOS) / systemd (Linux) is what makes...
