@@ -201,6 +201,36 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       (advice-add 'smudge-api-get-playlist-track-count
                   :override #'my/smudge-playlist-track-count))
 
+    ;; Album search. smudge searches tracks and playlists but never exposes
+    ;; type=album, though its own API layer takes the type as an argument.
+    ;; Picking an album plays it as a context, so the whole record queues up
+    ;; rather than one track in isolation.
+    (defun my/smudge-album-search (query)
+      "Search Spotify albums for QUERY and play the one chosen."
+      (interactive "sAlbum: ")
+      (smudge-api-search
+       "album" query 1
+       (lambda (json)
+         (let* ((items (smudge-api-get-items (gethash "albums" json)))
+                (cands (delq nil
+                             (mapcar
+                              (lambda (a)
+                                (when (hash-table-p a)
+                                  (cons (format "%s — %s"
+                                                (mapconcat
+                                                 (lambda (ar) (gethash "name" ar))
+                                                 (gethash "artists" a) ", ")
+                                                (gethash "name" a))
+                                        (gethash "uri" a))))
+                              items))))
+           (if (null cands)
+               (message "No albums found for %s" query)
+             (let* ((pick (completing-read "Album: " cands nil t))
+                    (uri (cdr (assoc pick cands))))
+               ;; nil track, album as context: start at the top of the record.
+               (smudge-connect-player-play-track nil uri)
+               (message "Playing %s" pick)))))))
+
     (defun my/smudge-copy-refresh-token ()
       "Copy the live refresh token, to be pasted into the sops secrets.
 

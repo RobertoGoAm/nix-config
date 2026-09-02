@@ -132,11 +132,23 @@
                       (or (plist-get notify-spec :title) "Telegram")))
               (body (substring-no-properties
                      (or (plist-get notify-spec :body) ""))))
-          (call-process "${lib.getExe pkgs.terminal-notifier}" nil 0 nil
-                        "-title" title
-                        "-message" body
-                        "-group" "emacs.telega"
-                        "-sender" "org.gnu.Emacs")))
+          ;; osascript, not terminal-notifier. terminal-notifier is a GUI app
+          ;; bundle: posting a banner makes it frontmost for an instant, and
+          ;; macOS then hands focus back to whatever was frontmost before
+          ;; Emacs -- so a message arriving while you type throws you into the
+          ;; app you were in previously. -sender does not prevent that.
+          ;; osascript is not an app, activates nothing, and the banner is the
+          ;; same.
+          ;;
+          ;; The text travels in argv rather than in the script source.
+          ;; Interpolating a chat message into AppleScript would let any
+          ;; message containing a quote break the script, and a crafted one
+          ;; run arbitrary AppleScript -- this content comes from other people.
+          (call-process "/usr/bin/osascript" nil 0 nil
+                        "-e" "on run argv"
+                        "-e" "display notification (item 2 of argv) with title (item 1 of argv)"
+                        "-e" "end run"
+                        title body)))
 
       (with-eval-after-load 'telega
         (advice-add 'telega-notifications--notify

@@ -277,6 +277,11 @@
       "ms" '(smudge-track-search :which-key "search tracks")
       "ml" '(smudge-my-playlists :which-key "my playlists")
       "md" '(smudge-select-device :which-key "select device")
+      "ma" '(my/smudge-album-search :which-key "search albums")
+      "mr" '(smudge-controller-toggle-repeat :which-key "toggle repeat")
+      ;; x for mix: s is already search, and shuffle deserves a key you can
+      ;; hit without thinking about which of the two you meant.
+      "mx" '(smudge-controller-toggle-shuffle :which-key "toggle shuffle")
       "m=" '(my/music-louder :which-key "louder")
       "m-" '(my/music-quieter :which-key "quieter")
 
