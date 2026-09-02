@@ -55,9 +55,19 @@ store directly:
   open -n "$(readlink -f ~/.nix-profile/bin/emacs | xargs dirname | xargs dirname)/Applications/Emacs.app"
 
 #+begin_src nix
-  home.activation.hideStockEmacsApp = lib.hm.dag.entryAfter [ "copyApps" ] ''
-    run rm -rf "$HOME/Applications/Home Manager Apps/Emacs.app"
-  '';
+  # Emacs.app is deliberately kept now, not deleted.
+  #
+  # It was removed to leave a single icon, back when the daemon ran from
+  # bin/emacs and the bundle was only ever a second way to start a rival
+  # instance. The daemon now runs from inside this bundle, so it *is* the
+  # daemon: its icon carries the running indicator, and the frames
+  # emacsclient asks for belong to it. Deleting it would delete the running
+  # Emacs's own identity.
+  #
+  # Nothing here rsyncs over a live process unsafely -- copyApps writes a
+  # temporary file and renames, so a running daemon keeps the inode it
+  # started with. Checked by replacing a running daemon's executable
+  # mid-flight: same pid, still answering.
 
   programs.emacs.extraConfig = ''
     ;; Clicking the app icon should bring Emacs forward, not add a frame.
