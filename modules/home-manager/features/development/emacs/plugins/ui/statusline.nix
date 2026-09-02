@@ -233,11 +233,13 @@
           "Live status subprocesses, keyed by name, so they cannot stack up.")
 
         ;; The callback travels on the process object rather than in a closure.
-        ;; This file is tangled without a `lexical-binding' cookie, so a lambda
-        ;; written inline here does *not* capture its enclosing `let' -- the
-        ;; sentinel would fire and die with "Symbol's value as variable is void:
-        ;; callback". process-put/process-get is the binding-agnostic way to carry
-        ;; per-process state, and works the same under either dialect.
+        ;;
+        ;; Written when the file was tangled without a `lexical-binding' cookie, so
+        ;; an inline lambda did not capture its enclosing `let' and the sentinel
+        ;; died with "Symbol's value as variable is void: callback". The cookie is
+        ;; there now and a closure would work, but process-put/process-get is kept:
+        ;; it is what the process object is for, and it does not care which dialect
+        ;; the file is read under.
         (defun my/status--sentinel (proc _event)
           "Hand PROC's output to the callback stashed on it, then repaint."
           (unless (process-live-p proc)
