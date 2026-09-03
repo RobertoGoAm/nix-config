@@ -1,14 +1,25 @@
 # development emacs plugins version-control git
 
 {
+  pkgs,
   ...
 }:
 {
+  # difftastic diffs the parsed syntax tree, not lines. A reindent, a wrapped
+  # argument list, a brace moved to its own line all show as unchanged, and a
+  # function that moved shows as moved rather than as one deletion and one
+  # addition far apart. That is the difference between reading your own changes
+  # and hunting for them.
+  #
+  # The binary has to be on PATH for the Emacs side to shell out to it.
+  home.packages = [ pkgs.difftastic ];
+
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
       blamer
       browse-at-remote
       diff-hl
+      difftastic
       forge
       git-link
       git-timemachine
@@ -16,6 +27,23 @@
     ];
 
   programs.emacs.extraConfig = ''
+    ;; difftastic, driven from magit.
+    ;;
+    ;; `difftastic-magit-diff' replaces magit's own diff for the range under
+    ;; point; `difftastic-magit-show' does the same for a single commit. Both
+    ;; render in a normal buffer, so the usual movement keys work and q buries
+    ;; it.
+    ;;
+    ;; Requested width follows the window rather than a fixed column count,
+    ;; because difftastic decides between side-by-side and stacked output from
+    ;; the width it is given -- pinned to 80 it always picks stacked, which is
+    ;; the layout it is worst at.
+    (with-eval-after-load 'magit
+      (require 'difftastic nil t)
+      (when (fboundp 'difftastic-magit-diff)
+        (setq difftastic-requested-window-width-function
+              (lambda () (- (window-width) 4)))))
+
         ;;; Git — magit in place of fugitive, diff-hl in place of gitsigns, forge for
         ;;; GitHub and GitLab.
         ;;;

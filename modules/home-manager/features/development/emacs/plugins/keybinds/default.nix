@@ -158,6 +158,9 @@
       "gB" '(browse-at-remote :which-key "git browse")
       "gc" '(magit-commit :which-key "commit")
       "gd" '(magit-diff-unstaged :which-key "diff")
+      ;; Structural diff, for reading your own changes: a reindent or a moved
+      ;; function reads as unchanged rather than as a wall of red and green.
+      "gw" '(difftastic-magit-diff :which-key "diff (structural)")
       "gD" '(magit-diff-buffer-file :which-key "diff split")
       "ge" '(diff-hl-previous-hunk :which-key "prev hunk")
       "gf" '(forge-dispatch :which-key "forge (PRs, MRs, issues)")
