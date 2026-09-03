@@ -44,6 +44,18 @@ let
   # The TOML keeps its Colemak bindings as the committed default; only the eight
   # directional entries are rewritten, and only when the layout says so.
 
+  # Switching between the two halves of the day without the mouse.
+  #
+  # The full bundle path, not `open -a Emacs'. By name LaunchServices picks
+  # whichever Emacs.app it happens to have registered, and it had a stale
+  # emacs-30.2 from an old generation -- so the key opened a strange Emacs
+  # with none of this configuration in it. Chrome is unambiguous but is
+  # spelled out too, for the same reason.
+  apps = {
+    "alt-enter" = "exec-and-forget open -a '/Users/${user}/Applications/Home Manager Apps/Emacs.app'";
+    "alt-b" = "exec-and-forget open -a '/Applications/Google Chrome.app'";
+  };
+
   directional = {
     "alt-h" = "focus left";
     "alt-${nav.down}" = "focus down";
@@ -78,7 +90,7 @@ in
     settings = base // {
       mode = base.mode // {
         main = base.mode.main // {
-          binding = stripped // directional;
+          binding = stripped // directional // apps;
         };
       };
     };

@@ -316,10 +316,17 @@
     And the frame can arrive split, which is what produced two windows each
     showing the dashboard with its own modeline. `delete-other-windows' leaves
     the one window a home screen should be. A frame opened on a file is
-    untouched: its buffer is neither of these."
-      (when (member (buffer-name) '("*scratch*" "*dashboard*"))
-        (my/dashboard-home)
-        (delete-other-windows)))
+    untouched: its buffer is neither of these.
+
+    What the frame is showing, not `current-buffer'. Inside
+    `server-after-make-frame-hook' the current buffer is \" *server*\" --
+    server.el's own -- so the guard below never matched and the flattening
+    never ran, which is how the split dashboard came back."
+      (let* ((frame (selected-frame))
+             (shown (buffer-name (window-buffer (frame-selected-window frame)))))
+        (when (member shown '("*scratch*" "*dashboard*"))
+          (my/dashboard-home)
+          (delete-other-windows))))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
