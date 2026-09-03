@@ -56,15 +56,24 @@
     ;; Chat is a web app either way -- there is no Emacs client for Google
     ;; Chat, the protocol is not open and nothing on MELPA speaks it.
 
+    ;; Google Workspace goes to the real browser, never the xwidget.
+    ;;
+    ;; The organisation does not permit work services through an unmanaged
+    ;; browser engine, and the xwidget is exactly that: its own WebKit with
+    ;; its own cookie jar, outside the managed browser and its policies.
+    ;; gchat and meet were already external; mail and calendar were not, which
+    ;; was the whole of the exposure. Do not switch these back to
+    ;; my/browse-internal.
+
     (defun my/open-gmail ()
       "Open Gmail in Emacs."
       (interactive)
-      (my/browse-internal "https://mail.google.com/"))
+      (my/browse-external "https://mail.google.com/"))
 
     (defun my/open-gcalendar ()
       "Open Google Calendar in Emacs."
       (interactive)
-      (my/browse-internal "https://calendar.google.com/"))
+      (my/browse-external "https://calendar.google.com/"))
 
     (defun my/open-gchat ()
       "Open Google Chat in the system browser.
