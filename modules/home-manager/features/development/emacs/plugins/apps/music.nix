@@ -61,6 +61,44 @@ in
               (message "%s %s - %s"
                        (if (string= state "playing") "|>" "||") artist track))))
 
+        ;; Bring the Emacs Connect device back.
+        ;;
+        ;; librespot loses its websocket to Spotify and keeps running, so the
+        ;; device disappears from every picker while launchd, which only
+        ;; watches the process, reports the job healthy. Killing it is the
+        ;; cure: KeepAlive restarts it and it reconnects at once. A watchdog
+        ;; does this every five minutes; this is the same thing on demand,
+        ;; for when you have noticed before it has.
+        (defun my/music-restart-device ()
+          "Restart librespot, then say whether the Emacs device came back."
+          (interactive)
+          (message "Restarting the Emacs device...")
+          ;; pkill, not the launchd job: bootout/kickstart would need the
+          ;; label and the domain, and KeepAlive already handles the restart.
+          (call-process "/usr/bin/pkill" nil 0 nil "-x" "librespot")
+          ;; Reconnecting takes a few seconds; asking immediately always says
+          ;; no. Asynchronous so the frame is never blocked waiting.
+          (run-at-time
+           10 nil
+           (lambda ()
+             (let ((buf (generate-new-buffer " *librespot-check*")))
+               (make-process
+                :name "librespot-check"
+                :buffer buf
+                :command (list "sh" "-c"
+                               "spotify-ctl devices 2>/dev/null | cut -f2")
+                :noquery t
+                :sentinel
+                (lambda (proc _event)
+                  (unless (process-live-p proc)
+                    (let ((out (with-current-buffer (process-buffer proc)
+                                 (buffer-string))))
+                      (kill-buffer (process-buffer proc))
+                      (message
+                       (if (string-match-p "^Emacs$" out)
+                           "Emacs device is back."
+                         "Emacs device still missing — check ~/Library/Logs/librespot.err.log")))))))))) 
+
         (defun my/music-playpause ()
           "Toggle play/pause, then report what happened."
           (interactive)

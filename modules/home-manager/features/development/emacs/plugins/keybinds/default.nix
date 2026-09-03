@@ -282,6 +282,7 @@
       ;; x for mix: s is already search, and shuffle deserves a key you can
       ;; hit without thinking about which of the two you meant.
       "mx" '(smudge-controller-toggle-shuffle :which-key "toggle shuffle")
+      "mR" '(my/music-restart-device :which-key "restart emacs device")
       "m=" '(my/music-louder :which-key "louder")
       "m-" '(my/music-quieter :which-key "quieter")
 
