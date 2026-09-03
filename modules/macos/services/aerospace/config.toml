@@ -40,6 +40,13 @@ alt-comma = "layout accordion horizontal vertical"
 # not running at all -- which is now the normal state, since Emacs quits with
 # its last frame.
 alt-enter = "exec-and-forget open -a Emacs"
+
+# And back again. Chrome is the work browser, so these two keys are the whole
+# switch between writing and reading without touching the mouse: alt-enter to
+# Emacs, alt-b to the browser. Vimium handles movement inside the page and
+# GhostText hands any text field back to Emacs, so the keyboard never has to
+# be left for either half.
+alt-b = "exec-and-forget open -a 'Google Chrome'"
 alt-e = "focus up"
 alt-h = "focus left"
 alt-i = "focus right"
