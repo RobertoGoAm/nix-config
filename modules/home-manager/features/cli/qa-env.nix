@@ -1,0 +1,30 @@
+# QA credentials as environment variables
+
+# Two values the QA tooling expects in the environment. They are credentials, so
+# they live in sops like everything else and never in this repository; only the
+# variable names appear here.
+
+# Read at shell start rather than baked into ~sessionVariables~: a value compiled
+# into the environment would be a copy in the nix store, which is world-readable,
+# and the store is not where secrets belong. Reading the file each time also
+# means rotating the secret takes effect on the next shell rather than the next
+# rebuild.
+
+# Silent when the files are absent. They will be on any host without these
+# secrets, and on this one before sops-nix has materialised them at login -- a
+# shell that complained on every start would be worse than one that simply does
+# not export them.
+
+{ lib, ... }:
+{
+  programs.zsh.initContent = lib.mkAfter ''
+    for _qa_pair in QA_CLIENT_ID:qa_client_id QA_CLIENT_SECRET:qa_client_secret; do
+      _qa_var=''${_qa_pair%%:*}
+      _qa_file="/var/run/secrets/''${_qa_pair##*:}"
+      if [ -r "$_qa_file" ]; then
+        export "$_qa_var=$(cat "$_qa_file")"
+      fi
+    done
+    unset _qa_pair _qa_var _qa_file
+  '';
+}

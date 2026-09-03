@@ -75,6 +75,12 @@
         openrouter_api_key = {
           owner = user;
         };
+        qa_client_id = {
+          owner = user;
+        };
+        qa_client_secret = {
+          owner = user;
+        };
         spotify_client_id = {
           owner = user;
         };
