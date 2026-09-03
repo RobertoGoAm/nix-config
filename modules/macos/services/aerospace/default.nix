@@ -46,13 +46,22 @@ let
 
   # Switching between the two halves of the day without the mouse.
   #
-  # The full bundle path, not `open -a Emacs'. By name LaunchServices picks
-  # whichever Emacs.app it happens to have registered, and it had a stale
-  # emacs-30.2 from an old generation -- so the key opened a strange Emacs
-  # with none of this configuration in it. Chrome is unambiguous but is
-  # spelled out too, for the same reason.
+  # emacsclient, not `open'. Emacs runs as a daemon: opening the bundle would
+  # start a second, unrelated instance, while emacsclient asks the running one
+  # for a frame -- and raises it if a frame already exists. This is also what
+  # makes the Dock icon's one weakness irrelevant: Emacs implements no macOS
+  # reopen handler, so clicking the icon with no frames open does nothing,
+  # and this key covers exactly that case.
+  #
+  # --alternate-editor="" starts the daemon if none is listening, so the key
+  # works before the agent has come up.
+  #
+  # The profile path rather than a bare name: by name LaunchServices picked a
+  # stale emacs-30.2 from an old generation, which opened an Emacs with none
+  # of this configuration in it.
   apps = {
-    "alt-enter" = "exec-and-forget open -a '/Users/${user}/Applications/Home Manager Apps/Emacs.app'";
+    "alt-enter" =
+      "exec-and-forget /etc/profiles/per-user/${user}/bin/emacsclient -c -n --alternate-editor=";
     "alt-b" = "exec-and-forget open -a '/Applications/Google Chrome.app'";
   };
 
