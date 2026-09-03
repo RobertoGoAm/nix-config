@@ -33,6 +33,13 @@ alt-4 = "workspace 4"
 alt-5 = "workspace 5"
 alt-6 = "workspace 6"
 alt-comma = "layout accordion horizontal vertical"
+
+# Jump straight to Emacs from any app, without reaching for the mouse or
+# hunting through the workspace it happens to be on. `open` activates the
+# running instance rather than starting a second one, and starts it if it is
+# not running at all -- which is now the normal state, since Emacs quits with
+# its last frame.
+alt-enter = "exec-and-forget open -a Emacs"
 alt-e = "focus up"
 alt-h = "focus left"
 alt-i = "focus right"
