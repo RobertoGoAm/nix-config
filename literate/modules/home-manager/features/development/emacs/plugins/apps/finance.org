@@ -597,6 +597,43 @@ to recompile them and go hunting for error patterns in a balance sheet.
       "The total of QUERY over calendar YEAR, as a positive number."
       (abs (my/hledger--amount query (format "%d-01-01..%d-12-31" year year))))
 
+    (defun my/hledger--salary-months (year)
+      "The months of YEAR that have a payslip, as a list of (GROSS IRPF SS).
+
+    Read off the monthly matrix and filtered to the months that actually have
+    a salary. The matrix always returns twelve columns, the later ones empty,
+    which is the trap: the last column is December whether or not December has
+    happened, so taking it as the run rate reads zero every time."
+      (let* ((m (my/hledger--matrix "balance" "^income:salary" "^expenses:tax:irpf"
+                                    "^expenses:tax:social-security"
+                                    "-b" (format "%d-01-01" year)
+                                    "-e" (format "%d-01-01" (1+ year))))
+             (row (lambda (a) (cdr (assoc a (cdr m)))))
+             (gross (funcall row "income:salary"))
+             (irpf (funcall row "expenses:tax:irpf"))
+             (ss (funcall row "expenses:tax:social-security"))
+             (out nil))
+        (dotimes (i (length gross))
+          (let ((g (abs (or (nth i gross) 0))))
+            (when (> g 0)
+              (push (list g (abs (or (nth i irpf) 0)) (abs (or (nth i ss) 0))) out))))
+        (nreverse out)))
+
+    (defun my/hledger--run-rate (months)
+      "The ordinary month to project the rest of the year from.
+
+    The most recent one, unless it is a bonus month -- projecting a bonus into
+    every remaining month would roughly double the estimate. Anything more
+    than a quarter above the median is treated as a bonus and the median month
+    is used instead."
+      (if (null months) (list 0.0 0.0 0.0)
+        (let* ((grosses (sort (mapcar #'car months) #'<))
+               (median (nth (/ (length grosses) 2) grosses))
+               (latest (car (last months))))
+          (if (> (car latest) (* 1.25 median))
+              (seq-find (lambda (m) (<= (car m) (* 1.25 median))) (reverse months) latest)
+            latest))))
+
     (defun my/hledger-renta (&optional year)
       "Estimate the AEAT settlement for YEAR from the payslips in the journal.
 
@@ -622,9 +659,19 @@ to recompile them and go hunting for error patterns in a balance sheet.
       (let* ((year (or year (string-to-number (format-time-string "%Y"))))
              (marginal (or (my/hledger--account-tag "expenses:tax:renta" "marginal") 0))
              (offset (or (my/hledger--account-tag "expenses:tax:renta" "offset") 0))
-             (gross (my/hledger--year-total "^income:salary" year))
-             (withheld (my/hledger--year-total "^expenses:tax:irpf" year))
-             (social (my/hledger--year-total "^expenses:tax:social-security" year))
+             (payslips (my/hledger--salary-months year))
+             (recorded (length payslips))
+             (so-far (my/hledger--year-total "^income:salary" year))
+             (held-so-far (my/hledger--year-total "^expenses:tax:irpf" year))
+             (ss-so-far (my/hledger--year-total "^expenses:tax:social-security" year))
+             ;; Project the rest of the year at the most recent month's rate.
+             ;; Deliberately without a bonus: one may not come, and a forecast
+             ;; that quietly assumes one is how a bill becomes a surprise.
+             (last-month (my/hledger--run-rate payslips))
+             (left (max 0 (- 12 recorded)))
+             (gross (+ so-far (* left (nth 0 last-month))))
+             (withheld (+ held-so-far (* left (nth 1 last-month))))
+             (social (+ ss-so-far (* left (nth 2 last-month))))
              (taxable (- gross social))
              (liability (+ (* (/ marginal 100.0) taxable) offset))
              (settlement (- liability withheld))
@@ -639,7 +686,11 @@ to recompile them and go hunting for error patterns in a balance sheet.
                   (insert "  Record them in full and this fills itself in: income:salary\n")
                   (insert "  for the gross, expenses:tax:irpf for what was withheld,\n")
                   (insert "  expenses:tax:social-security, and the benefit in kind.\n"))
-              (insert (format "  gross earned       %10.2f\n" gross))
+              (insert (format "  recorded so far    %10.2f   over %d month%s\n"
+                              so-far recorded (if (= recorded 1) "" "s")))
+              (when (> left 0)
+                (insert (format "  projected to Dec   %10.2f   %d more at %.2f, no bonus assumed\n"
+                                gross left (nth 0 last-month))))
               (insert (format "  Seguridad Social   %10.2f\n" social))
               (insert (format "  taxable            %10.2f\n\n" taxable))
               (insert (format "  tax due            %10.2f   at %.2f%% marginal\n"
@@ -650,6 +701,14 @@ to recompile them and go hunting for error patterns in a balance sheet.
                               (abs settlement)))
               (insert (format "  Set aside %.2f a month from now until June to cover it.\n"
                               (/ (max 0 settlement) 9.0)))
+              ;; What one more bonus would do to the answer, because that is
+              ;; the single thing most likely to move it.
+              (when (> left 0)
+                (let* ((bonus 4500.0)
+                       (with-bonus (- (+ (* (/ marginal 100.0) (+ taxable bonus)) offset)
+                                      (+ withheld (* bonus 0.249)))))
+                  (insert (format "  A December bonus of 4,500 would make it %.2f.\n"
+                                  with-bonus))))
               (insert "\n  Two settled years fitted with a straight line: accurate near\n")
               (insert "  this income, less so away from it, and blind to anything the\n")
               (insert "  payslips do not show. A forecast to save against, not a return.\n")))
@@ -778,8 +837,8 @@ to recompile them and go hunting for error patterns in a balance sheet.
               (svg-rectangle svg 0 0 filled h :fill fill :rx 2))
             (my/hledger--image svg width)))))
 
-    (defun my/hledger-budget--saving-rows (csv)
-      "The saving rows to draw, including funds the report left out.
+    (defun my/hledger-budget--with-goals (csv prefix)
+      "The rows of CSV, plus any account under PREFIX with a goal and no row.
 
     A fund with no monthly contribution has neither budget nor activity in a
     quiet month, so `balance --budget' omits it -- and a target you fill from a
@@ -794,11 +853,14 @@ to recompile them and go hunting for error patterns in a balance sheet.
                 (delq nil
                       (mapcar (lambda (goal)
                                 (let ((account (car goal)))
-                                  (when (and (string-match-p
-                                              "\\`\\(assets:savings\\|liabilities\\)" account)
+                                  (when (and (string-match-p prefix account)
                                              (not (member account present)))
                                     (list account "0" "0"))))
                               (my/hledger--goals))))))
+
+    (defun my/hledger-budget--saving-rows (csv)
+      "Saving and paydown rows, including funds the report left out."
+      (my/hledger-budget--with-goals csv "\\`\\(assets:savings\\|liabilities\\)"))
 
     (defun my/hledger-budget--leaves (rows)
       "ROWS with the aggregates removed.
@@ -919,6 +981,68 @@ to recompile them and go hunting for error patterns in a balance sheet.
                       '())))
          'hledger-account account
          'face (if over 'error 'default))))
+
+    (defconst my/hledger-budget-sections
+      '(("needs"    . "NEEDS -- every month, and not optional")
+        ("periodic" . "PERIODIC -- not every month, still not optional")
+        ("wants"    . "WANTS -- a choice, every month")
+        ("goals"    . "GOALS -- wanted, and can wait"))
+      "The sections of the envelope screen, in the order they are drawn.
+
+    The order is the point: what has to be paid comes first and what is
+    optional comes last, so reading down the screen is reading down a list of
+    priorities. An account says which section it is in with a `section:' tag
+    in the chart of accounts.")
+
+    (defun my/hledger--section (account)
+      "Which section ACCOUNT belongs to.
+
+    Inherited from the nearest ancestor that declares one, so tagging
+    `expenses:housing' covers mortgage, water, community and utilities without
+    four more tags. Anything untagged falls to the end, visibly, rather than
+    being quietly dropped."
+      (let ((parts (split-string account ":"))
+            (found nil))
+        (while (and parts (not found))
+          (setq found (my/hledger--account-tag-string
+                       (string-join parts ":") "section"))
+          (setq parts (butlast parts)))
+        (or found "untagged")))
+
+    (defun my/hledger--account-tag-string (account tag)
+      "Read a word-valued TAG off ACCOUNT's directive."
+      (let ((file (expand-file-name "accounts.hledger" my/hledger-dir)))
+        (when (file-readable-p file)
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (when (re-search-forward
+                   (format "^account +%s *\\(;.*\\)?$" (regexp-quote account)) nil t)
+              (let ((line (match-string 0)))
+                (when (string-match (format "%s: *\\([a-z-]+\\)" (regexp-quote tag)) line)
+                  (match-string 1 line))))))))
+
+    (defun my/hledger-budget--insert-sections (rows)
+      "Draw ROWS grouped into sections, each with its own subtotal."
+      (let ((buckets nil))
+        (dolist (row rows)
+          (let* ((section (my/hledger--section (nth 0 row)))
+                 (cell (assoc section buckets)))
+            (if cell (setcdr cell (append (cdr cell) (list row)))
+              (push (cons section (list row)) buckets))))
+        (dolist (entry (append my/hledger-budget-sections '(("untagged" . "UNTAGGED"))))
+          (when-let* ((members (cdr (assoc (car entry) buckets))))
+            (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
+                  (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
+              (insert (propertize (format "\n  %s\n" (cdr entry))
+                                  'face 'my/hledger-budget-heading))
+              (my/hledger-budget--insert-rows members)
+              ;; The subtotal is the reason for the sections. One number for
+              ;; what has to be paid and one for what does not is the whole
+              ;; question a budget is asked.
+              (insert (propertize
+                       (format "  %-26s %9.2f / %-9.2f\n" "" spent budget)
+                       'face 'shadow)))))))
 
     (defun my/hledger-budget--group (account)
       "The heading ACCOUNT belongs under, or nil when it is a top-level one."
@@ -1071,8 +1195,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
           (when (equal (nth 0 row) "Total:")
             (setq spent-total (my/hledger--num (nth 1 row))
                   budget-total (my/hledger--num (nth 2 row)))))
-        (let* ((rows (my/hledger-budget--leaves
-                      (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr expenses))))
+        (let* ((rows (my/hledger-budget--with-goals expenses "\\`expenses"))
                (envelope-spend (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r)))
                                                   rows)))
                ;; What the envelopes do not account for. Derived rather than
@@ -1100,7 +1223,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
                            (if my/hledger-budget-rollover "available" "left")
                            "6 mo trend")
                    'face 'my/hledger-budget-heading))
-          (my/hledger-budget--insert-rows rows)
+          (my/hledger-budget--insert-sections rows)
           (when (> (abs unbudgeted) 0.005)
             (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0))))
 
