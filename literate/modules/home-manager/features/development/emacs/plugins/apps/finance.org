@@ -394,16 +394,25 @@ to recompile them and go hunting for error patterns in a balance sheet.
       :type 'number
       :group 'my/hledger)
 
-    (defun my/hledger--amount (account &optional period)
-      "The balance of ACCOUNT over PERIOD, as a float."
+    (defun my/hledger--amount (query &optional period)
+      "The total balance matching QUERY over PERIOD, as a float.
+
+    Every matching line is summed. `--format %(total)' prints one line per
+    account, and reading only the first was wrong the moment a query matched
+    more than one -- `^assets:bank' quietly reported the main account and
+    ignored the second one and bunq, and once the funds became subaccounts it
+    reported the unearmarked remainder as though it were everything."
       (let ((default-directory my/hledger-dir))
-        (string-to-number
-         (with-output-to-string
-           (with-current-buffer standard-output
-             (apply #'call-process (my/hledger--binary) nil t nil
-                    "-f" hledger-jfile "balance" account
-                    "--format" "%(total)" "--no-total" "-N"
-                    (when period (list "-p" period))))))))
+        (apply #'+
+               (mapcar #'string-to-number
+                       (split-string
+                        (with-output-to-string
+                          (with-current-buffer standard-output
+                            (apply #'call-process (my/hledger--binary) nil t nil
+                                   "-f" hledger-jfile "balance" query
+                                   "--format" "%(total)" "--no-total" "-N"
+                                   (when period (list "-p" period)))))
+                        "\n" t)))))
 
     (defun my/hledger-card ()
       "What is on the card and how much of the limit is left."
@@ -532,16 +541,20 @@ to recompile them and go hunting for error patterns in a balance sheet.
         (let* ((by (cdr goal))
                (short (max 0 (- amount progress)))
                (note (cond
+                      ;; Reaching the target ends the question. Asked after the
+                      ;; monthly test instead, a fund that was filled in one go
+                      ;; and then had its monthly stopped -- which is what
+                      ;; stopping it is supposed to look like -- reported "no
+                      ;; monthly set" at 100%, nagging for a payment into a
+                      ;; fund that is already full.
+                      ((<= short 0) (if by (format "funded, %s" by) "funded"))
                       ;; A date changes the question from "how long at this
                       ;; rate" to "what does the rate have to be", which is the
                       ;; only one worth answering when the date is fixed.
-                      (by (let ((months (my/hledger--months-until by now)))
-                            (if (<= short 0)
-                                (format "funded, %s" by)
-                              (format "%.0f/mo to %s" (/ short months) by))))
+                      (by (format "%.0f/mo to %s"
+                                  (/ short (my/hledger--months-until by now)) by))
                       ((and monthly (> monthly 0))
-                       (if (<= short 0) "funded"
-                         (format "%d mo left" (ceiling (/ short monthly)))))
+                       (format "%d mo left" (ceiling (/ short monthly))))
                       (t "no monthly set"))))
           (propertize
            (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
@@ -905,10 +918,6 @@ to recompile them and go hunting for error patterns in a balance sheet.
                                     (list account "0" "0"))))
                               (my/hledger--goals))))))
 
-    (defun my/hledger-budget--saving-rows (csv)
-      "Saving and paydown rows, including funds the report left out."
-      (my/hledger-budget--with-goals csv "\\`\\(assets:savings\\|liabilities\\)"))
-
     (defun my/hledger-budget--leaves (rows)
       "ROWS with the aggregates removed.
 
@@ -922,6 +931,17 @@ to recompile them and go hunting for error patterns in a balance sheet.
            (seq-some (lambda (other) (string-prefix-p (concat (car row) ":") other))
                      names))
          rows)))
+
+    (defun my/hledger-budget--saving-rows (csv)
+      "Saving and paydown rows, including funds the report left out.
+
+    The leaves, specifically. Now that the funds are subaccounts of the current
+    account, every earmark posts against `assets:bank:main' too, and the parent
+    turned up in this block as a fund of its own holding the negative of all
+    three of its children -- a -28,300 row for money that had not gone
+    anywhere. A branch that only feeds its own children is not an envelope."
+      (my/hledger-budget--leaves
+       (my/hledger-budget--with-goals csv "\\`\\(assets\\|liabilities\\)")))
 
     (defcustom my/hledger-budget-rollover t
       "Whether an unspent envelope carries its balance into the next month.
@@ -1123,19 +1143,11 @@ to recompile them and go hunting for error patterns in a balance sheet.
               (push (cons group (list row)) groups))))
         (dolist (entry (nreverse groups))
           (let ((group (car entry)) (members (cdr entry)))
-            (if (or (null group) (= 1 (length members)))
-                ;; No heading. A parent above a single child repeats its own
-                ;; numbers on two lines and says nothing twice -- but the child
-                ;; still needs its parent's name to mean anything, so the two
-                ;; are joined on one line instead.
+            (if (null group)
                 (dolist (row members)
                   (insert (my/hledger-budget--row
                            (nth 0 row) (my/hledger--num (nth 1 row))
-                           (my/hledger--num (nth 2 row))
-                           (when group
-                             (replace-regexp-in-string
-                              ":" " \u00b7 "
-                              (replace-regexp-in-string "\\`expenses:" "" (nth 0 row))))))
+                           (my/hledger--num (nth 2 row))))
                   (my/hledger-budget--insert-goal row 0))
               (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
                     (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
@@ -1310,9 +1322,19 @@ to recompile them and go hunting for error patterns in a balance sheet.
         ;; not:desc:opening -- the opening balances are dated inside the first
         ;; tracked month, and without excluding them the mortgage row reports
         ;; the whole outstanding loan as this month's movement.
-        (let ((saving (my/hledger--csv "balance" "--budget" "--flat"
-                                       "^assets:savings" "^liabilities:mortgage"
-                                       "not:desc:opening" "-p" period)))
+        ;; Which accounts are funds is decided by which ones carry a goal, not
+        ;; by where they sit. That matters when there is no savings account to
+        ;; put them in: earmarking inside the current account works, and this
+        ;; still finds them.
+        (let* ((fund-accounts
+                (append (mapcar (lambda (g) (concat "^" (regexp-quote (car g)) "$"))
+                                (seq-filter (lambda (g) (string-prefix-p "assets:" (car g)))
+                                            (my/hledger--goals)))
+                        '("^liabilities:mortgage$")))
+               (saving (apply #'my/hledger--csv
+                              (append '("balance" "--budget" "--flat")
+                                      fund-accounts
+                                      (list "not:desc:opening" "-p" period)))))
           (when (> (length saving) 2)
             ;; Paying down a mortgage belongs here rather than among the
             ;; envelopes: it is not a cost, it is net worth moving from the
@@ -1327,8 +1349,12 @@ to recompile them and go hunting for error patterns in a balance sheet.
               (let* ((account (nth 0 row))
                      (moved (my/hledger--num (nth 1 row)))
                      (planned (my/hledger--num (nth 2 row)))
-                     (label (replace-regexp-in-string
-                             "\\`\\(assets:savings:?\\|liabilities:\\)" "" account))
+                     ;; A fund is addressed by its leaf: it may live under
+                     ;; assets:bank:main now that there is no savings account,
+                     ;; and "assets:bank:main:emergency" is not a label.
+                     (label (if (string-prefix-p "assets:" account)
+                                (car (last (split-string account ":")))
+                              (replace-regexp-in-string "\\`liabilities:" "" account)))
                      ;; A debt's target is zero, so progress runs up from what
                      ;; was borrowed rather than toward a goal.
                      (original (my/hledger--account-tag account "original"))
@@ -1390,9 +1416,17 @@ to recompile them and go hunting for error patterns in a balance sheet.
         ;; asks whether the euro is in the account. So the totals are shown
         ;; against what is actually held, and if the goals ever exceed it the
         ;; plan has stopped being a plan.
-        (let* ((liquid (+ (my/hledger--amount "^assets:bank")
-                          (my/hledger--amount "^assets:cash")
-                          (my/hledger--amount "^liabilities:card")))
+        (let* ((earmarked
+                (apply #'+ (mapcar (lambda (g) (abs (my/hledger--amount (car g))))
+                                   (seq-filter (lambda (g) (string-prefix-p "assets:" (car g)))
+                                               (my/hledger--goals)))))
+               ;; The bank total includes the earmarks when they are subaccounts
+               ;; of it, so they come back off -- otherwise money inside a fund
+               ;; would be counted as free as well as spoken for.
+               (liquid (- (+ (my/hledger--amount "^assets:bank")
+                             (my/hledger--amount "^assets:cash")
+                             (my/hledger--amount "^liabilities:card"))
+                          earmarked))
                ;; Only what is meant to be funded within a year counts. A
                ;; target four years out is incomplete, not unbacked, and
                ;; letting it into this sum turns the check into an alarm that
