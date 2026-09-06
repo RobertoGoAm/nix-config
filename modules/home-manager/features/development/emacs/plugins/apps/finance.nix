@@ -41,6 +41,14 @@ let
   # the next rebuild. Written once if absent, then never touched again -- the same
   # reasoning as the readeck secret and the Wallapop searches.
 
+  # Every figure below is a round, invented placeholder, and it stays that way.
+  # This repository is public, so real salaries, real balances and real direct
+  # debits do not belong in it -- and unlike a leaked credential there is nothing
+  # to rotate afterwards. The actual numbers live only in ~~/finance~, which is
+  # backed up (features/backup/restic) but never committed. Editing these seeds to
+  # match reality would quietly publish it, so change ~~/finance~ instead: after
+  # the first activation these files are never read again.
+
   seeds = {
     "accounts.hledger" = pkgs.writeText "accounts.hledger" ''
       ; Chart of accounts. `hledger check accounts' fails on anything not
@@ -89,21 +97,21 @@ let
       ; balance falling by the whole budget every month, forever.
       ;
       ; TODO: the real net salary and the day it lands.
-      ~ every 25th day of month  salary
+      ~ every 1st day of month  salary
           assets:bank:main               2000 EUR
           income:salary
 
-      ; Fixed, dated, and known to the cent -- so it gets its own periodic
-      ; transaction on its own day rather than being folded into a housing
-      ; envelope. The forecast then shows the balance dipping on the 8th.
+      ; Anything fixed, dated and known to the cent belongs in its own periodic
+      ; transaction on its own day rather than folded into a category envelope,
+      ; so the forecast shows the balance dipping when it actually does.
       ;
       ; Modelled as a pure expense, which is what YNAB does and what makes the
       ; budget read correctly. It does mean net worth ignores the principal
       ; being paid down: to fix that, add `account liabilities:mortgage', split
       ; this into an interest part and a principal part, and open the loan
       ; balance in the journal.
-      ~ every 8th day of month  mortgage
-          expenses:housing:mortgage    251.35 EUR
+      ~ every 1st day of month  mortgage
+          expenses:housing:mortgage     500 EUR
           assets:bank:main
 
       ; Everything else, monthly. The balancing account is the bank rather
