@@ -77,6 +77,7 @@ let
       lib.makeBinPath [
         pkgs.restic
         pkgs.openssh
+        pkgs.rsync
       ]
     }:/usr/bin:/bin
     REPO_FILE="$HOME/.config/restic/repository"
@@ -99,17 +100,64 @@ let
     # ~/.config/restic/ssh_key names a private key, force it for the transport;
     # otherwise fall back to default ssh (non-sftp repos ignore this entirely).
     SFTP_CMD=""
+    REMOTE=""
+    SSH="ssh -o BatchMode=yes -o ConnectTimeout=10"
     SSHKEY_FILE="$HOME/.config/restic/ssh_key"
     case "$RESTIC_REPOSITORY" in
       sftp:*)
+        REMOTE="''${RESTIC_REPOSITORY#sftp:}"; REMOTE="''${REMOTE%%:*}"   # user@host
         if [ -r "$SSHKEY_FILE" ]; then
           KEY="$(cat "$SSHKEY_FILE")"
-          TGT="''${RESTIC_REPOSITORY#sftp:}"; TGT="''${TGT%%:*}"   # user@host
-          SFTP_CMD="ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes $TGT -s sftp"
+          SFTP_CMD="ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes $REMOTE -s sftp"
+          SSH="$SSH -i $KEY -o IdentitiesOnly=yes"
         fi ;;
     esac
     # restic wrapper that injects the forced-key sftp.command when one is set.
     rr() { if [ -n "$SFTP_CMD" ]; then restic -o "sftp.command=$SFTP_CMD" "$@"; else restic "$@"; fi; }
+
+    # vulcan's own state, pulled in so it reaches Backblaze too.
+    #
+    # restic runs on this machine only. vulcan is the repository host, not a
+    # client, so the services it runs -- readeck, calibre-web, the kosync
+    # progress server -- had their data on exactly one disk. Mirroring it here
+    # is what puts it in the encrypted repo, and vulcan's own copy of that repo
+    # to B2 is what then puts it offsite and immutable. Four megabytes.
+    #
+    # Directories rather than an archive, deliberately: restic dedups unchanged
+    # files to nothing, where a fresh tarball every thirty minutes would store
+    # the whole lot again each time.
+    #
+    # SQLite is the catch. readeck's database runs in WAL mode, so the file on
+    # disk is not a consistent database by itself and copying it live can yield
+    # something that will not open. `.backup' on the far side makes a real
+    # snapshot and that is what travels; the live files come too, but db/ is
+    # the copy to restore from.
+    #
+    # Every step is non-fatal: vulcan being asleep must not fail the backup of
+    # this machine, and a failed mirror keeps the previous copy rather than
+    # deleting it.
+    MIRROR="$HOME/.local/state/vulcan"
+    if [ -n "$REMOTE" ]; then
+      mkdir -p "$MIRROR"
+      $SSH "$REMOTE" '
+        set -eu
+        R="$HOME/Library/Application Support/reading"
+        S="$HOME/.cache/reading-consistent"
+        mkdir -p "$S"
+        for db in "$R"/*/*.db "$R"/*/*.sqlite3; do
+          [ -f "$db" ] || continue
+          /usr/bin/sqlite3 "$db" ".backup $S/$(basename "$(dirname "$db")")-$(basename "$db")"
+        done' 2>/dev/null \
+        || echo "restic-backup: could not snapshot vulcan databases; mirroring live files only"
+
+      for pair in ".cache/reading-consistent/|db" \
+                  "Library/Application Support/reading/|reading" \
+                  "books/|books"; do
+        SRC="''${pair%%|*}"; DST="''${pair##*|}"
+        rsync -a --delete -e "$SSH" "$REMOTE:$SRC" "$MIRROR/$DST/" 2>/dev/null \
+          || echo "restic-backup: mirror of vulcan:$SRC failed; keeping the previous copy"
+      done
+    fi
 
     # Only the paths that actually exist (a missing ~/.aws etc. must not be fatal).
     #
@@ -122,6 +170,7 @@ let
     # for a directory measured in megabytes.
     PATHS=""
     for p in Development Documents Desktop Pictures finance books \
+             .local/state/vulcan \
              .config .ssh .gnupg .aws .kube; do
       [ -e "$HOME/$p" ] && PATHS="$PATHS $HOME/$p"
     done
