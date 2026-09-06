@@ -30,7 +30,6 @@ in
 
         # Development
 
-        "cate"
         "codex"
         "imageoptim"
         "orbstack"
