@@ -124,8 +124,8 @@ so they match at any depth; we verify real coverage with `--dry-run` at seed.
     # vulcan's own state, pulled in so it reaches Backblaze too.
     #
     # restic runs on this machine only. vulcan is the repository host, not a
-    # client, so the services it runs -- readeck, calibre-web, the kosync
-    # progress server -- had their data on exactly one disk. Mirroring it here
+    # client, so the services it runs -- readeck and calibre-web -- had their
+    # data on exactly one disk. Mirroring it here
     # is what puts it in the encrypted repo, and vulcan's own copy of that repo
     # to B2 is what then puts it offsite and immutable. Four megabytes.
     #

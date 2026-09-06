@@ -389,11 +389,8 @@ in
     (defun my/hledger--amount (query &optional period)
       "The total balance matching QUERY over PERIOD, as a float.
 
-    Every matching line is summed. `--format %(total)' prints one line per
-    account, and reading only the first was wrong the moment a query matched
-    more than one -- `^assets:bank' quietly reported the main account and
-    ignored the second one and bunq, and once the funds became subaccounts it
-    reported the unearmarked remainder as though it were everything."
+    `--format %(total)' prints one line per matching account; every line
+    counts toward the total."
       (let ((default-directory my/hledger-dir))
         (apply #'+
                (mapcar #'string-to-number
@@ -533,12 +530,6 @@ in
         (let* ((by (cdr goal))
                (short (max 0 (- amount progress)))
                (note (cond
-                      ;; Reaching the target ends the question. Asked after the
-                      ;; monthly test instead, a fund that was filled in one go
-                      ;; and then had its monthly stopped -- which is what
-                      ;; stopping it is supposed to look like -- reported "no
-                      ;; monthly set" at 100%, nagging for a payment into a
-                      ;; fund that is already full.
                       ((<= short 0) (if by (format "funded, %s" by) "funded"))
                       ;; A date changes the question from "how long at this
                       ;; rate" to "what does the rate have to be", which is the
@@ -927,11 +918,7 @@ in
     (defun my/hledger-budget--saving-rows (csv)
       "Saving and paydown rows, including funds the report left out.
 
-    The leaves, specifically. Now that the funds are subaccounts of the current
-    account, every earmark posts against `assets:bank:main' too, and the parent
-    turned up in this block as a fund of its own holding the negative of all
-    three of its children -- a -28,300 row for money that had not gone
-    anywhere. A branch that only feeds its own children is not an envelope."
+    The leaves only: a branch that merely holds other funds is not itself one."
       (my/hledger-budget--leaves
        (my/hledger-budget--with-goals csv "\\`\\(assets\\|liabilities\\)")))
 
@@ -1314,10 +1301,7 @@ in
         ;; not:desc:opening -- the opening balances are dated inside the first
         ;; tracked month, and without excluding them the mortgage row reports
         ;; the whole outstanding loan as this month's movement.
-        ;; Which accounts are funds is decided by which ones carry a goal, not
-        ;; by where they sit. That matters when there is no savings account to
-        ;; put them in: earmarking inside the current account works, and this
-        ;; still finds them.
+        ;; A fund is an account carrying a goal, wherever it sits.
         (let* ((fund-accounts
                 (append (mapcar (lambda (g) (concat "^" (regexp-quote (car g)) "$"))
                                 (seq-filter (lambda (g) (string-prefix-p "assets:" (car g)))
@@ -1341,9 +1325,7 @@ in
               (let* ((account (nth 0 row))
                      (moved (my/hledger--num (nth 1 row)))
                      (planned (my/hledger--num (nth 2 row)))
-                     ;; A fund is addressed by its leaf: it may live under
-                     ;; assets:bank:main now that there is no savings account,
-                     ;; and "assets:bank:main:emergency" is not a label.
+                     ;; A fund is addressed by its leaf, wherever it sits.
                      (label (if (string-prefix-p "assets:" account)
                                 (car (last (split-string account ":")))
                               (replace-regexp-in-string "\\`liabilities:" "" account)))
@@ -1367,10 +1349,8 @@ in
                          'hledger-account account))
                 (if original
                     ;; A debt: progress runs up from what was borrowed, and the
-                    ;; time left is a real amortisation rather than the balance
-                    ;; divided by this month's principal -- the principal share
-                    ;; grows every month, and ignoring that overstated the term
-                    ;; by 57 months.
+                    ;; term is a real amortisation, since the principal share of
+                    ;; the cuota grows every month.
                     (when (> goal 0)
                       (let* ((rate (my/hledger--account-tag account "rate"))
                              (payment (my/hledger--account-tag account "payment"))
@@ -1412,9 +1392,7 @@ in
                 (apply #'+ (mapcar (lambda (g) (abs (my/hledger--amount (car g))))
                                    (seq-filter (lambda (g) (string-prefix-p "assets:" (car g)))
                                                (my/hledger--goals)))))
-               ;; The bank total includes the earmarks when they are subaccounts
-               ;; of it, so they come back off -- otherwise money inside a fund
-               ;; would be counted as free as well as spoken for.
+               ;; The bank total includes the earmarks, which are spoken for.
                (liquid (- (+ (my/hledger--amount "^assets:bank")
                              (my/hledger--amount "^assets:cash")
                              (my/hledger--amount "^liabilities:card"))
