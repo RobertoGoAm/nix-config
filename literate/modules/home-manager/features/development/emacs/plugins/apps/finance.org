@@ -414,12 +414,24 @@ to recompile them and go hunting for error patterns in a balance sheet.
                 "\n" t)))))
 
     (defun my/hledger--goals ()
-      "Savings goals, read off the chart of accounts.
+      "Targets, read off the chart of accounts.
 
-    hledger has no notion of a target, so it lives where the account is
-    declared -- `account assets:savings:x  ; goal: 6840' -- rather than in a
-    second file that could disagree with the first. hledger itself ignores the
-    comment, so nothing here changes what the reports compute."
+    hledger has no notion of one, so it lives where the account is declared --
+    `account expenses:insurance  ; goal: 480 by: 2027-03' -- rather than in a
+    second file that could disagree with the first. hledger ignores the
+    comment, so nothing about what the reports compute changes.
+
+    Returns an alist of account to (AMOUNT . BY), BY being a YYYY-MM string or
+    nil. Between this and whether the account has a periodic transaction, the
+    four shapes a target comes in are all expressible:
+
+      periodic only            spend this much every month
+      periodic + goal          put this much aside monthly until the total is
+                               reached -- the yearly insurance, the restock
+      periodic + goal + by     the same, but the screen says what the monthly
+                               has to be to arrive on time
+      goal only                a total to work toward, topped up whenever
+                               there is something spare"
       (let ((file (expand-file-name "accounts.hledger" my/hledger-dir))
             (goals nil))
         (when (file-readable-p file)
@@ -428,10 +440,53 @@ to recompile them and go hunting for error patterns in a balance sheet.
             (goto-char (point-min))
             (while (re-search-forward
                     "^account +\\([^ ;\n]+\\).*;.*goal: *\\([0-9.]+\\)" nil t)
-              (push (cons (match-string 1)
-                          (string-to-number (match-string 2)))
-                    goals))))
+              (let ((account (match-string 1))
+                    (amount (string-to-number (match-string 2)))
+                    (by (save-excursion
+                          (goto-char (line-beginning-position))
+                          (when (re-search-forward "by: *\\([0-9]\\{4\\}-[0-9]\\{2\\}\\)"
+                                                   (line-end-position) t)
+                            (match-string 1)))))
+                (push (cons account (cons amount by)) goals)))))
         goals))
+
+    (defun my/hledger--months-until (ym now)
+      "Whole months from NOW to the first of YM, at least one."
+      (let* ((target (parse-time-string (concat ym "-01 00:00:00")))
+             (here (decode-time now)))
+        (max 1 (+ (* 12 (- (nth 5 target) (nth 5 here)))
+                  (- (nth 4 target) (nth 4 here))))))
+
+    (defun my/hledger--goal-line (account progress monthly now)
+      "The target line under an envelope, or nil when it has no target.
+
+    PROGRESS is what has accumulated toward it -- for an envelope that is the
+    rolled-over available, because money not yet spent is money still set
+    aside; MONTHLY is what the budget puts in each month."
+      (when-let* ((goal (alist-get account (my/hledger--goals) nil nil #'equal))
+                  (amount (car goal))
+                  (_ (> amount 0)))
+        (let* ((by (cdr goal))
+               (short (max 0 (- amount progress)))
+               (note (cond
+                      ;; A date changes the question from "how long at this
+                      ;; rate" to "what does the rate have to be", which is the
+                      ;; only one worth answering when the date is fixed.
+                      (by (let ((months (my/hledger--months-until by now)))
+                            (if (<= short 0)
+                                (format "funded, %s" by)
+                              (format "%.0f/mo to %s" (/ short months) by))))
+                      ((and monthly (> monthly 0))
+                       (if (<= short 0) "funded"
+                         (format "%d mo left" (ceiling (/ short monthly)))))
+                      (t "no monthly set"))))
+          (propertize
+           (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
+                   "  toward target" progress amount
+                   (my/hledger-budget--bar (/ progress (float amount)))
+                   (my/hledger--percent progress amount)
+                   note)
+           'face 'shadow))))
 
     (defun my/hledger--account-tag (account tag)
       "Read a numeric TAG off ACCOUNT's directive in the chart of accounts."
@@ -712,7 +767,8 @@ to recompile them and go hunting for error patterns in a balance sheet.
                 (dolist (row members)
                   (insert (my/hledger-budget--row
                            (nth 0 row) (my/hledger--num (nth 1 row))
-                           (my/hledger--num (nth 2 row)))))
+                           (my/hledger--num (nth 2 row))))
+                  (my/hledger-budget--insert-goal row))
               (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
                     (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
                 ;; The heading carries the totals, so the group can be read
@@ -736,7 +792,24 @@ to recompile them and go hunting for error patterns in a balance sheet.
                            (replace-regexp-in-string
                             (format "\\`expenses:%s:" (regexp-quote group)) ""
                             (nth 0 row))
-                           1)))))))))
+                           1))
+                  (my/hledger-budget--insert-goal row))))))))
+
+    (defun my/hledger-budget--insert-goal (row)
+      "Draw ROW's target line, if it has a target.
+
+    Progress is the rolled-over available rather than what was spent: an
+    envelope funded at 13 a month for six months and never touched has 78 set
+    aside toward its target, and that is the number the target is about."
+      (let* ((account (nth 0 row))
+             (monthly (my/hledger--num (nth 2 row)))
+             (available (or (and my/hledger-budget--available
+                                 (alist-get account my/hledger-budget--available
+                                            nil nil #'equal))
+                            (- monthly (my/hledger--num (nth 1 row)))))
+             (line (my/hledger--goal-line account available monthly
+                                          (or my/hledger-budget--time (current-time)))))
+        (when line (insert line))))
 
     (defun my/hledger-budget--month-string (time)
       (format-time-string "%Y-%m" time))
@@ -889,7 +962,8 @@ to recompile them and go hunting for error patterns in a balance sheet.
                      ;; was borrowed rather than toward a goal.
                      (original (my/hledger--account-tag account "original"))
                      (goal (or original
-                               (alist-get account (my/hledger--goals) nil nil #'equal)))
+                               (car (alist-get account (my/hledger--goals)
+                                               nil nil #'equal))))
                      (owed (abs (my/hledger--amount account)))
                      (done (if original (- original owed) owed)))
                 (insert (propertize
