@@ -276,8 +276,14 @@ in
                                         accounts nil nil
                                         (if income "income:" "expenses:")))
              (amount (abs (read-number "Amount (EUR): ")))
-             (account (completing-read (if income "Into: " "Paid from: ")
-                                       accounts nil nil "assets:")))
+             ;; A default rather than initial input: RET takes the common case
+             ;; and typing filters the whole list, where prefilled text has to
+             ;; be deleted first. Most spending goes on the card, so that is
+             ;; the default; income lands in the bank.
+             (account (completing-read
+                       (if income "Into (default main): " "Paid from (default card): ")
+                       accounts nil nil nil nil
+                       (if income "assets:bank:main" "liabilities:card"))))
         (my/hledger--append
          (if income
              (my/hledger--entry date payee account category amount)
@@ -291,8 +297,9 @@ in
       (interactive)
       (let* ((accounts (my/hledger--accounts))
              (date (read-string "Date: " (format-time-string "%Y-%m-%d")))
-             (from (completing-read "From: " accounts nil nil "assets:"))
-             (to (completing-read "To: " accounts nil nil "assets:"))
+             (from (completing-read "From (default main): " accounts nil nil nil nil
+                                    "assets:bank:main"))
+             (to (completing-read "To: " accounts))
              (amount (abs (read-number "Amount (EUR): "))))
         (my/hledger--append (my/hledger--entry date "transfer" to from amount))
         (message "%s  %.2f EUR  %s -> %s" date amount from to)))
@@ -348,8 +355,8 @@ in
              (owed (abs (my/hledger--amount "liabilities:card" period)))
              (date (read-string "Payment date: " (format-time-string "%Y-%m-%d")))
              (amount (read-number "Amount (EUR): " owed))
-             (from (completing-read "Paid from: " (my/hledger--accounts)
-                                    nil nil "assets:bank:")))
+             (from (completing-read "Paid from (default main): " (my/hledger--accounts)
+                                    nil nil nil nil "assets:bank:main")))
         (my/hledger--append
          (my/hledger--entry date "card payment" "liabilities:card" from amount))
         (message "Card payment %.2f EUR from %s" amount from)))
@@ -559,6 +566,41 @@ in
                                             (my/hledger--num (nth 2 row)))))
           (when (> (abs unbudgeted) 0.005)
             (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0))))
+
+        ;; Saving is budgeted too. Money moved to a fund is not spending, so it
+        ;; is not an expense account and would never appear above -- but a
+        ;; budget that shows only what leaves and never what accumulates is the
+        ;; half of YNAB that makes the other half feel pointless.
+        ;;
+        ;; The sign flips: a transfer in is a debit on an asset, which hledger
+        ;; reports positive, and "spent 200 of 200" is the right reading of a
+        ;; fund that got its contribution this month.
+        (let ((saving (my/hledger--csv "balance" "--budget" "--flat" "assets:savings"
+                                       "-p" period)))
+          (when (> (length saving) 2)
+            (insert (propertize (format "\n  %-26s %9s / %-9s\n" "saving" "moved" "planned")
+                                'face 'my/hledger-budget-heading))
+            (dolist (row (my/hledger-budget--leaves
+                          (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr saving))))
+              (let* ((moved (my/hledger--num (nth 1 row)))
+                     (planned (my/hledger--num (nth 2 row)))
+                     (label (replace-regexp-in-string "\\`assets:savings:?" "" (nth 0 row))))
+                (insert (propertize
+                         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
+                                 (truncate-string-to-width
+                                  (if (string-empty-p label) "savings" label) 26)
+                                 moved planned
+                                 (my/hledger-budget--bar
+                                  (if (> planned 0) (/ moved planned) 0.0))
+                                 (if (> planned 0)
+                                     (format "%d%%" (round (* 100 (/ moved planned)))) "--")
+                                 (- planned moved))
+                         'hledger-account (nth 0 row)))))
+            ;; What the fund is actually worth, which is the number you care
+            ;; about and which no per-month budget row can show.
+            (let ((balance (my/hledger--amount "assets:savings")))
+              (insert (propertize (format "  %-26s %9.2f saved to date\n" "" balance)
+                                  'face 'shadow)))))
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
