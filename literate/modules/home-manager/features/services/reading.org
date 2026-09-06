@@ -219,9 +219,15 @@ The X4 Pro's own reader does not speak this protocol -- CrossPoint keeps
 bookmarks as JSON under .crosspoint and syncs with nothing. It is an Android
 device, so KOReader installs on it as an APK, and that is what talks here.
 
+It is off. This server lives on the tailnet and the X4 Pro is not on the
+tailnet, so KOReader there and Emacs here both point at the public CrossPoint
+server, which sees document hashes and percentages but not the books. The X4
+Pro is Android and Tailscale installs on Android; on the day it does, `enable'
+comes back and `my/kosync-url' points here.
+
 #+begin_src nix
     launchd.agents.kosync = {
-      enable = true;
+      enable = false;
       config = {
         ProgramArguments = [
           "${lib.getExe pkgs.python3}"

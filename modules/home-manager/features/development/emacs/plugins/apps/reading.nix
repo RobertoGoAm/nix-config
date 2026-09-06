@@ -107,17 +107,13 @@
     ;;; nix store, which is world-readable.
     ;;;
     ;;; ~my/kosync-setup~ is the whole account flow: it takes a username and a
-    ;;; password, registers them with the server if the account is new, and writes
-    ;;; the file. Against a server whose registration is closed the creation is
-    ;;; refused and that is fine -- the credential file is the point, and the
-    ;;; command finishes by asking the server whether it actually works.
+    ;;; password, registers them with the server if the account is new, writes the
+    ;;; file, and then asks the server whether the credential works. A server with
+    ;;; registration closed refuses the first step and the rest still holds.
     ;;;
-    ;;; The server has to be the same one KOReader points at, or the two sides
-    ;;; keep tidy positions that never meet. There is a kosync server on vulcan
-    ;;; (features/services/reading) for the self-hosted arrangement; it is not
-    ;;; the default because the account that already exists is on the public
-    ;;; one, and that server has registration closed, so the account cannot be
-    ;;; recreated elsewhere without losing the positions already stored.
+    ;;; The server has to be the one KOReader points at, or the two sides keep
+    ;;; positions that never meet. There is one on vulcan, in
+    ;;; features/services/reading, for the self-hosted arrangement.
 
     (defcustom my/kosync-url "https://sync.crosspointreader.com"
       "Base URL of the kosync server. Must match KOReader's own setting.
@@ -130,11 +126,9 @@
 
     (defun my/kosync--endpoint (path)
       "The full URL for PATH, tolerating a trailing slash on `my/kosync-url'.
-    A base URL pasted with its trailing slash concatenates into \"//users/auth\",
-    and a server that routes on the exact path answers that with a 404 rather
-    than the 401 the caller is expecting -- which looks from the client side
-    like the server never answered at all. KOReader has the same sharp edge in
-    its own settings box, and it is the usual reason sync \"does not respond\"."
+    A server routing on the exact path answers \"//users/auth\" with a 404, which
+    a client reads as no answer at all. KOReader's own settings box has the same
+    edge and no such guard, so the URL entered there must not end in a slash."
       (concat (string-trim-right my/kosync-url "/+") path))
 
     (defvar my/kosync--credentials-file
@@ -217,12 +211,9 @@
         (with-temp-file my/kosync--credentials-file
           (insert username ":" key "\n"))
         (set-file-modes my/kosync--credentials-file #o600)
-        ;; An existing account is the expected outcome on the second device,
-        ;; not a failure -- the credential file is what this command is really
-        ;; for, and it has just been written either way. So is a server that
-        ;; refuses registration outright. Neither says whether the credential
-        ;; is any good, though, so ask: an authorized answer here is the only
-        ;; part of this command that proves the setup works.
+        ;; An existing account, or a server that refuses registration, is the
+        ;; expected outcome on the second device; the credential file is what
+        ;; this command is for. Only /users/auth says whether it is any good.
         (let ((authorized (alist-get 'authorized
                                      (my/kosync--request "GET" "/users/auth"))))
           (message "kosync: %s; %s"
