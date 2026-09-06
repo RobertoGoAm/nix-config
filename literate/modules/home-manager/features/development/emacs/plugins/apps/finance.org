@@ -236,6 +236,37 @@ to recompile them and go hunting for error patterns in a balance sheet.
     time; C-u prompts, so \"last month\" or \"2026-03\" needs no second command."
       (if prefix (read-string "Period (e.g. last month, 2026-03): ") "this month"))
 
+    (defun my/hledger--payees ()
+      "Every payee already in the journal, for completion.
+
+    hledger keeps the list, so nothing has to be maintained by hand: type a few
+    letters of a shop you have been to and it is there, type a new one and it
+    simply becomes part of the list next time."
+      (let ((default-directory my/hledger-dir))
+        (split-string
+         (with-output-to-string
+           (with-current-buffer standard-output
+             (call-process (my/hledger--binary) nil t nil
+                           "-f" hledger-jfile "payees")))
+         "\n" t)))
+
+    (defun my/hledger--read-payee (prompt)
+      "Read a payee, completing over the ones already used.
+
+    Not require-match: a shop you have never been to before still has to be
+    typeable, and the whole point is that it joins the list afterwards."
+      (completing-read prompt (my/hledger--payees) nil nil))
+
+    (defun my/hledger--read-date (prompt)
+      "Read a date, with a calendar where org provides one.
+
+    org-read-date understands \"yesterday\", \"-3\", \"fri\" and shows a calendar
+    to arrow around, which beats typing four digits of year that are almost
+    always this one. Falls back to a plain prompt if org is not loaded."
+      (if (fboundp 'org-read-date)
+          (org-read-date nil nil nil prompt)
+        (read-string prompt (format-time-string "%Y-%m-%d"))))
+
     (defun my/hledger--accounts ()
       "Every account hledger knows about, for completion."
       (let ((default-directory my/hledger-dir))
@@ -297,8 +328,8 @@ to recompile them and go hunting for error patterns in a balance sheet.
     expenses: account. Income is the same entry with the two sides swapped."
       (interactive "P")
       (let* ((accounts (my/hledger--accounts))
-             (date (read-string "Date: " (format-time-string "%Y-%m-%d")))
-             (payee (read-string (if income "From: " "Payee: ")))
+             (date (my/hledger--read-date "Date"))
+             (payee (my/hledger--read-payee (if income "From: " "Payee: ")))
              (category (completing-read (if income "Income account: " "Category: ")
                                         accounts nil nil
                                         (if income "income:" "expenses:")))
@@ -323,7 +354,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
     payment. Not an expense: nothing left the balance sheet."
       (interactive)
       (let* ((accounts (my/hledger--accounts))
-             (date (read-string "Date: " (format-time-string "%Y-%m-%d")))
+             (date (my/hledger--read-date "Date"))
              (from (completing-read "From (default main): " accounts nil nil nil nil
                                     "assets:bank:main"))
              (to (completing-read "To: " accounts))
@@ -380,7 +411,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
       (interactive)
       (let* ((period (read-string "Pay the balance from which month: " "last month"))
              (owed (abs (my/hledger--amount "liabilities:card" period)))
-             (date (read-string "Payment date: " (format-time-string "%Y-%m-%d")))
+             (date (my/hledger--read-date "Payment date"))
              (amount (read-number "Amount (EUR): " owed))
              (from (completing-read "Paid from (default main): " (my/hledger--accounts)
                                     nil nil nil nil "assets:bank:main")))
@@ -891,19 +922,25 @@ to recompile them and go hunting for error patterns in a balance sheet.
       :group 'my/hledger)
 
     (defun my/hledger--journal-start ()
-      "The date of the first transaction, which is where a rollover starts.
+      "Where a rollover starts.
 
-    It cannot start earlier: --budget generates the periodic transactions
-    across whatever range it is given, so reaching back before the journal
-    exists invents budget for months that never happened and every envelope
-    looks flush."
-      (let ((default-directory my/hledger-dir))
-        (with-temp-buffer
-          (call-process (my/hledger--binary) nil t nil "-f" hledger-jfile "stats")
-          (goto-char (point-min))
-          (if (re-search-forward "^Txns span *: *\\([0-9-]+\\)" nil t)
-              (match-string 1)
-            (format-time-string "%Y-01-01")))))
+    `budget-start:' on equity:opening if it is set, otherwise the first
+    transaction. The distinction matters the day a year of history is imported:
+    the envelopes were derived FROM that history, so measuring the history
+    against them counts it twice and every envelope opens deep in the red. The
+    rollover should begin when the budget did, not when the records do.
+
+    It cannot start before the journal either way: --budget generates the
+    periodic transactions across whatever range it is given, so reaching back
+    further invents budget for months that never happened."
+      (or (my/hledger--account-tag-string "equity:opening" "budget-start")
+          (let ((default-directory my/hledger-dir))
+            (with-temp-buffer
+              (call-process (my/hledger--binary) nil t nil "-f" hledger-jfile "stats")
+              (goto-char (point-min))
+              (if (re-search-forward "^Txns span *: *\\([0-9-]+\\)" nil t)
+                  (match-string 1)
+                (format-time-string "%Y-01-01"))))))
 
     ;; Queries are anchored with ^ throughout. hledger matches an account
     ;; query as a substring regex, so a bare "income" also selects
@@ -1019,7 +1056,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
             (when (re-search-forward
                    (format "^account +%s *\\(;.*\\)?$" (regexp-quote account)) nil t)
               (let ((line (match-string 0)))
-                (when (string-match (format "%s: *\\([a-z-]+\\)" (regexp-quote tag)) line)
+                (when (string-match (format "%s: *\\([a-z0-9-]+\\)" (regexp-quote tag)) line)
                   (match-string 1 line))))))))
 
     (defun my/hledger-budget--insert-sections (rows)
