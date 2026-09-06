@@ -405,6 +405,26 @@ in
                            "-f" hledger-jfile (append args '("-O" "csv")))))
                 "\n" t)))))
 
+    (defun my/hledger--goals ()
+      "Savings goals, read off the chart of accounts.
+
+    hledger has no notion of a target, so it lives where the account is
+    declared -- `account assets:savings:x  ; goal: 6840' -- rather than in a
+    second file that could disagree with the first. hledger itself ignores the
+    comment, so nothing here changes what the reports compute."
+      (let ((file (expand-file-name "accounts.hledger" my/hledger-dir))
+            (goals nil))
+        (when (file-readable-p file)
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (while (re-search-forward
+                    "^account +\\([^ ;\n]+\\).*;.*goal: *\\([0-9.]+\\)" nil t)
+              (push (cons (match-string 1)
+                          (string-to-number (match-string 2)))
+                    goals))))
+        goals))
+
     (defun my/hledger--num (field)
       "The number in a hledger CSV amount FIELD, which may be a bare 0."
       (string-to-number (or field "0")))
@@ -596,11 +616,28 @@ in
                                      (format "%d%%" (round (* 100 (/ moved planned)))) "--")
                                  (- planned moved))
                          'hledger-account (nth 0 row)))))
-            ;; What the fund is actually worth, which is the number you care
-            ;; about and which no per-month budget row can show.
-            (let ((balance (my/hledger--amount "assets:savings")))
-              (insert (propertize (format "  %-26s %9.2f saved to date\n" "" balance)
-                                  'face 'shadow)))))
+            ;; A monthly row says whether this month's contribution happened.
+            ;; It cannot say whether the fund is anywhere near enough, which is
+            ;; the only question a fund actually raises -- so each one with a
+            ;; goal gets a second line: what is in it, against the target, and
+            ;; how long the current rate takes to close the gap.
+            (dolist (row (my/hledger-budget--leaves
+                          (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr saving))))
+              (let* ((account (nth 0 row))
+                     (goal (alist-get account (my/hledger--goals) nil nil #'equal))
+                     (balance (my/hledger--amount account))
+                     (rate (my/hledger--num (nth 2 row))))
+                (when (and goal (> goal 0))
+                  (insert
+                   (propertize
+                    (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
+                            "  toward goal" balance goal
+                            (my/hledger-budget--bar (/ balance goal))
+                            (format "%d%%" (round (* 100 (/ balance goal))))
+                            (if (> rate 0)
+                                (format "%d mo left" (ceiling (/ (max 0 (- goal balance)) rate)))
+                              "no rate set"))
+                    'face 'shadow)))))))
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
