@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import urllib.parse
 
 def parse_rfc3339(ts):
     """Parse an RFC3339 timestamp on the Python this actually runs under.
@@ -28,6 +29,12 @@ def parse_rfc3339(ts):
     if m:
         ts = "{}.{}{}".format(m.group(1), (m.group(2) + "000000")[:6], m.group(3))
     return datetime.datetime.fromisoformat(ts)
+
+
+def quote_url(url):
+    """SwiftBar splits a menu row on whitespace to find its parameters, so a
+    href with a space in it loses everything after the space."""
+    return urllib.parse.quote(url, safe="/:=?&%#+")
 
 
 env = os.environ.get
@@ -51,6 +58,13 @@ try:
     tail = json.loads(env("TS_JSON") or "")
 except Exception:
     pass
+
+wallapop = {}
+try:
+    wallapop = json.loads(env("WALLAPOP") or "")
+except Exception:
+    pass
+wallapop_items = wallapop.get("items") or []
 
 # ---- health ---------------------------------------------------------------
 problems = []
@@ -166,6 +180,12 @@ if track:
     icon = "▶" if env("SPOT_STATE") == "playing" else "❚❚"
     print(f"{icon} {artist} — {track} | length=40")
 
+# Only when there is something to look at. A tracker that says "0" all week is
+# a line you stop reading, and then it says "3" and you still do not read it.
+if wallapop_items:
+    cheapest = wallapop_items[0]
+    print(f"🛒 {len(wallapop_items)} · {cheapest['title'][:28]} {cheapest['price']:.0f}€ | length=40")
+
 # Nothing above is guaranteed: with macmon unavailable, no problems and no
 # music, the item would render blank and look broken.
 if not metrics and not problems and not track:
@@ -249,6 +269,28 @@ print(f"nix-config {'clean' if not (dirty or ahead) else f'{dirty}△ {ahead}↑
 print(f"--Uncommitted: {dirty}    Unpushed: {ahead}")
 print(f"--Pins stale: {pins_stale}")
 print("--Update pins | bash=/bin/sh param1=-c param2='cd ~/nix-config && nix run .#check-pins -- . --update' terminal=true")
+
+# Wallapop, in the same item as everything else rather than a slot of its own.
+# The parent row carries the count; the listings are one click deep because on
+# a good day there are a dozen of them and they would otherwise push the whole
+# menu off the screen.
+if wallapop:
+    failures = wallapop.get("failures", 0)
+    label = f"Wallapop {len(wallapop_items)}"
+    if failures:
+        label += f" ({failures} searches failed)"
+    print(label)
+    for item in wallapop_items:
+        title = item["title"].strip().capitalize()
+        print(f"--{title} — {item['price']:.0f}€, {item['city']} | href={quote_url(item['url'])}")
+        if item["description"]:
+            print(f"----{item['description'][:300]}")
+    if wallapop_items:
+        print("-----")
+    for entry in wallapop.get("searches", []):
+        print(f"--Buscar: {entry['keyword']} | href={quote_url(entry['url'])}")
+    print(f"--Edit searches | bash=/usr/bin/open param1=-t "
+          f"param2={os.path.expanduser('~/.config/swiftbar/wallapop-searches.json')} terminal=false")
 
 if track:
     print("---")

@@ -1,0 +1,15 @@
+{
+  "max_age_hours": 24,
+  "products": [
+    { "keywords": "sony zv e10",     "min_sale_price": 100, "max_sale_price": 300, "order_by": "newest" },
+    { "keywords": "sony a6000",      "min_sale_price": 100, "max_sale_price": 300, "order_by": "newest" },
+    { "keywords": "sony a6100",      "min_sale_price": 100, "max_sale_price": 500, "order_by": "newest" },
+    { "keywords": "sony a6300",      "min_sale_price": 100, "max_sale_price": 300, "order_by": "newest" },
+    { "keywords": "sony a6400",      "min_sale_price": 100, "max_sale_price": 600, "order_by": "newest" },
+    { "keywords": "sony a6500",      "min_sale_price": 100, "max_sale_price": 300, "order_by": "newest" },
+    { "keywords": "sony a6600",      "min_sale_price": 100, "max_sale_price": 750, "order_by": "newest" },
+    { "keywords": "fujifilm x-t200", "min_sale_price": 100, "max_sale_price": 400, "order_by": "newest" },
+    { "keywords": "fujifilm x-t20",  "min_sale_price": 100, "max_sale_price": 600, "order_by": "newest" },
+    { "keywords": "fujifilm x-t30",  "min_sale_price": 100, "max_sale_price": 650, "order_by": "newest" }
+  ]
+}

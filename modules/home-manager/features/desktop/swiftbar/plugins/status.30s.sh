@@ -69,6 +69,12 @@ vulcan_state() {
   ' 2>/dev/null
 }
 
+# Second-hand gear worth being told about. 15 minutes, not 30 seconds: ten
+# keyword searches at the plugin's own cadence would be 1200 requests an hour
+# to somebody else's API to learn nothing new, and listings do not appear that
+# fast.
+WALLAPOP="$(cached wallapop 900 python3 "$HOME/.config/swiftbar/lib/wallapop.py")"
+
 BACKUP_TS="$(cached backup 300 backup_age)"
 # 30 min, not 6 h: the pin count is cheap to compute (concurrent lookups,
 # well under a second) and a long TTL made the panel contradict itself —
@@ -127,5 +133,5 @@ if [ -n "$SPOT_LINE" ]; then
   SPOT_TRACK="$(printf '%s' "$SPOT_LINE" | cut -f3)"
 fi
 
-export BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST SPOT_DEVICES
+export WALLAPOP BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST SPOT_DEVICES
 python3 "$HOME/.config/swiftbar/lib/status-render.py"

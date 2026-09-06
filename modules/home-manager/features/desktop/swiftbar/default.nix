@@ -47,11 +47,34 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
 
   home.file = {
     ".config/swiftbar/lib/status-render.py".source = ./plugins/status-render.py;
+    ".config/swiftbar/lib/wallapop.py".source = ./plugins/wallapop.py;
     ".config/swiftbar/lib/status.sh" = {
       source = ./plugins/status.30s.sh;
       executable = true;
     };
   };
+
+  # The Wallapop searches are seeded, not declared
+
+  # Everything else here is a store path, but this one file is edited by hand --
+  # a price ceiling gets raised, a lens is added when it becomes the next thing
+  # worth watching. Declaring it with ~home.file~ would put it in the store
+  # read-only and lose those edits on the next rebuild, so it is written once if
+  # absent and never touched again.
+
+  # ~max_age_hours~ replaces the old ~time_filter: "today"~. The API still accepts
+  # that parameter but no longer honours it as a cutoff -- searching with it
+  # returned *more* results than searching without -- so the age filter moved into
+  # the probe, where ~created_at~ makes it unambiguous.
+
+  home.activation.wallapopSearches = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    _wl="${config.home.homeDirectory}/.config/swiftbar/wallapop-searches.json"
+    if [ ! -e "$_wl" ]; then
+      run mkdir -p "$(dirname "$_wl")"
+      run cp ${./plugins/wallapop-searches.json} "$_wl"
+      run chmod 644 "$_wl"
+    fi
+  '';
 
   # The plugin itself is a real file, copied rather than symlinked,...
 
