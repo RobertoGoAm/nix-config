@@ -350,8 +350,20 @@ in
              (from (completing-read "From (default main): " accounts nil nil nil nil
                                     "assets:bank:main"))
              (to (completing-read "To: " accounts))
-             (amount (abs (read-number "Amount (EUR): "))))
-        (my/hledger--append (my/hledger--entry date "transfer" to from amount))
+             (amount (abs (read-number "Amount (EUR): ")))
+             ;; A description, not a payee: nobody is being paid. Defaults to
+             ;; the destination's own name, so a register of transfers reads
+             ;; "emergency fund" and "mortgage" rather than twenty lines of
+             ;; "transfer" that have to be decoded from the accounts.
+             (what (my/hledger--read-payee
+                    (format "What for (default %s): "
+                            (car (last (split-string to ":")))))) )
+        (my/hledger--append
+         (my/hledger--entry date
+                            (if (string-empty-p what)
+                                (car (last (split-string to ":")))
+                              what)
+                            to from amount))
         (message "%s  %.2f EUR  %s -> %s" date amount from to)))
 
     ;;; ------------------------------------------------------------------
@@ -1341,6 +1353,13 @@ in
                     (insert line)))))))
         ;; Whether the plan is backed by money that exists.
         ;;
+        ;; `unallocated' is what sits in the current accounts and the wallet,
+        ;; less the card -- deliberately not counting the savings funds, since
+        ;; money already inside one is spoken for. Moving 5,600 into the
+        ;; emergency fund therefore lowers this line and lowers what is still
+        ;; to fund by the same amount, and the difference does not move. That
+        ;; difference is the only number here that matters.
+        ;;
         ;; This is the one thing hledger's budget model does not check and
         ;; YNAB's does. A periodic transaction declares an intention; it never
         ;; asks whether the euro is in the account. So the totals are shown
@@ -1360,11 +1379,11 @@ in
                                           (my/hledger--account-tag (car g) "original"))
                                         (my/hledger--goals))))))
           (insert (propertize
-                   (format "\n  %-26s %9.2f   held in bank, cash, less the card\n"
-                           "liquid" liquid)
+                   (format "\n  %-26s %9.2f   in the accounts, not yet in a fund\n"
+                           "unallocated" liquid)
                    'face 'my/hledger-budget-heading))
           (insert (format "  %-26s %9.2f   what every target still needs\n"
-                          "goals outstanding" outstanding))
+                          "still to fund" outstanding))
           (insert (propertize
                    (format "  %-26s %9.2f   %s\n" "free" (- liquid outstanding)
                            (if (>= liquid outstanding)
