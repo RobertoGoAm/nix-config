@@ -165,6 +165,42 @@
               desktop-restore-eager 10
               recentf-max-saved-items 200
               history-length 500)
+        ;; Buffers do not accumulate forever.
+        ;;
+        ;; A daemon that runs for days ends up holding every file ever opened --
+        ;; thirty-five buffers, twenty of them files, is a normal afternoon. The
+        ;; switcher becomes a haystack and desktop-save writes the lot back on
+        ;; every restart.
+        ;;
+        ;; `clean-buffer-list' kills what has not been displayed in a day. It never
+        ;; touches a modified buffer, one with a live process, or one currently on
+        ;; screen, so nothing in front of you disappears; the protected list adds
+        ;; the buffers that are meant to persist unattended.
+        ;;
+        ;; Hourly rather than midnight, which is what `midnight-mode' means by
+        ;; default: a machine asleep at midnight would never run it, and once a day
+        ;; is slow to notice a morning of opened files.
+        (require 'midnight)
+        (setq clean-buffer-list-delay-general 1
+              clean-buffer-list-delay-special 3600
+              midnight-period 3600)
+        (setq clean-buffer-list-kill-never-regexps
+              (append clean-buffer-list-kill-never-regexps
+                      '("\\`\\*dashboard\\*\\'"
+                        "\\`\\*scratch\\*\\'"
+                        "\\`\\*Messages\\*\\'"
+                        "\\`\\*telega"
+                        "\\`\\*mu4e"
+                        "\\`magit")))
+        (midnight-mode 1)
+
+        (defun my/clean-buffers ()
+          "Kill buffers untouched for a day, now rather than on the hour."
+          (interactive)
+          (let ((before (length (buffer-list))))
+            (clean-buffer-list)
+            (message "Buffers: %d -> %d" before (length (buffer-list)))))
+
         (desktop-save-mode 1)
         (savehist-mode 1)
         (save-place-mode 1)
