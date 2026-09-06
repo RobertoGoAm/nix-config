@@ -77,20 +77,22 @@ in
     "/System/Applications/Mail.app"
     "/Users/${user}/Applications/Home Manager Apps/Spotify.app"
 
-    # Emacs.app, not Emacs Client.app
+    # Emacs is deliberately not pinned here
 
-    # The entry has to be the bundle the daemon itself runs from. Emacs Client.app
-    # is a launcher: it runs emacsclient and exits, so there is no process for the
-    # Dock to mark as running, and the frame it opens belongs to the daemon -- a
-    # different app, under its own icon. Pinning the launcher gives an icon with no
-    # running indicator that appears to open something else.
+    # Pinning it produced two tiles. The daemon is started by launchd, which
+    # executes the bundle's binary directly rather than going through
+    # LaunchServices, so macOS never associates that process with the pinned
+    # Emacs.app -- the running daemon gets its own tile next to the pinned one,
+    # which stays dark. Pinning Emacs Client.app instead is no better: it runs
+    # emacsclient and exits, so the tile has no running indicator and the frame it
+    # opens still belongs to the daemon under a separate icon.
 
-    # One consequence to know: clicking this icon while the daemon has no frames
-    # open does nothing. Emacs does not implement applicationShouldHandleReopen --
-    # the symbol does not appear in the binary at all -- so AppKit has nothing to
-    # call. Emacs Client.app stays installed, unpinned, for exactly that case.
+    # Unpinned, there is exactly one tile: the daemon's own, appearing when a frame
+    # exists and carrying the real running indicator. alt-enter opens or raises a
+    # frame (see the aerospace module), which is the way in when no frame is up --
+    # Emacs implements no applicationShouldHandleReopen, so a Dock click could not
+    # have done that anyway.
 
-    "/Users/${user}/Applications/Home Manager Apps/Emacs.app"
     "/Users/${user}/Applications/Home Manager Apps/Visual Studio Code.app"
     "/Users/${user}/Applications/Home Manager Apps/Antigravity IDE.app"
     "/Users/${user}/Applications/Home Manager Apps/Cursor.app"
