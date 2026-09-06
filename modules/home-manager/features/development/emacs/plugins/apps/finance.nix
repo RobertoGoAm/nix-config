@@ -1333,6 +1333,39 @@ in
                                      account done planned
                                      (or my/hledger-budget--time (current-time)))))
                     (insert line)))))))
+        ;; Whether the plan is backed by money that exists.
+        ;;
+        ;; This is the one thing hledger's budget model does not check and
+        ;; YNAB's does. A periodic transaction declares an intention; it never
+        ;; asks whether the euro is in the account. So the totals are shown
+        ;; against what is actually held, and if the goals ever exceed it the
+        ;; plan has stopped being a plan.
+        (let* ((liquid (+ (my/hledger--amount "^assets:bank")
+                          (my/hledger--amount "^assets:cash")
+                          (my/hledger--amount "^liabilities:card")))
+               (outstanding
+                (apply #'+ (mapcar
+                            (lambda (goal)
+                              (max 0 (- (car (cdr goal))
+                                        (let ((bal (abs (my/hledger--amount (car goal))))
+                                              (orig (my/hledger--account-tag (car goal) "original")))
+                                          (if orig (- orig bal) bal)))))
+                            (seq-remove (lambda (g)
+                                          (my/hledger--account-tag (car g) "original"))
+                                        (my/hledger--goals))))))
+          (insert (propertize
+                   (format "\n  %-26s %9.2f   held in bank, cash, less the card\n"
+                           "liquid" liquid)
+                   'face 'my/hledger-budget-heading))
+          (insert (format "  %-26s %9.2f   what every target still needs\n"
+                          "goals outstanding" outstanding))
+          (insert (propertize
+                   (format "  %-26s %9.2f   %s\n" "free" (- liquid outstanding)
+                           (if (>= liquid outstanding)
+                               "every fund is backed"
+                             "THE GOALS EXCEED THE MONEY"))
+                   'face (if (>= liquid outstanding) 'success 'error))))
+
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
