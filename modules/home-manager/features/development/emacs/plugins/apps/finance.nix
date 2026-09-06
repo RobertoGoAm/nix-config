@@ -567,11 +567,14 @@ in
     (defun my/hledger--bonifications ()
       "The state of the conditions the mortgage rate depends on.
 
-    Two of them are standing orders that cannot lapse by accident. The other
-    two can: a year with fewer than twelve card purchases, or a month the
-    salary arrives somewhere else, and the rate goes back up. That is the
-    reason this is on screen at all -- 0.17 points is not a large number until
-    it is applied to sixty-six thousand euros for twenty-five years."
+    None of them is a live risk as things stand: the salary arrives on its own,
+    and the gym subscription alone is twelve card purchases a year, so the
+    count is satisfied before any other spending is considered.
+
+    It is here as a tripwire rather than a worry -- for the year the gym is
+    cancelled, or the salary starts landing somewhere else. 0.17 points is not
+    a large number until it is applied to sixty-six thousand euros for
+    twenty-five years, and nothing about losing it would announce itself."
       (let* ((year (format-time-string "%Y-01-01"))
              (purchases (my/hledger--count-postings "liabilities:card" year))
              (salary (my/hledger--last-posting-date "income:salary")))
