@@ -534,12 +534,68 @@ to recompile them and go hunting for error patterns in a balance sheet.
       (if (zerop monthly-rate) (/ balance months)
         (/ (* balance monthly-rate) (- 1 (expt (+ 1 monthly-rate) (- months))))))
 
+    (defun my/hledger--count-postings (account since)
+      "How many postings to ACCOUNT increase what is owed on it, SINCE a date.
+
+    A purchase credits the card, so it lands in the register negative; a
+    payment lands positive. Counting only the negatives is what separates
+    twelve purchases from twelve monthly settlements."
+      (let ((default-directory my/hledger-dir)
+            (count 0))
+        (with-temp-buffer
+          (call-process (my/hledger--binary) nil t nil "-f" hledger-jfile
+                        "register" account "-b" since "-O" "csv")
+          (goto-char (point-min))
+          (forward-line 1)
+          (while (not (eobp))
+            (let ((fields (split-string
+                           (string-trim (thing-at-point 'line t) "\"" "\"?\n?")
+                           "\",\"")))
+              (when (and (> (length fields) 5)
+                         (string-prefix-p "-" (string-trim (nth 5 fields))))
+                (setq count (1+ count))))
+            (forward-line 1)))
+        count))
+
+    (defun my/hledger--last-posting-date (account)
+      "The date of the most recent posting to ACCOUNT, or nil."
+      (let ((default-directory my/hledger-dir))
+        (with-temp-buffer
+          (call-process (my/hledger--binary) nil t nil "-f" hledger-jfile
+                        "register" account "-O" "csv")
+          (goto-char (point-max))
+          (forward-line -1)
+          (let ((fields (split-string
+                         (string-trim (or (thing-at-point 'line t) "") "\"" "\"?\n?")
+                         "\",\"")))
+            (when (and (> (length fields) 1)
+                       (string-match "\\`[0-9]\\{4\\}-" (nth 1 fields)))
+              (nth 1 fields))))))
+
+    (defun my/hledger--bonifications ()
+      "The state of the conditions the mortgage rate depends on.
+
+    Two of them are standing orders that cannot lapse by accident. The other
+    two can: a year with fewer than twelve card purchases, or a month the
+    salary arrives somewhere else, and the rate goes back up. That is the
+    reason this is on screen at all -- 0.17 points is not a large number until
+    it is applied to sixty-six thousand euros for twenty-five years."
+      (let* ((year (format-time-string "%Y-01-01"))
+             (purchases (my/hledger--count-postings "liabilities:card" year))
+             (salary (my/hledger--last-posting-date "income:salary")))
+        (list (list "life insurance" t "budgeted monthly")
+              (list "house insurance" t "budgeted monthly")
+              (list "12 card purchases" (>= purchases 12)
+                    (format "%d so far in %s" purchases (format-time-string "%Y")))
+              (list "salary into the account" (and salary t)
+                    (if salary (concat "last seen " salary) "none recorded")))))
+
     (defun my/hledger-mortgage ()
       "Where the mortgage stands, and what finishing early costs per month.
 
-    The rate is read from the chart of accounts, where it is an inferred figure
-    until somebody checks it against the loan statement -- everything below is
-    only as good as that number, and a variable-rate loan will drift from it."
+    The rate is read from the chart of accounts. Everything below is only as
+    good as that number, and a variable-rate loan will drift from it, so the
+    statement is the thing that settles it."
       (interactive)
       (let* ((balance (abs (my/hledger--amount "liabilities:mortgage")))
              (original (or (my/hledger--account-tag "liabilities:mortgage" "original") 0))
@@ -558,7 +614,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
             (insert (format "  balance        %10.2f of %.2f borrowed   %.1f%% paid off\n"
                             balance original
                             (if (> original 0) (* 100 (/ (- original balance) original)) 0)))
-            (insert (format "  rate           %10.3f%% a year (inferred -- check the statement)\n" annual))
+            (insert (format "  rate           %10.3f%% a year, from the chart of accounts\n" annual))
             (insert (format "  payment        %10.2f a month\n\n" payment))
             (if left
                 (insert (format "  at that rate   %4d months left (%.1f years), %.2f interest still to pay\n"
@@ -570,6 +626,15 @@ to recompile them and go hunting for error patterns in a balance sheet.
                             (- (* target needed) balance)
                             (- (- (* (or left 0) payment) balance)
                                (- (* target needed) balance))))
+            (insert (format "\n  bonifications -- %.2f%% with them, and the cuota is priced at 1.30%%\n"
+                            annual))
+            (dolist (item (my/hledger--bonifications))
+              (insert (format "    %-24s %s  %s\n"
+                              (nth 0 item)
+                              (if (nth 1 item)
+                                  (propertize "ok" 'face 'success)
+                                (propertize "AT RISK" 'face 'error))
+                              (nth 2 item))))
             (insert "\n  Spanish lenders usually let an overpayment either shorten the term or\n")
             (insert "  cut the monthly payment, and some charge for early amortisation.\n")
             (insert "  Which of those you get is agreed with the bank, not decided here.\n"))
