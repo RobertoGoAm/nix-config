@@ -1003,8 +1003,11 @@ in
                  (my/hledger-budget--bar fraction)
                  (my/hledger--percent spent budgeted)
                  remaining
-                 ;; Six months of history: enough to see an envelope drifting
-                 ;; up, which a single month against its budget cannot show.
+                 ;; Six months of what was SPENT -- not budgeted, not
+                 ;; available. Rising means the spending rose. Scaled from
+                 ;; zero, so the height is comparable between months rather
+                 ;; than being stretched to fill whatever range it happens to
+                 ;; have.
                  (my/hledger--sparkline
                   (or (alist-get account my/hledger-budget--trends nil nil #'equal)
                       '())))
@@ -1080,10 +1083,13 @@ in
           (match-string 1 tail))))
 
     (defun my/hledger-budget--insert-rows (rows)
-      "Insert ROWS, gathering anything that shares a parent under a heading.
+      "Insert ROWS, gathering anything with a parent under a heading.
 
-    A single child does not get one: `housing' over `housing:mortgage' alone is
-    a line of screen spent to repeat a word."
+    Every account with a parent gets one, even when it is the only child in
+    this section. Consistency wins here: sections split siblings apart -- the
+    pharmacy is a need and the gym is a want -- so without a heading some rows
+    read `health:medical' and others read `gym', and the colons make the screen
+    look like it forgot to indent."
       (let ((groups nil))
         (dolist (row rows)
           (let* ((account (nth 0 row))
@@ -1093,7 +1099,7 @@ in
               (push (cons group (list row)) groups))))
         (dolist (entry (nreverse groups))
           (let ((group (car entry)) (members (cdr entry)))
-            (if (or (null group) (= 1 (length members)))
+            (if (null group)
                 (dolist (row members)
                   (insert (my/hledger-budget--row
                            (nth 0 row) (my/hledger--num (nth 1 row))
@@ -1250,7 +1256,7 @@ in
                            "envelope" "spent" "budget"
                            (make-string my/hledger-budget-bar-width ?\s) ""
                            (if my/hledger-budget-rollover "available" "left")
-                           "6 mo trend")
+                           "6 mo spend")
                    'face 'my/hledger-budget-heading))
           (my/hledger-budget--insert-sections rows)
           (when (> (abs unbudgeted) 0.005)
