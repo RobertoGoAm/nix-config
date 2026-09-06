@@ -324,9 +324,16 @@
     never ran, which is how the split dashboard came back."
       (let* ((frame (selected-frame))
              (shown (buffer-name (window-buffer (frame-selected-window frame)))))
-        (when (member shown '("*scratch*" "*dashboard*"))
-          (my/dashboard-home)
-          (delete-other-windows))))
+        ;; Not when a saved layout has just been replayed. If that layout had
+        ;; the dashboard in the selected window -- which it does whenever the
+        ;; last session ended looking at it -- the guard below matches, and
+        ;; `delete-other-windows' then throws away every other pane that was
+        ;; just restored and redraws the dashboard over the top. Which is what
+        ;; "the dashboard keeps opening twice" actually was.
+        (unless (bound-and-true-p my/window-state-restored)
+          (when (member shown '("*scratch*" "*dashboard*"))
+            (my/dashboard-home)
+            (delete-other-windows)))))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
