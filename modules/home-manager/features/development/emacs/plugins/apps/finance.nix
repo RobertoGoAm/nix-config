@@ -526,6 +526,14 @@ in
       (propertize (make-string columns ?\s)
                   'display (svg-image svg :ascent 'center)))
 
+    (defun my/hledger--percent (part whole)
+      "PART of WHOLE as a percentage, or -- when that would say nothing.
+    Anything past 999% is a row where something is wrong with the data rather
+    than the spending, and printing six digits of it only hides the rest."
+      (if (or (null whole) (<= whole 0)) "--"
+        (let ((p (round (* 100 (/ (float part) whole)))))
+          (if (> (abs p) 999) ">999%" (format "%d%%" p)))))
+
     (defun my/hledger--bar-color (fraction)
       (cond ((> fraction 1.0) (my/hledger--color 'error "#b22222"))
             ((> fraction 0.85) (my/hledger--color 'warning "#b8860b"))
@@ -570,6 +578,59 @@ in
                      names))
          rows)))
 
+    (defcustom my/hledger-budget-rollover t
+      "Whether an unspent envelope carries its balance into the next month.
+
+    hledger's budget report compares one period at a time and has no notion of
+    a leftover, so with this off the screen shows what is left of THIS month
+    and a sinking fund can never visibly accumulate -- travel would read 0/50
+    every month and then 469/50 the month you book a hotel.
+
+    With it on the column is what YNAB calls available: everything budgeted
+    since the journal began, minus everything spent, so an envelope nobody
+    touched for three months genuinely has three months in it."
+      :type 'boolean
+      :group 'my/hledger)
+
+    (defun my/hledger--journal-start ()
+      "The date of the first transaction, which is where a rollover starts.
+
+    It cannot start earlier: --budget generates the periodic transactions
+    across whatever range it is given, so reaching back before the journal
+    exists invents budget for months that never happened and every envelope
+    looks flush."
+      (let ((default-directory my/hledger-dir))
+        (with-temp-buffer
+          (call-process (my/hledger--binary) nil t nil "-f" hledger-jfile "stats")
+          (goto-char (point-min))
+          (if (re-search-forward "^Txns span *: *\\([0-9-]+\\)" nil t)
+              (match-string 1)
+            (format-time-string "%Y-01-01")))))
+
+    (defun my/hledger--available (end)
+      "Available per envelope at END: everything budgeted since the journal
+    started, less everything spent. An alist of account to a float."
+      (let* ((csv (my/hledger--csv
+                   "balance" "--budget" "--flat" "expenses"
+                   "-b" (my/hledger--journal-start)
+                   "-e" (format-time-string "%Y-%m-01" (time-add end (days-to-time 31)))
+                   "--cumulative" "-M"))
+             (rows (seq-remove (lambda (r) (equal (car r) "Total:")) (cdr csv))))
+        ;; Every month is a pair of columns, actual then budget; the running
+        ;; totals mean only the last pair matters.
+        (mapcar (lambda (r)
+                  (let* ((cells (cdr r))
+                         (n (length cells)))
+                    (cons (car r)
+                          (if (>= n 2)
+                              (- (my/hledger--num (nth (- n 1) cells))
+                                 (my/hledger--num (nth (- n 2) cells)))
+                            0.0))))
+                rows)))
+
+    (defvar-local my/hledger-budget--available nil
+      "Account to its rolled-over balance, when rollover is on.")
+
     (defvar-local my/hledger-budget--trends nil
       "Account to its last six monthly totals, for the sparkline column.")
 
@@ -585,28 +646,89 @@ in
                                                (time-add end (days-to-time 31))))))
         (cdr matrix)))
 
-    (defun my/hledger-budget--row (account spent budgeted)
-      "One envelope, as a line."
-      (let* ((label (replace-regexp-in-string "\\`expenses:?" "" account))
+    (defun my/hledger-budget--row (account spent budgeted &optional label depth override)
+      "One envelope, as a line.
+    LABEL overrides the name, DEPTH indents it, OVERRIDE replaces the computed
+    remaining -- a group heading has no account of its own to look up, so it is
+    handed the sum of its children."
+      (let* ((label (or label (replace-regexp-in-string "\\`expenses:?" "" account)))
              (label (if (string-empty-p label) "unbudgeted" label))
+             (label (concat (make-string (* 2 (or depth 0)) ?\s) label))
              (fraction (if (> budgeted 0) (/ spent budgeted) (if (> spent 0) 1.5 0.0)))
-             (left (- budgeted spent))
-             (over (< left 0)))
+             ;; What is left of this month, or -- when the rollover is on --
+             ;; everything never spent since the journal began.
+             (remaining (or override
+                            (if (and my/hledger-budget-rollover
+                                     my/hledger-budget--available)
+                                (or (alist-get account my/hledger-budget--available
+                                               nil nil #'equal)
+                                    (- budgeted spent))
+                              (- budgeted spent))))
+             (over (< remaining 0)))
         (propertize
          (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f  %s\n"
                  (truncate-string-to-width label 26)
                  spent budgeted
                  (my/hledger-budget--bar fraction)
-                 (if (> budgeted 0) (format "%d%%" (round (* 100 fraction))) "--")
-                 left
-                 ;; Six months of history in eight characters: enough to see an
-                 ;; envelope drifting up, which a single month against its
-                 ;; budget cannot show.
+                 (my/hledger--percent spent budgeted)
+                 remaining
+                 ;; Six months of history: enough to see an envelope drifting
+                 ;; up, which a single month against its budget cannot show.
                  (my/hledger--sparkline
                   (or (alist-get account my/hledger-budget--trends nil nil #'equal)
                       '())))
          'hledger-account account
          'face (if over 'error 'default))))
+
+    (defun my/hledger-budget--group (account)
+      "The heading ACCOUNT belongs under, or nil when it is a top-level one."
+      (let ((tail (replace-regexp-in-string "\\`expenses:" "" account)))
+        (when (string-match "\\`\\([^:]+\\):" tail)
+          (match-string 1 tail))))
+
+    (defun my/hledger-budget--insert-rows (rows)
+      "Insert ROWS, gathering anything that shares a parent under a heading.
+
+    A single child does not get one: `housing' over `housing:mortgage' alone is
+    a line of screen spent to repeat a word."
+      (let ((groups nil))
+        (dolist (row rows)
+          (let* ((account (nth 0 row))
+                 (group (my/hledger-budget--group account))
+                 (cell (assoc group groups)))
+            (if cell (setcdr cell (append (cdr cell) (list row)))
+              (push (cons group (list row)) groups))))
+        (dolist (entry (nreverse groups))
+          (let ((group (car entry)) (members (cdr entry)))
+            (if (or (null group) (= 1 (length members)))
+                (dolist (row members)
+                  (insert (my/hledger-budget--row
+                           (nth 0 row) (my/hledger--num (nth 1 row))
+                           (my/hledger--num (nth 2 row)))))
+              (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
+                    (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
+                ;; The heading carries the totals, so the group can be read
+                ;; without adding its children up by eye.
+                (insert (my/hledger-budget--row
+                         (concat "expenses:" group) spent budget group 0
+                         (when (and my/hledger-budget-rollover
+                                    my/hledger-budget--available)
+                           (apply #'+ (mapcar
+                                       (lambda (r)
+                                         (or (alist-get (nth 0 r)
+                                                        my/hledger-budget--available
+                                                        nil nil #'equal)
+                                             (- (my/hledger--num (nth 2 r))
+                                                (my/hledger--num (nth 1 r)))))
+                                       members)))))
+                (dolist (row members)
+                  (insert (my/hledger-budget--row
+                           (nth 0 row) (my/hledger--num (nth 1 row))
+                           (my/hledger--num (nth 2 row))
+                           (replace-regexp-in-string
+                            (format "\\`expenses:%s:" (regexp-quote group)) ""
+                            (nth 0 row))
+                           1)))))))))
 
     (defun my/hledger-budget--month-string (time)
       (format-time-string "%Y-%m" time))
@@ -679,6 +801,9 @@ in
              spent-total budget-total income-actual income-budget)
         (setq my/hledger-budget--trends
               (my/hledger-budget--load-trends my/hledger-budget--time))
+        (setq my/hledger-budget--available
+              (when my/hledger-budget-rollover
+                (my/hledger--available my/hledger-budget--time)))
         (erase-buffer)
         (dolist (row (cdr income))
           (when (equal (nth 0 row) "Total:")
@@ -713,13 +838,11 @@ in
           (insert (propertize
                    (format "  %-26s %9s / %-9s %s %5s  %10s  %s\n"
                            "envelope" "spent" "budget"
-                           (make-string my/hledger-budget-bar-width ?\s) "" "left"
-                           "6 mo")
+                           (make-string my/hledger-budget-bar-width ?\s) ""
+                           (if my/hledger-budget-rollover "available" "left")
+                           "6 mo trend")
                    'face 'my/hledger-budget-heading))
-          (dolist (row rows)
-            (insert (my/hledger-budget--row (nth 0 row)
-                                            (my/hledger--num (nth 1 row))
-                                            (my/hledger--num (nth 2 row)))))
+          (my/hledger-budget--insert-rows rows)
           (when (> (abs unbudgeted) 0.005)
             (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0))))
 
@@ -731,9 +854,12 @@ in
         ;; The sign flips: a transfer in is a debit on an asset, which hledger
         ;; reports positive, and "spent 200 of 200" is the right reading of a
         ;; fund that got its contribution this month.
+        ;; not:desc:opening -- the opening balances are dated inside the first
+        ;; tracked month, and without excluding them the mortgage row reports
+        ;; the whole outstanding loan as this month's movement.
         (let ((saving (my/hledger--csv "balance" "--budget" "--flat"
                                        "assets:savings" "liabilities:mortgage"
-                                       "-p" period)))
+                                       "not:desc:opening" "-p" period)))
           (when (> (length saving) 2)
             ;; Paying down a mortgage belongs here rather than among the
             ;; envelopes: it is not a cost, it is net worth moving from the
@@ -765,8 +891,7 @@ in
                                  moved planned
                                  (my/hledger-budget--bar
                                   (if (> planned 0) (/ moved planned) 0.0))
-                                 (if (> planned 0)
-                                     (format "%d%%" (round (* 100 (/ moved planned)))) "--")
+                                 (my/hledger--percent moved planned)
                                  (- planned moved))
                          'hledger-account account))
                 (when (and goal (> goal 0))
