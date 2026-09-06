@@ -1368,6 +1368,18 @@ in
         (let* ((liquid (+ (my/hledger--amount "^assets:bank")
                           (my/hledger--amount "^assets:cash")
                           (my/hledger--amount "^liabilities:card")))
+               ;; Only what is meant to be funded within a year counts. A
+               ;; target four years out is incomplete, not unbacked, and
+               ;; letting it into this sum turns the check into an alarm that
+               ;; is always on -- which is the same as no check at all.
+               (near (seq-remove
+                      (lambda (g)
+                        (or (my/hledger--account-tag (car g) "original")
+                            (let ((by (cdr (cdr g))))
+                              (and by (> (my/hledger--months-until
+                                          by (or my/hledger-budget--time (current-time)))
+                                         12)))))
+                      (my/hledger--goals)))
                (outstanding
                 (apply #'+ (mapcar
                             (lambda (goal)
@@ -1375,14 +1387,12 @@ in
                                         (let ((bal (abs (my/hledger--amount (car goal))))
                                               (orig (my/hledger--account-tag (car goal) "original")))
                                           (if orig (- orig bal) bal)))))
-                            (seq-remove (lambda (g)
-                                          (my/hledger--account-tag (car g) "original"))
-                                        (my/hledger--goals))))))
+                            near))))
           (insert (propertize
                    (format "\n  %-26s %9.2f   in the accounts, not yet in a fund\n"
                            "unallocated" liquid)
                    'face 'my/hledger-budget-heading))
-          (insert (format "  %-26s %9.2f   what every target still needs\n"
+          (insert (format "  %-26s %9.2f   targets due within a year\n"
                           "still to fund" outstanding))
           (insert (propertize
                    (format "  %-26s %9.2f   %s\n" "free" (- liquid outstanding)
