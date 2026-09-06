@@ -56,6 +56,22 @@ in
       description = "calibre-web's HTTP port (its own default).";
     };
 
+    kosyncPort = lib.mkOption {
+      type = lib.types.port;
+      default = 8087;
+      description = "The KOReader progress-sync server's HTTP port.";
+    };
+
+    kosyncAllowRegistration = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether POST /users/create is accepted. It has to be on to create the
+        first account from a reader, and there is no reason to leave it on
+        afterwards -- anything that reaches the tailnet can otherwise register.
+      '';
+    };
+
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "${config.home.homeDirectory}/Library/Application Support/reading";
@@ -89,7 +105,8 @@ in
     # stays declarative.
 
     home.activation.readingDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run mkdir -p "${cfg.dataDir}/readeck" "${cfg.dataDir}/calibre-web"
+      run mkdir -p "${cfg.dataDir}/readeck" "${cfg.dataDir}/calibre-web" \
+        "${cfg.dataDir}/kosync"
       if [ ! -s "${cfg.dataDir}/readeck/secret_key" ]; then
         run ${lib.getExe' pkgs.openssl "openssl"} rand -base64 48 \
           | tr -d '\n' > "${cfg.dataDir}/readeck/secret_key"
@@ -153,6 +170,45 @@ in
         };
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/calibre-web.out.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/calibre-web.err.log";
+      };
+    };
+
+    # Where the reading position lives
+
+    # calibre-web hands out the books and readeck holds the articles; neither knows
+    # how far through anything you are. KOReader syncs that itself, against a
+    # kosync server -- five endpoints and one row per book -- and the point of
+    # running our own is that the public instance is somebody else's record of what
+    # you read and how fast.
+
+    # Written here rather than packaged: nixpkgs has neither the official Lua
+    # server nor any of the reimplementations, and the official one wants OpenResty
+    # and Redis to store an integer per book. This is stdlib Python against SQLite,
+    # so it needs no interpreter beyond the one already in the closure and the
+    # database sits next to the other reading state, inside the same backup.
+
+    # The X4 Pro's own reader does not speak this protocol -- CrossPoint keeps
+    # bookmarks as JSON under .crosspoint and syncs with nothing. It is an Android
+    # device, so KOReader installs on it as an APK, and that is what talks here.
+
+    launchd.agents.kosync = {
+      enable = true;
+      config = {
+        ProgramArguments = [
+          "${lib.getExe pkgs.python3}"
+          "${./kosync.py}"
+        ];
+        RunAtLoad = true;
+        KeepAlive = true;
+        WorkingDirectory = cfg.dataDir;
+        EnvironmentVariables = {
+          KOSYNC_DB = "${cfg.dataDir}/kosync/kosync.db";
+          KOSYNC_HOST = cfg.host;
+          KOSYNC_PORT = toString cfg.kosyncPort;
+          KOSYNC_ALLOW_REGISTER = if cfg.kosyncAllowRegistration then "1" else "0";
+        };
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/kosync.out.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/kosync.err.log";
       };
     };
   };
