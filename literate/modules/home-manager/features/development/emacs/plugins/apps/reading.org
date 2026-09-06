@@ -112,15 +112,34 @@ nothing -- the notes file below is the honest version of that feature.
     ;;;
     ;;; ~my/kosync-setup~ is the whole account flow: it takes a username and a
     ;;; password, registers them with the server if the account is new, and writes
-    ;;; the file. Registration is open on the server only until the accounts exist --
-    ;;; close it in features/services/reading afterwards.
+    ;;; the file. Against a server whose registration is closed the creation is
+    ;;; refused and that is fine -- the credential file is the point, and the
+    ;;; command finishes by asking the server whether it actually works.
+    ;;;
+    ;;; The server has to be the same one KOReader points at, or the two sides
+    ;;; keep tidy positions that never meet. There is a kosync server on vulcan
+    ;;; (features/services/reading) for the self-hosted arrangement; it is not
+    ;;; the default because the account that already exists is on the public
+    ;;; one, and that server has registration closed, so the account cannot be
+    ;;; recreated elsewhere without losing the positions already stored.
 
-    (defcustom my/kosync-url "http://vulcan.tail5ec262.ts.net:8087"
-      "Base URL of the kosync server.
-    Plain HTTP on purpose: the tailnet is already encrypted, and KOReader on a
-    device with no CA store is one more thing to go wrong."
+    (defcustom my/kosync-url "https://sync.crosspointreader.com"
+      "Base URL of the kosync server. Must match KOReader's own setting.
+    Set it to \"http://vulcan.tail5ec262.ts.net:8087\" to use the self-hosted
+    server instead -- plain HTTP is deliberate there, since the tailnet is
+    already encrypted and KOReader on a device with no CA store is one more
+    thing to go wrong."
       :type 'string
       :group 'my/kosync)
+
+    (defun my/kosync--endpoint (path)
+      "The full URL for PATH, tolerating a trailing slash on `my/kosync-url'.
+    A base URL pasted with its trailing slash concatenates into \"//users/auth\",
+    and a server that routes on the exact path answers that with a 404 rather
+    than the 401 the caller is expecting -- which looks from the client side
+    like the server never answered at all. KOReader has the same sharp edge in
+    its own settings box, and it is the usual reason sync \"does not respond\"."
+      (concat (string-trim-right my/kosync-url "/+") path))
 
     (defvar my/kosync--credentials-file
       (expand-file-name "~/.config/kosync/credentials")
@@ -169,7 +188,7 @@ nothing -- the notes file below is the honest version of that feature.
               ;; Errors reach the callback, not this stack frame, so it takes
               ;; its own handler -- otherwise a dead server prints a url.el
               ;; backtrace into the echo area from a timer.
-              (url-retrieve (concat my/kosync-url path)
+              (url-retrieve (my/kosync--endpoint path)
                             (lambda (status &rest _)
                               (let ((failed (plist-get status :error)))
                                 (kill-buffer (current-buffer))
@@ -182,7 +201,7 @@ nothing -- the notes file below is the honest version of that feature.
               ;; nil then throws a "Wrong type argument: stringp, nil" that
               ;; says nothing about the server being down.
               (when-let* ((buffer (url-retrieve-synchronously
-                                   (concat my/kosync-url path) t t 15)))
+                                   (my/kosync--endpoint path) t t 15)))
                 (with-current-buffer buffer
                   (goto-char (point-min))
                   (when (re-search-forward "^$" nil t)
@@ -204,11 +223,19 @@ nothing -- the notes file below is the honest version of that feature.
         (set-file-modes my/kosync--credentials-file #o600)
         ;; An existing account is the expected outcome on the second device,
         ;; not a failure -- the credential file is what this command is really
-        ;; for, and it has just been written either way.
-        (message "kosync: %s"
-                 (cond ((alist-get 'username result) "account created")
-                       ((alist-get 'message result) (alist-get 'message result))
-                       (t "credential saved; server did not answer")))))
+        ;; for, and it has just been written either way. So is a server that
+        ;; refuses registration outright. Neither says whether the credential
+        ;; is any good, though, so ask: an authorized answer here is the only
+        ;; part of this command that proves the setup works.
+        (let ((authorized (alist-get 'authorized
+                                     (my/kosync--request "GET" "/users/auth"))))
+          (message "kosync: %s; %s"
+                   (cond ((alist-get 'username result) "account created")
+                         ((alist-get 'message result) (alist-get 'message result))
+                         (t "server did not answer the registration"))
+                   (if authorized
+                       "credential works"
+                     "credential REJECTED -- wrong password, or wrong server")))))
 
     ;;; ------------------------------------------------------------------
     ;;; Position, in both directions
