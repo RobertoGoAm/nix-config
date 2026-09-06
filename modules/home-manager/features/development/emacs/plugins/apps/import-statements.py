@@ -57,7 +57,6 @@ CARD_RULES = [
  ('expenses:clothes',                 r'mango|zara|el corte ingles|primark|decathlon|perfumerias|asics|fluchos'),
  ('expenses:home:general',            r'unigas|milar|ikea|leroy|bricomart'),
  ('expenses:gear',                    r'amazon|amzn|aliexpress|wallapop|ktuin|pccomponentes|mediamarkt|xteink'),
- ('expenses:personal-care:treatments',r'disp\.efect'),
  ('expenses:fees',                    r'comisi|cuota tarjeta'),
 ]
 BANK_RULES = [
@@ -80,7 +79,7 @@ BANK_RULES = [
  ('expenses:health:dental',           r'kranion'),
  ('expenses:home:appliances',         r'vorwerk'),
  ('expenses:home:general',            r'bookmeeting'),
- ('expenses:personal-care:treatments',r'^tj-|deutsche bank sae|bancosabadell|eurocaja|bankinter|caixa'),
+ ('assets:cash',                      r'^tj-|deutsche bank sae|bancosabadell|eurocaja|bankinter|caixa'),
  ('expenses:fees',                    r'comisi|com\.manto|com\.reintg'),
 ]
 def classify(rules, text):
@@ -107,6 +106,10 @@ def main():
     # --- credit card: purchases and refunds -------------------------------
     card_total = 0.0
     for d, amt, kind, payee in card_rows():
+        if re.search(r'disp\.efect', kind.lower()):
+            continue  # the same withdrawal is in the bank export, a day later
+        if re.search(r'ingreso', kind.lower()):
+            continue  # a payment into the card, booked from the paying account
         # On the trip, a bar is not eating out and a taxi is not commuting --
         # the whole week is the trip. Foreign currency is what marks it.
         foreign = re.search(r'z/n-euro|extranj|inter z-neu', kind.lower())
@@ -146,6 +149,8 @@ def main():
             out.append((d, 'mortgage', [('expenses:housing:mortgage', interest),
                                         ('liabilities:mortgage', principal),
                                         ('assets:bank:main', None)]))
+        elif target == 'assets:cash':
+            out.append((d, 'cash withdrawal', [('assets:cash', -amt), ('assets:bank:main', None)]))
         elif amt < 0:
             out.append((d, desc[:40], [(target or 'expenses:other', -amt), ('assets:bank:main', None)]))
             if not target: unmatched[desc[:30]] += -amt
