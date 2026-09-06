@@ -333,6 +333,26 @@
       "rw" '(my/replace-word-buffer :which-key "word in buffer")
       "rW" '(my/replace-word-project :which-key "word in project")
 
+      ;; money -- hledger, doing what YNAB does without the bank feed.
+      ;;
+      ;; "$" rather than a letter: every mnemonic one was taken (b is buffers,
+      ;; m is music, f is files) and a budget is the one thing on this map that
+      ;; has an obvious symbol.
+      "$"  '(:ignore t :which-key "money")
+      "$$" '(my/hledger-journal :which-key "open journal")
+      "$a" '(my/hledger-add :which-key "add expense (C-u: income)")
+      "$t" '(my/hledger-transfer :which-key "transfer between accounts")
+      "$b" '(my/hledger-budget :which-key "envelopes this month (C-u: period)")
+      "$B" '(my/hledger-budget-file :which-key "edit envelopes")
+      "$A" '(my/hledger-accounts-file :which-key "edit chart of accounts")
+      "$f" '(my/hledger-forecast :which-key "projection")
+      "$s" '(my/hledger-spending :which-key "spending by category")
+      "$i" '(my/hledger-income :which-key "income vs expenses")
+      "$n" '(my/hledger-networth :which-key "net worth")
+      "$r" '(my/hledger-register :which-key "account register")
+      "$c" '(my/hledger-check :which-key "check journal")
+      "$x" '(my/hledger-command :which-key "run hledger command")
+
       ;; search
       "s"  '(:ignore t :which-key "search")
       "sp" '(my/search-project :which-key "project")
