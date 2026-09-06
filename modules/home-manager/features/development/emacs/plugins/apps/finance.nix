@@ -507,7 +507,7 @@ in
             (insert-file-contents file)
             (goto-char (point-min))
             (when (re-search-forward
-                   (format "^account +%s\\b.*;.*%s: *\\([0-9.]+\\)"
+                   (format "^account +%s\\b.*;.*%s: *\\(-?[0-9.]+\\)"
                            (regexp-quote account) (regexp-quote tag))
                    nil t)
               (string-to-number (match-string 1)))))))
@@ -584,6 +584,70 @@ in
                     (format "%d so far in %s" purchases (format-time-string "%Y")))
               (list "salary into the account" (and salary t)
                     (if salary (concat "last seen " salary) "none recorded")))))
+
+    (defun my/hledger--year-total (query year)
+      "The total of QUERY over calendar YEAR, as a positive number."
+      (abs (my/hledger--amount query (format "%d-01-01..%d-12-31" year year))))
+
+    (defun my/hledger-renta (&optional year)
+      "Estimate the AEAT settlement for YEAR from the payslips in the journal.
+
+    Spain settles income tax a year in arrears: what is withheld monthly is an
+    estimate, and the following June the difference is charged or refunded. The
+    bill is therefore knowable long before it arrives, provided the payslips
+    have been recorded with their three parts -- what was earned, what was
+    withheld for IRPF, and what went to Seguridad Social.
+
+    The model is a straight line fitted to two settled years, and it is a
+    straight line for a reason: two points cannot describe a progressive tax
+    system, only the slope between them. It is accurate near that income and
+    increasingly wrong away from it. The coefficients live on the account so a
+    third settled year can improve them:
+
+      account expenses:tax:renta  ; marginal: 43.99  offset: -8444.67
+
+    What it cannot know: anything outside the payslips. Deductions, a second
+    income, a joint return, regional variations -- none of that is here, and
+    any of it moves the answer. It is a forecast to save for against, not a
+    figure to file."
+      (interactive)
+      (let* ((year (or year (string-to-number (format-time-string "%Y"))))
+             (marginal (or (my/hledger--account-tag "expenses:tax:renta" "marginal") 0))
+             (offset (or (my/hledger--account-tag "expenses:tax:renta" "offset") 0))
+             (gross (my/hledger--year-total "^income:salary" year))
+             (withheld (my/hledger--year-total "^expenses:tax:irpf" year))
+             (social (my/hledger--year-total "^expenses:tax:social-security" year))
+             (taxable (- gross social))
+             (liability (+ (* (/ marginal 100.0) taxable) offset))
+             (settlement (- liability withheld))
+             (buffer (get-buffer-create "*renta*")))
+        (with-current-buffer buffer
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert (format "  Income tax, %d -- settled June %d\n\n" year (1+ year)))
+            (if (zerop gross)
+                (progn
+                  (insert "  No payslips recorded for this year.\n\n")
+                  (insert "  Record them in full and this fills itself in: income:salary\n")
+                  (insert "  for the gross, expenses:tax:irpf for what was withheld,\n")
+                  (insert "  expenses:tax:social-security, and the benefit in kind.\n"))
+              (insert (format "  gross earned       %10.2f\n" gross))
+              (insert (format "  Seguridad Social   %10.2f\n" social))
+              (insert (format "  taxable            %10.2f\n\n" taxable))
+              (insert (format "  tax due            %10.2f   at %.2f%% marginal\n"
+                              liability marginal))
+              (insert (format "  already withheld   %10.2f\n" withheld))
+              (insert (format "  %-18s %10.2f\n\n"
+                              (if (> settlement 0) "TO PAY next June" "refund next June")
+                              (abs settlement)))
+              (insert (format "  Set aside %.2f a month from now until June to cover it.\n"
+                              (/ (max 0 settlement) 9.0)))
+              (insert "\n  Two settled years fitted with a straight line: accurate near\n")
+              (insert "  this income, less so away from it, and blind to anything the\n")
+              (insert "  payslips do not show. A forecast to save against, not a return.\n")))
+          (goto-char (point-min))
+          (special-mode))
+        (pop-to-buffer buffer)))
 
     (defun my/hledger-mortgage ()
       "Where the mortgage stands, and what finishing early costs per month.
