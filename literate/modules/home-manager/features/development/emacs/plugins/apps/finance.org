@@ -757,11 +757,15 @@ to recompile them and go hunting for error patterns in a balance sheet.
               (match-string 1)
             (format-time-string "%Y-01-01")))))
 
+    ;; Queries are anchored with ^ throughout. hledger matches an account
+    ;; query as a substring regex, so a bare "income" also selects
+    ;; expenses:tax:income -- which quietly subtracted 159 from the month's
+    ;; expected income and made the budget look 159 over.
     (defun my/hledger--available (end)
       "Available per envelope at END: everything budgeted since the journal
     started, less everything spent. An alist of account to a float."
       (let* ((csv (my/hledger--csv
-                   "balance" "--budget" "--flat" "expenses"
+                   "balance" "--budget" "--flat" "^expenses"
                    "-b" (my/hledger--journal-start)
                    "-e" (format-time-string "%Y-%m-01" (time-add end (days-to-time 31)))
                    "--cumulative" "-M"))
@@ -790,7 +794,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
                       (setf (nth 4 d) (- (nth 4 d) 5))
                       (encode-time d)))
              (matrix (my/hledger--matrix
-                      "balance" "expenses" "--flat"
+                      "balance" "^expenses" "--flat"
                       "-b" (format-time-string "%Y-%m-01" start)
                       "-e" (format-time-string "%Y-%m-01"
                                                (time-add end (days-to-time 31))))))
@@ -960,9 +964,9 @@ to recompile them and go hunting for error patterns in a balance sheet.
       "Draw the envelope screen for the month it is currently showing."
       (interactive)
       (let* ((period (my/hledger-budget--month-string my/hledger-budget--time))
-             (expenses (my/hledger--csv "balance" "--budget" "--flat" "expenses"
+             (expenses (my/hledger--csv "balance" "--budget" "--flat" "^expenses"
                                         "-p" period))
-             (income (my/hledger--csv "balance" "--budget" "--flat" "income"
+             (income (my/hledger--csv "balance" "--budget" "--flat" "^income"
                                       "-p" period))
              (inhibit-read-only t)
              (line (line-number-at-pos))
@@ -1026,7 +1030,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
         ;; tracked month, and without excluding them the mortgage row reports
         ;; the whole outstanding loan as this month's movement.
         (let ((saving (my/hledger--csv "balance" "--budget" "--flat"
-                                       "assets:savings" "liabilities:mortgage"
+                                       "^assets:savings" "^liabilities:mortgage"
                                        "not:desc:opening" "-p" period)))
           (when (> (length saving) 2)
             ;; Paying down a mortgage belongs here rather than among the
@@ -1251,9 +1255,9 @@ to recompile them and go hunting for error patterns in a balance sheet.
       (let* ((buffer (get-buffer-create "*finance charts*"))
              (width (min 900 (max 480 (- (* (window-body-width) (default-font-width)) 40))))
              (period "12 months ago..")
-             (worth (my/hledger--matrix "balance" "assets" "liabilities" "-H" "-p" period))
-             (flow (my/hledger--matrix "balance" "income" "expenses" "-p" period))
-             (spend (my/hledger--csv "balance" "expenses" "--flat" "-p" period))
+             (worth (my/hledger--matrix "balance" "^assets" "^liabilities" "-H" "-p" period))
+             (flow (my/hledger--matrix "balance" "^income" "^expenses" "-p" period))
+             (spend (my/hledger--csv "balance" "^expenses" "--flat" "-p" period))
              (inhibit-read-only t))
         (with-current-buffer buffer
           (erase-buffer)
@@ -1346,7 +1350,7 @@ to recompile them and go hunting for error patterns in a balance sheet.
     as one number with nothing to compare it to."
       (interactive "P")
       (my/hledger--report "*hledger spending*"
-                          "balance" "expenses" "--tree" "-M"
+                          "balance" "^expenses" "--tree" "-M"
                           "-p" (if prefix
                                    (read-string "Period: ")
                                  "12 months ago..")))
