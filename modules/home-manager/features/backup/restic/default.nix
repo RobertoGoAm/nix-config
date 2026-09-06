@@ -112,8 +112,17 @@ let
     rr() { if [ -n "$SFTP_CMD" ]; then restic -o "sftp.command=$SFTP_CMD" "$@"; else restic "$@"; fi; }
 
     # Only the paths that actually exist (a missing ~/.aws etc. must not be fatal).
+    #
+    # finance is the hledger journal: small, hand-typed, and the one thing here
+    # that cannot be re-downloaded or regenerated from anywhere.
+    #
+    # books carries the reading notes. The EPUBs in it are replaceable and the
+    # Calibre library proper lives on vulcan, so this is mostly the notes tree
+    # -- but excluding the books would mean maintaining a second exclude rule
+    # for a directory measured in megabytes.
     PATHS=""
-    for p in Development Documents Desktop Pictures .config .ssh .gnupg .aws .kube; do
+    for p in Development Documents Desktop Pictures finance books \
+             .config .ssh .gnupg .aws .kube; do
       [ -e "$HOME/$p" ] && PATHS="$PATHS $HOME/$p"
     done
     [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
