@@ -353,6 +353,17 @@
       "$c" '(my/hledger-check :which-key "check journal")
       "$x" '(my/hledger-command :which-key "run hledger command")
 
+      ;; reading -- books in a buffer, position shared with the e-reader.
+      "R"  '(:ignore t :which-key "reading")
+      "Rb" '(my/book-open :which-key "open a book")
+      "Rl" '(my/book-library :which-key "library")
+      "Rn" '(my/book-notes :which-key "notes for this book")
+      "Rc" '(my/book-note-capture :which-key "note this passage")
+      "Rt" '(nov-goto-toc :which-key "table of contents")
+      "Rp" '(my/kosync-pull :which-key "go to synced position")
+      "Rs" '(my/kosync-push :which-key "push position now")
+      "RS" '(my/kosync-setup :which-key "set up sync account")
+
       ;; search
       "s"  '(:ignore t :which-key "search")
       "sp" '(my/search-project :which-key "project")
