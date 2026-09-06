@@ -512,15 +512,57 @@ to recompile them and go hunting for error patterns in a balance sheet.
       "Face for the month and the column headings."
       :group 'my/hledger)
 
+    (defcustom my/hledger-budget-graphics 'auto
+      "Whether the envelope screen draws its bars and trends as images.
+    `auto' uses SVG on a graphical frame and characters everywhere else, which
+    is what a terminal frame, the echo area and copied-out text get. `text'
+    forces the character version."
+      :type '(choice (const auto) (const text))
+      :group 'my/hledger)
+
+    (defun my/hledger--graphical-p ()
+      (and (eq my/hledger-budget-graphics 'auto)
+           (display-graphic-p)
+           (image-type-available-p 'svg)))
+
+    (defun my/hledger--image (svg columns)
+      "SVG as a string COLUMNS wide, so it lines up with the text around it.
+
+    The spaces underneath are not decoration: they are what the buffer falls
+    back to when the image cannot be shown, and what ends up on the kill ring
+    when a row is copied, so the column has to be the right width either way."
+      (propertize (make-string columns ?\s)
+                  'display (svg-image svg :ascent 'center)))
+
+    (defun my/hledger--bar-color (fraction)
+      (cond ((> fraction 1.0) (my/hledger--color 'error "#b22222"))
+            ((> fraction 0.85) (my/hledger--color 'warning "#b8860b"))
+            (t (my/hledger--color 'success "#2e8b57"))))
+
     (defun my/hledger-budget--bar (fraction)
       "A FRACTION of the way along a bar, coloured by how close to over it is."
-      (let* ((width my/hledger-budget-bar-width)
-             (filled (max 0 (min width (round (* fraction width)))))
-             (face (cond ((> fraction 1.0) 'error)
-                         ((> fraction 0.85) 'warning)
-                         (t 'success))))
-        (concat (propertize (make-string filled ?#) 'face face)
-                (propertize (make-string (- width filled) ?.) 'face 'shadow))))
+      (let ((width my/hledger-budget-bar-width))
+        (if (not (my/hledger--graphical-p))
+            (let ((filled (max 0 (min width (round (* fraction width)))))
+                  (face (cond ((> fraction 1.0) 'error)
+                              ((> fraction 0.85) 'warning)
+                              (t 'success))))
+              (concat (propertize (make-string filled ?#) 'face face)
+                      (propertize (make-string (- width filled) ?.) 'face 'shadow)))
+          (let* ((w (* width (default-font-width)))
+                 (h (max 6 (- (default-font-height) 4)))
+                 (svg (svg-create w h))
+                 (track (my/hledger--color 'shadow "#cccccc"))
+                 (fill (my/hledger--bar-color fraction))
+                 ;; Over budget is drawn full and red rather than overflowing
+                 ;; the track; the percentage next to it already says by how
+                 ;; much, and a bar that runs past its own end reads as a
+                 ;; rendering fault.
+                 (filled (* w (min 1.0 (max 0.0 (float fraction))))))
+            (svg-rectangle svg 0 0 w h :fill track :fill-opacity 0.25 :rx 2)
+            (when (> filled 0)
+              (svg-rectangle svg 0 0 filled h :fill fill :rx 2))
+            (my/hledger--image svg width)))))
 
     (defun my/hledger-budget--leaves (rows)
       "ROWS with the aggregates removed.
@@ -793,14 +835,38 @@ to recompile them and go hunting for error patterns in a balance sheet.
     (defconst my/hledger--spark "▁▂▃▄▅▆▇█")
 
     (defun my/hledger--sparkline (values)
-      "VALUES as a run of block characters, scaled to the largest of them."
-      (if (or (null values) (zerop (apply #'max 0 (mapcar #'abs values))))
-          (make-string (length values) ?\s)
-        (let ((top (apply #'max (mapcar #'abs values))))
+      "VALUES as a small trend: an SVG line on a graphical frame, blocks otherwise."
+      (cond
+       ((or (null values) (zerop (apply #'max 0 (mapcar #'abs values))))
+        (make-string (max 1 (length values)) ?\s))
+       ((not (my/hledger--graphical-p))
+        ;; float, or elisp does integer division and every value below the
+        ;; largest collapses to the lowest block.
+        (let ((top (float (apply #'max (mapcar #'abs values)))))
           (mapconcat (lambda (v)
                        (string (aref my/hledger--spark
                                      (min 7 (floor (* 7.99 (/ (abs v) top)))))))
-                     values ""))))
+                     values "")))
+       (t
+        ;; Scaled from zero rather than from the smallest month. A sparkline
+        ;; normalised to its own range turns a flat envelope into a dramatic
+        ;; zigzag, which is the opposite of what the column is for.
+        (let* ((columns (max 6 (length values)))
+               (w (* columns (default-font-width)))
+               (h (max 8 (- (default-font-height) 2)))
+               (svg (svg-create w h))
+               (top (float (apply #'max (mapcar #'abs values))))
+               (n (max 1 (1- (length values))))
+               (accent (my/hledger--color 'success "#2e8b57"))
+               (points (cl-loop for v in values for i from 0
+                                collect (cons (* w (/ (float i) n))
+                                              (- h 1 (* (- h 3) (/ (abs v) top)))))))
+          (svg-polyline svg points :fill "none" :stroke accent :stroke-width 1.2)
+          ;; The last point marked, so "where it is now" is readable without
+          ;; counting along the line.
+          (let ((last (car (last points))))
+            (svg-circle svg (min (- w 1.5) (car last)) (cdr last) 1.6 :fill accent))
+          (my/hledger--image svg columns)))))
 
     (defun my/hledger--color (face fallback)
       (let ((c (face-attribute face :foreground nil t)))
