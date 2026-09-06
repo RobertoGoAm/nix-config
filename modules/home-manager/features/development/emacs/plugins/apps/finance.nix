@@ -219,7 +219,8 @@ in
             (apply #'call-process (my/hledger--binary) nil t nil
                    "-f" hledger-jfile args))
           (goto-char (point-min))
-          (special-mode))
+          (special-mode)
+          (display-line-numbers-mode -1))
         (pop-to-buffer buffer)))
 
     (defun my/hledger--period (prefix)
@@ -511,7 +512,7 @@ in
         (max 1 (+ (* 12 (- (nth 5 target) (nth 5 here)))
                   (- (nth 4 target) (nth 4 here))))))
 
-    (defun my/hledger--goal-line (account progress monthly now)
+    (defun my/hledger--goal-line (account progress monthly now &optional depth)
       "The target line under an envelope, or nil when it has no target.
 
     PROGRESS is what has accumulated toward it -- for an envelope that is the
@@ -536,7 +537,8 @@ in
                       (t "no monthly set"))))
           (propertize
            (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
-                   "  toward target" progress amount
+                   (concat (make-string (* 2 (1+ (or depth 0))) ?\s) "toward target")
+                   progress amount
                    (my/hledger-budget--bar (/ progress (float amount)))
                    (my/hledger--percent progress amount)
                    note)
@@ -748,7 +750,8 @@ in
               (insert "  this income, less so away from it, and blind to anything the\n")
               (insert "  payslips do not show. A forecast to save against, not a return.\n")))
           (goto-char (point-min))
-          (special-mode))
+          (special-mode)
+          (display-line-numbers-mode -1))
         (pop-to-buffer buffer)))
 
     (defun my/hledger-mortgage ()
@@ -800,7 +803,8 @@ in
             (insert "  cut the monthly payment, and some charge for early amortisation.\n")
             (insert "  Which of those you get is agreed with the bank, not decided here.\n"))
           (goto-char (point-min))
-          (special-mode))
+          (special-mode)
+          (display-line-numbers-mode -1))
         (pop-to-buffer buffer)))
 
     (defun my/hledger--num (field)
@@ -1111,12 +1115,20 @@ in
               (push (cons group (list row)) groups))))
         (dolist (entry (nreverse groups))
           (let ((group (car entry)) (members (cdr entry)))
-            (if (null group)
+            (if (or (null group) (= 1 (length members)))
+                ;; No heading. A parent above a single child repeats its own
+                ;; numbers on two lines and says nothing twice -- but the child
+                ;; still needs its parent's name to mean anything, so the two
+                ;; are joined on one line instead.
                 (dolist (row members)
                   (insert (my/hledger-budget--row
                            (nth 0 row) (my/hledger--num (nth 1 row))
-                           (my/hledger--num (nth 2 row))))
-                  (my/hledger-budget--insert-goal row))
+                           (my/hledger--num (nth 2 row))
+                           (when group
+                             (replace-regexp-in-string
+                              ":" " \u00b7 "
+                              (replace-regexp-in-string "\\`expenses:" "" (nth 0 row))))))
+                  (my/hledger-budget--insert-goal row 0))
               (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
                     (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
                 ;; The heading carries the totals, so the group can be read
@@ -1141,9 +1153,9 @@ in
                             (format "\\`expenses:%s:" (regexp-quote group)) ""
                             (nth 0 row))
                            1))
-                  (my/hledger-budget--insert-goal row))))))))
+                  (my/hledger-budget--insert-goal row 1))))))))
 
-    (defun my/hledger-budget--insert-goal (row)
+    (defun my/hledger-budget--insert-goal (row &optional depth)
       "Draw ROW's target line, if it has a target.
 
     Progress is the rolled-over available rather than what was spent: an
@@ -1156,7 +1168,8 @@ in
                                             nil nil #'equal))
                             (- monthly (my/hledger--num (nth 1 row)))))
              (line (my/hledger--goal-line account available monthly
-                                          (or my/hledger-budget--time (current-time)))))
+                                          (or my/hledger-budget--time (current-time))
+                                          depth)))
         (when line (insert line))))
 
     (defun my/hledger-budget--month-string (time)
@@ -1203,7 +1216,11 @@ in
       "Keys avoid h/n/e/i/p/f, which are movement and scrolling on this layout.")
 
     (define-derived-mode my/hledger-budget-mode special-mode "Budget"
-      "Envelopes for one month, spent against budgeted.")
+      "Envelopes for one month, spent against budgeted."
+      ;; The columns are the layout; a gutter of line numbers beside them is
+      ;; noise, and no row here is ever addressed by number.
+      (display-line-numbers-mode -1)
+      (setq-local truncate-lines t))
 
     (with-eval-after-load 'evil
       (evil-set-initial-state 'my/hledger-budget-mode 'normal)
@@ -1340,7 +1357,7 @@ in
                         (insert
                          (propertize
                           (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
-                                  "  paid off" done goal
+                                  "    paid off" done goal
                                   (my/hledger-budget--bar (/ done goal))
                                   (my/hledger--percent done goal)
                                   (if months (format "%d mo left" months) "no rate set"))
@@ -1349,7 +1366,7 @@ in
                   ;; date and a reached target read the same wherever they are.
                   (when-let* ((line (my/hledger--goal-line
                                      account done planned
-                                     (or my/hledger-budget--time (current-time)))))
+                                     (or my/hledger-budget--time (current-time)) 0)))
                     (insert line)))))))
         ;; Whether the plan is backed by money that exists.
         ;;
@@ -1617,7 +1634,8 @@ in
                                        :scale 1))
               (insert "\n")))
           (goto-char (point-min))
-          (special-mode))
+          (special-mode)
+          (display-line-numbers-mode -1))
         (pop-to-buffer buffer)))
 
     (defun my/hledger-budget (&optional prefix)
