@@ -433,6 +433,76 @@ to recompile them and go hunting for error patterns in a balance sheet.
                     goals))))
         goals))
 
+    (defun my/hledger--account-tag (account tag)
+      "Read a numeric TAG off ACCOUNT's directive in the chart of accounts."
+      (let ((file (expand-file-name "accounts.hledger" my/hledger-dir)))
+        (when (file-readable-p file)
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (when (re-search-forward
+                   (format "^account +%s\\b.*;.*%s: *\\([0-9.]+\\)"
+                           (regexp-quote account) (regexp-quote tag))
+                   nil t)
+              (string-to-number (match-string 1)))))))
+
+    (defun my/hledger--amortise (balance monthly-rate payment)
+      "Months to clear BALANCE at PAYMENT, or nil if the payment never will."
+      (let ((b balance) (n 0))
+        (while (and (> b 0.01) (< n 2000))
+          (let ((interest (* b monthly-rate)))
+            (when (<= payment interest) (setq n nil b 0))
+            (when n (setq b (- (+ b interest) payment) n (1+ n)))))
+        n))
+
+    (defun my/hledger--payment-for (balance monthly-rate months)
+      "The level payment that clears BALANCE in MONTHS."
+      (if (zerop monthly-rate) (/ balance months)
+        (/ (* balance monthly-rate) (- 1 (expt (+ 1 monthly-rate) (- months))))))
+
+    (defun my/hledger-mortgage ()
+      "Where the mortgage stands, and what finishing early costs per month.
+
+    The rate is read from the chart of accounts, where it is an inferred figure
+    until somebody checks it against the loan statement -- everything below is
+    only as good as that number, and a variable-rate loan will drift from it."
+      (interactive)
+      (let* ((balance (abs (my/hledger--amount "liabilities:mortgage")))
+             (original (or (my/hledger--account-tag "liabilities:mortgage" "original") 0))
+             (annual (or (my/hledger--account-tag "liabilities:mortgage" "rate") 0))
+             (r (/ (expt (+ 1 (/ annual 100.0)) (/ 1.0 12)) 1))
+             (r (- r 1))
+             (payment (or (my/hledger--account-tag "liabilities:mortgage" "payment") 0))
+             (left (my/hledger--amortise balance r payment))
+             (target (read-number "Finish in how many more months? " 130))
+             (needed (my/hledger--payment-for balance r target))
+             (buffer (get-buffer-create "*mortgage*")))
+        (with-current-buffer buffer
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert (format "  Mortgage\n\n"))
+            (insert (format "  balance        %10.2f of %.2f borrowed   %.1f%% paid off\n"
+                            balance original
+                            (if (> original 0) (* 100 (/ (- original balance) original)) 0)))
+            (insert (format "  rate           %10.3f%% a year (inferred -- check the statement)\n" annual))
+            (insert (format "  payment        %10.2f a month\n\n" payment))
+            (if left
+                (insert (format "  at that rate   %4d months left (%.1f years), %.2f interest still to pay\n"
+                                left (/ left 12.0) (- (* left payment) balance)))
+              (insert "  at that rate   the payment does not cover the interest\n"))
+            (insert (format "\n  to finish in %d months instead:\n" target))
+            (insert (format "    payment      %10.2f a month  (+%.2f)\n" needed (- needed payment)))
+            (insert (format "    interest     %10.2f  (%.2f less)\n"
+                            (- (* target needed) balance)
+                            (- (- (* (or left 0) payment) balance)
+                               (- (* target needed) balance))))
+            (insert "\n  Spanish lenders usually let an overpayment either shorten the term or\n")
+            (insert "  cut the monthly payment, and some charge for early amortisation.\n")
+            (insert "  Which of those you get is agreed with the bank, not decided here.\n"))
+          (goto-char (point-min))
+          (special-mode))
+        (pop-to-buffer buffer)))
+
     (defun my/hledger--num (field)
       "The number in a hledger CSV amount FIELD, which may be a bare 0."
       (string-to-number (or field "0")))
@@ -603,16 +673,33 @@ to recompile them and go hunting for error patterns in a balance sheet.
         ;; The sign flips: a transfer in is a debit on an asset, which hledger
         ;; reports positive, and "spent 200 of 200" is the right reading of a
         ;; fund that got its contribution this month.
-        (let ((saving (my/hledger--csv "balance" "--budget" "--flat" "assets:savings"
+        (let ((saving (my/hledger--csv "balance" "--budget" "--flat"
+                                       "assets:savings" "liabilities:mortgage"
                                        "-p" period)))
           (when (> (length saving) 2)
-            (insert (propertize (format "\n  %-26s %9s / %-9s\n" "saving" "moved" "planned")
+            ;; Paying down a mortgage belongs here rather than among the
+            ;; envelopes: it is not a cost, it is net worth moving from the
+            ;; bank into the house, which is the same thing a savings transfer
+            ;; does. Only the interest is spending, and that has its own row up
+            ;; in the envelopes.
+            (insert (propertize (format "\n  %-26s %9s / %-9s\n" "saving and paydown" "moved" "planned")
                                 'face 'my/hledger-budget-heading))
+            ;; One pass, so a fund's goal line sits under its own month row
+            ;; rather than after every other fund's.
             (dolist (row (my/hledger-budget--leaves
                           (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr saving))))
-              (let* ((moved (my/hledger--num (nth 1 row)))
+              (let* ((account (nth 0 row))
+                     (moved (my/hledger--num (nth 1 row)))
                      (planned (my/hledger--num (nth 2 row)))
-                     (label (replace-regexp-in-string "\\`assets:savings:?" "" (nth 0 row))))
+                     (label (replace-regexp-in-string
+                             "\\`\\(assets:savings:?\\|liabilities:\\)" "" account))
+                     ;; A debt's target is zero, so progress runs up from what
+                     ;; was borrowed rather than toward a goal.
+                     (original (my/hledger--account-tag account "original"))
+                     (goal (or original
+                               (alist-get account (my/hledger--goals) nil nil #'equal)))
+                     (owed (abs (my/hledger--amount account)))
+                     (done (if original (- original owed) owed)))
                 (insert (propertize
                          (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
                                  (truncate-string-to-width
@@ -623,29 +710,29 @@ to recompile them and go hunting for error patterns in a balance sheet.
                                  (if (> planned 0)
                                      (format "%d%%" (round (* 100 (/ moved planned)))) "--")
                                  (- planned moved))
-                         'hledger-account (nth 0 row)))))
-            ;; A monthly row says whether this month's contribution happened.
-            ;; It cannot say whether the fund is anywhere near enough, which is
-            ;; the only question a fund actually raises -- so each one with a
-            ;; goal gets a second line: what is in it, against the target, and
-            ;; how long the current rate takes to close the gap.
-            (dolist (row (my/hledger-budget--leaves
-                          (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr saving))))
-              (let* ((account (nth 0 row))
-                     (goal (alist-get account (my/hledger--goals) nil nil #'equal))
-                     (balance (my/hledger--amount account))
-                     (rate (my/hledger--num (nth 2 row))))
+                         'hledger-account account))
                 (when (and goal (> goal 0))
-                  (insert
-                   (propertize
-                    (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
-                            "  toward goal" balance goal
-                            (my/hledger-budget--bar (/ balance goal))
-                            (format "%d%%" (round (* 100 (/ balance goal))))
-                            (if (> rate 0)
-                                (format "%d mo left" (ceiling (/ (max 0 (- goal balance)) rate)))
-                              "no rate set"))
-                    'face 'shadow)))))))
+                  ;; Months left: a real amortisation when the account carries a
+                  ;; rate, because dividing the remaining balance by the monthly
+                  ;; principal ignores that the principal share grows every month
+                  ;; and overstates the time badly -- 367 months against 311 here.
+                  (let* ((rate (my/hledger--account-tag account "rate"))
+                         (payment (my/hledger--account-tag account "payment"))
+                         (months
+                          (cond ((and original rate payment)
+                                 (my/hledger--amortise
+                                  owed (- (expt (+ 1 (/ rate 100.0)) (/ 1.0 12)) 1) payment))
+                                ((> planned 0)
+                                 (ceiling (/ (max 0 (- goal done)) planned))))))
+                    (insert
+                     (propertize
+                      (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
+                              (if original "  paid off" "  toward goal")
+                              done goal
+                              (my/hledger-budget--bar (/ done goal))
+                              (format "%d%%" (round (* 100 (/ done goal))))
+                              (if months (format "%d mo left" months) "no rate set"))
+                      'face 'shadow))))))))
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
