@@ -346,6 +346,7 @@
       "$T" '(my/hledger-budget-table :which-key "envelopes as hledger's table")
       "$k" '(my/hledger-card :which-key "card balance and headroom")
       "$m" '(my/hledger-mortgage :which-key "mortgage: balance and payoff")
+      "$v" '(my/hledger-charts :which-key "charts: net worth, in vs out")
       "$K" '(my/hledger-card-payment :which-key "pay the card off")
       "$B" '(my/hledger-budget-file :which-key "edit envelopes")
       "$A" '(my/hledger-accounts-file :which-key "edit chart of accounts")

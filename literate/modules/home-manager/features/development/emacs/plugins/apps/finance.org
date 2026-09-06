@@ -536,6 +536,21 @@ to recompile them and go hunting for error patterns in a balance sheet.
                      names))
          rows)))
 
+    (defvar-local my/hledger-budget--trends nil
+      "Account to its last six monthly totals, for the sparkline column.")
+
+    (defun my/hledger-budget--load-trends (end)
+      "Six months of history up to and including END, as an alist."
+      (let* ((start (let ((d (decode-time end)))
+                      (setf (nth 4 d) (- (nth 4 d) 5))
+                      (encode-time d)))
+             (matrix (my/hledger--matrix
+                      "balance" "expenses" "--flat"
+                      "-b" (format-time-string "%Y-%m-01" start)
+                      "-e" (format-time-string "%Y-%m-01"
+                                               (time-add end (days-to-time 31))))))
+        (cdr matrix)))
+
     (defun my/hledger-budget--row (account spent budgeted)
       "One envelope, as a line."
       (let* ((label (replace-regexp-in-string "\\`expenses:?" "" account))
@@ -544,12 +559,18 @@ to recompile them and go hunting for error patterns in a balance sheet.
              (left (- budgeted spent))
              (over (< left 0)))
         (propertize
-         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
+         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f  %s\n"
                  (truncate-string-to-width label 26)
                  spent budgeted
                  (my/hledger-budget--bar fraction)
                  (if (> budgeted 0) (format "%d%%" (round (* 100 fraction))) "--")
-                 left)
+                 left
+                 ;; Six months of history in eight characters: enough to see an
+                 ;; envelope drifting up, which a single month against its
+                 ;; budget cannot show.
+                 (my/hledger--sparkline
+                  (or (alist-get account my/hledger-budget--trends nil nil #'equal)
+                      '())))
          'hledger-account account
          'face (if over 'error 'default))))
 
@@ -622,6 +643,8 @@ to recompile them and go hunting for error patterns in a balance sheet.
              (inhibit-read-only t)
              (line (line-number-at-pos))
              spent-total budget-total income-actual income-budget)
+        (setq my/hledger-budget--trends
+              (my/hledger-budget--load-trends my/hledger-budget--time))
         (erase-buffer)
         (dolist (row (cdr income))
           (when (equal (nth 0 row) "Total:")
@@ -654,9 +677,10 @@ to recompile them and go hunting for error patterns in a balance sheet.
                           (or spent-total 0) (or budget-total 0)
                           (- (or budget-total 0) (or spent-total 0))))
           (insert (propertize
-                   (format "  %-26s %9s / %-9s %s %5s  %10s\n"
+                   (format "  %-26s %9s / %-9s %s %5s  %10s  %s\n"
                            "envelope" "spent" "budget"
-                           (make-string my/hledger-budget-bar-width ?\s) "" "left")
+                           (make-string my/hledger-budget-bar-width ?\s) "" "left"
+                           "6 mo")
                    'face 'my/hledger-budget-heading))
           (dolist (row rows)
             (insert (my/hledger-budget--row (nth 0 row)
@@ -738,6 +762,196 @@ to recompile them and go hunting for error patterns in a balance sheet.
         (goto-char (point-min))
         (forward-line (1- line))))
 
+    ;;; ------------------------------------------------------------------
+    ;;; Charts
+    ;;;
+    ;;; Two kinds, on purpose. Sparklines are Unicode blocks, so they render in
+    ;;; a terminal frame, in the echo area, and in a copied-out plain-text
+    ;;; report -- they go on the envelope screen where they answer "is this
+    ;;; envelope drifting?" at a glance. The dashboard is real SVG, because a
+    ;;; net worth line or twelve months of income against spending is not
+    ;;; something eight block characters can carry.
+    ;;;
+    ;;; Colours come from faces rather than literals so both follow the theme,
+    ;;; and every one has a fallback: in batch, and on a frame that has not
+    ;;; realised faces yet, face-attribute returns `unspecified'.
+
+    ;; Periods are written "12 months ago.." rather than "last 12 months".
+    ;; hledger rejects the latter -- `last' takes a bare unit, so "last month"
+    ;; parses and "last 12 months" is an error -- and it is an error the report
+    ;; swallows, coming back as an empty table rather than a complaint.
+    (defun my/hledger--matrix (&rest args)
+      "Run a monthly hledger report and return (MONTHS . ROWS).
+    MONTHS is the header, ROWS an alist of account to a list of floats."
+      (let* ((csv (apply #'my/hledger--csv (append args '("-M"))))
+             (months (cdr (car csv)))
+             (rows (mapcar (lambda (r)
+                             (cons (car r) (mapcar #'my/hledger--num (cdr r))))
+                           (seq-remove (lambda (r) (equal (car r) "Total:")) (cdr csv)))))
+        (cons months rows)))
+
+    (defconst my/hledger--spark "▁▂▃▄▅▆▇█")
+
+    (defun my/hledger--sparkline (values)
+      "VALUES as a run of block characters, scaled to the largest of them."
+      (if (or (null values) (zerop (apply #'max 0 (mapcar #'abs values))))
+          (make-string (length values) ?\s)
+        (let ((top (apply #'max (mapcar #'abs values))))
+          (mapconcat (lambda (v)
+                       (string (aref my/hledger--spark
+                                     (min 7 (floor (* 7.99 (/ (abs v) top)))))))
+                     values ""))))
+
+    (defun my/hledger--color (face fallback)
+      (let ((c (face-attribute face :foreground nil t)))
+        (if (or (null c) (eq c 'unspecified)) fallback c)))
+
+    (defun my/hledger-chart--line (values labels width height title)
+      "A line chart of VALUES, one point per month."
+      (setq values (or values '(0)))
+      (let* ((svg (svg-create width height))
+             (pad 46)
+             (fg (my/hledger--color 'default "#333333"))
+             (grid (my/hledger--color 'shadow "#999999"))
+             (accent (my/hledger--color 'success "#2e8b57"))
+             (lo (min 0 (apply #'min values)))
+             (hi (max 0 (apply #'max values)))
+             (span (max 1.0 (- hi lo)))
+             (plot-w (- width pad 8))
+             (plot-h (- height 44))
+             (n (max 1 (1- (length values))))
+             (x (lambda (i) (+ pad (* plot-w (/ (float i) n)))))
+             (y (lambda (v) (+ 22 (* plot-h (- 1 (/ (- v lo) span)))))))
+        (svg-text svg title :x 4 :y 14 :fill fg :font-size 12 :font-weight "bold")
+        ;; A zero line, because a net worth chart that does not show where zero
+        ;; is says nothing about whether the number is positive.
+        (when (and (< lo 0) (> hi 0))
+          (svg-line svg pad (funcall y 0) (+ pad plot-w) (funcall y 0)
+                    :stroke grid :stroke-width 1 :stroke-dasharray "3 3"))
+        (svg-polyline svg
+                      (cl-loop for v in values for i from 0
+                               collect (cons (funcall x i) (funcall y v)))
+                      :fill "none" :stroke accent :stroke-width 2)
+        (svg-text svg (format "%.0f" hi) :x 2 :y 26 :fill grid :font-size 9)
+        (svg-text svg (format "%.0f" lo) :x 2 :y (+ 22 plot-h) :fill grid :font-size 9)
+        (when labels
+          (svg-text svg (car labels) :x pad :y (- height 6) :fill grid :font-size 9)
+          (svg-text svg (car (last labels)) :x (- width 46) :y (- height 6)
+                    :fill grid :font-size 9))
+        svg))
+
+    (defun my/hledger-chart--paired-bars (a b labels width height title)
+      "Two series side by side, one pair per month -- income against spending."
+      (setq a (or a '(0)) b (or b '(0)))
+      (let* ((svg (svg-create width height))
+             (fg (my/hledger--color 'default "#333333"))
+             (grid (my/hledger--color 'shadow "#999999"))
+             (ca (my/hledger--color 'success "#2e8b57"))
+             (cb (my/hledger--color 'error "#b22222"))
+             (top (max 1.0 (apply #'max (append (mapcar #'abs a) (mapcar #'abs b)))))
+             (pad 46) (plot-h (- height 44))
+             (n (max 1 (length a)))
+             (slot (/ (float (- width pad 8)) n))
+             (bw (max 2 (/ (- slot 4) 2))))
+        (svg-text svg title :x 4 :y 14 :fill fg :font-size 12 :font-weight "bold")
+        (cl-loop for i from 0 below n do
+                 (let ((va (abs (nth i a))) (vb (abs (nth i b)))
+                       (x0 (+ pad (* i slot))))
+                   (svg-rectangle svg x0 (+ 22 (* plot-h (- 1 (/ va top))))
+                                  bw (* plot-h (/ va top)) :fill ca)
+                   (svg-rectangle svg (+ x0 bw 1) (+ 22 (* plot-h (- 1 (/ vb top))))
+                                  bw (* plot-h (/ vb top)) :fill cb)))
+        (svg-text svg (format "%.0f" top) :x 2 :y 26 :fill grid :font-size 9)
+        (when labels
+          (svg-text svg (car labels) :x pad :y (- height 6) :fill grid :font-size 9)
+          (svg-text svg (car (last labels)) :x (- width 46) :y (- height 6)
+                    :fill grid :font-size 9))
+        svg))
+
+    (defun my/hledger-chart--hbars (pairs width height title)
+      "Horizontal bars for PAIRS of (label . value), largest first."
+      (let* ((svg (svg-create width height))
+             (fg (my/hledger--color 'default "#333333"))
+             (grid (my/hledger--color 'shadow "#999999"))
+             (accent (my/hledger--color 'success "#2e8b57"))
+             (top (max 1.0 (apply #'max (mapcar #'cdr pairs))))
+             (label-w 150)
+             (row-h (/ (float (- height 26)) (max 1 (length pairs)))))
+        (svg-text svg title :x 4 :y 14 :fill fg :font-size 12 :font-weight "bold")
+        (cl-loop for (label . value) in pairs for i from 0 do
+                 (let ((y (+ 22 (* i row-h))))
+                   (svg-text svg (truncate-string-to-width label 22)
+                             :x 4 :y (+ y (* row-h 0.7)) :fill fg :font-size 10)
+                   (svg-rectangle svg label-w (+ y (* row-h 0.2))
+                                  (* (- width label-w 60) (/ value top))
+                                  (* row-h 0.6) :fill accent)
+                   (svg-text svg (format "%.0f" value)
+                             :x (- width 52) :y (+ y (* row-h 0.7))
+                             :fill grid :font-size 10)))
+        svg))
+
+    (defun my/hledger-charts ()
+      "A dashboard: net worth, income against spending, and where it goes."
+      (interactive)
+      (unless (image-type-available-p 'svg)
+        (user-error "This Emacs has no SVG support; the sparklines on SPC $ b still work"))
+      (require 'svg)
+      (let* ((buffer (get-buffer-create "*finance charts*"))
+             (width (min 900 (max 480 (- (* (window-body-width) (default-font-width)) 40))))
+             (period "12 months ago..")
+             (worth (my/hledger--matrix "balance" "assets" "liabilities" "-H" "-p" period))
+             (flow (my/hledger--matrix "balance" "income" "expenses" "-p" period))
+             (spend (my/hledger--csv "balance" "expenses" "--flat" "-p" period))
+             (inhibit-read-only t))
+        (with-current-buffer buffer
+          (erase-buffer)
+          ;; Net worth is the sum of every asset and liability row, month by
+          ;; month; -H makes each column a running total rather than that
+          ;; month's movement.
+          (let* ((months (car worth))
+                 (series (cl-loop for i from 0 below (length months)
+                                  collect (cl-loop for row in (cdr worth)
+                                                   sum (nth i (cdr row))))))
+            (when series
+              (insert-image (svg-image (my/hledger-chart--line
+                                        series months width 170 "Net worth")
+                                       :scale 1))
+              (insert "\n\n")))
+          (let* ((months (car flow))
+                 (income (cl-loop for i from 0 below (length months)
+                                  collect (cl-loop for row in (cdr flow)
+                                                   when (string-prefix-p "income" (car row))
+                                                   sum (nth i (cdr row)))))
+                 (spent (cl-loop for i from 0 below (length months)
+                                 collect (cl-loop for row in (cdr flow)
+                                                  when (string-prefix-p "expenses" (car row))
+                                                  sum (nth i (cdr row))))))
+            (when (car flow)
+              (insert-image (svg-image (my/hledger-chart--paired-bars
+                                        income spent months width 170
+                                        "In against out, by month")
+                                       :scale 1))
+              (insert "\n\n")))
+          (let ((pairs (seq-take
+                        (sort (mapcar (lambda (r)
+                                        (cons (replace-regexp-in-string
+                                               "\\`expenses:" "" (car r))
+                                              (my/hledger--num (nth 1 r))))
+                                      (my/hledger-budget--leaves
+                                       (seq-remove (lambda (r) (equal (car r) "Total:"))
+                                                   (cdr spend))))
+                              (lambda (a b) (> (cdr a) (cdr b))))
+                        10)))
+            (when pairs
+              (insert-image (svg-image (my/hledger-chart--hbars
+                                        pairs width (+ 30 (* 20 (length pairs)))
+                                        "Where it went, last 12 months")
+                                       :scale 1))
+              (insert "\n")))
+          (goto-char (point-min))
+          (special-mode))
+        (pop-to-buffer buffer)))
+
     (defun my/hledger-budget (&optional prefix)
       "The envelope screen: spent against budgeted, this month.
     With PREFIX, start on a month you name instead."
@@ -783,13 +997,13 @@ to recompile them and go hunting for error patterns in a balance sheet.
                           "balance" "expenses" "--tree" "-M"
                           "-p" (if prefix
                                    (read-string "Period: ")
-                                 "last 12 months")))
+                                 "12 months ago..")))
 
     (defun my/hledger-networth ()
       "What is owned against what is owed, month by month."
       (interactive)
       (my/hledger--report "*hledger net worth*"
-                          "balancesheet" "--tree" "-M" "-p" "last 12 months"))
+                          "balancesheet" "--tree" "-M" "-p" "12 months ago.."))
 
     (defun my/hledger-income (&optional prefix)
       "In against out for the period -- whether the month actually worked."
