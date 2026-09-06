@@ -53,16 +53,22 @@ reasoning as the readeck secret and the Wallapop searches.
       ; listed here, which is what turns a typo into an error instead of an
       ; accidental new envelope.
 
-      account assets:checking
-      account assets:savings
+      ; Two banks. Rename these to whatever you actually call them -- the
+      ; names appear in every report and in the completion list for SPC $ a.
+      account assets:bank:main            ; salary lands here, mortgage leaves here
+      account assets:bank:second
       account assets:cash
 
-      account liabilities:card
+      ; The card is a liability, not a wallet: a purchase on it increases what
+      ; is owed and is an expense the day it happens, not the day the bill is
+      ; paid. Paying the bill is then a transfer, and budgeting for it as well
+      ; would count the same money twice.
+      account liabilities:card            ; limit: 2500 EUR
 
       account income:salary
       account income:other
 
-      account expenses:housing:rent
+      account expenses:housing:mortgage
       account expenses:housing:utilities
       account expenses:groceries
       account expenses:eating-out
@@ -77,31 +83,47 @@ reasoning as the readeck secret and the Wallapop searches.
     '';
 
     "budget.hledger" = pkgs.writeText "budget.hledger" ''
-      ; The envelopes. Each `~ monthly' block is at once the budget line that
-      ; `hledger balance --budget' reports against and the transaction that
-      ; `--forecast' replays into the future, so there is one number to change
-      ; when an envelope changes rather than two that can disagree.
+      ; The envelopes. Each periodic transaction is at once the budget line
+      ; that `hledger balance --budget' reports against and the transaction
+      ; that `--forecast' replays into the future, so there is one number to
+      ; change when an envelope changes rather than two that can disagree.
       ;
       ; These are what you intend to spend, not what you did.
-      ;
-      ; Income is declared the same way, and it has to be: --forecast replays
-      ; whatever is here and nothing else, so a budget listing only outgoings
-      ; projects the balance falling by the whole budget every month forever.
-      ; The first thing to correct below is this number.
 
-      ~ monthly  expected income
-          assets:checking                2000 EUR
+      ; Income has to be declared too: --forecast replays what is in this file
+      ; and nothing else, so a budget listing only outgoings projects the
+      ; balance falling by the whole budget every month, forever.
+      ;
+      ; TODO: the real net salary and the day it lands.
+      ~ every 25th day of month  salary
+          assets:bank:main               2000 EUR
           income:salary
 
+      ; Fixed, dated, and known to the cent -- so it gets its own periodic
+      ; transaction on its own day rather than being folded into a housing
+      ; envelope. The forecast then shows the balance dipping on the 8th.
+      ;
+      ; Modelled as a pure expense, which is what YNAB does and what makes the
+      ; budget read correctly. It does mean net worth ignores the principal
+      ; being paid down: to fix that, add `account liabilities:mortgage', split
+      ; this into an interest part and a principal part, and open the loan
+      ; balance in the journal.
+      ~ every 8th day of month  mortgage
+          expenses:housing:mortgage    251.35 EUR
+          assets:bank:main
+
+      ; Everything else, monthly. The balancing account is the bank rather
+      ; than the card even for things bought on the card: this side of the
+      ; budget is about when the money leaves, and the card only delays that
+      ; by a few weeks. The forecast ignores that float.
       ~ monthly  planned spending
-          expenses:housing:rent           900 EUR
           expenses:housing:utilities      120 EUR
           expenses:groceries              350 EUR
           expenses:eating-out             150 EUR
           expenses:transport               60 EUR
           expenses:subscriptions           40 EUR
           expenses:fun                    100 EUR
-          assets:checking
+          assets:bank:main
     '';
 
     "journal.hledger" = pkgs.writeText "journal.hledger" ''
@@ -109,11 +131,15 @@ reasoning as the readeck secret and the Wallapop searches.
       include budget.hledger
 
       ; Opening balances. Replace the zeroes with what is actually in each
-      ; account today; everything after this line gets recorded as it happens.
-      2026-01-01 opening balances
-          assets:checking          0 EUR
-          assets:savings           0 EUR
-          liabilities:card         0 EUR
+      ; account today, and move the date to today -- everything after this
+      ; line gets recorded as it happens.
+      ;
+      ; liabilities:card is negative when you owe money on it.
+      2026-09-01 opening balances
+          assets:bank:main             0 EUR
+          assets:bank:second           0 EUR
+          assets:cash                  0 EUR
+          liabilities:card             0 EUR
           equity:opening
     '';
   };
@@ -285,8 +311,276 @@ to recompile them and go hunting for error patterns in a balance sheet.
     ;;; is literally the budget carried on into the future. If it looks wrong, the
     ;;; budget is wrong: there is no second set of assumptions to check.
 
+    (defcustom my/hledger-card-limit 2500
+      "Credit limit, in EUR. hledger has no notion of one, so it lives here."
+      :type 'number
+      :group 'my/hledger)
+
+    (defun my/hledger--amount (account &optional period)
+      "The balance of ACCOUNT over PERIOD, as a float."
+      (let ((default-directory my/hledger-dir))
+        (string-to-number
+         (with-output-to-string
+           (with-current-buffer standard-output
+             (apply #'call-process (my/hledger--binary) nil t nil
+                    "-f" hledger-jfile "balance" account
+                    "--format" "%(total)" "--no-total" "-N"
+                    (when period (list "-p" period))))))))
+
+    (defun my/hledger-card ()
+      "What is on the card and how much of the limit is left."
+      (interactive)
+      (let* ((owed (abs (my/hledger--amount "liabilities:card")))
+             (left (- my/hledger-card-limit owed)))
+        (message "Card: %.2f EUR owed, %.2f of %d left (%.0f%% used)"
+                 owed left my/hledger-card-limit
+                 (* 100 (/ owed (float my/hledger-card-limit))))))
+
+    (defun my/hledger-card-payment ()
+      "Pay the card off in full for a month, as a transfer rather than a spend.
+
+    The purchases were already recorded as expenses on the days they happened;
+    this only moves the money that settles them, so budgeting for it as well
+    would count it twice. Defaults to last month, because that is the bill
+    that comes due."
+      (interactive)
+      (let* ((period (read-string "Pay the balance from which month: " "last month"))
+             (owed (abs (my/hledger--amount "liabilities:card" period)))
+             (date (read-string "Payment date: " (format-time-string "%Y-%m-%d")))
+             (amount (read-number "Amount (EUR): " owed))
+             (from (completing-read "Paid from: " (my/hledger--accounts)
+                                    nil nil "assets:bank:")))
+        (my/hledger--append
+         (my/hledger--entry date "card payment" "liabilities:card" from amount))
+        (message "Card payment %.2f EUR from %s" amount from)))
+
+    ;;; ------------------------------------------------------------------
+    ;;; The envelope screen
+    ;;;
+    ;;; `hledger balance --budget' already says everything, in a table that is
+    ;;; correct and hard to read at a glance -- which is the one thing YNAB is
+    ;;; genuinely good at. Same numbers, drawn as bars, one row per envelope,
+    ;;; with the month on arrow keys.
+    ;;;
+    ;;; It reads the CSV output rather than scraping the text table: the text
+    ;;; one packs spent and budgeted into a single "0 [0% of 350.00 EUR]" cell
+    ;;; that would have to be parsed back apart, and its column widths move
+    ;;; with the data.
+    ;;;
+    ;;; Flat, not --tree. A tree adds parent rows that are sums of their
+    ;;; children, and on this screen every row should be an envelope you can
+    ;;; act on.
+
+    (defvar-local my/hledger-budget--time nil
+      "The month the envelope screen is showing.")
+
+    (defcustom my/hledger-budget-bar-width 22
+      "Width of the bars on the envelope screen."
+      :type 'integer
+      :group 'my/hledger)
+
+    (defun my/hledger--csv (&rest args)
+      "Run hledger with ARGS plus -O csv and return a list of field lists.
+
+    The fields of a balance report are account names and amounts, neither of
+    which contains a comma or a quote, so splitting on the quoted separator is
+    enough and a real CSV reader would be ceremony."
+      (let ((default-directory my/hledger-dir))
+        (delq nil
+              (mapcar
+               (lambda (line)
+                 (when (string-prefix-p "\"" line)
+                   (split-string (substring line 1 (1- (length line))) "\",\"")))
+               (split-string
+                (with-output-to-string
+                  (with-current-buffer standard-output
+                    (apply #'call-process (my/hledger--binary) nil t nil
+                           "-f" hledger-jfile (append args '("-O" "csv")))))
+                "\n" t)))))
+
+    (defun my/hledger--num (field)
+      "The number in a hledger CSV amount FIELD, which may be a bare 0."
+      (string-to-number (or field "0")))
+
+    (defface my/hledger-budget-heading
+      '((t :inherit font-lock-keyword-face :weight bold))
+      "Face for the month and the column headings."
+      :group 'my/hledger)
+
+    (defun my/hledger-budget--bar (fraction)
+      "A FRACTION of the way along a bar, coloured by how close to over it is."
+      (let* ((width my/hledger-budget-bar-width)
+             (filled (max 0 (min width (round (* fraction width)))))
+             (face (cond ((> fraction 1.0) 'error)
+                         ((> fraction 0.85) 'warning)
+                         (t 'success))))
+        (concat (propertize (make-string filled ?#) 'face face)
+                (propertize (make-string (- width filled) ?.) 'face 'shadow))))
+
+    (defun my/hledger-budget--leaves (rows)
+      "ROWS with the aggregates removed.
+
+    hledger emits a parent row per branch -- a bare `expenses', and one per
+    subtree -- whose amount is the sum of its children plus anything below it
+    with no budget at all. Those are not envelopes, and the unbudgeted part
+    they hide is reported on its own line instead."
+      (let ((names (mapcar #'car rows)))
+        (seq-remove
+         (lambda (row)
+           (seq-some (lambda (other) (string-prefix-p (concat (car row) ":") other))
+                     names))
+         rows)))
+
+    (defun my/hledger-budget--row (account spent budgeted)
+      "One envelope, as a line."
+      (let* ((label (replace-regexp-in-string "\\`expenses:?" "" account))
+             (label (if (string-empty-p label) "unbudgeted" label))
+             (fraction (if (> budgeted 0) (/ spent budgeted) (if (> spent 0) 1.5 0.0)))
+             (left (- budgeted spent))
+             (over (< left 0)))
+        (propertize
+         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
+                 (truncate-string-to-width label 26)
+                 spent budgeted
+                 (my/hledger-budget--bar fraction)
+                 (if (> budgeted 0) (format "%d%%" (round (* 100 fraction))) "--")
+                 left)
+         'hledger-account account
+         'face (if over 'error 'default))))
+
+    (defun my/hledger-budget--month-string (time)
+      (format-time-string "%Y-%m" time))
+
+    (defun my/hledger-budget--shift (months)
+      "Move the screen MONTHS along."
+      (interactive)
+      (let ((decoded (decode-time my/hledger-budget--time)))
+        (setf (nth 4 decoded) (+ (nth 4 decoded) months))
+        (setq my/hledger-budget--time (encode-time decoded)))
+      (my/hledger-budget--render))
+
+    (defun my/hledger-budget-next-month () (interactive) (my/hledger-budget--shift 1))
+    (defun my/hledger-budget-previous-month () (interactive) (my/hledger-budget--shift -1))
+
+    (defun my/hledger-budget--account-at-point ()
+      (get-text-property (line-beginning-position) 'hledger-account))
+
+    (defun my/hledger-budget-register ()
+      "Every transaction behind the envelope on this line."
+      (interactive)
+      (if-let* ((account (my/hledger-budget--account-at-point)))
+          (my/hledger--report "*hledger register*" "register" account
+                              "-p" (my/hledger-budget--month-string
+                                    my/hledger-budget--time))
+        (user-error "No envelope on this line")))
+
+    (defun my/hledger-budget-add ()
+      "Record something against the envelope on this line."
+      (interactive)
+      (call-interactively #'my/hledger-add)
+      (my/hledger-budget--render))
+
+    (defvar my/hledger-budget-mode-map
+      (let ((map (make-sparse-keymap)))
+        (define-key map (kbd "]") #'my/hledger-budget-next-month)
+        (define-key map (kbd "[") #'my/hledger-budget-previous-month)
+        (define-key map (kbd "RET") #'my/hledger-budget-register)
+        (define-key map (kbd "a") #'my/hledger-budget-add)
+        (define-key map (kbd "b") #'my/hledger-budget-file)
+        (define-key map (kbd "r") #'my/hledger-budget--render)
+        map)
+      "Keys avoid h/n/e/i/p/f, which are movement and scrolling on this layout.")
+
+    (define-derived-mode my/hledger-budget-mode special-mode "Budget"
+      "Envelopes for one month, spent against budgeted.")
+
+    (with-eval-after-load 'evil
+      (evil-set-initial-state 'my/hledger-budget-mode 'normal)
+      ;; The major mode map alone loses to evil's normal state for plain
+      ;; letters, so the same keys are declared again where evil can see them.
+      (evil-define-key 'normal my/hledger-budget-mode-map
+        (kbd "]") #'my/hledger-budget-next-month
+        (kbd "[") #'my/hledger-budget-previous-month
+        (kbd "RET") #'my/hledger-budget-register
+        (kbd "a") #'my/hledger-budget-add
+        (kbd "b") #'my/hledger-budget-file
+        (kbd "r") #'my/hledger-budget--render))
+
+    (defun my/hledger-budget--render ()
+      "Draw the envelope screen for the month it is currently showing."
+      (interactive)
+      (let* ((period (my/hledger-budget--month-string my/hledger-budget--time))
+             (expenses (my/hledger--csv "balance" "--budget" "--flat" "expenses"
+                                        "-p" period))
+             (income (my/hledger--csv "balance" "--budget" "--flat" "income"
+                                      "-p" period))
+             (inhibit-read-only t)
+             (line (line-number-at-pos))
+             spent-total budget-total income-actual income-budget)
+        (erase-buffer)
+        (dolist (row (cdr income))
+          (when (equal (nth 0 row) "Total:")
+            (setq income-actual (- (my/hledger--num (nth 1 row)))
+                  income-budget (- (my/hledger--num (nth 2 row))))))
+        (dolist (row (cdr expenses))
+          (when (equal (nth 0 row) "Total:")
+            (setq spent-total (my/hledger--num (nth 1 row))
+                  budget-total (my/hledger--num (nth 2 row)))))
+        (let* ((rows (my/hledger-budget--leaves
+                      (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr expenses))))
+               (envelope-spend (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r)))
+                                                  rows)))
+               ;; What the envelopes do not account for. Derived rather than
+               ;; read off a row, because hledger folds it into the parent.
+               (unbudgeted (- (or spent-total 0) envelope-spend)))
+          (insert (propertize
+                   (format "  %s\n\n"
+                           (format-time-string "%B %Y" my/hledger-budget--time))
+                   'face 'my/hledger-budget-heading))
+          (insert (format "  Income     %10.2f received of %.2f expected\n"
+                          (or income-actual 0) (or income-budget 0)))
+          ;; The filler is fixed rather than eyeballed: " of %-10.2f budgeted  "
+          ;; is 25 columns whatever the number, so the second pair of labels
+          ;; stays in the same place when the amounts grow a digit.
+          (insert (format "  Budgeted   %10.2f%sUnassigned %10.2f\n"
+                          (or budget-total 0) (make-string 25 ?\s)
+                          (- (or income-budget 0) (or budget-total 0))))
+          (insert (format "  Spent      %10.2f of %-10.2f budgeted  Left       %10.2f\n\n"
+                          (or spent-total 0) (or budget-total 0)
+                          (- (or budget-total 0) (or spent-total 0))))
+          (insert (propertize
+                   (format "  %-26s %9s / %-9s %s %5s  %10s\n"
+                           "envelope" "spent" "budget"
+                           (make-string my/hledger-budget-bar-width ?\s) "" "left")
+                   'face 'my/hledger-budget-heading))
+          (dolist (row rows)
+            (insert (my/hledger-budget--row (nth 0 row)
+                                            (my/hledger--num (nth 1 row))
+                                            (my/hledger--num (nth 2 row)))))
+          (when (> (abs unbudgeted) 0.005)
+            (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0))))
+        (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
+                            'face 'shadow))
+        (goto-char (point-min))
+        (forward-line (1- line))))
+
     (defun my/hledger-budget (&optional prefix)
-      "Envelopes: spent against budgeted, this month. C-u for another period."
+      "The envelope screen: spent against budgeted, this month.
+    With PREFIX, start on a month you name instead."
+      (interactive "P")
+      (let ((buffer (get-buffer-create "*budget*")))
+        (with-current-buffer buffer
+          (my/hledger-budget-mode)
+          (setq my/hledger-budget--time
+                (if prefix
+                    (encode-time (parse-time-string
+                                  (concat (read-string "Month (YYYY-MM): ") "-01 00:00:00")))
+                  (current-time)))
+          (my/hledger-budget--render))
+        (pop-to-buffer buffer)))
+
+    (defun my/hledger-budget-table (&optional prefix)
+      "hledger's own budget table, for when the numbers matter more than the shape."
       (interactive "P")
       (my/hledger--report "*hledger budget*"
                           "balance" "--budget" "--tree" "--no-total"
