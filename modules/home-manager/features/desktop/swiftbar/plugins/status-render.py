@@ -182,9 +182,13 @@ if track:
 
 # Only when there is something to look at. A tracker that says "0" all week is
 # a line you stop reading, and then it says "3" and you still do not read it.
+#
+# The count alone, with no title. A listing title in the menu bar is a stranger's
+# free text rendered at whatever width it happens to be, which pushes the rest of
+# the rotation around and reads as noise; the count is the only part that says
+# whether opening the menu is worth it.
 if wallapop_items:
-    cheapest = wallapop_items[0]
-    print(f"🛒 {len(wallapop_items)} · {cheapest['title'][:28]} {cheapest['price']:.0f}€ | length=40")
+    print(f"🛒 {len(wallapop_items)}")
 
 # Nothing above is guaranteed: with macmon unavailable, no problems and no
 # music, the item would render blank and look broken.
