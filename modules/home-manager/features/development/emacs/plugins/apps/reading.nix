@@ -36,6 +36,7 @@
 
   programs.emacs.extraConfig = ''
     (require 'json)
+    (require 'url-auth)
     (require 'nov nil t)
     (add-to-list 'auto-mode-alist (cons "\\.epub\\'" 'nov-mode))
 
@@ -130,11 +131,13 @@
             (when (string-match "\\`\\([^:]+\\):\\(.+\\)\\'" line)
               (cons (match-string 1 line) (match-string 2 line)))))))
 
-    (defun my/kosync--request (method path &optional payload)
+    (defun my/kosync--request (method path &optional payload async)
       "Call the kosync server, returning the parsed body or nil.
 
-    Synchronous, because every caller here is either interactive or already on
-    a hook that is allowed to take a few hundred milliseconds.
+    With ASYNC the request is fired and forgotten and the return value is nil.
+    Background pushes use that: a synchronous request on an idle timer stalls
+    the first keystroke after a pause when the server is slow or gone, and
+    nothing reads the reply to a push anyway.
 
     `url-registered-auth-schemes' is bound to nil for the duration. url.el
     answers a 401 by prompting in the minibuffer for a username and password,
@@ -156,13 +159,31 @@
         (when (and (not credentials) (not (equal path "/users/create")))
           (setq path nil))
         (condition-case err
-            (when path
-              (with-current-buffer
-                (url-retrieve-synchronously (concat my/kosync-url path) t t 15)
-                (goto-char (point-min))
-                (when (re-search-forward "^$" nil t)
-                  (prog1 (ignore-errors (json-parse-buffer :object-type 'alist))
-                    (kill-buffer)))))
+            (cond
+             ((not path) nil)
+             (async
+              ;; Errors reach the callback, not this stack frame, so it takes
+              ;; its own handler -- otherwise a dead server prints a url.el
+              ;; backtrace into the echo area from a timer.
+              (url-retrieve (concat my/kosync-url path)
+                            (lambda (status &rest _)
+                              (let ((failed (plist-get status :error)))
+                                (kill-buffer (current-buffer))
+                                (when failed (message "kosync: push failed"))))
+                            nil t t)
+              nil)
+             (t
+              ;; nil, not a signal, is how url-retrieve-synchronously reports a
+              ;; connection it could not make -- and `with-current-buffer' on
+              ;; nil then throws a "Wrong type argument: stringp, nil" that
+              ;; says nothing about the server being down.
+              (when-let* ((buffer (url-retrieve-synchronously
+                                   (concat my/kosync-url path) t t 15)))
+                (with-current-buffer buffer
+                  (goto-char (point-min))
+                  (when (re-search-forward "^$" nil t)
+                    (prog1 (ignore-errors (json-parse-buffer :object-type 'alist))
+                      (kill-buffer)))))))
           (error (message "kosync: %s" (error-message-string err)) nil))))
 
     (defun my/kosync-setup (username password)
@@ -251,11 +272,34 @@
     ;;; ------------------------------------------------------------------
     ;;; Push and pull
     ;;;
-    ;;; Pushing is cheap and happens on its own: when the buffer is buried, killed,
-    ;;; or Emacs is closed. Pulling is not automatic. Overwriting where you are
-    ;;; reading with a position from somewhere else is the one thing a sync client
-    ;;; must never do behind your back -- so opening a book reports what the server
-    ;;; has and leaves the jump to ~SPC R p~.
+    ;;; Both directions are automatic; the difference is what happens when they
+    ;;; disagree.
+    ;;;
+    ;;; Pushing needs no judgement, so it just happens: thirty seconds after you
+    ;;; stop moving, when Emacs loses focus -- which is exactly the moment you
+    ;;; pick the reader up -- when the buffer is killed, and when Emacs quits.
+    ;;; Only if the position actually moved since the last push, so an idle book
+    ;;; sends nothing.
+    ;;;
+    ;;; Background pushes are fired and forgotten. A synchronous request on an
+    ;;; idle timer would stall the first keystroke after a pause if the server
+    ;;; were slow or gone, and nothing here reads the reply.
+    ;;;
+    ;;; Pulling is where the judgement is, because it moves you. At the start of
+    ;;; a book there is nothing to lose and it jumps; otherwise it asks, naming
+    ;;; both positions, the way KOReader does. Silently overwriting where
+    ;;; somebody is reading is the one thing a sync client must never do.
+
+    (defcustom my/kosync-auto-pull 'ask
+      "What to do when the server has a different position on opening a book.
+    `ask' prompts unless you are at the very start; `always' jumps without
+    asking; `never' only reports it and leaves the jump to SPC R p."
+      :type '(choice (const ask) (const always) (const never))
+      :group 'my/kosync)
+
+    (defvar-local my/kosync--last-synced nil
+      "Percentage last sent for this buffer.
+    An idle tick on a book nobody moved should not become a request.")
 
     (defun my/kosync--document ()
       "The sync key for the book in the current buffer, or nil."
@@ -278,9 +322,27 @@
                    (cons "progress" (my/nov--xpointer))
                    (cons "percentage" percentage)
                    (cons "device" "Emacs")
-                   (cons "device_id" (md5 (system-name)))))
+                   (cons "device_id" (md5 (system-name))))
+             quietly)
+            (setq my/kosync--last-synced percentage)
             (unless quietly
               (message "kosync: pushed %.1f%%" (* 100 percentage))))))))
+
+    (defun my/kosync--apply (state)
+      "Move to the position in STATE and return its percentage."
+      (let ((chapter (my/nov--chapter-from-xpointer (alist-get 'progress state)))
+            (percentage (alist-get 'percentage state)))
+        (my/nov-goto-percentage percentage)
+        ;; When the two disagree, the xpointer wins: it came from the reader
+        ;; verbatim and names the chapter exactly, where the percentage only
+        ;; approximates it.
+        (when (and chapter (< chapter (length nov-documents))
+                   (not (equal chapter nov-documents-index)))
+          (nov-goto-document chapter))
+        ;; Record where we landed, not where the server said, or the next idle
+        ;; tick pushes the rounding error straight back.
+        (setq my/kosync--last-synced (my/nov-percentage))
+        percentage))
 
     (defun my/kosync-pull ()
       "Jump to the position the server has for this book."
@@ -292,42 +354,75 @@
         (cond
          ((not document) (message "Not reading a book."))
          ((not (alist-get 'percentage state)) (message "kosync: nothing recorded yet."))
-         (t
-          (let ((chapter (my/nov--chapter-from-xpointer (alist-get 'progress state)))
-                (percentage (alist-get 'percentage state)))
-            (my/nov-goto-percentage percentage)
-            ;; When the two disagree, the xpointer wins: it came from the
-            ;; reader verbatim and names the chapter exactly, where the
-            ;; percentage only approximates it.
-            (when (and chapter (< chapter (length nov-documents))
-                       (not (equal chapter nov-documents-index)))
-              (nov-goto-document chapter))
-            (message "kosync: %.1f%% from %s"
-                     (* 100 percentage) (or (alist-get 'device state) "elsewhere")))))))
+         (t (message "kosync: %.1f%% from %s"
+                     (* 100 (my/kosync--apply state))
+                     (or (alist-get 'device state) "elsewhere"))))))
 
-    (defun my/kosync--announce ()
-      "On opening a book, say where everything else left off. Never jump."
-      (when-let* ((document (my/kosync--document))
-                  (state (my/kosync--request "GET" (concat "/syncs/progress/" document)))
-                  (percentage (alist-get 'percentage state)))
-        (message "kosync: %s left off at %.1f%% -- SPC R p to go there"
-                 (or (alist-get 'device state) "another device") (* 100 percentage))))
+    (defun my/kosync--on-open ()
+      "Reconcile with the server just after a book finishes opening.
 
-    (defun my/kosync--push-this-buffer ()
-      "Push on the way out, without saying anything about it."
-      (my/kosync-push t))
+    Deferred rather than run straight from the mode hook: nov is still building
+    the buffer at that point, so jumping would land in a document about to be
+    replaced -- and a prompt would appear before the book had drawn."
+      (let ((buffer (current-buffer)))
+        (run-at-time
+         0.5 nil
+         (lambda ()
+           (when (buffer-live-p buffer)
+             (with-current-buffer buffer
+               (when-let* ((document (my/kosync--document))
+                           (state (my/kosync--request
+                                   "GET" (concat "/syncs/progress/" document)))
+                           (remote (alist-get 'percentage state)))
+                 (let ((local (my/nov-percentage))
+                       (device (or (alist-get 'device state) "another device")))
+                   (setq my/kosync--last-synced local)
+                   (cond
+                    ((< (abs (- remote local)) 0.001) nil)
+                    ((eq my/kosync-auto-pull 'never)
+                     (message "kosync: %s left off at %.1f%% -- SPC R p to go there"
+                              device (* 100 remote)))
+                    ;; Nothing to lose at the very start of the book.
+                    ((or (eq my/kosync-auto-pull 'always) (< local 0.001))
+                     (message "kosync: %.1f%% from %s"
+                              (* 100 (my/kosync--apply state)) device))
+                    ((y-or-n-p
+                      (format "%s left off at %.1f%%, you are at %.1f%%. Go there? "
+                              device (* 100 remote) (* 100 local)))
+                     (my/kosync--apply state)))))))))))
 
-    (defun my/kosync--push-every-book ()
-      "Push every open book. On kill-emacs the current buffer is whichever one
-    happened to be selected, which is usually not the one being read."
-      (dolist (buffer (buffer-list))
-        (with-current-buffer buffer
-          (when (derived-mode-p 'nov-mode)
+    (defun my/kosync--push-if-moved ()
+      "Push the current buffer, but only if the position actually changed."
+      (when (derived-mode-p 'nov-mode)
+        (let ((percentage (my/nov-percentage)))
+          (unless (and my/kosync--last-synced
+                       (< (abs (- percentage my/kosync--last-synced)) 0.0005))
             (my/kosync-push t)))))
 
-    (add-hook 'nov-mode-hook #'my/kosync--announce)
-    (add-hook 'kill-buffer-hook #'my/kosync--push-this-buffer)
+    (defun my/kosync--push-every-book ()
+      "Push every open book that has moved.
+    On kill-emacs, and when Emacs loses focus, the current buffer is whichever
+    one happened to be selected -- usually not the one being read."
+      (dolist (buffer (buffer-list))
+        (with-current-buffer buffer
+          (my/kosync--push-if-moved))))
+
+    (defun my/kosync--on-focus-change ()
+      "Push on the way out to another app, which is when you pick the reader up."
+      (unless (frame-focus-state)
+        (my/kosync--push-every-book)))
+
+    (defvar my/kosync--idle-timer nil
+      "Guarded so reloading this configuration does not stack up timers.")
+
+    (unless my/kosync--idle-timer
+      (setq my/kosync--idle-timer
+            (run-with-idle-timer 30 t #'my/kosync--push-if-moved)))
+
+    (add-hook 'nov-mode-hook #'my/kosync--on-open)
+    (add-hook 'kill-buffer-hook #'my/kosync--push-if-moved)
     (add-hook 'kill-emacs-hook #'my/kosync--push-every-book)
+    (add-function :after after-focus-change-function #'my/kosync--on-focus-change)
 
     ;;; ------------------------------------------------------------------
     ;;; The notes window
