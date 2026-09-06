@@ -81,6 +81,25 @@ let
       account expenses:fun
       account expenses:other
 
+      ; A target says what an envelope is adding up to. `goal:' is the total,
+      ; `by:' an optional month to reach it, and between those and whether the
+      ; account has a periodic transaction in budget.hledger you get the four
+      ; shapes a target comes in:
+      ;
+      ;   periodic only          spend this much every month -- groceries
+      ;   periodic + goal        put this aside monthly until the total is
+      ;                          reached -- a yearly restock
+      ;   periodic + goal + by:  the same, and the screen says what the monthly
+      ;                          has to be to arrive on time
+      ;   goal only              a total to work toward, topped up whenever
+      ;                          there is something spare
+      ;
+      ; Progress is measured against the rolled-over available, so an envelope
+      ; funded and never touched shows the money as set aside rather than as
+      ; nothing having happened.
+      account expenses:restock            ; goal: 150
+      account expenses:insurance          ; goal: 480 by: 2027-06
+
       account equity:opening
     '';
 
