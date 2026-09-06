@@ -706,6 +706,28 @@ in
               (svg-rectangle svg 0 0 filled h :fill fill :rx 2))
             (my/hledger--image svg width)))))
 
+    (defun my/hledger-budget--saving-rows (csv)
+      "The saving rows to draw, including funds the report left out.
+
+    A fund with no monthly contribution has neither budget nor activity in a
+    quiet month, so `balance --budget' omits it -- and a target you fill from a
+    bonus is quiet by definition. It would therefore be invisible in exactly
+    the months you want it to nag. Any goal-bearing savings or liability
+    account missing from the report is added back with zeroes; the goal line
+    underneath still shows the balance and what is left to find."
+      (let* ((rows (my/hledger-budget--leaves
+                    (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr csv))))
+             (present (mapcar #'car rows)))
+        (append rows
+                (delq nil
+                      (mapcar (lambda (goal)
+                                (let ((account (car goal)))
+                                  (when (and (string-match-p
+                                              "\\`\\(assets:savings\\|liabilities\\)" account)
+                                             (not (member account present)))
+                                    (list account "0" "0"))))
+                              (my/hledger--goals))))))
+
     (defun my/hledger-budget--leaves (rows)
       "ROWS with the aggregates removed.
 
@@ -1034,8 +1056,7 @@ in
                                 'face 'my/hledger-budget-heading))
             ;; One pass, so a fund's goal line sits under its own month row
             ;; rather than after every other fund's.
-            (dolist (row (my/hledger-budget--leaves
-                          (seq-remove (lambda (r) (equal (nth 0 r) "Total:")) (cdr saving))))
+            (dolist (row (my/hledger-budget--saving-rows saving))
               (let* ((account (nth 0 row))
                      (moved (my/hledger--num (nth 1 row)))
                      (planned (my/hledger--num (nth 2 row)))
@@ -1059,28 +1080,35 @@ in
                                  (my/hledger--percent moved planned)
                                  (- planned moved))
                          'hledger-account account))
-                (when (and goal (> goal 0))
-                  ;; Months left: a real amortisation when the account carries a
-                  ;; rate, because dividing the remaining balance by the monthly
-                  ;; principal ignores that the principal share grows every month
-                  ;; and overstates the time badly -- 367 months against 311 here.
-                  (let* ((rate (my/hledger--account-tag account "rate"))
-                         (payment (my/hledger--account-tag account "payment"))
-                         (months
-                          (cond ((and original rate payment)
-                                 (my/hledger--amortise
-                                  owed (- (expt (+ 1 (/ rate 100.0)) (/ 1.0 12)) 1) payment))
-                                ((> planned 0)
-                                 (ceiling (/ (max 0 (- goal done)) planned))))))
-                    (insert
-                     (propertize
-                      (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
-                              (if original "  paid off" "  toward goal")
-                              done goal
-                              (my/hledger-budget--bar (/ done goal))
-                              (format "%d%%" (round (* 100 (/ done goal))))
-                              (if months (format "%d mo left" months) "no rate set"))
-                      'face 'shadow))))))))
+                (if original
+                    ;; A debt: progress runs up from what was borrowed, and the
+                    ;; time left is a real amortisation rather than the balance
+                    ;; divided by this month's principal -- the principal share
+                    ;; grows every month, and ignoring that overstated the term
+                    ;; by 57 months.
+                    (when (> goal 0)
+                      (let* ((rate (my/hledger--account-tag account "rate"))
+                             (payment (my/hledger--account-tag account "payment"))
+                             (months (cond ((and rate payment)
+                                            (my/hledger--amortise
+                                             owed (- (expt (+ 1 (/ rate 100.0)) (/ 1.0 12)) 1)
+                                             payment))
+                                           ((> planned 0)
+                                            (ceiling (/ (max 0 (- goal done)) planned))))))
+                        (insert
+                         (propertize
+                          (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
+                                  "  paid off" done goal
+                                  (my/hledger-budget--bar (/ done goal))
+                                  (my/hledger--percent done goal)
+                                  (if months (format "%d mo left" months) "no rate set"))
+                          'face 'shadow))))
+                  ;; A fund: the same target line the envelopes use, so a `by:'
+                  ;; date and a reached target read the same wherever they are.
+                  (when-let* ((line (my/hledger--goal-line
+                                     account done planned
+                                     (or my/hledger-budget--time (current-time)))))
+                    (insert line)))))))
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
