@@ -545,15 +545,26 @@ to recompile them and go hunting for error patterns in a balance sheet.
         (let* ((by (cdr goal))
                (short (max 0 (- amount progress)))
                (note (cond
-                      ((<= short 0) (if by (format "funded, %s" by) "funded"))
-                      ;; A date changes the question from "how long at this
-                      ;; rate" to "what does the rate have to be", which is the
-                      ;; only one worth answering when the date is fixed.
-                      (by (format "%.0f/mo to %s"
-                                  (/ short (my/hledger--months-until by now)) by))
-                      ((and monthly (> monthly 0))
-                       (format "%d mo left" (ceiling (/ short monthly))))
-                      (t "no monthly set"))))
+                      ;; Over the target, not merely at it. Nothing resets a
+                      ;; fund at the end of its year: the monthly keeps paying
+                      ;; in whether or not the thing was bought, so a trip not
+                      ;; taken leaves travel at 2,475 against a 900 target
+                      ;; three years on, and every euro of it counts as
+                      ;; promised and is kept from the sweep. Saying so is the
+                      ;; prompt to spend it or stop the line.
+                      ((< progress (- amount 0.005))
+                       (if by (format "%.0f/mo to %s"
+                                      (/ short (my/hledger--months-until by now)) by)
+                         (if (and monthly (> monthly 0))
+                             (format "%d mo left" (ceiling (/ short monthly)))
+                           "no monthly set")))
+                      ;; A whole extra month past the target, not a cent past
+                      ;; it. Twelve months of 13 against a 155 bill overshoots
+                      ;; by 1.00 and that is arithmetic, not a problem.
+                      ((> progress (+ amount (max 1.0 (or monthly 0))))
+                       (format "%.2f over -- spend it or stop the line"
+                               (- progress amount)))
+                      (t (if by (format "funded, %s" by) "funded")))))
           (propertize
            (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
                    (concat (make-string (* 2 (+ (if label 0 1) (or depth 0))) ?\s)
