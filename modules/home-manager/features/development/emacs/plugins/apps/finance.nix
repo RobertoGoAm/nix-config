@@ -1206,6 +1206,55 @@ in
                                           depth label)))
         (when line (insert line))))
 
+    (defcustom my/hledger-sweep-account "assets:bank:main:overpayment"
+      "The fund the monthly leftover is swept into."
+      :type 'string
+      :group 'my/hledger)
+
+    (defun my/hledger--monthly-budgets (rows)
+      "An alist of account to what the budget puts in each month, from ROWS."
+      (mapcar (lambda (r) (cons (nth 0 r) (my/hledger--num (nth 2 r)))) rows))
+
+    (defun my/hledger--reserved (budgets now)
+      "What a dated target still needs that its monthly will not deliver in time.
+
+    A target with a date is a bill: SUMA is 155 due in December, and 13 a month
+    for the three months left is 39 of it. The 103 that leaves is not spare,
+    however free the account looks, so the sweep holds it back. Targets with no
+    date are not bills -- they arrive when they arrive -- and the sweep
+    destination is excluded, since reserving for the thing being swept into
+    would leave nothing to sweep."
+      (apply #'+
+             (mapcar
+              (lambda (goal)
+                (let* ((account (car goal))
+                       (amount (car (cdr goal)))
+                       (by (cdr (cdr goal))))
+                  (if (or (null amount) (<= amount 0) (null by)
+                          (equal account my/hledger-sweep-account)
+                          (my/hledger--account-tag account "original"))
+                      0
+                    (let* ((have (if (string-prefix-p "assets:" account)
+                                     (abs (my/hledger--amount account))
+                                   (or (alist-get account (my/hledger--availables)
+                                                  nil nil #'equal)
+                                       0)))
+                           (short (max 0 (- amount have)))
+                           (monthly (or (alist-get account budgets nil nil #'equal) 0))
+                           (months (my/hledger--months-until by now)))
+                      (max 0 (- short (* monthly months)))))))
+              (my/hledger--goals))))
+
+    (defun my/hledger--availables ()
+      "Every envelope's rolled-over balance.
+
+    `my/hledger-budget--available' is buffer-local to the envelope screen, so
+    a command run from anywhere else sees nil and has to recompute. Reading
+    the variable directly is how the sweep and the screen came to disagree by
+    the 13 already sitting in the SUMA envelope."
+      (or my/hledger-budget--available
+          (my/hledger--available (or my/hledger-budget--time (current-time)))))
+
     (defun my/hledger--promised ()
       "What the envelopes still hold: the positive rolled-over balances.
 
@@ -1214,9 +1263,7 @@ in
     not netted off -- an envelope in the red is a hole to answer for, not a
     source of money for another one."
       (apply #'+ (mapcar (lambda (cell) (max 0 (cdr cell)))
-                         (or my/hledger-budget--available
-                             (my/hledger--available
-                              (or my/hledger-budget--time (current-time)))))))
+                         (my/hledger--availables))))
 
     (defun my/hledger-sweep ()
       "Earmark everything no envelope has a claim on for the mortgage.
@@ -1233,7 +1280,15 @@ in
                                     (seq-filter
                                      (lambda (g) (string-prefix-p "assets:" (car g)))
                                      (my/hledger--goals))))))
-             (spare (- liquid (my/hledger--promised))))
+             (budgets (my/hledger--monthly-budgets
+                       (cdr (my/hledger--csv "balance" "--budget" "--flat" "^expenses"
+                                             "-p" (my/hledger-budget--month-string
+                                                   (or my/hledger-budget--time
+                                                       (current-time)))))))
+             (spare (- liquid
+                       (my/hledger--promised)
+                       (my/hledger--reserved
+                        budgets (or my/hledger-budget--time (current-time))))))
         (if (<= spare 0)
             (message "Nothing spare -- the envelopes hold it all.")
           (find-file hledger-jfile)
@@ -1241,7 +1296,7 @@ in
           (unless (bolp) (insert "\n"))
           (insert (format "\n%s * sweep: left over once everything was assigned\n"
                           (format-time-string "%Y-%m-%d")))
-          (insert (format "    assets:bank:main:overpayment   %8.2f EUR\n" spare))
+          (insert (format "    %-30s %8.2f EUR\n" my/hledger-sweep-account spare))
           (insert "    assets:bank:main\n")
           (forward-line -2)
           (message "%.2f to the mortgage. C-x C-s to keep it." spare))))
@@ -1519,16 +1574,19 @@ in
           ;; claim on is what pays the mortgage down early. An envelope's
           ;; rolled-over balance is a claim -- it is this month's groceries not
           ;; yet bought -- so it comes off before anything is swept.
-          (let ((promised (my/hledger--promised)))
+          (let* ((promised (my/hledger--promised))
+                 (reserved (my/hledger--reserved
+                            (my/hledger--monthly-budgets (cdr expenses))
+                            (or my/hledger-budget--time (current-time))))
+                 (spare (- liquid promised reserved)))
             (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
                             "promised" promised))
+            (insert (format "  %-26s %9.2f   dated targets the monthly misses\n"
+                            "reserved" reserved))
             (insert (propertize
-                     (format "  %-26s %9.2f   %s\n" "to overpayment"
-                             (- liquid promised)
-                             (if (> (- liquid promised) 0)
-                                 "free to sweep -- w"
-                               "nothing spare yet"))
-                     'face (if (> (- liquid promised) 0) 'success 'shadow)))))
+                     (format "  %-26s %9.2f   %s\n" "to overpayment" spare
+                             (if (> spare 0) "free to sweep -- w" "nothing spare yet"))
+                     'face (if (> spare 0) 'success 'shadow)))))
 
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   w sweep   r refresh\n"
                             'face 'shadow))
