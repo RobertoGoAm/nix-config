@@ -518,12 +518,19 @@ in
         (max 1 (+ (* 12 (- (nth 5 target) (nth 5 here)))
                   (- (nth 4 target) (nth 4 here))))))
 
-    (defun my/hledger--goal-line (account progress monthly now &optional depth)
+    (defun my/hledger--goal-line (account progress monthly now &optional depth label)
       "The target line under an envelope, or nil when it has no target.
 
     PROGRESS is what has accumulated toward it -- for an envelope that is the
     rolled-over available, because money not yet spent is money still set
-    aside; MONTHLY is what the budget puts in each month."
+    aside; MONTHLY is what the budget puts in each month.
+
+    With LABEL the line stands as the envelope's own row rather than sitting
+    under one, named and indented as the envelope and not dimmed. That is for
+    an envelope funded only by a target: with nothing budgeted monthly and
+    nothing spent, its ordinary row reads 0.00 / 0.00 and carries no
+    information, so the two lines together look like two goals of which one is
+    empty."
       (when-let* ((goal (alist-get account (my/hledger--goals) nil nil #'equal))
                   (amount (car goal))
                   (_ (> amount 0)))
@@ -541,12 +548,14 @@ in
                       (t "no monthly set"))))
           (propertize
            (format "  %-26s %9.2f / %-9.0f %s %5s  %s\n"
-                   (concat (make-string (* 2 (1+ (or depth 0))) ?\s) "toward target")
+                   (concat (make-string (* 2 (+ (if label 0 1) (or depth 0))) ?\s)
+                           (or label "toward target"))
                    progress amount
                    (my/hledger-budget--bar (/ progress (float amount)))
                    (my/hledger--percent progress amount)
                    note)
-           'face 'shadow))))
+           'hledger-account account
+           'face (if label 'default 'shadow)))))
 
     (defun my/hledger--account-tag (account tag)
       "Read a numeric TAG off ACCOUNT's directive in the chart of accounts."
@@ -1000,11 +1009,20 @@ in
                                                (time-add end (days-to-time 31))))))
         (cdr matrix)))
 
-    (defun my/hledger-budget--row (account spent budgeted &optional label depth override)
+    (defconst my/hledger-budget-trend-months 6
+      "How many months of history the trend column shows.")
+
+    (defun my/hledger-budget--row (account spent budgeted &optional label depth
+                                           override heading)
       "One envelope, as a line.
     LABEL overrides the name, DEPTH indents it, OVERRIDE replaces the computed
     remaining -- a group heading has no account of its own to look up, so it is
-    handed the sum of its children."
+    handed the sum of its children, and HEADING says that is what this is.
+
+    A heading gets no trend, having no spending of its own to trend. A leaf
+    absent from the matrix does get one, flat: the matrix only lists accounts
+    with postings in the window, and an envelope nobody spent from for six
+    months has a history of six zeroes rather than no history."
       (let* ((label (or label (replace-regexp-in-string "\\`expenses:?" "" account)))
              (label (if (string-empty-p label) "unbudgeted" label))
              (label (concat (make-string (* 2 (or depth 0)) ?\s) label))
@@ -1020,7 +1038,9 @@ in
                               (- budgeted spent))))
              (over (< remaining 0)))
         (propertize
-         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f  %s\n"
+         (concat
+          (string-trim-right
+           (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f  %s"
                  (truncate-string-to-width label 26)
                  spent budgeted
                  (my/hledger-budget--bar fraction)
@@ -1032,8 +1052,10 @@ in
                  ;; than being stretched to fill whatever range it happens to
                  ;; have.
                  (my/hledger--sparkline
-                  (or (alist-get account my/hledger-budget--trends nil nil #'equal)
-                      '())))
+                  (unless heading
+                    (or (alist-get account my/hledger-budget--trends nil nil #'equal)
+                        (make-list my/hledger-budget-trend-months 0))))))
+          "\n")
          'hledger-account account
          'face (if over 'error 'default))))
 
@@ -1124,10 +1146,14 @@ in
           (let ((group (car entry)) (members (cdr entry)))
             (if (null group)
                 (dolist (row members)
-                  (insert (my/hledger-budget--row
-                           (nth 0 row) (my/hledger--num (nth 1 row))
-                           (my/hledger--num (nth 2 row))))
-                  (my/hledger-budget--insert-goal row 0))
+                  (let ((label (replace-regexp-in-string
+                                "\\`expenses:?" "" (nth 0 row))))
+                    (if (my/hledger-budget--target-only-p row)
+                        (my/hledger-budget--insert-goal row 0 label)
+                      (insert (my/hledger-budget--row
+                               (nth 0 row) (my/hledger--num (nth 1 row))
+                               (my/hledger--num (nth 2 row))))
+                      (my/hledger-budget--insert-goal row 0))))
               (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
                     (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
                 ;; The heading carries the totals, so the group can be read
@@ -1143,18 +1169,27 @@ in
                                                         nil nil #'equal)
                                              (- (my/hledger--num (nth 2 r))
                                                 (my/hledger--num (nth 1 r)))))
-                                       members)))))
+                                       members)))
+                         t))
                 (dolist (row members)
-                  (insert (my/hledger-budget--row
-                           (nth 0 row) (my/hledger--num (nth 1 row))
-                           (my/hledger--num (nth 2 row))
-                           (replace-regexp-in-string
-                            (format "\\`expenses:%s:" (regexp-quote group)) ""
-                            (nth 0 row))
-                           1))
-                  (my/hledger-budget--insert-goal row 1))))))))
+                  (let ((label (replace-regexp-in-string
+                                (format "\\`expenses:%s:" (regexp-quote group)) ""
+                                (nth 0 row))))
+                    (if (my/hledger-budget--target-only-p row)
+                        (my/hledger-budget--insert-goal row 1 label)
+                      (insert (my/hledger-budget--row
+                               (nth 0 row) (my/hledger--num (nth 1 row))
+                               (my/hledger--num (nth 2 row)) label 1))
+                      (my/hledger-budget--insert-goal row 1))))))))))
 
-    (defun my/hledger-budget--insert-goal (row &optional depth)
+    (defun my/hledger-budget--target-only-p (row)
+      "Whether ROW is an envelope whose only content is its target.
+    Nothing budgeted this month, nothing spent, and a target to show."
+      (and (zerop (my/hledger--num (nth 1 row)))
+           (zerop (my/hledger--num (nth 2 row)))
+           (car (alist-get (nth 0 row) (my/hledger--goals) nil nil #'equal))))
+
+    (defun my/hledger-budget--insert-goal (row &optional depth label)
       "Draw ROW's target line, if it has a target.
 
     Progress is the rolled-over available rather than what was spent: an
@@ -1168,7 +1203,7 @@ in
                             (- monthly (my/hledger--num (nth 1 row)))))
              (line (my/hledger--goal-line account available monthly
                                           (or my/hledger-budget--time (current-time))
-                                          depth)))
+                                          depth label)))
         (when line (insert line))))
 
     (defun my/hledger-budget--month-string (time)
@@ -1288,7 +1323,8 @@ in
                    'face 'my/hledger-budget-heading))
           (my/hledger-budget--insert-sections rows)
           (when (> (abs unbudgeted) 0.005)
-            (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0))))
+            (insert (my/hledger-budget--row "expenses:<unbudgeted>" unbudgeted 0
+                                            nil nil nil t))))
 
         ;; Saving is budgeted too. Money moved to a fund is not spending, so it
         ;; is not an expense account and would never appear above -- but a
@@ -1337,16 +1373,21 @@ in
                                                nil nil #'equal))))
                      (owed (abs (my/hledger--amount account)))
                      (done (if original (- original owed) owed)))
-                (insert (propertize
-                         (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
-                                 (truncate-string-to-width
-                                  (if (string-empty-p label) "savings" label) 26)
-                                 moved planned
-                                 (my/hledger-budget--bar
-                                  (if (> planned 0) (/ moved planned) 0.0))
-                                 (my/hledger--percent moved planned)
-                                 (- planned moved))
-                         'hledger-account account))
+                ;; A fund with nothing planned monthly and nothing moved this
+                ;; month has no row of its own worth printing -- 0.00 / 0.00
+                ;; over a target line reads as two funds, one of them empty. In
+                ;; that case the target line below is the row.
+                (unless (and (not original) (zerop moved) (zerop planned) goal (> goal 0))
+                  (insert (propertize
+                           (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f\n"
+                                   (truncate-string-to-width
+                                    (if (string-empty-p label) "savings" label) 26)
+                                   moved planned
+                                   (my/hledger-budget--bar
+                                    (if (> planned 0) (/ moved planned) 0.0))
+                                   (my/hledger--percent moved planned)
+                                   (- planned moved))
+                           'hledger-account account)))
                 (if original
                     ;; A debt: progress runs up from what was borrowed, and the
                     ;; term is a real amortisation, since the principal share of
@@ -1372,7 +1413,9 @@ in
                   ;; date and a reached target read the same wherever they are.
                   (when-let* ((line (my/hledger--goal-line
                                      account done planned
-                                     (or my/hledger-budget--time (current-time)) 0)))
+                                     (or my/hledger-budget--time (current-time)) 0
+                                     (when (and (zerop moved) (zerop planned))
+                                       (if (string-empty-p label) "savings" label)))))
                     (insert line)))))))
         ;; Whether the plan is backed by money that exists.
         ;;
@@ -1465,15 +1508,25 @@ in
 
     (defconst my/hledger--spark "▁▂▃▄▅▆▇█")
 
+    (defun my/hledger--sparkline-scale (values)
+      "The value a sparkline's full height stands for.
+    1 when every month is zero, so a flat envelope draws along the baseline
+    instead of dividing by it."
+      (let ((top (float (apply #'max (mapcar #'abs values)))))
+        (if (zerop top) 1.0 top)))
+
     (defun my/hledger--sparkline (values)
       "VALUES as a small trend: an SVG line on a graphical frame, blocks otherwise."
       (cond
-       ((or (null values) (zerop (apply #'max 0 (mapcar #'abs values))))
-        (make-string (max 1 (length values)) ?\s))
+       ;; No history at all -- a group heading, which has no account of its own
+       ;; to have spent anything. Six months of zeroes is not that: it is a fact
+       ;; about the envelope, and it draws as a flat line along the bottom. The
+       ;; scale falls back to 1 so that case divides by something.
+       ((null values) "")
        ((not (my/hledger--graphical-p))
         ;; float, or elisp does integer division and every value below the
         ;; largest collapses to the lowest block.
-        (let ((top (float (apply #'max (mapcar #'abs values)))))
+        (let ((top (my/hledger--sparkline-scale values)))
           (mapconcat (lambda (v)
                        (string (aref my/hledger--spark
                                      (min 7 (floor (* 7.99 (/ (abs v) top)))))))
@@ -1486,7 +1539,7 @@ in
                (w (* columns (default-font-width)))
                (h (max 8 (- (default-font-height) 2)))
                (svg (svg-create w h))
-               (top (float (apply #'max (mapcar #'abs values))))
+               (top (my/hledger--sparkline-scale values))
                (n (max 1 (1- (length values))))
                (accent (my/hledger--color 'success "#2e8b57"))
                (points (cl-loop for v in values for i from 0
