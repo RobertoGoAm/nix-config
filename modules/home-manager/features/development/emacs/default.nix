@@ -187,6 +187,15 @@ in
           inhibit-startup-screen t
           initial-scratch-message nil)
 
+    ;; claude-code's autoloads call `transient-define-prefix' at the top level
+    ;; without requiring transient first, and `package-activate-all' walks the
+    ;; ELPA tree in alphabetical order -- claude-code long before transient. The
+    ;; void-function error aborts the rest of that autoloads file, taking
+    ;; `claude-code-transient' and the .claude-code.prompt.md auto-mode entry
+    ;; with it. Loading transient here, before package.el gets that far, is
+    ;; enough; early-init runs ahead of `package-activate-all'.
+    (require 'transient)
+
     ;; Native compilation is on in this build; keep its warnings out of the way and
     ;; its cache inside user-emacs-directory.
     (setq native-comp-async-report-warnings-errors 'silent
