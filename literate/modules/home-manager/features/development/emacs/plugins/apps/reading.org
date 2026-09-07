@@ -204,9 +204,20 @@ nothing -- the notes file below is the honest version of that feature.
           (error (message "kosync: %s" (error-message-string err)) nil))))
 
     (defun my/kosync-setup (username password)
-      "Register USERNAME with the kosync server and store the credential."
-      (interactive (list (read-string "kosync username: ")
-                         (read-passwd "kosync password: " t)))
+      "Register USERNAME with the kosync server and store the credential.
+
+    This is a once-per-machine command, not part of syncing: `my/kosync-push'
+    and `my/kosync-pull' read the credential from disk and never ask for it.
+    An account already on disk is confirmed before anything is prompted for,
+    so reaching this by accident costs one keystroke."
+      (interactive
+       (progn
+         (when (and (my/kosync--credentials)
+                    (not (yes-or-no-p
+                          "kosync: an account is set up. Replace the credential? ")))
+           (user-error "kosync: kept the credential already on disk"))
+         (list (read-string "kosync username: ")
+               (read-passwd "kosync password: " t))))
       (let* ((key (md5 password))
              (result (my/kosync--request "POST" "/users/create"
                                          (list (cons "username" username)
