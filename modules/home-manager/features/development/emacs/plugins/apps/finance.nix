@@ -1211,11 +1211,36 @@ in
       :type 'string
       :group 'my/hledger)
 
-    (defun my/hledger--monthly-budgets (rows)
-      "An alist of account to what the budget puts in each month, from ROWS."
-      (mapcar (lambda (r) (cons (nth 0 r) (my/hledger--num (nth 2 r)))) rows))
+    (defun my/hledger--budgeted-until (account by now)
+      "What the budget will put into ACCOUNT from next month up to and through BY.
 
-    (defun my/hledger--reserved (budgets now)
+    Asked of hledger rather than worked out from this month's figure. A
+    sinking fund can be budgeted in steps -- SUMA is 13 a month for a full
+    year and 48 for the three that are left of this one -- and multiplying the
+    current month by the months remaining gets that wrong in whichever
+    direction the steps go. This month is excluded because what it put in is
+    already in the envelope's balance."
+      (let* ((next (let ((d (decode-time now)))
+                     (setf (nth 3 d) 1)
+                     (setf (nth 4 d) (1+ (nth 4 d)))
+                     (encode-time d)))
+             (target (parse-time-string (concat by "-01 00:00:00")))
+             (after (let ((d (decode-time now)))
+                      (setf (nth 3 d) 1)
+                      (setf (nth 4 d) (1+ (nth 4 target)))
+                      (setf (nth 5 d) (nth 5 target))
+                      (encode-time d)))
+             (rows (cdr (my/hledger--csv
+                         "balance" "--budget" "--flat" (concat "^" account "$")
+                         "-p" (format "%s..%s"
+                                      (format-time-string "%Y-%m-%d" next)
+                                      (format-time-string "%Y-%m-%d" after))))))
+        (apply #'+ (mapcar (lambda (r)
+                             (if (equal (nth 0 r) "Total:") 0
+                               (my/hledger--num (nth 2 r))))
+                           rows))))
+
+    (defun my/hledger--reserved (now)
       "What a dated target still needs that its monthly will not deliver in time.
 
     A target with a date is a bill: SUMA is 155 due in December, and 13 a month
@@ -1239,10 +1264,16 @@ in
                                    (or (alist-get account (my/hledger--availables)
                                                   nil nil #'equal)
                                        0)))
-                           (short (max 0 (- amount have)))
-                           (monthly (or (alist-get account budgets nil nil #'equal) 0))
-                           (months (my/hledger--months-until by now)))
-                      (max 0 (- short (* monthly months)))))))
+                           (short (max 0 (- amount have))))
+                      ;; A reached target reserves nothing, and is not asked
+                      ;; about: a budget report on an asset account returns the
+                      ;; balancing side of the transfers into it, which is
+                      ;; negative, and subtracting that would turn a funded
+                      ;; target into a reserve the size of the fund.
+                      (if (<= short 0)
+                          0
+                        (max 0 (- short (max 0 (my/hledger--budgeted-until
+                                                account by now)))))))))
               (my/hledger--goals))))
 
     (defun my/hledger--availables ()
@@ -1280,15 +1311,10 @@ in
                                     (seq-filter
                                      (lambda (g) (string-prefix-p "assets:" (car g)))
                                      (my/hledger--goals))))))
-             (budgets (my/hledger--monthly-budgets
-                       (cdr (my/hledger--csv "balance" "--budget" "--flat" "^expenses"
-                                             "-p" (my/hledger-budget--month-string
-                                                   (or my/hledger-budget--time
-                                                       (current-time)))))))
              (spare (- liquid
                        (my/hledger--promised)
                        (my/hledger--reserved
-                        budgets (or my/hledger-budget--time (current-time))))))
+                        (or my/hledger-budget--time (current-time))))))
         (if (<= spare 0)
             (message "Nothing spare -- the envelopes hold it all.")
           (find-file hledger-jfile)
@@ -1576,7 +1602,6 @@ in
           ;; yet bought -- so it comes off before anything is swept.
           (let* ((promised (my/hledger--promised))
                  (reserved (my/hledger--reserved
-                            (my/hledger--monthly-budgets (cdr expenses))
                             (or my/hledger-budget--time (current-time))))
                  (spare (- liquid promised reserved)))
             (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
