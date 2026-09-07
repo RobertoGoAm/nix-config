@@ -1118,6 +1118,14 @@ to recompile them and go hunting for error patterns in a balance sheet.
                 (when (string-match (format "%s: *\\([a-z0-9-]+\\)" (regexp-quote tag)) line)
                   (match-string 1 line))))))))
 
+    (defun my/hledger--goal-amount (row)
+      "ROW's target, or 0."
+      (or (car (alist-get (nth 0 row) (my/hledger--goals) nil nil #'equal)) 0))
+
+    (defun my/hledger--goal-progress (row)
+      "What ROW has accumulated toward its target."
+      (or (alist-get (nth 0 row) (my/hledger--availables) nil nil #'equal) 0))
+
     (defun my/hledger-budget--insert-sections (rows)
       "Draw ROWS grouped into sections, each with its own subtotal."
       (let ((buckets nil))
@@ -1141,10 +1149,25 @@ to recompile them and go hunting for error patterns in a balance sheet.
               ;; last envelope reads as belonging to it: the goals subtotal sat
               ;; under the air conditioning and looked like the air
               ;; conditioning was budgeted 95.
-              (insert (propertize
-                       (format "  %-26s %9.2f / %-9.2f\n"
-                               (concat (car entry) " total") spent budget)
-                       'face 'shadow)))))))
+              ;;
+              ;; The figures stay the month's, so the four subtotals still add
+              ;; up to the budgeted line in the header. But a section of
+              ;; envelopes being filled shows rows of accumulated-against-target
+              ;; and a subtotal of spent-against-budgeted underneath them, which
+              ;; is two different questions in one column. Where any member is
+              ;; drawn that way the totals for it are spelled out as well.
+              (let ((filling (seq-filter #'my/hledger-budget--target-only-p members)))
+                (insert (propertize
+                         (format "  %-26s %9.2f / %-9.2f%s\n"
+                                 (concat (car entry) " total") spent budget
+                                 (if (null filling) ""
+                                   (let ((have (apply #'+ (mapcar #'my/hledger--goal-progress
+                                                                  filling)))
+                                         (want (apply #'+ (mapcar #'my/hledger--goal-amount
+                                                                  filling))))
+                                     (format "    %.2f / %.0f toward targets"
+                                             have want))))
+                         'face 'shadow))))))))
 
     (defun my/hledger-budget--group (account)
       "The heading ACCOUNT belongs under, or nil when it is a top-level one."
