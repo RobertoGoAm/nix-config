@@ -1125,8 +1125,14 @@ to recompile them and go hunting for error patterns in a balance sheet.
               ;; The subtotal is the reason for the sections. One number for
               ;; what has to be paid and one for what does not is the whole
               ;; question a budget is asked.
+              ;;
+              ;; Named, because an unlabelled row of figures directly under the
+              ;; last envelope reads as belonging to it: the goals subtotal sat
+              ;; under the air conditioning and looked like the air
+              ;; conditioning was budgeted 95.
               (insert (propertize
-                       (format "  %-26s %9.2f / %-9.2f\n" "" spent budget)
+                       (format "  %-26s %9.2f / %-9.2f\n"
+                               (concat (car entry) " total") spent budget)
                        'face 'shadow)))))))
 
     (defun my/hledger-budget--group (account)
