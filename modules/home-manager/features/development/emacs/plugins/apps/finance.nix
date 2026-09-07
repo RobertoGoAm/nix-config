@@ -1835,11 +1835,20 @@ in
                             "promised" promised))
             (insert (format "  %-26s %9.2f   what the goals still need\n"
                             "reserved" reserved))
-            (insert (propertize
-                     (format "  %-26s %9.2f   %s\n" "to overpayment" spare
-                             (if (> spare 0) "free to sweep -- w"
-                               "not enough to cover the goals yet"))
-                     'face (if (> spare 0) 'success 'shadow)))))
+            ;; Within a cent of zero is zero. Landing exactly on it -- which
+            ;; is what unearmarking to fit the goals does -- came out as
+            ;; -0.00 and took the negative branch, so a balanced screen
+            ;; reported that it could not cover the goals.
+            (let ((flat (< (abs spare) 0.005)))
+              (insert (propertize
+                       (format "  %-26s %9.2f   %s\n" "to overpayment"
+                               (if flat 0.0 spare)
+                               (cond (flat "every euro is assigned")
+                                     ((> spare 0) "free to sweep -- w")
+                                     (t "not enough to cover the goals yet")))
+                       'face (cond ((> spare 0.005) 'success)
+                                   (flat 'default)
+                                   (t 'shadow)))))))
 
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   w sweep   r refresh\n"
                             'face 'shadow))
