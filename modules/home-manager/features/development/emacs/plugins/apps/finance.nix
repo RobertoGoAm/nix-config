@@ -1197,8 +1197,22 @@ in
               (let ((spent (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 1 r))) members)))
                     (budget (apply #'+ (mapcar (lambda (r) (my/hledger--num (nth 2 r))) members))))
                 ;; The heading carries the totals, so the group can be read
-                ;; without adding its children up by eye.
-                (insert (my/hledger-budget--row
+                ;; without adding its children up by eye -- in the same terms
+                ;; as the rows beneath it. A group whose children are all being
+                ;; filled reads its month while they read their targets, which
+                ;; put "home 0.00 / 315.00" directly above "appliances 315.00 /
+                ;; 400" and looked like two unrelated facts.
+                (if (seq-every-p #'my/hledger-budget--target-only-p members)
+                    (let ((have (apply #'+ (mapcar #'my/hledger--goal-progress members)))
+                          (want (apply #'+ (mapcar #'my/hledger--goal-amount members))))
+                      (insert (propertize
+                               (format "  %-26s %9.2f / %-9.0f %s %5s\n"
+                                       group have want
+                                       (my/hledger-budget--bar
+                                        (if (> want 0) (/ have (float want)) 0.0))
+                                       (my/hledger--percent have want))
+                               'hledger-account (concat "expenses:" group))))
+                  (insert (my/hledger-budget--row
                          (concat "expenses:" group) spent budget group 0
                          (when (and my/hledger-budget-rollover
                                     my/hledger-budget--available)
@@ -1210,7 +1224,7 @@ in
                                              (- (my/hledger--num (nth 2 r))
                                                 (my/hledger--num (nth 1 r)))))
                                        members)))
-                         t))
+                           t)))
                 (dolist (row members)
                   (let ((label (replace-regexp-in-string
                                 (format "\\`expenses:%s:" (regexp-quote group)) ""
@@ -1770,38 +1784,11 @@ in
                              (my/hledger--amount "^assets:cash")
                              (my/hledger--amount "^liabilities:card"))
                           earmarked))
-               ;; Only what is meant to be funded within a year counts. A
-               ;; target four years out is incomplete, not unbacked, and
-               ;; letting it into this sum turns the check into an alarm that
-               ;; is always on -- which is the same as no check at all.
-               (near (seq-remove
-                      (lambda (g)
-                        (or (my/hledger--account-tag (car g) "original")
-                            (let ((by (cdr (cdr g))))
-                              (and by (> (my/hledger--months-until
-                                          by (or my/hledger-budget--time (current-time)))
-                                         12)))))
-                      (my/hledger--goals)))
-               (outstanding
-                (apply #'+ (mapcar
-                            (lambda (goal)
-                              (max 0 (- (car (cdr goal))
-                                        (let ((bal (abs (my/hledger--amount (car goal))))
-                                              (orig (my/hledger--account-tag (car goal) "original")))
-                                          (if orig (- orig bal) bal)))))
-                            near))))
+               )
           (insert (propertize
                    (format "\n  %-26s %9.2f   in the accounts, not yet in a fund\n"
                            "unallocated" liquid)
                    'face 'my/hledger-budget-heading))
-          (insert (format "  %-26s %9.2f   targets due within a year\n"
-                          "still to fund" outstanding))
-          (insert (propertize
-                   (format "  %-26s %9.2f   %s\n" "free" (- liquid outstanding)
-                           (if (>= liquid outstanding)
-                               "every fund is backed"
-                             "THE GOALS EXCEED THE MONEY"))
-                   'face (if (>= liquid outstanding) 'success 'error)))
           ;; The bottom of the waterfall. Needs are budgeted first, then the
           ;; periodic ones, then wants, then goals; whatever no envelope has a
           ;; claim on is what pays the mortgage down early. An envelope's
@@ -1816,7 +1803,8 @@ in
                             "reserved" reserved))
             (insert (propertize
                      (format "  %-26s %9.2f   %s\n" "to overpayment" spare
-                             (if (> spare 0) "free to sweep -- w" "nothing spare yet"))
+                             (if (> spare 0) "free to sweep -- w"
+                               "not enough to cover the goals yet"))
                      'face (if (> spare 0) 'success 'shadow)))))
 
         (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   w sweep   r refresh\n"
