@@ -331,7 +331,14 @@ of strings, so it lands next to the rest of the generated config.
       (let* ((frame (selected-frame))
              (window (frame-selected-window frame))
              (windows (window-list frame))
-             (shown (buffer-name (window-buffer window))))
+             (shown (buffer-name (window-buffer window)))
+             ;; Side windows -- the which-key panel, the AI chat -- refuse to be
+             ;; the last window standing, and `delete-other-windows' signals
+             ;; rather than declining. A signal in a frame hook abandons the
+             ;; rest of it, leaving the frame exactly as split as it was.
+             ;; Inside these branches the frame is a home screen, so the side
+             ;; panels go with everything else.
+             (ignore-window-parameters t))
         (cond
          ;; A frame showing nothing but the dashboard is a home screen that got
          ;; split, whatever split it: one window is the whole of what it has to
