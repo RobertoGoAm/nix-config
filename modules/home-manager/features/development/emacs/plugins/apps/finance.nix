@@ -1468,7 +1468,13 @@ in
               (let* ((months (my/hledger--months-into-year (cdr (cdr goal)) now))
                      (rate (my/hledger--steady-monthly account now))
                      (target (* rate months))
-                     (have (or (alist-get account available nil nil #'equal) 0))
+                     ;; The pot plus what the fund has already bought this
+                     ;; cycle. Topping the pot up to nine months' worth without
+                     ;; crediting the spending put 62.85 of skincare into it
+                     ;; twice -- once as product on the shelf, once as money
+                     ;; for product.
+                     (have (+ (or (alist-get account available nil nil #'equal) 0)
+                              (my/hledger--cycle-spent account now)))
                      (short (- target have)))
                 (setq elapsed (max elapsed months))
                 (when (>= short 0.005)
