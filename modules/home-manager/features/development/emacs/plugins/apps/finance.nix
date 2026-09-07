@@ -1386,6 +1386,70 @@ in
           (message "%d fund%s short. C-x C-s to keep it."
                    (length rows) (if (= 1 (length rows)) "" "s")))))
 
+    (defun my/hledger--month-after (ym)
+      "The first of the month following YM, as a date string."
+      (let ((d (parse-time-string (concat ym "-01 00:00:00"))))
+        (if (= (nth 4 d) 12)
+            (format "%04d-01-01" (1+ (nth 5 d)))
+          (format "%04d-%02d-01" (nth 5 d) (1+ (nth 4 d))))))
+
+    (defun my/hledger-pace ()
+      "Raise the monthly line on any dated goal that will not reach its date.
+
+    A target with a month attached fixes the rate: 155 wanted in December with
+    117 set aside and three months to go is 12.67 a month, whatever the line
+    happens to say. Where the line already delivers it nothing is written --
+    the point is the arrival, not the round number.
+
+    A top-up runs from next month to the month the goal falls in, so it stops
+    on its own rather than carrying on into the following year. Goals sharing
+    a deadline share one entry. Undated goals are left alone: without a date
+    there is no rate to require, and `accrue: monthly' says so deliberately."
+      (interactive)
+      (let* ((now (or my/hledger-budget--time (current-time)))
+             (available (my/hledger--availables))
+             (start (let ((d (decode-time now)))
+                      (setf (nth 3 d) 1)
+                      (setf (nth 4 d) (1+ (nth 4 d)))
+                      (format-time-string "%Y-%m-01" (encode-time d))))
+             (groups nil))
+        (dolist (goal (my/hledger--goals))
+          (let* ((account (car goal))
+                 (amount (car (cdr goal)))
+                 (by (cdr (cdr goal))))
+            (when (and by amount (> amount 0)
+                       (not (string-prefix-p "assets:" account))
+                       (not (string-prefix-p "liabilities:" account))
+                       (not (equal (my/hledger--account-tag-string account "accrue")
+                                   "monthly")))
+              (let* ((have (or (alist-get account available nil nil #'equal) 0))
+                     (short (- amount have))
+                     (months (my/hledger--months-until by now))
+                     (needed (/ short months))
+                     (rate (my/hledger--steady-monthly account now))
+                     ;; Up to the cent, not to it. Rounding 34.334 down writes
+                     ;; three months of 47.33 against a 155 target and arrives
+                     ;; at 154.99, which is a goal that reads 99% forever.
+                     (extra (/ (ceiling (* 100 (- needed rate))) 100.0)))
+                (when (>= extra 0.005)
+                  (let ((cell (assoc by groups)))
+                    (if cell (setcdr cell (cons (cons account extra) (cdr cell)))
+                      (push (list by (cons account extra)) groups))))))))
+        (if (null groups)
+            (message "Every dated goal is on pace.")
+          (find-file (expand-file-name "budget.hledger" my/hledger-dir))
+          (goto-char (point-max))
+          (unless (bolp) (insert "\n"))
+          (dolist (group (nreverse groups))
+            (insert (format "\n; What the dates require, over and above the lines above.\n"))
+            (insert (format "~ monthly from %s to %s  pacing for %s\n"
+                            start (my/hledger--month-after (car group)) (car group)))
+            (dolist (row (nreverse (cdr group)))
+              (insert (format "    %-34s %8.2f EUR\n" (car row) (cdr row))))
+            (insert "    assets:bank:main\n"))
+          (message "Paced %d deadline%s. C-x C-s to keep it."
+                   (length groups) (if (= 1 (length groups)) "" "s")))))
+
     (defun my/hledger-sweep ()
       "Earmark everything no envelope has a claim on for the mortgage.
 
