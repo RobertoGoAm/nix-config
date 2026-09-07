@@ -1121,13 +1121,40 @@ in
                 (when (string-match (format "%s: *\\([a-z0-9-]+\\)" (regexp-quote tag)) line)
                   (match-string 1 line))))))))
 
+    (defun my/hledger--cycle-spent (account now)
+      "What ACCOUNT has spent so far in the cycle it is in, or 0 without one.
+
+    A target on a cycle is what the year costs, not what has to sit in the pot
+    at once. Skincare is 158 a year bought in pieces: spending 54 of it does
+    not undo the 118.53 set aside, it converts part of it into the products it
+    was for. Measuring progress by the balance alone made a purchase look like
+    a setback and raised what the sweep had to hold back by the amount just
+    spent."
+      (let ((cycle (my/hledger--account-tag account "cycle")))
+        (if (not (and cycle (> cycle 0)))
+            0
+          (let* ((into (my/hledger--months-into-year
+                        (cdr (cdr (assoc account (my/hledger--goals)))) now))
+                 (start (let ((d (decode-time now)))
+                          (setf (nth 3 d) 1)
+                          (setf (nth 4 d) (- (nth 4 d) (1- into)))
+                          (encode-time d))))
+            (my/hledger--amount (concat "^" account "$")
+                                (format "%s..%s"
+                                        (format-time-string "%Y-%m-%d" start)
+                                        (format-time-string "%Y-%m-%d"
+                                                            (time-add now (days-to-time 1)))))))))
+
     (defun my/hledger--goal-amount (row)
       "ROW's target, or 0."
       (or (car (alist-get (nth 0 row) (my/hledger--goals) nil nil #'equal)) 0))
 
     (defun my/hledger--goal-progress (row)
-      "What ROW has accumulated toward its target."
-      (or (alist-get (nth 0 row) (my/hledger--availables) nil nil #'equal) 0))
+      "What ROW has provided toward its target: the pot plus what it has bought."
+      (let ((account (nth 0 row)))
+        (+ (or (alist-get account (my/hledger--availables) nil nil #'equal) 0)
+           (my/hledger--cycle-spent
+            account (or my/hledger-budget--time (current-time))))))
 
     (defun my/hledger-budget--insert-sections (rows)
       "Draw ROWS grouped into sections, each with its own subtotal."
@@ -1277,10 +1304,11 @@ in
              (now (or my/hledger-budget--time (current-time)))
              (budgeted (my/hledger--num (nth 2 row)))
              (monthly (my/hledger--steady-monthly account now))
-             (available (or (and my/hledger-budget--available
-                                 (alist-get account my/hledger-budget--available
-                                            nil nil #'equal))
-                            (- budgeted (my/hledger--num (nth 1 row)))))
+             (available (+ (or (and my/hledger-budget--available
+                                    (alist-get account my/hledger-budget--available
+                                               nil nil #'equal))
+                               (- budgeted (my/hledger--num (nth 1 row))))
+                           (my/hledger--cycle-spent account now)))
              (line (my/hledger--goal-line account available monthly now
                                           depth label)))
         (when line (insert line))))
@@ -1348,9 +1376,12 @@ in
                       0
                     (let* ((have (if (string-prefix-p "assets:" account)
                                      (abs (my/hledger--amount account))
-                                   (or (alist-get account (my/hledger--availables)
-                                                  nil nil #'equal)
-                                       0)))
+                                   (+ (or (alist-get account (my/hledger--availables)
+                                                     nil nil #'equal)
+                                          0)
+                                      (my/hledger--cycle-spent
+                                       account (or my/hledger-budget--time
+                                                   (current-time))))))
                            (short (max 0 (- amount have))))
                       short))))
               (my/hledger--goals))))
