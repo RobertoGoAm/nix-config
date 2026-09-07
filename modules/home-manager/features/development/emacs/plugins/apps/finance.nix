@@ -1477,10 +1477,19 @@ in
     (defun my/hledger-pace ()
       "Raise the monthly line on any dated goal that will not reach its date.
 
-    A target with a month attached fixes the rate: 155 wanted in December with
-    117 set aside and three months to go is 12.67 a month, whatever the line
-    happens to say. Where the line already delivers it nothing is written --
-    the point is the arrival, not the round number.
+    Two things can fix a rate. A month attached to the target: 155 wanted in
+    December with 117 set aside and three months to go is 12.67 a month,
+    whatever the line happens to say. And a `cycle:' -- the months the target
+    is meant to span -- which asks for the target divided by that many, so a
+    900 fund on a twelve-month cycle wants 75 and not the 70 that took
+    thirteen months to arrive. Where both apply the larger wins.
+
+    Rounded up to the cent, always. A rate rounded down arrives a month late
+    by construction, and leftovers in a fund are better than a bill that is
+    short.
+
+    Where the line already delivers it nothing is written -- the point is the
+    arrival, not the round number.
 
     A top-up runs from next month to the month the goal falls in, so it stops
     on its own rather than carrying on into the following year. Goals sharing
@@ -1498,37 +1507,49 @@ in
           (let* ((account (car goal))
                  (amount (car (cdr goal)))
                  (by (cdr (cdr goal))))
-            (when (and by amount (> amount 0)
+            (when (and amount (> amount 0)
+                       (or by (my/hledger--account-tag account "cycle"))
                        (not (string-prefix-p "assets:" account))
-                       (not (string-prefix-p "liabilities:" account))
-                       (not (equal (my/hledger--account-tag-string account "accrue")
-                                   "monthly")))
+                       (not (string-prefix-p "liabilities:" account)))
               (let* ((have (or (alist-get account available nil nil #'equal) 0))
-                     (short (- amount have))
-                     (months (my/hledger--months-until by now))
-                     (needed (/ short months))
+                     (cycle (my/hledger--account-tag account "cycle"))
+                     ;; Floats, or elisp divides integers into integers and a
+                     ;; 158 target on a twelve-month cycle asks for 13 a month
+                     ;; rather than 13.17 -- which is the rate that took
+                     ;; thirteen months and the reason for the cycle.
+                     (by-rate (when by
+                                (/ (float (- amount have))
+                                   (my/hledger--months-until by now))))
+                     (cycle-rate (when (and cycle (> cycle 0))
+                                   (/ (float amount) cycle)))
+                     (needed (apply #'max (delq nil (list by-rate cycle-rate))))
                      (rate (my/hledger--steady-monthly account now))
                      ;; Up to the cent, not to it. Rounding 34.334 down writes
                      ;; three months of 47.33 against a 155 target and arrives
                      ;; at 154.99, which is a goal that reads 99% forever.
-                     (extra (/ (ceiling (* 100 (- needed rate))) 100.0)))
+                     (extra (/ (ceiling (* 100 (- needed rate))) 100.0))
+                     ;; A cycle has no end date, so its top-up runs on; one
+                     ;; that only has to arrive by a month stops there.
+                     (until (if (and by (equal needed by-rate)) by "always")))
                 (when (>= extra 0.005)
-                  (let ((cell (assoc by groups)))
+                  (let ((cell (assoc until groups)))
                     (if cell (setcdr cell (cons (cons account extra) (cdr cell)))
-                      (push (list by (cons account extra)) groups))))))))
+                      (push (list until (cons account extra)) groups))))))))
         (if (null groups)
-            (message "Every dated goal is on pace.")
+            (message "Every date and cycle is on pace.")
           (find-file (expand-file-name "budget.hledger" my/hledger-dir))
           (goto-char (point-max))
           (unless (bolp) (insert "\n"))
           (dolist (group (nreverse groups))
-            (insert (format "\n; What the dates require, over and above the lines above.\n"))
-            (insert (format "~ monthly from %s to %s  pacing for %s\n"
-                            start (my/hledger--month-after (car group)) (car group)))
+            (insert "\n; What the dates and the cycles require, over and above the lines above.\n")
+            (insert (if (equal (car group) "always")
+                        (format "~ monthly from %s  pacing to the cycle\n" start)
+                      (format "~ monthly from %s to %s  pacing for %s\n"
+                              start (my/hledger--month-after (car group)) (car group))))
             (dolist (row (nreverse (cdr group)))
               (insert (format "    %-34s %8.2f EUR\n" (car row) (cdr row))))
             (insert "    assets:bank:main\n"))
-          (message "Paced %d deadline%s. C-x C-s to keep it."
+          (message "Paced %d group%s. C-x C-s to keep it."
                    (length groups) (if (= 1 (length groups)) "" "s")))))
 
     (defun my/hledger-sweep ()
