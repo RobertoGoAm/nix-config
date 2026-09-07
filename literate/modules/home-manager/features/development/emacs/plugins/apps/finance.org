@@ -1208,10 +1208,18 @@ to recompile them and go hunting for error patterns in a balance sheet.
                       (my/hledger-budget--insert-goal row 1))))))))))
 
     (defun my/hledger-budget--target-only-p (row)
-      "Whether ROW is an envelope whose only content is its target.
-    Nothing budgeted this month, nothing spent, and a target to show."
+      "Whether ROW should be drawn as its target rather than as this month.
+
+    An envelope with a target that nothing was spent from is one you are
+    filling, not one you are spending: the air conditioning takes 25 a month
+    for 39 months and then buys an air conditioner. Its month line reads
+    0.00 / 25.00 at 0% forever, and the line that means something -- 25 of
+    1,000, 39 months to go -- sits underneath it.
+
+    So while nothing has been spent, the target is the row. The month it is
+    spent from, both lines appear: what went out, and what that left toward
+    the target."
       (and (zerop (my/hledger--num (nth 1 row)))
-           (zerop (my/hledger--num (nth 2 row)))
            (car (alist-get (nth 0 row) (my/hledger--goals) nil nil #'equal))))
 
     (defun my/hledger-budget--insert-goal (row &optional depth label)
@@ -1219,15 +1227,21 @@ to recompile them and go hunting for error patterns in a balance sheet.
 
     Progress is the rolled-over available rather than what was spent: an
     envelope funded at 13 a month for six months and never touched has 78 set
-    aside toward its target, and that is the number the target is about."
+    aside toward its target, and that is the number the target is about.
+
+    The months remaining are worked out from the steady rate, not from this
+    month's figure. A catch-up is budgeted in the month it is applied, so
+    appliances read 315 this September against a 400 target and reported one
+    month to go when the answer at 35 a month is three."
       (let* ((account (nth 0 row))
-             (monthly (my/hledger--num (nth 2 row)))
+             (now (or my/hledger-budget--time (current-time)))
+             (budgeted (my/hledger--num (nth 2 row)))
+             (monthly (my/hledger--steady-monthly account now))
              (available (or (and my/hledger-budget--available
                                  (alist-get account my/hledger-budget--available
                                             nil nil #'equal))
-                            (- monthly (my/hledger--num (nth 1 row)))))
-             (line (my/hledger--goal-line account available monthly
-                                          (or my/hledger-budget--time (current-time))
+                            (- budgeted (my/hledger--num (nth 1 row)))))
+             (line (my/hledger--goal-line account available monthly now
                                           depth label)))
         (when line (insert line))))
 
