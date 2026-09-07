@@ -366,9 +366,9 @@
       "Rn" '(my/book-notes :which-key "notes for this book")
       "Rc" '(my/book-note-capture :which-key "note this passage")
       "Rt" '(nov-goto-toc :which-key "table of contents")
-      "Rp" '(my/kosync-pull :which-key "go to synced position")
-      "Rs" '(my/kosync-push :which-key "push position now")
-      "RS" '(my/kosync-setup :which-key "set up sync account")
+      "Rp" '(my/kosync-pull :which-key "pull position from the server")
+      "Rs" '(my/kosync-push :which-key "push position to the server")
+      "RA" '(my/kosync-setup :which-key "set up the sync account (once)")
 
       ;; search
       "s"  '(:ignore t :which-key "search")
