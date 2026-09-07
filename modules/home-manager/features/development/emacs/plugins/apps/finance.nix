@@ -1009,6 +1009,15 @@ in
                                                (time-add end (days-to-time 31))))))
         (cdr matrix)))
 
+    (defun my/hledger--trim-if-empty (trend line)
+      "LINE with its trailing whitespace gone, but only when TREND is empty.
+
+    An SVG sparkline is a `display' property hung on a run of spaces, so on a
+    graphical frame the trend column IS trailing whitespace and trimming it
+    deletes the image. Only a row that has no trend at all -- a group heading
+    -- gets trimmed, which is the ragged edge the trimming was for."
+      (if (string-empty-p trend) (string-trim-right line) line))
+
     (defconst my/hledger-budget-trend-months 6
       "How many months of history the trend column shows.")
 
@@ -1036,10 +1045,15 @@ in
                                                nil nil #'equal)
                                     (- budgeted spent))
                               (- budgeted spent))))
-             (over (< remaining 0)))
+             (over (< remaining 0))
+             (trend (my/hledger--sparkline
+                     (unless heading
+                       (or (alist-get account my/hledger-budget--trends nil nil #'equal)
+                           (make-list my/hledger-budget-trend-months 0))))))
         (propertize
          (concat
-          (string-trim-right
+          (my/hledger--trim-if-empty
+           trend
            (format "  %-26s %9.2f / %-9.2f %s %5s  %10.2f  %s"
                  (truncate-string-to-width label 26)
                  spent budgeted
@@ -1051,10 +1065,7 @@ in
                  ;; zero, so the height is comparable between months rather
                  ;; than being stretched to fill whatever range it happens to
                  ;; have.
-                 (my/hledger--sparkline
-                  (unless heading
-                    (or (alist-get account my/hledger-budget--trends nil nil #'equal)
-                        (make-list my/hledger-budget-trend-months 0))))))
+                 trend))
           "\n")
          'hledger-account account
          'face (if over 'error 'default))))
