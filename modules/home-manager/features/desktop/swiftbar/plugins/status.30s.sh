@@ -45,11 +45,30 @@ print(1 if not os.path.exists(p) or time.time()-os.path.getmtime(p) > float(sys.
 }
 
 # ---- slow probes, cached -------------------------------------------------
+# An sftp repo needs the on-disk key named by ~/.config/restic/ssh_key, the
+# same one restic-backup forces. SwiftBar's plugins run without an ssh-agent,
+# so the default identity search reaches the approval-gated Bitwarden agent
+# and the transport is refused -- and a refused probe keeps the last good
+# value, which then just ages.
 backup_age() {
   conf="$HOME/.config/restic"
   [ -r "$conf/repository" ] && [ -r "$conf/password" ] || { echo "n/a"; return; }
-  RESTIC_REPOSITORY="$(cat "$conf/repository")" RESTIC_PASSWORD_FILE="$conf/password" \
-    restic snapshots --no-lock --latest 1 --json 2>/dev/null | jq -r '.[0].time // "none"'
+  repo="$(cat "$conf/repository")"
+  opts=""
+  case "$repo" in
+    sftp:*)
+      if [ -r "$conf/ssh_key" ]; then
+        remote="${repo#sftp:}"; remote="${remote%%:*}"
+        opts="-o sftp.command=ssh -i $(cat "$conf/ssh_key") -o IdentitiesOnly=yes -o BatchMode=yes $remote -s sftp"
+      fi ;;
+  esac
+  # `--latest 1' is one snapshot per host and path set, so adding a directory
+  # to the backup starts a second group and the array holds one entry per set
+  # the repo still has. The newest of them is the answer; the first is
+  # whichever group happens to sort first.
+  RESTIC_REPOSITORY="$repo" RESTIC_PASSWORD_FILE="$conf/password" \
+    restic ${opts:+"$opts"} snapshots --no-lock --latest 1 --json 2>/dev/null \
+    | jq -r 'if length == 0 then "none" else (max_by(.time) | .time) end'
 }
 pins_state() { check-pins "$HOME/nix-config" --quiet 2>/dev/null | grep -c STALE || echo 0; }
 # Free space on the backup target. A full vulcan fails backups with a different
