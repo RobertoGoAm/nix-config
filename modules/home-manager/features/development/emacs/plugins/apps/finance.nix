@@ -1206,6 +1206,46 @@ in
                                           depth label)))
         (when line (insert line))))
 
+    (defun my/hledger--promised ()
+      "What the envelopes still hold: the positive rolled-over balances.
+
+    Money budgeted and not yet spent belongs to its envelope, so it is not
+    spare however long it sits in the current account. Overdrawn envelopes are
+    not netted off -- an envelope in the red is a hole to answer for, not a
+    source of money for another one."
+      (apply #'+ (mapcar (lambda (cell) (max 0 (cdr cell)))
+                         (or my/hledger-budget--available
+                             (my/hledger--available
+                              (or my/hledger-budget--time (current-time)))))))
+
+    (defun my/hledger-sweep ()
+      "Earmark everything no envelope has a claim on for the mortgage.
+
+    The last step of the month: needs, the periodic ones, wants and goals are
+    all budgeted, and what is left over goes at the loan. Writes the entry and
+    leaves point on it, so the amount can be edited before saving."
+      (interactive)
+      (let* ((liquid (- (+ (my/hledger--amount "^assets:bank")
+                           (my/hledger--amount "^assets:cash")
+                           (my/hledger--amount "^liabilities:card"))
+                        (apply #'+ (mapcar
+                                    (lambda (g) (abs (my/hledger--amount (car g))))
+                                    (seq-filter
+                                     (lambda (g) (string-prefix-p "assets:" (car g)))
+                                     (my/hledger--goals))))))
+             (spare (- liquid (my/hledger--promised))))
+        (if (<= spare 0)
+            (message "Nothing spare -- the envelopes hold it all.")
+          (find-file hledger-jfile)
+          (goto-char (point-max))
+          (unless (bolp) (insert "\n"))
+          (insert (format "\n%s * sweep: left over once everything was assigned\n"
+                          (format-time-string "%Y-%m-%d")))
+          (insert (format "    assets:bank:main:overpayment   %8.2f EUR\n" spare))
+          (insert "    assets:bank:main\n")
+          (forward-line -2)
+          (message "%.2f to the mortgage. C-x C-s to keep it." spare))))
+
     (defun my/hledger-budget--month-string (time)
       (format-time-string "%Y-%m" time))
 
@@ -1246,6 +1286,7 @@ in
         (define-key map (kbd "a") #'my/hledger-budget-add)
         (define-key map (kbd "b") #'my/hledger-budget-file)
         (define-key map (kbd "r") #'my/hledger-budget--render)
+        (define-key map (kbd "w") #'my/hledger-sweep)
         map)
       "Keys avoid h/n/e/i/p/f, which are movement and scrolling on this layout.")
 
@@ -1266,7 +1307,8 @@ in
         (kbd "RET") #'my/hledger-budget-register
         (kbd "a") #'my/hledger-budget-add
         (kbd "b") #'my/hledger-budget-file
-        (kbd "r") #'my/hledger-budget--render))
+        (kbd "r") #'my/hledger-budget--render
+        (kbd "w") #'my/hledger-sweep))
 
     (defun my/hledger-budget--render ()
       "Draw the envelope screen for the month it is currently showing."
@@ -1471,9 +1513,24 @@ in
                            (if (>= liquid outstanding)
                                "every fund is backed"
                              "THE GOALS EXCEED THE MONEY"))
-                   'face (if (>= liquid outstanding) 'success 'error))))
+                   'face (if (>= liquid outstanding) 'success 'error)))
+          ;; The bottom of the waterfall. Needs are budgeted first, then the
+          ;; periodic ones, then wants, then goals; whatever no envelope has a
+          ;; claim on is what pays the mortgage down early. An envelope's
+          ;; rolled-over balance is a claim -- it is this month's groceries not
+          ;; yet bought -- so it comes off before anything is swept.
+          (let ((promised (my/hledger--promised)))
+            (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
+                            "promised" promised))
+            (insert (propertize
+                     (format "  %-26s %9.2f   %s\n" "to overpayment"
+                             (- liquid promised)
+                             (if (> (- liquid promised) 0)
+                                 "free to sweep -- w"
+                               "nothing spare yet"))
+                     'face (if (> (- liquid promised) 0) 'success 'shadow)))))
 
-        (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   r refresh\n"
+        (insert (propertize "\n  [ ] month   RET register   a add   b edit budget   w sweep   r refresh\n"
                             'face 'shadow))
         (goto-char (point-min))
         (forward-line (1- line))))
