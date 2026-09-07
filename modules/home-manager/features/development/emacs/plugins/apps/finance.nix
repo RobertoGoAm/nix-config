@@ -1296,6 +1296,96 @@ in
       (apply #'+ (mapcar (lambda (cell) (max 0 (cdr cell)))
                          (my/hledger--availables))))
 
+    (defun my/hledger--months-into-year (by now)
+      "How many months of a fund's year have passed at NOW.
+
+    Counted back from BY, the month the money is wanted, so a bill due in June
+    is three months into its year in September. Without a BY the year is the
+    calendar one and the answer is simply the month number."
+      (if (null by)
+          (nth 4 (decode-time now))
+        (let* ((target (parse-time-string (concat by "-01 00:00:00")))
+               (here (decode-time now))
+               (togo (+ (* 12 (- (nth 5 target) (nth 5 here)))
+                        (- (nth 4 target) (nth 4 here)))))
+          (max 1 (min 12 (- 12 togo))))))
+
+    (defun my/hledger--steady-monthly (account now)
+      "What ACCOUNT is budgeted next month, which is its rate without catch-ups.
+    This month's figure is the wrong one to read: a catch-up is itself budgeted
+    in the month it is applied, so asking about now would compound it."
+      (let* ((d (decode-time now)))
+        (setf (nth 3 d) 1)
+        (setf (nth 4 d) (1+ (nth 4 d)))
+        (let ((rows (cdr (my/hledger--csv
+                          "balance" "--budget" "--flat" (concat "^" account "$")
+                          "-p" (format-time-string "%Y-%m" (encode-time d))))))
+          (apply #'+ (mapcar (lambda (r)
+                               (if (equal (nth 0 r) "Total:") 0
+                                 (my/hledger--num (nth 2 r))))
+                             rows)))))
+
+    (defun my/hledger-catch-up ()
+      "Bring each sinking fund up to its rate times the months elapsed this year.
+
+    A fund set at 17 a month should hold 17 x 9 by September and 17 x 12 by
+    December, whatever month the budgeting itself began in. Starting in
+    September otherwise leaves a whole year's target with one month behind it,
+    and the money for the other eight is sitting in the account unassigned.
+
+    Where the goal names the month it falls in, the year is counted back from
+    that month rather than from January: a bill due in June is three months
+    into its year by September, not nine, and filling it as though it were
+    nine would put most of a year aside nine months early.
+
+    Funds only: an account carrying a goal, not tagged `accrue: monthly', and
+    not one of the asset earmarks, which are filled directly. Writes one entry
+    for the shortfalls it finds and leaves point in it; run again once it has
+    been saved and it finds nothing."
+      (interactive)
+      (let* ((now (or my/hledger-budget--time (current-time)))
+             (available (my/hledger--availables))
+             (elapsed 0)
+             (rows nil))
+        (dolist (goal (my/hledger--goals))
+          (let ((account (car goal)))
+            (unless (or (string-prefix-p "assets:" account)
+                        (string-prefix-p "liabilities:" account)
+                        (equal (my/hledger--account-tag-string account "accrue")
+                               "monthly"))
+              (let* ((months (my/hledger--months-into-year (cdr (cdr goal)) now))
+                     (rate (my/hledger--steady-monthly account now))
+                     (target (* rate months))
+                     (have (or (alist-get account available nil nil #'equal) 0))
+                     (short (- target have)))
+                (setq elapsed (max elapsed months))
+                (when (>= short 0.005)
+                  (push (cons account short) rows))))))
+        (if (null rows)
+            (message "Every fund already holds its %d months." elapsed)
+          (find-file (expand-file-name "budget.hledger" my/hledger-dir))
+          (goto-char (point-max))
+          (unless (bolp) (insert "\n"))
+          (insert (format "\n; %d months of the year have passed; these funds held less.\n"
+                          elapsed))
+          (insert (format "~ monthly from %s to %s  catching the funds up\n"
+                          (format-time-string "%Y-%m-01" now)
+                          (format-time-string
+                           "%Y-%m-01"
+                           (let ((d (decode-time now)))
+                             (setf (nth 3 d) 1)
+                             (setf (nth 4 d) (1+ (nth 4 d)))
+                             (encode-time d)))))
+          ;; Reversed into place, not in the `dolist': `nreverse' leaves the
+          ;; original binding on what is now the last cons, and the count below
+          ;; then reports one fund however many were written.
+          (setq rows (nreverse rows))
+          (dolist (row rows)
+            (insert (format "    %-34s %8.2f EUR\n" (car row) (cdr row))))
+          (insert "    assets:bank:main\n")
+          (message "%d fund%s short. C-x C-s to keep it."
+                   (length rows) (if (= 1 (length rows)) "" "s")))))
+
     (defun my/hledger-sweep ()
       "Earmark everything no envelope has a claim on for the mortgage.
 
