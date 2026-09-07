@@ -354,6 +354,7 @@ mean the same thing in a magit buffer as in a source file.
       "$m" '(my/hledger-mortgage :which-key "mortgage: balance and payoff")
       "$R" '(my/hledger-renta :which-key "estimate the AEAT settlement")
       "$v" '(my/hledger-charts :which-key "charts: net worth, in vs out")
+      "$w" '(my/hledger-sweep :which-key "sweep the leftover at the mortgage")
       "$K" '(my/hledger-card-payment :which-key "pay the card off")
       "$B" '(my/hledger-budget-file :which-key "edit envelopes")
       "$A" '(my/hledger-accounts-file :which-key "edit chart of accounts")
