@@ -60,6 +60,13 @@
     ;; from the language server (see my/lsp-extract in plugins/lsp/lsp.nix); emr adds
     ;; the language-specific refactorings Emacs implements itself, which for this
     ;; stack mostly means elisp and JS.
+    ;;
+    ;; emr pulls in iedit, which claims C-; globally at load time and warns
+    ;; instead when something already holds it -- embark-dwim does. The warning
+    ;; pops *Warnings* into a split, and dismissing that window leaves it
+    ;; showing whatever was underneath. nil means iedit binds no global key;
+    ;; `iedit-mode' is still there for M-x and for emr's own menu.
+    (setq iedit-toggle-key-default nil)
     (require 'emr)
     (emr-initialize)
 
