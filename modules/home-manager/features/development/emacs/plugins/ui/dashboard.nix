@@ -305,6 +305,28 @@
           (switch-to-buffer "*dashboard*")
         (dashboard-open)))
 
+    (defun my/dashboard--flatten (frame window)
+      "Leave FRAME showing one ordinary window, WINDOW for preference.
+
+    Side windows -- the which-key panel, the AI chat, the bottom terminal --
+    refuse to be the last window standing, and `delete-other-windows' signals
+    rather than declining; a signal inside a frame hook abandons the rest of
+    it. `ignore-window-parameters' lifts the refusal, but on its own it lets a
+    side window be the survivor, and a survivor keeps its parameters: the frame
+    is then rooted on a dedicated bottom slot, which-key has nowhere to put its
+    panel, and `display-buffer' opens a new window rather than reuse a
+    dedicated one. So the window that stays is an ordinary one wherever the
+    frame has one, and is stripped of the parameters where it does not."
+      (let* ((keep (or (seq-find (lambda (w) (not (window-parameter w 'window-side)))
+                                 (cons window (window-list frame)))
+                       window))
+             (ignore-window-parameters t))
+        (when (window-parameter keep 'window-side)
+          (set-window-parameter keep 'window-side nil)
+          (set-window-parameter keep 'slot nil)
+          (set-window-dedicated-p keep nil))
+        (delete-other-windows keep)))
+
     (defun my/dashboard-on-client-frame ()
       "Show the dashboard alone in a client frame that has nothing else to show.
 
@@ -325,14 +347,7 @@
       (let* ((frame (selected-frame))
              (window (frame-selected-window frame))
              (windows (window-list frame))
-             (shown (buffer-name (window-buffer window)))
-             ;; Side windows -- the which-key panel, the AI chat -- refuse to be
-             ;; the last window standing, and `delete-other-windows' signals
-             ;; rather than declining. A signal in a frame hook abandons the
-             ;; rest of it, leaving the frame exactly as split as it was.
-             ;; Inside these branches the frame is a home screen, so the side
-             ;; panels go with everything else.
-             (ignore-window-parameters t))
+             (shown (buffer-name (window-buffer window))))
         (cond
          ;; A frame showing nothing but the dashboard is a home screen that got
          ;; split, whatever split it: one window is the whole of what it has to
@@ -344,14 +359,14 @@
                (seq-every-p (lambda (w)
                               (equal (buffer-name (window-buffer w)) "*dashboard*"))
                             windows))
-          (delete-other-windows window))
+          (my/dashboard--flatten frame window))
          ;; Not when a saved layout has just been replayed: that layout can have
          ;; the dashboard in its selected window, and flattening would throw
          ;; away the panes restored beside it.
          ((bound-and-true-p my/window-state-restored) nil)
          ((member shown '("*scratch*" "*dashboard*"))
           (my/dashboard-home)
-          (delete-other-windows window)))))
+          (my/dashboard--flatten frame window)))))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
