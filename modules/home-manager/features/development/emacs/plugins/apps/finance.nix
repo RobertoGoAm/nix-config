@@ -1240,23 +1240,31 @@ in
                                (my/hledger--num (nth 2 r))))
                            rows))))
 
-    (defun my/hledger--reserved (now)
-      "What a dated target still needs that its monthly will not deliver in time.
+    (defun my/hledger--reserved ()
+      "What the goals still need, held back from the sweep.
 
-    A target with a date is a bill: SUMA is 155 due in December, and 13 a month
-    for the three months left is 39 of it. The 103 that leaves is not spare,
-    however free the account looks, so the sweep holds it back. Targets with no
-    date are not bills -- they arrive when they arrive -- and the sweep
-    destination is excluded, since reserving for the thing being swept into
-    would leave nothing to sweep."
+    The whole shortfall, not the part this month cannot reach. Money swept at
+    the mortgage is committed, and a goal left to be covered by contributions
+    that have not been earned yet is a goal at the mercy of next year's income.
+    So the balance covers the goals first and the loan gets what is over.
+
+    Two exceptions. An account tagged `accrue: monthly' is funded by its
+    monthly line and nothing else -- travel and the air conditioning arrive
+    when they arrive, and reserving 1,900 for them would stop the sweep
+    outright. And the sweep destination is excluded, since reserving for the
+    fund being swept into leaves nothing to sweep.
+
+    The date a target carries does not enter into it: a goal is covered now or
+    it is not."
       (apply #'+
              (mapcar
               (lambda (goal)
                 (let* ((account (car goal))
-                       (amount (car (cdr goal)))
-                       (by (cdr (cdr goal))))
-                  (if (or (null amount) (<= amount 0) (null by)
+                       (amount (car (cdr goal))))
+                  (if (or (null amount) (<= amount 0)
                           (equal account my/hledger-sweep-account)
+                          (equal (my/hledger--account-tag-string account "accrue")
+                                 "monthly")
                           (my/hledger--account-tag account "original"))
                       0
                     (let* ((have (if (string-prefix-p "assets:" account)
@@ -1265,15 +1273,7 @@ in
                                                   nil nil #'equal)
                                        0)))
                            (short (max 0 (- amount have))))
-                      ;; A reached target reserves nothing, and is not asked
-                      ;; about: a budget report on an asset account returns the
-                      ;; balancing side of the transfers into it, which is
-                      ;; negative, and subtracting that would turn a funded
-                      ;; target into a reserve the size of the fund.
-                      (if (<= short 0)
-                          0
-                        (max 0 (- short (max 0 (my/hledger--budgeted-until
-                                                account by now)))))))))
+                      short))))
               (my/hledger--goals))))
 
     (defun my/hledger--availables ()
@@ -1313,8 +1313,7 @@ in
                                      (my/hledger--goals))))))
              (spare (- liquid
                        (my/hledger--promised)
-                       (my/hledger--reserved
-                        (or my/hledger-budget--time (current-time))))))
+                       (my/hledger--reserved))))
         (if (<= spare 0)
             (message "Nothing spare -- the envelopes hold it all.")
           (find-file hledger-jfile)
@@ -1601,12 +1600,11 @@ in
           ;; rolled-over balance is a claim -- it is this month's groceries not
           ;; yet bought -- so it comes off before anything is swept.
           (let* ((promised (my/hledger--promised))
-                 (reserved (my/hledger--reserved
-                            (or my/hledger-budget--time (current-time))))
+                 (reserved (my/hledger--reserved))
                  (spare (- liquid promised reserved)))
             (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
                             "promised" promised))
-            (insert (format "  %-26s %9.2f   dated targets the monthly misses\n"
+            (insert (format "  %-26s %9.2f   what the goals still need\n"
                             "reserved" reserved))
             (insert (propertize
                      (format "  %-26s %9.2f   %s\n" "to overpayment" spare
