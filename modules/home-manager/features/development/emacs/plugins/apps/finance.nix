@@ -1406,10 +1406,14 @@ in
     into its year by September, not nine, and filling it as though it were
     nine would put most of a year aside nine months early.
 
-    Funds only: an account carrying a goal, not tagged `accrue: monthly', and
-    not one of the asset earmarks, which are filled directly. Writes one entry
-    for the shortfalls it finds and leaves point in it; run again once it has
-    been saved and it finds nothing."
+    Every fund with a goal, including the ones tagged `accrue: monthly'. That
+    tag says what the sweep may not hold money back for -- travel and the air
+    conditioning arrive when they arrive -- not that they should be nine
+    months behind everything else. The asset earmarks are the exception, being
+    filled directly rather than by a monthly line.
+
+    Writes one entry for the shortfalls it finds and leaves point in it; run
+    again once it has been saved and it finds nothing."
       (interactive)
       (let* ((now (or my/hledger-budget--time (current-time)))
              (available (my/hledger--availables))
@@ -1418,9 +1422,7 @@ in
         (dolist (goal (my/hledger--goals))
           (let ((account (car goal)))
             (unless (or (string-prefix-p "assets:" account)
-                        (string-prefix-p "liabilities:" account)
-                        (equal (my/hledger--account-tag-string account "accrue")
-                               "monthly"))
+                        (string-prefix-p "liabilities:" account))
               (let* ((months (my/hledger--months-into-year (cdr (cdr goal)) now))
                      (rate (my/hledger--steady-monthly account now))
                      (target (* rate months))
