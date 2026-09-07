@@ -86,7 +86,11 @@ Notification transport on macOS -- see the notify override in extraConfig.
     ;; in ~/.config/telega/app.el, which is deliberately outside this public
     ;; repository because api_hash is a credential:
     ;;
+    ;;   ;;; app.el --- credentials  -*- lexical-binding: t; -*-
     ;;   (setq telega-app '(1234567 . "0123456789abcdef0123456789abcdef"))
+    ;;
+    ;; The cookie on the first line matters: Emacs 31 warns about every file it
+    ;; loads without one, and this file is loaded on every start.
     ;;
     ;; after-load, not here: telega-app is a defconst, so loading telega.el
     ;; would overwrite anything set beforehand. Missing file is not an error --
