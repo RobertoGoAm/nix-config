@@ -52,7 +52,6 @@ of strings, so it lands next to the rest of the generated config.
           ;; the menu bar says it did not, and unread mail is a number that
           ;; changes nothing about what to open next.
           dashboard-items '((config   . 1)
-                            (claude   . 5)
                             (recents  . 12)
                             (projects . 8)
                             (bookmarks . 5))
@@ -104,57 +103,6 @@ of strings, so it lands next to the rest of the generated config.
          (error "unavailable")))
       (insert "\n"))
 
-    ;; Each row carries its session id and directory as text properties, and a
-    ;; keymap for RET and mouse-1. Properties rather than a closure per line:
-    ;; this file is generated without a lexical-binding cookie, so a lambda
-    ;; cannot capture the row it was made for -- every one would resume
-    ;; whichever session happened to be last.
-    (defvar my/dashboard-claude-map
-      (let ((m (make-sparse-keymap)))
-        (define-key m (kbd "RET") #'my/dashboard-claude-resume)
-        (define-key m [mouse-1] #'my/dashboard-claude-resume)
-        m)
-      "Keymap active on a Claude session row in the dashboard.")
-
-    (defun my/dashboard-claude-resume ()
-      "Resume the Claude conversation on this line, in its own directory.
-
-    Claude resolves a session against the project it belongs to, so this has
-    to run there -- resuming from anywhere else simply does not find it."
-      (interactive)
-      (let ((sid (get-text-property (point) 'my/claude-sid))
-            (cwd (get-text-property (point) 'my/claude-cwd)))
-        (if (null sid)
-            (message "No Claude session on this line")
-          (my/claude-resume-session sid cwd))))
-
-    (defun my/dashboard-claude (list-size)
-      "Insert the most recent Claude conversations, newest first."
-      (dashboard-insert-heading "Claude sessions:" "c")
-      (insert "\n")
-      (condition-case nil
-          (let ((rows (seq-take (my/claude--sessions) (or list-size 5))))
-            (if (null rows)
-                (insert "    none recorded\n")
-              (dolist (r rows)
-                (let ((start (point)))
-                  (insert (format "    %-16s %-22s %s\n"
-                                  (nth 0 r)
-                                  (truncate-string-to-width (nth 1 r) 22)
-                                  (truncate-string-to-width (nth 3 r) 60)))
-                  ;; Stop one character short of point so the trailing newline stays
-                  ;; bare. A `mouse-face' covering the line break highlights past the
-                  ;; end of the line and into the row below, which made every session
-                  ;; light up together instead of just the one under the pointer.
-                  (add-text-properties
-                   start (1- (point))
-                   (list 'my/claude-sid (nth 4 r)
-                         'my/claude-cwd (nth 5 r)
-                         'keymap my/dashboard-claude-map
-                         'mouse-face 'highlight
-                         'help-echo "RET or click: resume this conversation"))))))
-        (error (insert "    index unavailable\n"))))
-
     ;; Jump to any single entry, not just to a section.
     ;;
     ;; The section shortcuts land you on a heading; from there it is n and p.
@@ -181,9 +129,8 @@ of strings, so it lands next to the rest of the generated config.
     what RET does gets the wrong answer here, and plain RET on an entry has
     never opened anything either.
 
-    The row's own keymap comes first, because the Claude rows carry one as a
-    text property to resume a session in its project directory; then
-    dashboard's own command; then the plain widget."
+    The row's own keymap comes first, for a row that carries one as a text
+    property; then dashboard's own command; then the plain widget."
       (interactive)
       (let* ((km (get-char-property (point) 'keymap))
              (own (and (keymapp km) (lookup-key km (kbd "RET"))))
@@ -216,7 +163,6 @@ of strings, so it lands next to the rest of the generated config.
         (define-key dashboard-mode-map (kbd "O") #'my/dashboard-jump-to-entry)))
 
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
-    (add-to-list (quote dashboard-item-generators) (quote (claude . my/dashboard-claude)))
 
     ;; The key each heading advertises is the SECOND argument to
     ;; dashboard-insert-heading. Passing nil there -- as these did at first --
@@ -235,15 +181,13 @@ of strings, so it lands next to the rest of the generated config.
         (forward-line 1)))
 
     (defun dashboard-jump-to-config () (interactive) (my/dashboard--jump-to "nix-config:"))
-    (defun dashboard-jump-to-claude () (interactive) (my/dashboard--jump-to "Claude sessions:"))
 
-    ;; c for Claude, k for backup (b is taken by bookmarks), u for unread,
-    ;; g for the config since n is nothing here and c is spoken for.
+    ;; k for backup (b is taken by bookmarks), u for unread, g for the config
+    ;; since n is nothing here and c is not a heading any more.
     (setq dashboard-item-shortcuts
           '((backup    . "k")
             (unread    . "u")
             (config    . "g")
-            (claude    . "c")
             (recents   . "r")
             (projects  . "p")
             (bookmarks . "m")))
