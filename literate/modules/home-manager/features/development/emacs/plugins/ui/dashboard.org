@@ -47,9 +47,11 @@ of strings, so it lands next to the rest of the generated config.
           ;; bookmarks is gone: it has never had an entry, so it only ever
           ;; rendered "--- No items ---". backup and unread are custom
           ;; generators defined below.
-          dashboard-items '((backup   . 1)
-                            (unread   . 1)
-                            (config   . 1)
+          ;; No backup age and no unread count: neither is something you act
+          ;; on from a home screen. The backup either ran or the health line in
+          ;; the menu bar says it did not, and unread mail is a number that
+          ;; changes nothing about what to open next.
+          dashboard-items '((config   . 1)
                             (claude   . 5)
                             (recents  . 12)
                             (projects . 8)
@@ -82,43 +84,6 @@ of strings, so it lands next to the rest of the generated config.
     ;; Both bodies are wrapped in condition-case: a generator that signals
     ;; takes the whole dashboard with it, and this is the first buffer of
     ;; every session.
-    (defun my/dashboard-backup (_list-size)
-      "Insert how long ago restic last completed."
-      (dashboard-insert-heading "Backup:" "k")
-      (insert "\n    ")
-      (insert
-       (condition-case nil
-           (let* ((f (expand-file-name "swiftbar-status/backup"
-                                       (or (getenv "TMPDIR") "/tmp")))
-                  (ts (and (file-readable-p f)
-                           (string-trim (with-temp-buffer
-                                          (insert-file-contents f)
-                                          (buffer-string))))))
-             (if (or (null ts) (string-empty-p ts))
-                 "no snapshot recorded"
-               (let* ((age (float-time (time-subtract (current-time)
-                                                      (encode-time (iso8601-parse ts)))))
-                      (h (/ age 3600)))
-                 (cond ((< h 1) (format "%.0f minutes ago" (/ age 60)))
-                       ((< h 24) (format "%.0f hours ago" h))
-                       (t (propertize (format "%.0f DAYS ago" (/ h 24))
-                                      (quote face) (quote error)))))))
-         (error "unreadable")))
-      (insert "\n"))
-
-    (defun my/dashboard-unread (_list-size)
-      "Insert the number of unread messages mu knows about."
-      (dashboard-insert-heading "Unread mail:" "u")
-      (insert "\n    ")
-      (insert
-       (condition-case nil
-           (let ((n (string-to-number
-                     (shell-command-to-string
-                      "mu find --fields m flag:unread 2>/dev/null | wc -l"))))
-             (if (> n 0) (format "%d unread" n) "nothing unread"))
-         (error "mu index unavailable")))
-      (insert "\n"))
-
     (defun my/dashboard-config (_list-size)
       "Insert the state of the nix config: uncommitted, unpushed, drifted."
       (dashboard-insert-heading "nix-config:" "g")
@@ -250,8 +215,6 @@ of strings, so it lands next to the rest of the generated config.
         (define-key dashboard-mode-map (kbd "o") #'my/dashboard-jump-and-open)
         (define-key dashboard-mode-map (kbd "O") #'my/dashboard-jump-to-entry)))
 
-    (add-to-list (quote dashboard-item-generators) (quote (backup . my/dashboard-backup)))
-    (add-to-list (quote dashboard-item-generators) (quote (unread . my/dashboard-unread)))
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
     (add-to-list (quote dashboard-item-generators) (quote (claude . my/dashboard-claude)))
 
@@ -271,8 +234,6 @@ of strings, so it lands next to the rest of the generated config.
         (beginning-of-line)
         (forward-line 1)))
 
-    (defun dashboard-jump-to-backup () (interactive) (my/dashboard--jump-to "Backup:"))
-    (defun dashboard-jump-to-unread () (interactive) (my/dashboard--jump-to "Unread mail:"))
     (defun dashboard-jump-to-config () (interactive) (my/dashboard--jump-to "nix-config:"))
     (defun dashboard-jump-to-claude () (interactive) (my/dashboard--jump-to "Claude sessions:"))
 
