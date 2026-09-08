@@ -275,6 +275,14 @@
              (lambda (out)
                (setq my/status-mail-count (string-to-number out))))))
 
+        ;; The timer alone is 150 seconds, which is a long time to watch a badge
+        ;; that still says one after reading the message. mu4e knows the moment the
+        ;; count can have changed -- a flag written, an index finished -- so the
+        ;; refresh rides those too and the number moves when the mail does.
+        (with-eval-after-load 'mu4e
+          (add-hook 'mu4e-index-updated-hook #'my/status-update-mail)
+          (add-hook 'mu4e-message-changed-hook #'my/status-update-mail))
+
         (defun my/status-update-music ()
           "Refresh the now-playing line from spotify-ctl.
     Empty output -- nothing playing, or no Web API credentials yet -- hides
