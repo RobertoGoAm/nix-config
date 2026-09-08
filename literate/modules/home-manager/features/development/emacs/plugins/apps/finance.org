@@ -1153,6 +1153,24 @@ to recompile them and go hunting for error patterns in a balance sheet.
                                         (format-time-string "%Y-%m-%d"
                                                             (time-add now (days-to-time 1)))))))))
 
+    (defun my/hledger--principal-due (saving)
+      "This month's planned loan principal that has not been repaid yet.
+
+    The cuota takes 251.35 out of the account every month, of which only the
+    interest is an envelope; the rest converts cash into a smaller debt. That
+    is as real a claim on the money as any envelope, and nothing was counting
+    it -- so the sweep would send it at the loan and the account would then be
+    short by the principal when the direct debit landed, every month on the
+    eighth."
+      (apply #'+
+             (mapcar (lambda (row)
+                       (let ((account (nth 0 row)))
+                         (if (not (my/hledger--account-tag account "original"))
+                             0
+                           (max 0 (- (my/hledger--num (nth 2 row))
+                                     (my/hledger--num (nth 1 row)))))))
+                     (cdr saving))))
+
     (defun my/hledger--goal-amount (row)
       "ROW's target, or 0."
       (or (car (alist-get (nth 0 row) (my/hledger--goals) nil nil #'equal)) 0))
@@ -1612,9 +1630,16 @@ to recompile them and go hunting for error patterns in a balance sheet.
                                     (seq-filter
                                      (lambda (g) (string-prefix-p "assets:" (car g)))
                                      (my/hledger--goals))))))
+             (saving (apply #'my/hledger--csv
+                            (append '("balance" "--budget" "--flat"
+                                      "^liabilities:mortgage$")
+                                    (list "not:desc:opening" "-p"
+                                          (my/hledger-budget--month-string
+                                           (or my/hledger-budget--time (current-time)))))))
              (spare (- liquid
                        (my/hledger--promised)
-                       (my/hledger--reserved))))
+                       (my/hledger--reserved)
+                       (my/hledger--principal-due saving))))
         (if (<= spare 0)
             (message "Nothing spare -- the envelopes hold it all.")
           (find-file hledger-jfile)
@@ -1875,11 +1900,19 @@ to recompile them and go hunting for error patterns in a balance sheet.
           ;; yet bought -- so it comes off before anything is swept.
           (let* ((promised (my/hledger--promised))
                  (reserved (my/hledger--reserved))
-                 (spare (- liquid promised reserved)))
+                 ;; Asked again rather than reused: the saving block's binding
+                 ;; is inside its own `let*' and does not reach here.
+                 (principal (my/hledger--principal-due
+                             (my/hledger--csv "balance" "--budget" "--flat"
+                                              "^liabilities:mortgage$"
+                                              "not:desc:opening" "-p" period)))
+                 (spare (- liquid promised reserved principal)))
             (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
                             "promised" promised))
             (insert (format "  %-26s %9.2f   what the goals still need\n"
                             "reserved" reserved))
+            (insert (format "  %-26s %9.2f   the cuota's principal, still to leave\n"
+                            "the loan" principal))
             ;; Within a cent of zero is zero. Landing exactly on it -- which
             ;; is what unearmarking to fit the goals does -- came out as
             ;; -0.00 and took the negative branch, so a balanced screen
