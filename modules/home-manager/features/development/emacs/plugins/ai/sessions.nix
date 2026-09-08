@@ -438,14 +438,121 @@ in
         (dolist (row rows)
           (push (list row
                       (vector (plist-get row :glyph)
-                              (propertize (plist-get row :project)
+                              (propertize (plist-get row :title)
                                           'face (if (plist-get row :live)
                                                     'bold
                                                   'default))
-                              (plist-get row :title)
                               (plist-get row :when)))
                 entries))
         (nreverse entries)))
+
+    (defvar my/claude--chats-limit 5
+      "Conversations shown per project before the rest are folded away.")
+
+    (defvar my/claude--chats-expanded nil
+      "Working directories whose folded conversations are currently shown.")
+
+    (defun my/claude--chats-more-row (cwd hidden expanded)
+      "The fold line for CWD: HIDDEN conversations away, EXPANDED as it stands."
+      (list (list :more cwd)
+            (vector ""
+                    (propertize (if expanded
+                                    "fewer"
+                                  (format "%d older" hidden))
+                                'face 'shadow)
+                    "")))
+
+    (defun my/claude--chats-groups ()
+      "Entries grouped by project, live sessions first, the old ones folded.
+
+    Keyed on the working directory rather than its name. Two directories can
+    share a basename -- a worktree beside the repository it came from, which is
+    how several tickets get worked at once -- and merging those under one
+    heading would file conversations from different trees together. The
+    heading falls back to parent/name when a basename is not unique.
+
+    The fold applies to the conversations on disk, not to the running ones: a
+    project with eight sessions open wants all eight, and its history from
+    March does not need to be on screen to get at them."
+      (let ((order nil) (buckets nil) (counts nil) (groups nil))
+        (dolist (entry (my/claude--chats-entries))
+          (let* ((cwd (plist-get (nth 0 entry) :cwd))
+                 (bucket (assoc cwd buckets)))
+            (unless bucket
+              (setq bucket (list cwd))
+              (push bucket buckets)
+              (push cwd order))
+            (setcdr bucket (cons entry (cdr bucket)))))
+        (setq order (nreverse order))
+        (dolist (cwd order)
+          (let* ((name (file-name-nondirectory (directory-file-name cwd)))
+                 (seen (assoc name counts)))
+            (if seen
+                (setcdr seen (1+ (cdr seen)))
+              (push (cons name 1) counts))))
+        (dolist (cwd order)
+          (let* ((dir (directory-file-name cwd))
+                 (name (file-name-nondirectory dir))
+                 (heading (if (> (cdr (assoc name counts)) 1)
+                              (concat (file-name-nondirectory
+                                       (directory-file-name
+                                        (file-name-directory dir)))
+                                      "/" name)
+                            name))
+                 (expanded (member cwd my/claude--chats-expanded))
+                 (live nil)
+                 (past nil)
+                 (rows nil))
+            (dolist (entry (nreverse (cdr (assoc cwd buckets))))
+              (if (plist-get (nth 0 entry) :live)
+                  (push entry live)
+                (push entry past)))
+            (setq live (nreverse live)
+                  past (nreverse past))
+            (setq rows (append live (if expanded
+                                        past
+                                      (seq-take past my/claude--chats-limit))))
+            (when (> (length past) my/claude--chats-limit)
+              (setq rows (append rows
+                                 (list (my/claude--chats-more-row
+                                        cwd
+                                        (- (length past) my/claude--chats-limit)
+                                        expanded)))))
+            (push (cons heading rows) groups)))
+        (nreverse groups)))
+
+    (defun my/claude--chats-goto-fold (cwd)
+      "Put the point on CWD's fold line. Non-nil when there was one."
+      (let ((target nil))
+        (goto-char (point-min))
+        (while (and (not target) (not (eobp)))
+          (let ((id (tabulated-list-get-id)))
+            (when (and id (equal (plist-get id :more) cwd))
+              (setq target (point))))
+          (forward-line 1))
+        (when target
+          (goto-char target)
+          t)))
+
+    (defun my/claude-chats-toggle-group ()
+      "Fold or unfold the older conversations of the project at point.
+    Leaves the point on the fold line rather than on whatever row its old line
+    number now holds. Unfolding pushes that line down past everything it
+    revealed, so restoring by number lands on a conversation -- and a second
+    RET there resumes one nobody asked for."
+      (interactive)
+      (let* ((row (tabulated-list-get-id))
+             (cwd (and row (or (plist-get row :more) (plist-get row :cwd))))
+             (line (line-number-at-pos)))
+        (unless cwd (user-error "No project on this line"))
+        (setq my/claude--chats-expanded
+              (if (member cwd my/claude--chats-expanded)
+                  (delete cwd my/claude--chats-expanded)
+                (cons cwd my/claude--chats-expanded)))
+        (tabulated-list-print)
+        (unless (my/claude--chats-goto-fold cwd)
+          (goto-char (point-min))
+          (forward-line (1- line)))))
 
     (defun my/claude--chats-redraw ()
       "Redraw the list in the current buffer, keeping the point on its line."
@@ -494,50 +601,77 @@ in
                  "this project")))
 
     (defun my/claude-chats-visit ()
-      "Enter the conversation on this line, resuming it when it is not running."
+      "Enter the conversation on this line, resuming it when it is not running.
+    On a fold line, unfolds the project instead."
       (interactive)
       (let ((row (tabulated-list-get-id)))
         (unless row (user-error "No conversation on this line"))
-        (if (plist-get row :live)
-            (claude-code-ide-manager-switch-to-session (plist-get row :key))
+        (cond
+         ((plist-get row :more) (my/claude-chats-toggle-group))
+         ((plist-get row :live)
+          (claude-code-ide-manager-switch-to-session (plist-get row :key)))
+         (t
           (message "Resuming %s..." (plist-get row :title))
           (my/claude-resume-session (plist-get row :sid)
                                     (plist-get row :cwd)
                                     (plist-get row :title)
-                                    (plist-get row :path)))))
+                                    (plist-get row :path))))))
 
     (defun my/claude-chats-view ()
       "Read the conversation on this line without starting Claude."
       (interactive)
-      (let* ((row (tabulated-list-get-id))
-             (path (and row (plist-get row :path))))
-        (unless row (user-error "No conversation on this line"))
-        (unless path
-          (user-error "This session has not written a transcript yet"))
-        (my/claude--render-transcript
-         path (or (plist-get row :sid) (plist-get row :project))
-         (format "# %s  %s" (plist-get row :when) (plist-get row :project)))))
+      (let ((row (tabulated-list-get-id)))
+        (when (or (null row) (plist-get row :more))
+          (user-error "No conversation on this line"))
+        (let ((path (plist-get row :path)))
+          (unless path
+            (user-error "This session has not written a transcript yet"))
+          (my/claude--render-transcript
+           path (or (plist-get row :sid) (plist-get row :project))
+           (format "# %s  %s" (plist-get row :when) (plist-get row :project))))))
 
     (defvar my/claude-chats-mode-map
       (let ((map (make-sparse-keymap)))
         (define-key map (kbd "RET") #'my/claude-chats-visit)
+        (define-key map (kbd "TAB") #'my/claude-chats-toggle-group)
         (define-key map (kbd "v") #'my/claude-chats-view)
         (define-key map (kbd "a") #'my/claude-chats-toggle-scope)
+        (define-key map (kbd "r") #'my/claude-chats-refresh)
         (define-key map (kbd "g") #'my/claude-chats-refresh)
         (define-key map (kbd "q") #'quit-window)
         map)
-      "Keymap for `my/claude-chats-mode'.")
+      "Keymap for `my/claude-chats-mode'.
+    Avoids h/n/e/i/p/f, which are movement and scrolling on this layout.")
 
     (define-derived-mode my/claude-chats-mode tabulated-list-mode "Claude chats"
       "Every Claude conversation, the running ones and the kept ones."
+      ;; The project is the group heading, so no column repeats it.
       (setq tabulated-list-format
-            [("" 2 nil) ("Project" 20 nil) ("Chat" 58 nil) ("When" 16 nil)]
+            [("" 2 nil) ("Chat" 58 nil) ("When" 18 nil)]
             tabulated-list-padding 1
-            tabulated-list-entries #'my/claude--chats-entries)
+            tabulated-list-groups #'my/claude--chats-groups)
       (tabulated-list-init-header))
+
+    ;; The major mode map alone loses to evil's normal state, which is why RET
+    ;; on a row did nothing: `evil-ret' moved down a line instead. Same keys
+    ;; again, where evil can see them. `g' is left out deliberately -- binding
+    ;; it here would take `gg' with it -- so `r' is the refresh in normal state.
+    (with-eval-after-load 'evil
+      (evil-set-initial-state 'my/claude-chats-mode 'normal)
+      (evil-define-key 'normal my/claude-chats-mode-map
+        (kbd "RET") #'my/claude-chats-visit
+        (kbd "TAB") #'my/claude-chats-toggle-group
+        (kbd "v") #'my/claude-chats-view
+        (kbd "a") #'my/claude-chats-toggle-scope
+        (kbd "r") #'my/claude-chats-refresh
+        (kbd "q") #'quit-window))
 
     (defun my/claude-chats ()
       "Every Claude conversation in one list: the running ones and the kept ones.
+    Grouped under the project each belongs to, running sessions at the top of
+    their group and the rest by recency, five deep before the older ones fold
+    away behind a line that unfolds them.
+
     A live row is prefixed with the state glyph claude-code-ide draws for it --
     `?' waiting on you, `✓' finished, `✗' failed, `⚙︎' working, `🔔' gone quiet --
     and RET switches into it. A past row has no glyph, and RET resumes it in its
@@ -545,7 +679,8 @@ in
 
     Opens on this project, which is the ordinary case; `a' widens it to every
     project, which is the case both the manager sidebar and `claude --resume'
-    refuse. `v' reads a conversation without starting anything, `g' refreshes."
+    refuse. TAB folds and unfolds a project, `v' reads a conversation without
+    starting anything, `r' refreshes."
       (interactive)
       (let ((buf (get-buffer-create "*claude chats*")))
         (with-current-buffer buf
