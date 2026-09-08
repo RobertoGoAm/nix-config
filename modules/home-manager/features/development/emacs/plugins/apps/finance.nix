@@ -1109,7 +1109,12 @@ in
         (or found "untagged")))
 
     (defun my/hledger--account-tag-string (account tag)
-      "Read a word-valued TAG off ACCOUNT's directive."
+      "Read a word-valued TAG off ACCOUNT's directive.
+
+    Colons count as part of the value, because some of these tags name another
+    account: `interest: expenses:housing:mortgage' read back as \"expenses\"
+    while the character class stopped at the first colon, and the lookup it
+    fed then found nothing and said nothing."
       (let ((file (expand-file-name "accounts.hledger" my/hledger-dir)))
         (when (file-readable-p file)
           (with-temp-buffer
@@ -1118,7 +1123,7 @@ in
             (when (re-search-forward
                    (format "^account +%s *\\(;.*\\)?$" (regexp-quote account)) nil t)
               (let ((line (match-string 0)))
-                (when (string-match (format "%s: *\\([a-z0-9-]+\\)" (regexp-quote tag)) line)
+                (when (string-match (format "%s: *\\([a-z0-9:-]+\\)" (regexp-quote tag)) line)
                   (match-string 1 line))))))))
 
     (defun my/hledger--cycle-spent (account now)
@@ -1144,6 +1149,25 @@ in
                                         (format-time-string "%Y-%m-%d" start)
                                         (format-time-string "%Y-%m-%d"
                                                             (time-add now (days-to-time 1)))))))))
+
+    (defun my/hledger--rate-implied (account period)
+      "The annual rate this month's cuota actually charged on ACCOUNT, or nil.
+
+    A loan's headline rate is not what you pay when bonificaciones move it, and
+    nothing tells you when they stop. The interest posted this month against
+    the balance it was charged on says what rate is really being applied, so
+    the screen can say when that parts company with the rate on file. Here the
+    contract steps to 2.29% at month thirteen and the bonificaciones hold it
+    near 1.29%; the day they lapse the cuota is unchanged and a third of the
+    principal quietly stops being repaid."
+      (let ((expense (my/hledger--account-tag-string account "interest")))
+        (when expense
+          (let* ((query (concat "^" account "$"))
+                 (charged (my/hledger--amount (concat "^" expense "$") period))
+                 (start (+ (abs (my/hledger--amount query))
+                           (my/hledger--amount query period))))
+            (when (and (> charged 0.005) (> start 0))
+              (* 100 (- (expt (+ 1 (/ charged start)) 12) 1)))))))
 
     (defun my/hledger--principal-planned (account period)
       "The principal ACCOUNT's cuota repays in PERIOD, or nil without the terms.
@@ -1872,7 +1896,21 @@ in
                                   (my/hledger-budget--bar (/ done goal))
                                   (my/hledger--percent done goal)
                                   (if months (format "%d mo left" months) "no rate set"))
-                          'face 'shadow))))
+                          'face 'shadow))
+                        ;; Silent while the two agree; a tenth of a point is
+                        ;; wider than the cents the bank rounds to and far
+                        ;; narrower than a bonificación coming off.
+                        (let ((implied (my/hledger--rate-implied
+                                        account
+                                        (my/hledger-budget--month-string
+                                         (or my/hledger-budget--time (current-time))))))
+                          (when (and implied rate (> (abs (- implied rate)) 0.1))
+                            (insert
+                             (propertize
+                              (format "  %-26s %s\n" "    RATE"
+                                      (format "%.2f%% on file, the cuota charged %.2f%%"
+                                              rate implied))
+                              'face 'error))))))
                   ;; A fund: the same target line the envelopes use, so a `by:'
                   ;; date and a reached target read the same wherever they are.
                   (when-let* ((line (my/hledger--goal-line
