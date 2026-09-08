@@ -6,75 +6,209 @@
 #+begin_src nix
 {
   lib,
+  pkgs,
   ...
 }:
+let
+#+end_src
+
+* claude-code-ide.el, built from the Axiweave fork rather than taken from...
+
+claude-code-ide.el, built from the Axiweave fork rather than taken from
+nixpkgs, for one feature: the manager sidebar. A single pane listing every
+live session across every project, each row prefixed with a state glyph,
+=RET= to switch into it.
+
+Neither alternative has that. nixpkgs carries stevemolitor's claude-code.el,
+whose switcher only ever reaches the current project's session -- so a second
+repository is unreachable the moment you leave its buffer. Upstream
+claude-code-ide.el (manzaltu) has =claude-code-ide-list-sessions=, a
+minibuffer list with no state and nothing remembered between calls.
+
+Pinned by commit, not by tag: the fork is three days younger than this
+module and does not tag.
+
+#+begin_src nix
+  rev = "994549008acdf179041e5482c8085c30cf68de72";
+
+  claude-code-ide-src = pkgs.fetchFromGitHub {
+    owner = "Axiweave";
+    repo = "claude-code-ide.el";
+    inherit rev;
+    hash = "sha256-3/GW3x4vPMuDcMnr5tc8QQu/nRdzR3zm8b6j7DoqMj0=";
+  };
+in
 {
   imports = [ ./sessions.nix ];
 
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
-      claude-code
+      (melpaBuild {
+        pname = "claude-code-ide";
+        version = "0.2.6";
+        commit = rev;
+        src = claude-code-ide-src;
+
+        # No :files, so package-build uses :defaults -- which excludes
+        # *-tests.el. That matters here: claude-code-ide-tests.el is 15k lines
+        # of ert, and it would otherwise be byte-compiled on every rebuild.
+        recipe = pkgs.writeText "recipe" ''
+          (claude-code-ide :fetcher github :repo "Axiweave/claude-code-ide.el")
+        '';
+
+        # websocket and web-server are required lazily, from inside the
+        # functions that start the MCP transport, so byte-compilation does not
+        # need them -- but the running Emacs does, and only a declared
+        # dependency ends up on its load-path. flycheck is a soft require
+        # (diagnostics fall back to flymake without it).
+        packageRequires = [
+          websocket
+          web-server
+          transient
+          persist
+          with-editor
+          vterm
+          flycheck
+        ];
+
+        meta = {
+          description = "Claude Code integration for Emacs, with a multi-session manager sidebar";
+          homepage = "https://github.com/Axiweave/claude-code-ide.el";
+          license = lib.licenses.gpl3Plus;
+        };
+      })
       gptel
     ];
 
   programs.emacs.extraConfig = ''
-    ;;; AI — claude-code.el drives the Claude Code CLI; gptel is the chat buffer.
+    ;;; AI — claude-code-ide.el drives the Claude Code CLI; gptel is the chat
+    ;;; buffer.
     ;;;
-    ;;; Nothing in the nvim config to mirror here. claude-code.el runs the same
+    ;;; Nothing in the nvim config to mirror here. The package runs the same
     ;;; `claude' binary the terminal does, inside a vterm, so it is one Claude
-    ;;; session whichever editor is in front — and it can hand it the region, a file
-    ;;; reference, or the diagnostic under the cursor.
+    ;;; session whichever editor is in front — and it hands Claude the region,
+    ;;; a file reference, or the diagnostic under the cursor. It goes further
+    ;;; than claude-code.el did in one direction that matters: an MCP server
+    ;;; per session, exposing Emacs' own tooling — xref and the LSP behind it,
+    ;;; tree-sitter, imenu, project.el, flycheck — as tools Claude can call.
     ;;;
-    ;;; Autoloaded rather than required: the package pulls in an MCP client with its
-    ;;; own timers and connection retries, none of which is wanted until a session is
-    ;;; actually open. Every command bound on SPC a comes from its autoloads.
+    ;;; Sessions are workspaces. The first switch into one builds a layout
+    ;;; (magit on the left, the session on the right) and switching away
+    ;;; captures whatever layout you leave, so coming back restores it. That
+    ;;; is the package's model rather than a setting, and it is why live
+    ;;; sessions no longer want a `display-buffer-alist' rule of their own —
+    ;;; see the drawer at the bottom of this file, which now covers only gptel
+    ;;; and the read-only transcripts.
 
-    (setq claude-code-executable "claude")
+    (setq claude-code-ide-cli-path "claude"
+          claude-code-ide-window-side 'right
+          claude-code-ide-window-width 90
+          claude-code-ide-focus-on-open t)
 
-    ;; claude-code-core only `declare-function's the vterm major mode; the
-    ;; definition lives in claude-code-ui, which nothing requires. Loading the
-    ;; package through its autoloads -- deliberate, see above -- means
-    ;; claude-code-run creates its buffer and then dies on
+    ;; The sidebar is a list of names and glyphs, so it wants far less width
+    ;; than the session beside it. On the left, where it does not fight the
+    ;; session window `claude-code-ide-window-side' puts on the right.
+    (setq claude-code-ide-manager-window-width 26
+          claude-code-ide-manager-session-window-side 'right
+          claude-code-ide-manager-persist-state t)
+
+    ;; Without this the state glyphs are blank for a plain `claude' session.
+    ;; The rich states — needs-input, done, failed — arrive over MCP from
+    ;; agents that report their turn, which Claude Code does not; the hooks in
+    ;; the claude-code module push them in from the CLI side instead. This
+    ;; enables the other half, the output-derived fallback, which is what
+    ;; draws the working glyph while a turn is in flight.
+    (setq claude-code-ide-session-idle-default-enabled t
+          claude-code-ide-session-idle-delay 4)
+
+    ;; Everything else on SPC a carries its own autoload cookie; the manager
+    ;; commands do not, so without these three the sidebar binding is void
+    ;; until something else has pulled the package in. Declaring them keeps the
+    ;; package lazy — loading it costs a websocket client, an HTTP server and a
+    ;; set of per-session timers, none of which is wanted before a session
+    ;; exists.
     ;;
-    ;;   (void-function claude-code-vterm-mode)
-    ;;
-    ;; leaving a fundamental-mode buffer with no process in it. That is the
-    ;; empty pane that shows up when the chat window is toggled: the window is
-    ;; real, the session behind it never started, and the error lands in the
-    ;; echo area where it is easy to miss.
-    ;;
-    ;; Pulling the UI in after core keeps the lazy loading and costs nothing
-    ;; until claude-code is actually used.
-    (with-eval-after-load 'claude-code-core
-      (require 'claude-code-ui))
+    ;; Pointed at claude-code-ide rather than at claude-code-ide-manager, which
+    ;; is where the commands actually live. The manager's own requires stop at
+    ;; project.el and persist: it reaches the session registry through
+    ;; `declare-function' and nothing else, so loading it alone gives a sidebar
+    ;; that dies on void-function the moment it looks for a session. Loading the
+    ;; entry point instead pulls in the manager as one of its requires, so
+    ;; either order arrives complete.
+    (autoload 'claude-code-ide-manager-toggle-global-sidebar "claude-code-ide" nil t)
+    (autoload 'claude-code-ide-manager-toggle-repo-sidebar "claude-code-ide" nil t)
+    (autoload 'claude-code-ide-manager-focus "claude-code-ide" nil t)
 
-    (defun my/claude-toggle ()
-      "Show this project's Claude Code session, starting one if there is none.
-    Hides it again when it is already on screen, so the binding behaves as its
-    name says rather than only ever opening.
+    (with-eval-after-load 'claude-code-ide
+      (claude-code-ide-emacs-tools-setup))
 
-    Asking claude-code for the buffer, rather than calling
-    `claude-code-switch-to-buffer' and catching a failure: that command reports
-    a missing session with `message' and returns normally, so a condition-case
-    around it never fires and the session was never started -- which is why this
-    used to need a manual `claude-code-run' first.
-
-    `pop-to-buffer' rather than `switch-to-buffer-other-window', so the session
-    lands in the side drawer that `display-buffer-alist' defines for it."
+    (defun my/claude-sessions ()
+      "Show every Claude session, in every project, with its state.
+    A row per live session, glyph first: `?' waiting on you, `✓' finished,
+    `✗' failed, `⚙︎' working, `🔔' gone quiet. RET switches into one, SPC
+    switches but keeps the point here, s starts a session on a project row
+    that has none, and g refreshes."
       (interactive)
-      (require 'claude-code)
-      (let* ((buf (claude-code-get-buffer))
-             (win (and buf (get-buffer-window buf))))
-        (cond (win (delete-window win))
-              (buf (pop-to-buffer buf))
-              (t   (claude-code-run)))))
+      (claude-code-ide-manager-toggle-global-sidebar))
+
+    (defun my/claude-set-session-state (buffer-name state)
+      "Record STATE as the agent state of the Claude session in BUFFER-NAME.
+    The entry point for the Claude Code hooks in the claude-code module, which
+    reach it over emacsclient: the CLI knows it has stopped, or wants an
+    answer, and only Emacs can draw that beside the session's name.
+
+    The sidebar refreshes itself from here — claude-code-ide-manager advises
+    the setter — so there is nothing to redraw by hand.
+
+    Tolerant on purpose. It is called from outside Emacs with a name that may
+    belong to a session that has since exited, and the setter it wraps errors
+    on a buffer that is not a live session."
+      (let ((buf (get-buffer buffer-name)))
+        (when (and buf
+                   (fboundp 'claude-code-ide-session-idle-set-agent-state)
+                   (fboundp 'claude-code-ide-session-buffer-p))
+          (with-current-buffer buf
+            (when (claude-code-ide-session-buffer-p buf)
+              (claude-code-ide-session-idle-set-agent-state state))))))
 
     (defun my/claude-send-region-or-file ()
       "Send the region to Claude, or a reference to this file when nothing is selected."
       (interactive)
       (if (use-region-p)
-          (claude-code-send-region)
-        (claude-code-insert-current-file-path-to-session)))
+          (claude-code-ide-send-prompt
+           (buffer-substring-no-properties (region-beginning) (region-end)))
+        (claude-code-ide-send-current-file-line-reference)))
+
+    (defun my/claude--diagnostic-at-point ()
+      "Text of the diagnostic under point, from flycheck or flymake."
+      (or (when-let* ((errs (and (bound-and-true-p flycheck-mode)
+                                (fboundp 'flycheck-overlay-errors-at)
+                                (flycheck-overlay-errors-at (point)))))
+            (mapconcat #'flycheck-error-message errs "\n"))
+          (when-let* ((diags (and (bound-and-true-p flymake-mode)
+                                  (fboundp 'flymake-diagnostics)
+                                  (flymake-diagnostics (point)))))
+            (mapconcat #'flymake-diagnostic-text diags "\n"))))
+
+    (defun my/claude-fix-diagnostic ()
+      "Ask Claude to fix the diagnostic under point.
+    claude-code-ide has no equivalent of claude-code.el's
+    `claude-code-fix-diagnostic'; it exposes the diagnostics to Claude as an
+    MCP tool instead, which is the right primitive but not a command. This is
+    the command, built on `claude-code-ide-send-prompt' — the session already
+    knows which file and line the point is on, so the prompt only has to carry
+    the message itself."
+      (interactive)
+      (let ((msg (my/claude--diagnostic-at-point)))
+        (unless msg
+          (user-error "No diagnostic under point"))
+        (claude-code-ide-send-prompt
+         (format "Fix this error at %s:%d\n\n%s"
+                 (if buffer-file-name
+                     (file-name-nondirectory buffer-file-name)
+                   (buffer-name))
+                 (line-number-at-pos)
+                 msg))))
 
     ;; gptel for the ask-a-question case, where a chat buffer beats a coding agent.
     ;; The key is read from the auth source at call time, never stored in the config:
@@ -101,14 +235,19 @@
     ;; arrangement on the right, where a chat transcript's long lines fit far
     ;; better than they would in a ten-line strip.
     ;;
-    ;; Claude takes slot 0 and gptel slot 1, so opening the chat beside a running
-    ;; session stacks them in the same column instead of fighting over it.
+    ;; Live sessions used to be in here too. They are not any more:
+    ;; claude-code-ide places its own session window, and the manager builds and
+    ;; restores a whole-frame layout per session, so a side-window rule for
+    ;; those buffers would be two things placing one window. What is left is
+    ;; gptel in slot 0 and the read-only transcripts `my/claude-view' renders in
+    ;; slot 1, so opening a transcript beside a chat stacks them in the same
+    ;; column instead of fighting over it.
 
     (defvar my/ai-drawer-width 0.4
       "Fraction of the frame width the AI drawer occupies.")
 
-    (dolist (rule `(("\\*claude\\(:\\| transcript:\\).*\\*" . 0)
-                    ((derived-mode . gptel-mode) . 1)))
+    (dolist (rule `(((derived-mode . gptel-mode) . 0)
+                    ("\\*claude transcript:.*\\*" . 1)))
       (add-to-list 'display-buffer-alist
                    `(,(car rule)
                      (display-buffer-reuse-window display-buffer-in-side-window)

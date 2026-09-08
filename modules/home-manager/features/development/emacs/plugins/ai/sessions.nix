@@ -178,24 +178,43 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
-    (defun my/claude-resume-session (sid cwd)
-      "Resume conversation SID in a vterm rooted at CWD.
+    (defun my/claude-resume-session (sid cwd &optional label)
+      "Resume conversation SID in a claude-code-ide session rooted at CWD.
+    LABEL, when given, names the session so the manager sidebar has something
+    to show for it.
 
     Runs in the conversation's own directory: Claude resolves a session against
     the project it belongs to and does not find it from anywhere else.
 
-    The buffer carries the first eight characters of the session id. vterm hands
-    a name that is already taken to `generate-new-buffer', so several resumed
-    conversations from one project used to come out as *claude:nix-config*<2>,
-    <3>, <4> -- distinct buffers with nothing to tell them apart in the switcher."
+    Started through claude-code-ide rather than by typing `claude --resume' into
+    a bare vterm, which is what this used to do. A raw vterm is invisible to
+    everything that makes the manager sidebar useful -- it is not in the session
+    registry, so it gets no row, no state glyph and no saved layout, and it has
+    no MCP server, so Claude cannot reach xref or the diagnostics. A resumed
+    conversation is a conversation; it should arrive with the same machinery a
+    fresh one does.
+
+    `claude-code-ide-cli-extra-flags' is the seam for this: the only documented
+    way in is the -r flag, which makes the CLI draw its own picker, and the
+    picker is exactly what this command exists to replace. Bound dynamically
+    around a private entry point, because the public commands cannot express
+    \"this directory, a new session, these flags\" -- `claude-code-ide-resume'
+    would toggle into the project's existing session instead of starting one on
+    the conversation asked for."
       (unless (file-directory-p cwd)
         (user-error "That conversation's directory no longer exists: %s" cwd))
-      (let ((default-directory (file-name-as-directory cwd)))
-        (vterm (format "*claude:%s#%s*"
-                       (file-name-nondirectory (directory-file-name cwd))
-                       (substring sid 0 (min 8 (length sid)))))
-        (vterm-send-string (format "claude --resume %s" sid))
-        (vterm-send-return)))
+      (require 'claude-code-ide)
+      (let ((claude-code-ide-cli-extra-flags (format "--resume %s" sid)))
+        (claude-code-ide--start-session nil nil cwd t))
+      ;; Cosmetic, and deliberately best-effort: an unnamed sibling session is
+      ;; still a working session, and it is not worth an error on the way into
+      ;; one if the fork renames or moves either private function.
+      (when label
+        (ignore-errors
+          (when-let* ((key (claude-code-ide-manager--session-key-for-buffer
+                            (current-buffer))))
+            (claude-code-ide-manager-rename-session
+             key (truncate-string-to-width label 28))))))
 
     (defun my/claude-resume (&optional all)
       "Pick a past Claude conversation from this project and resume it.
@@ -204,28 +223,7 @@ in
       (let ((row (my/claude--pick (if all "Resume any Claude session: "
                                     "Resume Claude session: ")
                                   all)))
-        (my/claude-resume-session (nth 4 row) (nth 5 row))))
-
-    ;; Switching between the sessions running right now.
-    ;;
-    ;; claude-code-switch-to-buffer only reaches the session belonging to the
-    ;; current project, so a second project -- or a second instance in the same
-    ;; one -- is unreachable once you have moved away from its buffer. This
-    ;; lists every live one.
-    (defun my/claude--live-session-p (b)
-      "Non-nil when buffer B is a running Claude session."
-      (and (string-prefix-p "*claude:" (buffer-name b))
-           (get-buffer-process b)))
-
-    (defun my/claude-switch ()
-      "Switch to one of the Claude sessions running right now."
-      (interactive)
-      (let ((names (mapcar #'buffer-name
-                           (seq-filter #'my/claude--live-session-p (buffer-list)))))
-        (cond
-         ((null names) (user-error "No Claude session is running"))
-         ((null (cdr names)) (pop-to-buffer (car names)))
-         (t (pop-to-buffer (completing-read "Claude session: " names nil t))))))
+        (my/claude-resume-session (nth 4 row) (nth 5 row) (nth 3 row))))
 
     (defun my/claude-view (&optional all)
       "Open a past conversation as text, without starting Claude.

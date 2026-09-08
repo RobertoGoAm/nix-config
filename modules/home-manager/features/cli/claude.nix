@@ -1,6 +1,48 @@
 # cli claude
 
-{ ... }:
+{ lib, pkgs, ... }:
+let
+
+  # The Emacs manager sidebar draws a state glyph beside every live...
+
+  # The Emacs manager sidebar draws a state glyph beside every live session, and
+  # it has two sources for it. One is a guess: whether the pty wrote anything
+  # recently, which distinguishes "still going" from "gone quiet" and nothing
+  # else. The other is a state the agent reports over MCP -- waiting on you,
+  # finished, failed -- which Claude Code does not send, because it reports
+  # through hooks instead.
+
+  # So the hooks send it. Each one names the state its event means and this
+  # carries it into the session's buffer, where the sidebar reads it back.
+  # =EMACS_BUFFER_NAME= is exported into every session claude-code-ide starts and
+  # is unset everywhere else, so the same hooks are a no-op in a plain terminal.
+
+  # There is no hook for a failed turn, so the failed glyph stays reachable only
+  # by an agent that reports over MCP. The three that matter here are covered.
+
+  # Silent by contract: a =UserPromptSubmit= hook's stdout is appended to
+  # Claude's context, so anything this printed would land in the conversation as
+  # if the user had typed it.
+
+  emacs-state = pkgs.writeShellApplication {
+    name = "claude-emacs-state";
+    runtimeInputs = [ ];
+    text = ''
+      state="$1"
+
+      # Not an Emacs-hosted session: nothing to tell.
+      [ -n "''${EMACS_BUFFER_NAME:-}" ] || exit 0
+      command -v emacsclient >/dev/null 2>&1 || exit 0
+
+      # Never fail the hook and never speak. A stopped daemon, a killed
+      # buffer, an Emacs without the package loaded: all of them mean the
+      # glyph does not update, none of them mean the turn should break.
+      emacsclient --quiet --suppress-output \
+        --eval "(my/claude-set-session-state \"$EMACS_BUFFER_NAME\" '$state)" \
+        >/dev/null 2>&1 || true
+    '';
+  };
+in
 {
   programs.claude-code = {
     enable = true;
@@ -843,6 +885,12 @@
                 async = true;
                 description = "Send notification when Claude needs attention";
               }
+              {
+                type = "command";
+                command = "${lib.getExe emacs-state} needs-input";
+                async = true;
+                description = "Emacs: mark this session as waiting on the user in the manager sidebar";
+              }
             ];
           }
         ];
@@ -854,6 +902,25 @@
                 command = "curl -d 'Claude is done!' https://ntfy.sh/$NTFY_TOPIC_ID";
                 async = true;
                 description = "Send notification when Claude finishes responding";
+              }
+              {
+                type = "command";
+                command = "${lib.getExe emacs-state} done";
+                async = true;
+                description = "Emacs: mark this session as finished in the manager sidebar";
+              }
+            ];
+          }
+        ];
+        UserPromptSubmit = [
+          {
+            matcher = "";
+            hooks = [
+              {
+                type = "command";
+                command = "${lib.getExe emacs-state} working";
+                async = true;
+                description = "Emacs: mark this session as working in the manager sidebar";
               }
             ];
           }
