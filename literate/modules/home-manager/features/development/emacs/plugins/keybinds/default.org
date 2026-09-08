@@ -111,12 +111,16 @@ mean the same thing in a magit buffer as in a source file.
 
       ;; ai — no nvim counterpart; the Claude Code CLI, in the editor.
       ;;
-      ;; aa is the hub: every session, in every project, with the state of each
-      ;; one. at is the old aa, one project's session toggled in place, which
-      ;; claude-code-ide gives for free -- the my/claude-toggle wrapper that
-      ;; used to be needed here is gone with claude-code.el.
+      ;; aa is the hub: every conversation, running or kept, in every project,
+      ;; with the state of the running ones. aA is claude-code-ide's own
+      ;; sidebar, which is the running half only but brings pins, quick slots
+      ;; and the per-session layouts with it. at is the old aa, one project's
+      ;; session toggled in place, which claude-code-ide gives for free -- the
+      ;; my/claude-toggle wrapper that used to be needed here is gone with
+      ;; claude-code.el.
       "a"  '(:ignore t :which-key "ai")
-      "aa" '(my/claude-sessions :which-key "all sessions + state")
+      "aa" '(my/claude-chats :which-key "all chats + state")
+      "aA" '(claude-code-ide-manager-toggle-global-sidebar :which-key "live sessions sidebar")
       "ab" '(my/claude-send-region-or-file :which-key "send region or file")
       "ac" '(gptel :which-key "chat")
       "ad" '(my/claude-fix-diagnostic :which-key "fix diagnostic at point")

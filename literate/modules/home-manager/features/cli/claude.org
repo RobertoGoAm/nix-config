@@ -32,7 +32,7 @@ if the user had typed it.
 #+begin_src nix
   emacs-state = pkgs.writeShellApplication {
     name = "claude-emacs-state";
-    runtimeInputs = [ ];
+    runtimeInputs = [ pkgs.jq ];
     text = ''
       state="$1"
 
@@ -40,11 +40,18 @@ if the user had typed it.
       [ -n "''${EMACS_BUFFER_NAME:-}" ] || exit 0
       command -v emacsclient >/dev/null 2>&1 || exit 0
 
+      # transcript_path, from the hook payload on stdin. Emacs cannot work this
+      # out for itself: claude-code-ide's session id is its own and the CLI
+      # never sees it, so this is the one string that ties a running session to
+      # its conversation on disk -- which is what keeps the chat list from
+      # showing the session you are in twice, once as live and once as history.
+      transcript="$(jq -r '.transcript_path // ""' 2>/dev/null || true)"
+
       # Never fail the hook and never speak. A stopped daemon, a killed
       # buffer, an Emacs without the package loaded: all of them mean the
       # glyph does not update, none of them mean the turn should break.
       emacsclient --quiet --suppress-output \
-        --eval "(my/claude-set-session-state \"$EMACS_BUFFER_NAME\" '$state)" \
+        --eval "(my/claude-set-session-state \"$EMACS_BUFFER_NAME\" '$state \"$transcript\")" \
         >/dev/null 2>&1 || true
     '';
   };
