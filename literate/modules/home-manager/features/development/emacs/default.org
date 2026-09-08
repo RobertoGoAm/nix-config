@@ -39,6 +39,7 @@ in
     ./keybinds.nix
     ./options.nix
     ./plugins
+    ./startup.nix
   ];
 #+end_src
 

@@ -173,6 +173,45 @@ Notification transport on macOS -- see the notify override in extraConfig.
           telega-chat-fill-column 80
           telega-completing-read-function #'completing-read)
 
+    ;; Connected from the first frame, rather than when you remember to open it.
+    ;;
+    ;; The autoload above stays exactly as it is: nothing here loads telega at
+    ;; init, it starts it once a frame exists. `telega' with a non-nil argument
+    ;; is telega's own "start without popping the root buffer", so the client
+    ;; connects, the notifications fire and the unread count in the modeline is
+    ;; a real number -- all of which need a running telega-server, and none of
+    ;; which happened on a day the root buffer was never opened.
+    ;;
+    ;; A graphical frame is required, and that is not fussiness. As the note
+    ;; above says, `telega-use-images' is read when telega loads, so loading it
+    ;; from a terminal frame pins images off for the life of the daemon. If the
+    ;; first frame of the session is a tty, the start is left armed for the
+    ;; next graphical one instead.
+    ;;
+    ;; And only when there is a session on disk to resume. td.binlog is where
+    ;; tdlib keeps the authorisation; without it `telega' does not connect, it
+    ;; starts the login flow -- a QR code, unasked for, in a frame you opened
+    ;; to do something else.
+    (defun my/telega--session-p ()
+      "Non-nil when tdlib has a session on disk to resume."
+      (file-exists-p (expand-file-name "td.binlog" telega-directory)))
+
+    (defun my/telega-start-in-background ()
+      "Connect telega without showing it."
+      (when (my/telega--session-p)
+        (if (display-graphic-p)
+            (unless (and (fboundp 'telega-server-live-p) (telega-server-live-p))
+              (telega t))
+          (add-hook 'server-after-make-frame-hook #'my/telega--start-when-graphic))))
+
+    (defun my/telega--start-when-graphic ()
+      "Start telega if this frame is graphical, then stand down."
+      (when (display-graphic-p)
+        (remove-hook 'server-after-make-frame-hook #'my/telega--start-when-graphic)
+        (my/telega-start-in-background)))
+
+    (add-hook 'my/startup-hook #'my/telega-start-in-background)
+
     (custom-set-faces
      `(telega-msg-heading ((t (:foreground ,(my/tn 'blue) :weight bold))))
      `(telega-unmuted-count ((t (:foreground ,(my/tn 'green))))))
