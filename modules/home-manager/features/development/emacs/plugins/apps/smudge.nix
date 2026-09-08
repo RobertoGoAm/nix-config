@@ -208,6 +208,13 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     (defun my/smudge-album-search (query)
       "Search Spotify albums for QUERY and play the one chosen."
       (interactive "sAlbum: ")
+      ;; smudge is reached through autoloads, and this command is not one of
+      ;; them: it goes straight at the API layer, so nothing has loaded
+      ;; smudge-api by the time it runs and the call is a void function.
+      ;; Requiring the whole of smudge rather than smudge-api alone, because
+      ;; the advice above -- the search-limit clamp that /search needs, and
+      ;; the popularity guard -- is installed on smudge loading.
+      (require 'smudge)
       (smudge-api-search
        "album" query 1
        (lambda (json)
