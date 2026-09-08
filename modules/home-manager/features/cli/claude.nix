@@ -146,23 +146,13 @@ in
           "Bash(readlink *)"
           "Bash(xargs *)"
 
-          # `timeout <dur> <cmd>` — a command WRAPPER, so NOT blanket-allowed:
+          # ── Archive listing, version probes ─────────────────────────────
 
-          # `Bash(timeout *)` would let `timeout 5 git push --force` / `timeout 5 rm
-          # -rf …` slip past the prefix-match deny list. Treated like rtk — scoped to
-          # safe inner commands only; any other timeout-wrapped command still prompts.
-          # (Compound forms `timeout 5 X; <danger>` are split + checked per-segment.)
+          # No `timeout <dur> <cmd>` rules appear here or anywhere else in this list,
+          # and that is deliberate — do not add any. A `*` standing in for the duration
+          # spans whole words, so `Bash(timeout * pnpm test*)` also approves `timeout 5
+          # sudo pnpm test`. See the literate source for the full reasoning.
 
-          "Bash(timeout * pnpm test*)"
-          "Bash(timeout * pnpm build*)"
-          "Bash(timeout * pnpm dev*)"
-          "Bash(timeout * pnpm storybook*)"
-          "Bash(timeout * pnpm docs:dev*)"
-          "Bash(timeout * curl http://localhost:*)"
-          "Bash(timeout * curl -s http://localhost:*)"
-          "Bash(timeout * bash $HOME/.claude/pipeline/scripts/*)"
-          "Bash(timeout * node scripts/*)"
-          "Bash(timeout * python3 scripts/*)"
           "Bash(tar tzf *)"
           "Bash(tar tvf *)"
           "Bash(node --version)"
