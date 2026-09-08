@@ -1145,7 +1145,26 @@ in
                                         (format-time-string "%Y-%m-%d"
                                                             (time-add now (days-to-time 1)))))))))
 
-    (defun my/hledger--principal-due (saving)
+    (defun my/hledger--principal-planned (account period)
+      "The principal ACCOUNT's cuota repays in PERIOD, or nil without the terms.
+
+    Computed from the loan rather than read off a budget line. The split moves
+    every month -- the interest falls as the balance does and the principal
+    takes the difference -- so a fixed figure in the budget is right once and
+    then drifts, by 0.19 a month here: 0.18 out in September and 2.94 out a
+    year later, always reading as overspent."
+      (let ((payment (my/hledger--account-tag account "payment"))
+            (rate (my/hledger--account-tag account "rate")))
+        (when (and payment rate (> rate 0))
+          (let* ((query (concat "^" account "$"))
+                 (owed (abs (my/hledger--amount query)))
+                 ;; What the month has already repaid, to get back to the
+                 ;; balance the interest was charged on.
+                 (repaid (my/hledger--amount query period))
+                 (monthly (- (expt (+ 1 (/ rate 100.0)) (/ 1.0 12)) 1)))
+            (- payment (* (+ owed repaid) monthly))))))
+
+    (defun my/hledger--principal-due (saving period)
       "This month's planned loan principal that has not been repaid yet.
 
     The cuota takes 251.35 out of the account every month, of which only the
@@ -1159,7 +1178,8 @@ in
                        (let ((account (nth 0 row)))
                          (if (not (my/hledger--account-tag account "original"))
                              0
-                           (max 0 (- (my/hledger--num (nth 2 row))
+                           (max 0 (- (or (my/hledger--principal-planned account period)
+                                         (my/hledger--num (nth 2 row)))
                                      (my/hledger--num (nth 1 row)))))))
                      (cdr saving))))
 
@@ -1622,16 +1642,15 @@ in
                                     (seq-filter
                                      (lambda (g) (string-prefix-p "assets:" (car g)))
                                      (my/hledger--goals))))))
-             (saving (apply #'my/hledger--csv
-                            (append '("balance" "--budget" "--flat"
-                                      "^liabilities:mortgage$")
-                                    (list "not:desc:opening" "-p"
-                                          (my/hledger-budget--month-string
-                                           (or my/hledger-budget--time (current-time)))))))
+             (period (my/hledger-budget--month-string
+                      (or my/hledger-budget--time (current-time))))
+             (saving (my/hledger--csv "balance" "--budget" "--flat"
+                                      "^liabilities:mortgage$"
+                                      "not:desc:opening" "-p" period))
              (spare (- liquid
                        (my/hledger--promised)
                        (my/hledger--reserved)
-                       (my/hledger--principal-due saving))))
+                       (my/hledger--principal-due saving period))))
         (if (<= spare 0)
             (message "Nothing spare -- the envelopes hold it all.")
           (find-file hledger-jfile)
@@ -1800,7 +1819,12 @@ in
             (dolist (row (my/hledger-budget--saving-rows saving))
               (let* ((account (nth 0 row))
                      (moved (my/hledger--num (nth 1 row)))
-                     (planned (my/hledger--num (nth 2 row)))
+                     ;; A debt's planned repayment comes from its own terms,
+                     ;; not from a budget line that cannot follow the split.
+                     (planned (or (my/hledger--principal-planned
+                                   account (my/hledger-budget--month-string
+                                            (or my/hledger-budget--time (current-time))))
+                                  (my/hledger--num (nth 2 row))))
                      ;; A fund is addressed by its leaf, wherever it sits.
                      (label (if (string-prefix-p "assets:" account)
                                 (car (last (split-string account ":")))
@@ -1897,7 +1921,8 @@ in
                  (principal (my/hledger--principal-due
                              (my/hledger--csv "balance" "--budget" "--flat"
                                               "^liabilities:mortgage$"
-                                              "not:desc:opening" "-p" period)))
+                                              "not:desc:opening" "-p" period)
+                             period))
                  (spare (- liquid promised reserved principal)))
             (insert (format "  %-26s %9.2f   held for envelopes, not yet spent\n"
                             "promised" promised))
