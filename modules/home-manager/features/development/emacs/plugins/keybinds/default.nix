@@ -105,16 +105,13 @@
 
       ;; ai — no nvim counterpart; the Claude Code CLI, in the editor.
       ;;
-      ;; aa is the hub: every conversation, running or kept, in every project,
-      ;; with the state of the running ones. aA is claude-code-ide's own
-      ;; sidebar, which is the running half only but brings pins, quick slots
-      ;; and the per-session layouts with it. at is the old aa, one project's
-      ;; session toggled in place, which claude-code-ide gives for free -- the
-      ;; my/claude-toggle wrapper that used to be needed here is gone with
-      ;; claude-code.el.
+      ;; Three surfaces, all toggles. aA is the left pane, the live sessions
+      ;; and their state, which opens with the frame. at is the right pane,
+      ;; whichever conversation is in front. aa is the picker that fills the
+      ;; right pane: every conversation, running or kept, in every project.
       "a"  '(:ignore t :which-key "ai")
-      "aa" '(my/claude-chats :which-key "all chats + state")
-      "aA" '(claude-code-ide-manager-toggle-global-sidebar :which-key "live sessions sidebar")
+      "aa" '(my/claude-chats :which-key "chat list (all chats + state)")
+      "aA" '(claude-code-ide-manager-toggle-global-sidebar :which-key "toggle left pane")
       "ab" '(my/claude-send-region-or-file :which-key "send region or file")
       "ac" '(gptel :which-key "chat")
       "ad" '(my/claude-fix-diagnostic :which-key "fix diagnostic at point")
@@ -126,7 +123,7 @@
       "am" '(claude-code-ide-menu :which-key "claude menu")
       "an" '(claude-code-ide-new-session :which-key "new session here")
       "ar" '(claude-code-ide-manager-toggle-repo-sidebar :which-key "this repo's sessions")
-      "at" '(claude-code-ide :which-key "toggle claude here")
+      "at" '(my/claude-pane-toggle :which-key "toggle right pane")
       "ax" '(my/ai-drawer-close :which-key "close drawer")
       "aq" '(claude-code-ide-stop :which-key "quit claude")
       "as" '(gptel-send :which-key "send to chat")

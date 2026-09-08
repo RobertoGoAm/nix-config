@@ -321,6 +321,34 @@ in
     (defvar my/claude--chats-scope 'project
       "Whether the chat list shows `project' or `all' conversations.")
 
+    ;; Faces by meaning rather than by colour, so the theme decides the colour.
+    ;; `error', `warning' and `success' already read as stop, look and done in
+    ;; any theme, and the list agrees with the sidebar because both now end up
+    ;; at the same three faces.
+    (defface my/claude-chats-project-face
+      '((t (:inherit font-lock-keyword-face :weight bold)))
+      "Face for a project heading in the chat list.")
+
+    (defface my/claude-chats-fold-face
+      '((t (:inherit font-lock-comment-face)))
+      "Face for the line that folds away a project's older conversations.")
+
+    (defun my/claude--chats-glyph-face (glyph)
+      "Face for GLYPH, taken from the meaning claude-code-ide gives it.
+    Compared against the package's own constants rather than against literal
+    characters, so changing a glyph upstream drops the colour rather than
+    quietly colouring the wrong state."
+      (cond
+       ((not (boundp 'claude-code-ide-manager--needs-input-glyph)) 'default)
+       ((member glyph (list claude-code-ide-manager--needs-input-glyph
+                            claude-code-ide-manager--failed-glyph))
+        'error)
+       ((equal glyph claude-code-ide-manager--done-glyph) 'success)
+       ((equal glyph claude-code-ide-manager--working-glyph)
+        'font-lock-keyword-face)
+       ((equal glyph claude-code-ide-manager--bell-glyph) 'warning)
+       (t 'default)))
+
     (defvar my/claude--chats-index nil
       "Conversation index the chat list is being built from.
     A defvar rather than an argument threaded inward, for the reason
@@ -436,14 +464,16 @@ in
             ;; `a' is what fills it.
             (when here (setq rows here))))
         (dolist (row rows)
-          (push (list row
-                      (vector (plist-get row :glyph)
-                              (propertize (plist-get row :title)
-                                          'face (if (plist-get row :live)
-                                                    'bold
-                                                  'default))
-                              (plist-get row :when)))
-                entries))
+          (let ((glyph (plist-get row :glyph)))
+            (push (list row
+                        (vector (propertize glyph 'face
+                                            (my/claude--chats-glyph-face glyph))
+                                (propertize (plist-get row :title)
+                                            'face (if (plist-get row :live)
+                                                      'bold
+                                                    'default))
+                                (plist-get row :when)))
+                  entries)))
         (nreverse entries)))
 
     (defvar my/claude--chats-limit 5
@@ -459,7 +489,7 @@ in
                     (propertize (if expanded
                                     "fewer"
                                   (format "%d older" hidden))
-                                'face 'shadow)
+                                'face 'my/claude-chats-fold-face)
                     "")))
 
     (defun my/claude--chats-groups ()
@@ -518,7 +548,10 @@ in
                                         cwd
                                         (- (length past) my/claude--chats-limit)
                                         expanded)))))
-            (push (cons heading rows) groups)))
+            (push (cons (propertize heading
+                                    'face 'my/claude-chats-project-face)
+                        rows)
+                  groups)))
         (nreverse groups)))
 
     (defun my/claude--chats-goto-fold (cwd)
@@ -600,22 +633,36 @@ in
                    "every project"
                  "this project")))
 
+    (defun my/claude--chats-window ()
+      "The window showing the chat list, if it is on screen."
+      (get-buffer-window "*claude chats*" t))
+
+    (defun my/claude--chats-close ()
+      "Close the chat list window, leaving the buffer behind it."
+      (when-let* ((win (my/claude--chats-window)))
+        (when (window-live-p win)
+          (delete-window win))))
+
     (defun my/claude-chats-visit ()
       "Enter the conversation on this line, resuming it when it is not running.
-    On a fold line, unfolds the project instead."
+    On a fold line, unfolds the project instead.
+
+    Closes the list on the way through, before the conversation opens. It is a
+    picker and the two share a column: leaving it up would halve the pane the
+    conversation is about to appear in."
       (interactive)
       (let ((row (tabulated-list-get-id)))
         (unless row (user-error "No conversation on this line"))
-        (cond
-         ((plist-get row :more) (my/claude-chats-toggle-group))
-         ((plist-get row :live)
-          (claude-code-ide-manager-switch-to-session (plist-get row :key)))
-         (t
-          (message "Resuming %s..." (plist-get row :title))
-          (my/claude-resume-session (plist-get row :sid)
-                                    (plist-get row :cwd)
-                                    (plist-get row :title)
-                                    (plist-get row :path))))))
+        (if (plist-get row :more)
+            (my/claude-chats-toggle-group)
+          (my/claude--chats-close)
+          (if (plist-get row :live)
+              (my/claude-show-session (plist-get row :key))
+            (message "Resuming %s..." (plist-get row :title))
+            (my/claude-resume-session (plist-get row :sid)
+                                      (plist-get row :cwd)
+                                      (plist-get row :title)
+                                      (plist-get row :path))))))
 
     (defun my/claude-chats-view ()
       "Read the conversation on this line without starting Claude."
@@ -680,12 +727,16 @@ in
     Opens on this project, which is the ordinary case; `a' widens it to every
     project, which is the case both the manager sidebar and `claude --resume'
     refuse. TAB folds and unfolds a project, `v' reads a conversation without
-    starting anything, `r' refreshes."
+    starting anything, `r' refreshes.
+
+    Called again while it is up, closes it."
       (interactive)
-      (let ((buf (get-buffer-create "*claude chats*")))
-        (with-current-buffer buf
-          (my/claude-chats-mode)
-          (my/claude-chats-refresh))
-        (pop-to-buffer buf)))
+      (if (my/claude--chats-window)
+          (my/claude--chats-close)
+        (let ((buf (get-buffer-create "*claude chats*")))
+          (with-current-buffer buf
+            (my/claude-chats-mode)
+            (my/claude-chats-refresh))
+          (pop-to-buffer buf))))
   '';
 }

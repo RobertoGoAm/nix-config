@@ -94,16 +94,18 @@ in
     ;;; see the drawer at the bottom of this file, which now covers only gptel
     ;;; and the read-only transcripts.
 
+    ;; `use-side-window' nil, and the drawer at the foot of this file places
+    ;; every Claude buffer instead. With it on, the package calls
+    ;; `display-buffer-in-side-window' itself and its own width wins, so the
+    ;; pane a session opened in depended on which command opened it -- the
+    ;; package's toggle, the chat list, or the sidebar. One rule for all three.
     (setq claude-code-ide-cli-path "claude"
-          claude-code-ide-window-side 'right
-          claude-code-ide-window-width 90
+          claude-code-ide-use-side-window nil
           claude-code-ide-focus-on-open t)
 
-    ;; The sidebar is a list of names and glyphs, so it wants far less width
-    ;; than the session beside it. On the left, where it does not fight the
-    ;; session window `claude-code-ide-window-side' puts on the right.
+    ;; The sidebar is a column of names and glyphs, so it wants far less width
+    ;; than the session. It puts itself on the left, slot -1.
     (setq claude-code-ide-manager-window-width 26
-          claude-code-ide-manager-session-window-side 'right
           claude-code-ide-manager-persist-state t)
 
     ;; Without this the state glyphs are blank for a plain `claude' session.
@@ -135,6 +137,126 @@ in
 
     (with-eval-after-load 'claude-code-ide
       (claude-code-ide-emacs-tools-setup))
+
+    ;;; ------------------------------------------------------------------
+    ;;; Theme colours for the session states
+    ;;; ------------------------------------------------------------------
+    ;;
+    ;; The package paints its sidebar rows with fixed hex backgrounds and white
+    ;; text -- #8a6a14 for gone-quiet, #3f6b4f for working, plain red for
+    ;; needs-input. Those were chosen against some other background; on
+    ;; doom-tokyo-night they are bands of mud with white on top, and the red row
+    ;; is the least readable line on the screen.
+    ;;
+    ;; Re-specified as foreground only, inheriting the faces a theme is obliged
+    ;; to define. `error', `warning' and `success' already mean stop, look and
+    ;; done in every theme, so the states keep their meaning and the row keeps
+    ;; the theme's own background -- including the transparency this config
+    ;; applies to it.
+    ;;
+    ;; `custom-set-faces' rather than `set-face-attribute', for the reason the
+    ;; colorscheme module documents: every new frame re-applies the theme's
+    ;; specs and undoes an attribute set behind them.
+    (custom-set-faces
+     '(claude-code-ide-manager-current-session-face
+       ((t (:inherit highlight :weight bold))))
+     '(claude-code-ide-manager-current-marker-face
+       ((t (:inherit success :weight bold))))
+     '(claude-code-ide-manager-idle-session-face ((t (:inherit warning))))
+     '(claude-code-ide-manager-working-session-face
+       ((t (:inherit font-lock-keyword-face))))
+     '(claude-code-ide-manager-attention-session-face
+       ((t (:inherit error :weight bold))))
+     '(claude-code-ide-manager-done-session-face ((t (:inherit success)))))
+
+    ;;; ------------------------------------------------------------------
+    ;;; The two panes
+    ;;; ------------------------------------------------------------------
+    ;;
+    ;; Sidebar on the left, session on the right, the file being read between
+    ;; them. Both edges toggle and neither moves.
+    ;;
+    ;; This replaces the package's workspace model, where the first switch into
+    ;; a session ran `delete-other-windows' and rebuilt the frame around it --
+    ;; magit on the left, the session on the right -- and switching away
+    ;; captured whatever was left. Coherent, and not what is wanted here: a
+    ;; session is a pane, not a desktop, and losing the window layout on the way
+    ;; into a conversation is a high price for a magit buffer nobody asked for.
+    ;; Bypassed rather than configured off, since it is the package's model
+    ;; rather than a setting: nothing calls `claude-code-ide-manager-switch-to-session'
+    ;; any more, and the sidebar's own RET is pointed at the function below.
+
+    (defun my/claude--pane-window ()
+      "The window showing a Claude session on this frame, if one is."
+      (seq-find (lambda (win)
+                  (and (fboundp 'claude-code-ide-session-buffer-p)
+                       (claude-code-ide-session-buffer-p (window-buffer win))))
+                (window-list)))
+
+    (defun my/claude-show-session (key)
+      "Show the session KEY in the Claude pane and put the point in it.
+    `pop-to-buffer', so the drawer rule decides where it lands -- the same rule
+    every other route to a session goes through."
+      (let ((buf (claude-code-ide-manager--session-buffer key)))
+        (unless (buffer-live-p buf)
+          (user-error "That session is no longer running"))
+        ;; Recency bookkeeping the package does on its own switch path, so
+        ;; `claude-code-ide' still reopens the session last looked at.
+        (when (fboundp 'claude-code-ide--touch-session)
+          (ignore-errors (claude-code-ide--touch-session key)))
+        (pop-to-buffer buf)))
+
+    (defun my/claude-pane-toggle ()
+      "Show or hide the Claude pane, leaving the session running behind it.
+    Starts one when this project has none, which is what makes this the only
+    binding needed to get to Claude from cold."
+      (interactive)
+      (require 'claude-code-ide)
+      (if-let* ((win (my/claude--pane-window)))
+          (delete-window win)
+        (claude-code-ide)))
+
+    (defun my/claude-sidebar-visit ()
+      "Show the session on this sidebar row in the Claude pane."
+      (interactive)
+      (let ((item (claude-code-ide-manager--item-at-point)))
+        (unless item (user-error "No session on this line"))
+        (my/claude-show-session
+         (claude-code-ide-manager-item-session-key item))))
+
+    (defun my/claude-sidebar-peek ()
+      "Show the session on this row but keep the point in the sidebar."
+      (interactive)
+      (save-selected-window (my/claude-sidebar-visit)))
+
+    (with-eval-after-load 'claude-code-ide-manager
+      (define-key claude-code-ide-manager-mode-map (kbd "RET") #'my/claude-sidebar-visit)
+      (define-key claude-code-ide-manager-mode-map (kbd "SPC") #'my/claude-sidebar-peek)
+      (with-eval-after-load 'evil
+        (evil-define-key 'normal claude-code-ide-manager-mode-map
+          (kbd "RET") #'my/claude-sidebar-visit
+          (kbd "SPC") #'my/claude-sidebar-peek)))
+
+    (defun my/claude-sidebar-open-maybe (&optional _frame)
+      "Open the live-session sidebar on this frame, once.
+    Per frame rather than once per Emacs: a side window belongs to a frame, and
+    these are daemon frames -- `emacsclient -c' makes a new one every time, and
+    each one starts without it.
+
+    The frame parameter is what makes it once: without it, toggling the sidebar
+    off and opening another frame would put it back on the first one too.
+
+    `ignore-errors' because this runs on the path that creates a frame. The
+    sidebar is worth having by default; it is not worth a frame that will not
+    open."
+      (unless (frame-parameter nil 'my/claude-sidebar-shown)
+        (set-frame-parameter nil 'my/claude-sidebar-shown t)
+        (ignore-errors
+          (require 'claude-code-ide)
+          (claude-code-ide-manager-toggle-global-sidebar))))
+
+    (add-hook 'server-after-make-frame-hook #'my/claude-sidebar-open-maybe)
+    (add-hook 'emacs-startup-hook #'my/claude-sidebar-open-maybe)
 
     (defvar-local my/claude--transcript-path nil
       "Transcript the Claude session in this buffer is writing.
@@ -225,26 +347,45 @@ in
     ;;; The drawer
     ;;; ------------------------------------------------------------------
     ;;
-    ;; Both AI surfaces displayed their buffers with plain `display-buffer', so a
-    ;; session landed wherever the window tree had room -- splitting the file
-    ;; being read, or replacing it, and `C-x 1' discarded it outright. The
-    ;; terminals already solve this with a bottom side window; this is the same
-    ;; arrangement on the right, where a chat transcript's long lines fit far
-    ;; better than they would in a ten-line strip.
+    ;; Every AI buffer lands in one column on the right, and the slot decides
+    ;; where in that column. Without this a session went wherever the window
+    ;; tree had room -- splitting the file being read, or replacing it, and
+    ;; `C-x 1' discarded it outright. The terminals already solve this with a
+    ;; bottom side window; this is the same arrangement on the right, where a
+    ;; conversation's long lines fit far better than in a ten-line strip.
     ;;
-    ;; Live sessions used to be in here too. They are not any more:
-    ;; claude-code-ide places its own session window, and the manager builds and
-    ;; restores a whole-frame layout per session, so a side-window rule for
-    ;; those buffers would be two things placing one window. What is left is
-    ;; gptel in slot 0 and the read-only transcripts `my/claude-view' renders in
-    ;; slot 1, so opening a transcript beside a chat stacks them in the same
+    ;; The order down the column is the order things are used in. The chat list
+    ;; is above the session because you pick from it and it closes; the session
+    ;; is the one that stays. gptel and the read-only transcripts sit below,
+    ;; so opening either beside a running session stacks them in the same
     ;; column instead of fighting over it.
+    ;;
+    ;;   -1  *claude chats*        the picker
+    ;;    0  *claude-code[...]*    the session
+    ;;    1  gptel
+    ;;    2  *claude transcript:*
 
     (defvar my/ai-drawer-width 0.4
       "Fraction of the frame width the AI drawer occupies.")
 
-    (dolist (rule `(((derived-mode . gptel-mode) . 0)
-                    ("\\*claude transcript:.*\\*" . 1)))
+    (defun my/ai-gptel-buffer-p (buffer &optional _alist)
+      "Non-nil when BUFFER has gptel-mode turned on.
+
+    A predicate rather than the `(derived-mode . gptel-mode)' condition this
+    rule used to carry, which never matched anything: gptel-mode is a minor
+    mode, and that condition tests the major mode -- so a chat buffer is
+    markdown-mode with gptel-mode on top, and the rule looked right while
+    silently doing nothing. gptel windows have been landing wherever the window
+    tree had room this whole time."
+      (let ((buf (get-buffer buffer)))
+        (and (buffer-live-p buf)
+             (buffer-local-value 'gptel-mode buf)
+             t)))
+
+    (dolist (rule `(("\\*claude chats\\*" . -1)
+                    ("\\*claude-code\\[.*\\]\\*" . 0)
+                    (my/ai-gptel-buffer-p . 1)
+                    ("\\*claude transcript:.*\\*" . 2)))
       (add-to-list 'display-buffer-alist
                    `(,(car rule)
                      (display-buffer-reuse-window display-buffer-in-side-window)
@@ -261,9 +402,8 @@ in
       (interactive)
       (dolist (win (window-list))
         (when (and (window-parameter win 'window-side)
-                   (with-current-buffer (window-buffer win)
-                     (or (derived-mode-p 'gptel-mode)
-                         (string-prefix-p "*claude" (buffer-name)))))
+                   (or (my/ai-gptel-buffer-p (window-buffer win))
+                       (string-prefix-p "*claude" (buffer-name (window-buffer win)))))
           (delete-window win))))
 
   '';
