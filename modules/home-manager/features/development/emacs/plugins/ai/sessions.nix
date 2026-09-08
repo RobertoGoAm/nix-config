@@ -328,6 +328,26 @@ in
     cookie, so a lambda cannot capture a local. Bound once per refresh, because
     reading it shells out.")
 
+    (defvar my/claude--chats-index-cache nil
+      "Cons of the time the index was last read and the rows it returned.")
+
+    (defvar my/claude--chats-force-index nil
+      "Non-nil while a refresh should re-read the index rather than reuse it.")
+
+    (defun my/claude--chats-read-index (&optional force)
+      "Index rows, from the cache unless FORCE or the cache has aged out.
+    Reading the index spawns a process that walks every transcript on disk. The
+    glyph refreshes want to redraw far more often than that history changes: a
+    turn starting or finishing moves the live half of the list and leaves every
+    other row exactly as it was. So a state change redraws from the cache and
+    `g' re-reads."
+      (let ((now (float-time)))
+        (when (or force
+                  (null my/claude--chats-index-cache)
+                  (> (- now (car my/claude--chats-index-cache)) 30))
+          (setq my/claude--chats-index-cache (cons now (my/claude--sessions))))
+        (cdr my/claude--chats-index-cache)))
+
     (defun my/claude--chat-here-p (row)
       "Non-nil when chat ROW took place under `my/claude--root'.
     Reads its root from the defvar for the reason `my/claude--row-here-p' does."
@@ -403,7 +423,8 @@ in
 
     (defun my/claude--chats-entries ()
       "Live sessions first, then the conversations on disk by recency."
-      (let* ((my/claude--chats-index (my/claude--sessions))
+      (let* ((my/claude--chats-index
+              (my/claude--chats-read-index my/claude--chats-force-index))
              (live (my/claude--live-chats))
              (rows (append live (my/claude--past-chats live)))
              (entries nil))
@@ -426,13 +447,40 @@ in
                 entries))
         (nreverse entries)))
 
-    (defun my/claude-chats-refresh ()
-      "Rebuild the list, leaving the point on the line it was on."
-      (interactive)
+    (defun my/claude--chats-redraw ()
+      "Redraw the list in the current buffer, keeping the point on its line."
       (let ((line (line-number-at-pos)))
         (tabulated-list-print)
         (goto-char (point-min))
         (forward-line (1- line))))
+
+    (defun my/claude-chats-refresh ()
+      "Re-read the conversation history and rebuild the list."
+      (interactive)
+      (let ((my/claude--chats-force-index t))
+        (my/claude--chats-redraw)))
+
+    (defun my/claude--chats-restate (&rest _)
+      "Redraw the chat list when a session's state changes under it.
+    The glyph is the part of the list that goes stale fastest: a turn that
+    finishes while the list is on screen would otherwise still read as working
+    until the next `g'. claude-code-ide-manager keeps its own sidebar current
+    through these same three signals -- the two state hooks, and the setter the
+    Claude Code hooks reach over emacsclient -- so the list rides on them too.
+
+    Only when the list is actually on a window somewhere. Redrawing a buffer
+    nobody is looking at would spend a subprocess on every turn transition in
+    every project, and `my/claude-chats' re-reads on the way in anyway."
+      (when-let* ((buf (get-buffer "*claude chats*")))
+        (when (get-buffer-window buf t)
+          (with-current-buffer buf
+            (my/claude--chats-redraw)))))
+
+    (with-eval-after-load 'claude-code-ide
+      (add-hook 'claude-code-ide-session-idle-hook #'my/claude--chats-restate)
+      (add-hook 'claude-code-ide-session-working-hook #'my/claude--chats-restate)
+      (advice-add 'claude-code-ide-session-idle-set-agent-state
+                  :after #'my/claude--chats-restate))
 
     (defun my/claude-chats-toggle-scope ()
       "Switch between this project's conversations and every project's."
@@ -502,7 +550,7 @@ in
       (let ((buf (get-buffer-create "*claude chats*")))
         (with-current-buffer buf
           (my/claude-chats-mode)
-          (tabulated-list-print))
+          (my/claude-chats-refresh))
         (pop-to-buffer buf)))
   '';
 }

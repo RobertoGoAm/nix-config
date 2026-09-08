@@ -31,23 +31,48 @@
           display-line-numbers-width 3)
     (global-display-line-numbers-mode 1)
 
-    ;; Not in terminals. A shell, a REPL and the Claude pane are not files: the
-    ;; numbers count wrapped output lines rather than anything you can navigate
-    ;; to, they shift on every redraw, and they take columns from output that is
-    ;; already width-constrained. Same for the dashboard, which is a menu.
-    (defun my/no-line-numbers ()
-      "Turn the gutter off in this buffer."
-      (display-line-numbers-mode -1))
+    ;; Only where there is something to edit. A gutter numbers lines you can put
+    ;; the point on and change; in everything else it numbers rows of output.
+    ;; magit's status, a help page, dired, a compilation log, the rendered
+    ;; transcripts, the chat list: nothing there is addressed by line, and the
+    ;; numbers move under you as the buffer is redrawn. In a terminal it is
+    ;; worse than useless -- the numbers count wrapped output lines and take
+    ;; columns from a pane that is already width-constrained.
+    ;;
+    ;; One rule rather than the list of mode hooks this used to be. The list
+    ;; only ever named the surfaces that had already annoyed someone, so every
+    ;; new read-only mode arrived with a gutter.
+    (defun my/line-numbers-wanted-p ()
+      "Non-nil when this buffer is one the line-number gutter is for.
+    Terminals are named rather than derived: a vterm is neither read-only nor a
+    `special-mode' buffer -- it is a live editable field that happens to be
+    full of someone else's output."
+      (and (not (minibufferp))
+           (not buffer-read-only)
+           (not (derived-mode-p 'special-mode))
+           (not (derived-mode-p 'comint-mode))
+           (not (memq major-mode '(vterm-mode term-mode eat-mode eshell-mode)))))
 
-    (dolist (h '(vterm-mode-hook
-                 term-mode-hook
-                 eat-mode-hook
-                 shell-mode-hook
-                 eshell-mode-hook
-                 comint-mode-hook
-                 compilation-mode-hook
-                 dashboard-mode-hook))
-      (add-hook h #'my/no-line-numbers))
+    ;; `:before-while' on the function the globalized mode puts on
+    ;; `after-change-major-mode-hook', rather than another entry on that hook.
+    ;; A hook entry of our own would have to run after the mode's, and the order
+    ;; of two `add-hook' calls from two home-manager modules is not something
+    ;; this config gets to decide. This way the gutter is never switched on in
+    ;; the first place.
+    (define-advice global-display-line-numbers-mode-enable-in-buffer
+        (:before-while (&rest _) my/only-where-editable)
+      "Leave the gutter off in buffers there is nothing to edit in."
+      (my/line-numbers-wanted-p))
+
+    (defun my/line-numbers-reconcile ()
+      "Turn the gutter off if this buffer turned out not to want one."
+      (unless (my/line-numbers-wanted-p)
+        (display-line-numbers-mode -1)))
+
+    ;; A file's buffer is made read-only after its major mode has run --
+    ;; `find-file-read-only', a file with no write bit, anything under
+    ;; /nix/store -- so the advice above has already said yes by then.
+    (add-hook 'find-file-hook #'my/line-numbers-reconcile)
 
     ;; showcmd, but which-key does that job here.
     ;;
