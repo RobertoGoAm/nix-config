@@ -132,6 +132,114 @@ lib.mkIf enable {
                       (mu4e-drafts-folder . "/${name}/Drafts")
                       (mu4e-trash-folder  . "/${name}/Trash")))'') mailAccounts)
     })))
+
+    ;; One inbox across every account.
+    ;;
+    ;; mu4e is per-context by default: switching account switches what you are
+    ;; looking at, which is the wrong shape when the question is "is there
+    ;; anything to answer" rather than "what did this address receive". The
+    ;; query is built from the same private list as the contexts, so no address
+    ;; appears here either -- only the folder names, which are all `Inbox'.
+    (setq mu4e-bookmarks
+          '((:name "All inboxes"  :key ?i
+             :query "${
+               lib.concatMapStringsSep " or "
+                 (name: "maildir:/${name}/Inbox")
+                 (lib.attrNames mailAccounts)
+             }")
+            (:name "Unread"       :key ?u :query "flag:unread AND NOT flag:trashed")
+            (:name "Today"        :key ?t :query "date:today..now AND NOT flag:trashed")
+            (:name "Last 7 days"  :key ?w :query "date:7d..now AND NOT flag:trashed")
+            (:name "Flagged"      :key ?f :query "flag:flagged AND NOT flag:trashed")
+            (:name "Attachments"  :key ?a :query "flag:attach AND NOT flag:trashed")))
+
+    ;; A banner when mail arrives.
+    ;;
+    ;; mu4e only tells you while it is open, and the badge in the status line
+    ;; is a number you have to look at. This is the other direction: the
+    ;; message announces itself.
+    ;;
+    ;; Ids already announced are remembered, so the same message is not
+    ;; announced again every time the index is rebuilt -- and the first scan
+    ;; after a restart only records what is already unread. Without that,
+    ;; starting Emacs with a full inbox would fire a banner per message.
+    (defvar my/mail--announced (make-hash-table :test 'equal)
+      "Message ids already announced.")
+
+    (defvar my/mail--seeded nil
+      "Non-nil once the first scan has recorded what was already unread.")
+
+    (defun my/mail--banner (title body)
+      "Post TITLE and BODY as a macOS notification.
+    osascript rather than a notifier app, and the text in argv rather than in
+    the script: an app bundle steals focus for an instant, and a subject line
+    with a quote in it would otherwise break -- or rewrite -- the script."
+      (call-process "/usr/bin/osascript" nil 0 nil
+                    "-e" "on run argv"
+                    "-e" "display notification (item 2 of argv) with title (item 1 of argv)"
+                    "-e" "end run"
+                    title body))
+
+    (defun my/mail--announce (json)
+      "Announce anything in JSON that has not been announced before."
+      (let ((messages (ignore-errors (json-parse-string json :object-type 'alist)))
+            (fresh nil))
+        (when (vectorp messages)
+          (seq-doseq (m messages)
+            (let ((id (alist-get :message-id m nil nil #'equal)))
+              (when (and id (not (gethash id my/mail--announced)))
+                (puthash id t my/mail--announced)
+                (push m fresh))))
+          (when (and my/mail--seeded fresh)
+            (if (= 1 (length fresh))
+                (let* ((m (car fresh))
+                       (from (aref (alist-get :from m nil nil #'equal) 0))
+                       (who (or (alist-get :name from nil nil #'equal)
+                                (alist-get :email from nil nil #'equal)
+                                "someone")))
+                  (my/mail--banner
+                   who (or (alist-get :subject m nil nil #'equal) "(no subject)")))
+              (my/mail--banner
+               "Mail" (format "%d new messages" (length fresh)))))
+          (setq my/mail--seeded t))))
+
+    (defun my/mail-notify-new ()
+      "Look for unread mail and announce whatever is new.
+    Asynchronous: this runs on a timer and after every index, and neither
+    should ever be waiting on mu."
+      (when (executable-find "mu")
+        (let ((buffer (generate-new-buffer " *mail-notify*")))
+          (make-process
+           :name "mail-notify" :buffer buffer :noquery t
+           :command (list "mu" "find" "flag:unread AND NOT flag:trashed"
+                          "--format=json")
+           :sentinel
+           (lambda (proc _event)
+             (unless (process-live-p proc)
+               (let ((out (with-current-buffer (process-buffer proc)
+                            (buffer-string))))
+                 (kill-buffer (process-buffer proc))
+                 (my/mail--announce out))))))))
+
+    ;; Both, because they cover different hours. The hook is immediate but only
+    ;; fires while mu4e is open; the timer is what notices mail that the
+    ;; fifteen-minute mbsync agent pulled in while it was not.
+    (add-hook 'mu4e-index-updated-hook #'my/mail-notify-new)
+    (run-with-timer 30 180 #'my/mail-notify-new)
+
+    ;; Jumping straight at one account's inbox, for when the question is the
+    ;; other one.
+    ;;
+    ;; Numbered rather than keyed by initial: two of these accounts begin with
+    ;; the same letter, and mu4e takes the last of a duplicate pair, so one of
+    ;; them would have had no shortcut at all.
+    (setq mu4e-maildir-shortcuts
+          '(${
+            lib.concatStringsSep "\n            "
+              (lib.imap1
+                (i: name: ''(:maildir "/${name}/Inbox" :key ?${toString i})'')
+                (lib.attrNames mailAccounts))
+          }))
   '';
 
   accounts.email = {
