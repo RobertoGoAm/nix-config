@@ -109,6 +109,41 @@ well under a second rather than parsing 700MB.
         stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(mtime))
         sys.stdout.write("\t".join([stamp, os.path.basename(cwd), branch, text, sid, cwd, path]) + "\n")
   '';
+#+end_src
+
+* A transcript is for reading, and the tool-call records dwarf the...
+
+A transcript is for reading, and the tool-call records dwarf the prose in the
+raw JSONL -- so this renders it down to the conversation. Hoisted up here
+beside the index rather than interpolated in the middle of the elisp, which
+is where it used to sit: two callers now want it.
+
+#+begin_src nix
+  transcript = pkgs.writers.writePython3Bin "claude-transcript" { flakeIgnore = [ "E501" ]; } ''
+    import json
+    import sys
+
+    for line in open(sys.argv[1], errors="replace"):
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if d.get("type") not in ("user", "assistant"):
+            continue
+        msg = d.get("message") or {}
+        content = msg.get("content")
+        parts = []
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    parts.append(part.get("text") or "")
+        body = "\n".join(p for p in parts if p.strip())
+        if body.strip():
+            who = "##" if d.get("type") == "user" else "###"
+            sys.stdout.write("%s %s\n\n%s\n\n" % (who, d.get("type"), body))
+  '';
 in
 {
   programs.emacs.extraConfig = lib.mkOrder 1450 ''
@@ -184,10 +219,12 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
-    (defun my/claude-resume-session (sid cwd &optional label)
+    (defun my/claude-resume-session (sid cwd &optional label path)
       "Resume conversation SID in a claude-code-ide session rooted at CWD.
     LABEL, when given, names the session so the manager sidebar has something
-    to show for it.
+    to show for it. PATH is the conversation's transcript, recorded on the new
+    session's buffer so the chat list can tell the two are one thing before the
+    first hook has fired and told it the same.
 
     Runs in the conversation's own directory: Claude resolves a session against
     the project it belongs to and does not find it from anywhere else.
@@ -212,6 +249,8 @@ in
       (require 'claude-code-ide)
       (let ((claude-code-ide-cli-extra-flags (format "--resume %s" sid)))
         (claude-code-ide--start-session nil nil cwd t))
+      (when path
+        (setq-local my/claude--transcript-path path))
       ;; Cosmetic, and deliberately best-effort: an unnamed sibling session is
       ;; still a working session, and it is not worth an error on the way into
       ;; one if the fork renames or moves either private function.
@@ -229,60 +268,34 @@ in
       (let ((row (my/claude--pick (if all "Resume any Claude session: "
                                     "Resume Claude session: ")
                                   all)))
-        (my/claude-resume-session (nth 4 row) (nth 5 row) (nth 3 row))))
+        (my/claude-resume-session (nth 4 row) (nth 5 row) (nth 3 row) (nth 6 row))))
+
+    (defun my/claude--render-transcript (path sid header)
+      "Render the conversation at PATH read-only and show it.
+    SID names the buffer; HEADER is the line put above the conversation."
+      (let ((buf (get-buffer-create (format "*claude transcript: %s*" sid))))
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert header "\n\n")
+            (insert (shell-command-to-string
+                     (format "%s %s" "${lib.getExe transcript}"
+                             (shell-quote-argument path))))
+            (goto-char (point-min))
+            (markdown-mode)
+            (view-mode 1)))
+        (pop-to-buffer buf)))
 
     (defun my/claude-view (&optional all)
       "Open a past conversation as text, without starting Claude.
     With a prefix argument ALL, offer conversations from every project."
       (interactive "P")
-      (let* ((row (my/claude--pick (if all "View any Claude transcript: "
-                                     "View Claude transcript: ")
-                                   all))
-             (path (nth 6 row))
-             (buf (get-buffer-create (format "*claude transcript: %s*" (nth 4 row)))))
-        (with-current-buffer buf
-          (let ((inhibit-read-only t))
-            (erase-buffer)
-            (insert (format "# %s  %s  %s\n\n" (nth 0 row) (nth 1 row) (nth 2 row)))
-            ;; Rendered rather than raw JSONL: the transcript is for reading, and
-            ;; the tool-call records dwarf the prose in the raw file.
-            (dolist (line (split-string
-                           (shell-command-to-string
-                            (format "%s %s" "${
-                              lib.getExe (
-                                pkgs.writers.writePython3Bin "claude-transcript" { flakeIgnore = [ "E501" ]; } ''
-                                  import json
-                                  import sys
-
-                                  for line in open(sys.argv[1], errors="replace"):
-                                      try:
-                                          d = json.loads(line)
-                                      except ValueError:
-                                          continue
-                                      if d.get("type") not in ("user", "assistant"):
-                                          continue
-                                      msg = d.get("message") or {}
-                                      content = msg.get("content")
-                                      parts = []
-                                      if isinstance(content, str):
-                                          parts.append(content)
-                                      elif isinstance(content, list):
-                                          for part in content:
-                                              if isinstance(part, dict) and part.get("type") == "text":
-                                                  parts.append(part.get("text") or "")
-                                      body = "\n".join(p for p in parts if p.strip())
-                                      if body.strip():
-                                          who = "##" if d.get("type") == "user" else "###"
-                                          sys.stdout.write("%s %s\n\n%s\n\n" % (who, d.get("type"), body))
-                                ''
-                              )
-                            }" (shell-quote-argument path)))
-                           "\n"))
-              (insert line "\n"))
-            (goto-char (point-min))
-            (markdown-mode)
-            (view-mode 1)))
-        (pop-to-buffer buf)))
+      (let ((row (my/claude--pick (if all "View any Claude transcript: "
+                                    "View Claude transcript: ")
+                                  all)))
+        (my/claude--render-transcript
+         (nth 6 row) (nth 4 row)
+         (format "# %s  %s  %s" (nth 0 row) (nth 1 row) (nth 2 row)))))
 
     (defun my/claude-search (term)
       "Search every past conversation for TERM and open the one you pick."
@@ -296,6 +309,209 @@ in
         (unless hits (user-error "No conversation mentions %s" term))
         (message "%d conversations mention %s" (length hits) term)
         (find-file (completing-read "Transcript: " hits nil t))))
+
+    ;;; ------------------------------------------------------------------
+    ;;; Every conversation in one list
+    ;;; ------------------------------------------------------------------
+    ;;
+    ;; The manager sidebar answers "what is running". Its rows come from the
+    ;; live session registry filtered on `process-live-p', so a conversation
+    ;; that is not open right now has no row and cannot be given one. The
+    ;; transcripts on disk are the other half, and the larger half: a handful of
+    ;; sessions running against a thousand conversations kept.
+    ;;
+    ;; This is both halves in one list. A live row carries the glyph the sidebar
+    ;; would draw for it and RET switches into it; a past row carries no glyph
+    ;; and RET resumes it. Told apart rather than blended, because the two
+    ;; actions differ in kind -- one moves the point, the other starts a
+    ;; process.
+
+    (defvar my/claude--chats-scope 'project
+      "Whether the chat list shows `project' or `all' conversations.")
+
+    (defvar my/claude--chats-index nil
+      "Conversation index the chat list is being built from.
+    A defvar rather than an argument threaded inward, for the reason
+    `my/claude--root' is one: this file is generated without a lexical-binding
+    cookie, so a lambda cannot capture a local. Bound once per refresh, because
+    reading it shells out.")
+
+    (defun my/claude--chat-here-p (row)
+      "Non-nil when chat ROW took place under `my/claude--root'.
+    Reads its root from the defvar for the reason `my/claude--row-here-p' does."
+      (file-in-directory-p (plist-get row :cwd) my/claude--root))
+
+    (defun my/claude--chat-title (path fallback)
+      "Title the index gives the conversation at PATH, or FALLBACK.
+    claude-code-ide names a live session after its directory, which says where
+    a conversation is and nothing about which one it is -- so a live row borrows
+    the title the index already has for its transcript, and reads the same as
+    the past rows below it. FALLBACK covers a session that has not written
+    anything yet, or one running somewhere the index skips."
+      (or (when path
+            (let ((found nil))
+              (dolist (f my/claude--chats-index)
+                (when (and (not found) (equal (nth 6 f) path))
+                  (setq found (nth 3 f))))
+              found))
+          fallback))
+
+    (defun my/claude--live-chats ()
+      "Rows for the sessions running right now.
+    Built from claude-code-ide's own items, so the glyph is the one its sidebar
+    would draw for each -- the states the Claude Code hooks push in included.
+
+    Empty, rather than an error, when the package has never been loaded: the
+    list is then just the conversation history, which is a reasonable thing to
+    open before starting anything."
+      (when (and (fboundp 'claude-code-ide-manager--build-items)
+                 (boundp 'claude-code-ide--sessions))
+        (let ((rows nil))
+          (dolist (item (claude-code-ide-manager--build-items '(:type global)))
+            (let* ((key (claude-code-ide-manager-item-session-key item))
+                   (dir (claude-code-ide-manager-item-directory item))
+                   (buf (claude-code-ide-manager--session-buffer key))
+                   (path (and (buffer-live-p buf)
+                              (buffer-local-value 'my/claude--transcript-path
+                                                  buf))))
+              (push (list :live t
+                          :key key
+                          :glyph (string-trim
+                                  (claude-code-ide-manager--marker-gutter item))
+                          :cwd dir
+                          :project (file-name-nondirectory
+                                    (directory-file-name dir))
+                          :when "live"
+                          :title (my/claude--chat-title
+                                  path
+                                  (claude-code-ide-manager-item-display-name item))
+                          :path path)
+                    rows)))
+          (nreverse rows))))
+
+    (defun my/claude--past-chats (live)
+      "Rows for the conversations on disk, minus the ones LIVE already covers.
+    Matched on the transcript path, which is exact: it is the file the CLI says
+    it is writing, and the same string the index reports. claude-code-ide's own
+    session id cannot do this job -- it is its own, and the CLI never sees it."
+      (let ((open (delq nil (mapcar (lambda (row) (plist-get row :path)) live)))
+            (rows nil))
+        (dolist (f my/claude--chats-index)
+          (unless (member (nth 6 f) open)
+            (push (list :live nil
+                        :glyph ""
+                        :cwd (nth 5 f)
+                        :project (nth 1 f)
+                        :when (nth 0 f)
+                        :title (nth 3 f)
+                        :sid (nth 4 f)
+                        :path (nth 6 f))
+                  rows)))
+        (nreverse rows)))
+
+    (defun my/claude--chats-entries ()
+      "Live sessions first, then the conversations on disk by recency."
+      (let* ((my/claude--chats-index (my/claude--sessions))
+             (live (my/claude--live-chats))
+             (rows (append live (my/claude--past-chats live)))
+             (entries nil))
+        (when (eq my/claude--chats-scope 'project)
+          (let* ((my/claude--root (my/claude--project-root))
+                 (here (seq-filter #'my/claude--chat-here-p rows)))
+            ;; An empty list is worse than a wide one: a project with no history
+            ;; would otherwise open a pane with nothing in it and no clue that
+            ;; `a' is what fills it.
+            (when here (setq rows here))))
+        (dolist (row rows)
+          (push (list row
+                      (vector (plist-get row :glyph)
+                              (propertize (plist-get row :project)
+                                          'face (if (plist-get row :live)
+                                                    'bold
+                                                  'default))
+                              (plist-get row :title)
+                              (plist-get row :when)))
+                entries))
+        (nreverse entries)))
+
+    (defun my/claude-chats-refresh ()
+      "Rebuild the list, leaving the point on the line it was on."
+      (interactive)
+      (let ((line (line-number-at-pos)))
+        (tabulated-list-print)
+        (goto-char (point-min))
+        (forward-line (1- line))))
+
+    (defun my/claude-chats-toggle-scope ()
+      "Switch between this project's conversations and every project's."
+      (interactive)
+      (setq my/claude--chats-scope
+            (if (eq my/claude--chats-scope 'project) 'all 'project))
+      (my/claude-chats-refresh)
+      (message "Claude chats: %s"
+               (if (eq my/claude--chats-scope 'all)
+                   "every project"
+                 "this project")))
+
+    (defun my/claude-chats-visit ()
+      "Enter the conversation on this line, resuming it when it is not running."
+      (interactive)
+      (let ((row (tabulated-list-get-id)))
+        (unless row (user-error "No conversation on this line"))
+        (if (plist-get row :live)
+            (claude-code-ide-manager-switch-to-session (plist-get row :key))
+          (message "Resuming %s..." (plist-get row :title))
+          (my/claude-resume-session (plist-get row :sid)
+                                    (plist-get row :cwd)
+                                    (plist-get row :title)
+                                    (plist-get row :path)))))
+
+    (defun my/claude-chats-view ()
+      "Read the conversation on this line without starting Claude."
+      (interactive)
+      (let* ((row (tabulated-list-get-id))
+             (path (and row (plist-get row :path))))
+        (unless row (user-error "No conversation on this line"))
+        (unless path
+          (user-error "This session has not written a transcript yet"))
+        (my/claude--render-transcript
+         path (or (plist-get row :sid) (plist-get row :project))
+         (format "# %s  %s" (plist-get row :when) (plist-get row :project)))))
+
+    (defvar my/claude-chats-mode-map
+      (let ((map (make-sparse-keymap)))
+        (define-key map (kbd "RET") #'my/claude-chats-visit)
+        (define-key map (kbd "v") #'my/claude-chats-view)
+        (define-key map (kbd "a") #'my/claude-chats-toggle-scope)
+        (define-key map (kbd "g") #'my/claude-chats-refresh)
+        (define-key map (kbd "q") #'quit-window)
+        map)
+      "Keymap for `my/claude-chats-mode'.")
+
+    (define-derived-mode my/claude-chats-mode tabulated-list-mode "Claude chats"
+      "Every Claude conversation, the running ones and the kept ones."
+      (setq tabulated-list-format
+            [("" 2 nil) ("Project" 20 nil) ("Chat" 58 nil) ("When" 16 nil)]
+            tabulated-list-padding 1
+            tabulated-list-entries #'my/claude--chats-entries)
+      (tabulated-list-init-header))
+
+    (defun my/claude-chats ()
+      "Every Claude conversation in one list: the running ones and the kept ones.
+    A live row is prefixed with the state glyph claude-code-ide draws for it --
+    `?' waiting on you, `✓' finished, `✗' failed, `⚙︎' working, `🔔' gone quiet --
+    and RET switches into it. A past row has no glyph, and RET resumes it in its
+    own project directory.
+
+    Opens on this project, which is the ordinary case; `a' widens it to every
+    project, which is the case both the manager sidebar and `claude --resume'
+    refuse. `v' reads a conversation without starting anything, `g' refreshes."
+      (interactive)
+      (let ((buf (get-buffer-create "*claude chats*")))
+        (with-current-buffer buf
+          (my/claude-chats-mode)
+          (tabulated-list-print))
+        (pop-to-buffer buf)))
   '';
 }
 #+end_src

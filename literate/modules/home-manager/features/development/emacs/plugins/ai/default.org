@@ -142,17 +142,18 @@ in
     (with-eval-after-load 'claude-code-ide
       (claude-code-ide-emacs-tools-setup))
 
-    (defun my/claude-sessions ()
-      "Show every Claude session, in every project, with its state.
-    A row per live session, glyph first: `?' waiting on you, `✓' finished,
-    `✗' failed, `⚙︎' working, `🔔' gone quiet. RET switches into one, SPC
-    switches but keeps the point here, s starts a session on a project row
-    that has none, and g refreshes."
-      (interactive)
-      (claude-code-ide-manager-toggle-global-sidebar))
+    (defvar-local my/claude--transcript-path nil
+      "Transcript the Claude session in this buffer is writing.
+    The only exact handle between a running session and its file on disk:
+    claude-code-ide's session id is its own and the CLI never sees it, while
+    the CLI's id is not something the package is told. The hooks know both, so
+    they carry the path across. `my/claude-chats' uses it to recognise that a
+    row in the history and a row in the session list are one conversation.")
 
-    (defun my/claude-set-session-state (buffer-name state)
+    (defun my/claude-set-session-state (buffer-name state &optional transcript)
       "Record STATE as the agent state of the Claude session in BUFFER-NAME.
+    TRANSCRIPT, when given, is the conversation's file on disk.
+
     The entry point for the Claude Code hooks in the claude-code module, which
     reach it over emacsclient: the CLI knows it has stopped, or wants an
     answer, and only Emacs can draw that beside the session's name.
@@ -169,6 +170,8 @@ in
                    (fboundp 'claude-code-ide-session-buffer-p))
           (with-current-buffer buf
             (when (claude-code-ide-session-buffer-p buf)
+              (when (and transcript (not (string-empty-p transcript)))
+                (setq-local my/claude--transcript-path transcript))
               (claude-code-ide-session-idle-set-agent-state state))))))
 
     (defun my/claude-send-region-or-file ()
