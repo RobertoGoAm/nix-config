@@ -183,15 +183,34 @@ in
     ;; session is a pane, not a desktop, and losing the window layout on the way
     ;; into a conversation is a high price for a magit buffer nobody asked for.
     ;; Bypassed rather than configured off, since it is the package's model
-    ;; rather than a setting: nothing calls `claude-code-ide-manager-switch-to-session'
-    ;; any more, and the sidebar's own RET is pointed at the function below.
+    ;; rather than a setting: `claude-code-ide-manager-switch-to-session' is
+    ;; overridden below, so every route into a session -- the sidebar's RET, its
+    ;; `n' and `p', a click on a row, the transient, a reattached zmx session --
+    ;; lands in the pane rather than rebuilding the frame around it.
+
+    (defun my/claude--pane-windows ()
+      "Windows showing a Claude session on this frame."
+      (seq-filter (lambda (win)
+                    (and (fboundp 'claude-code-ide-session-buffer-p)
+                         (claude-code-ide-session-buffer-p (window-buffer win))))
+                  (window-list nil 'no-minibuffer)))
 
     (defun my/claude--pane-window ()
       "The window showing a Claude session on this frame, if one is."
-      (seq-find (lambda (win)
-                  (and (fboundp 'claude-code-ide-session-buffer-p)
-                       (claude-code-ide-session-buffer-p (window-buffer win))))
-                (window-list)))
+      (car (my/claude--pane-windows)))
+
+    (defun my/claude--collapse-stray-panes ()
+      "Close the windows showing a session outside the drawer.
+    One conversation at a time in one column is the point of the drawer, and a
+    session in an ordinary window is a second pane doing the drawer's job. It is
+    also sticky: `display-buffer-reuse-window' finds a window already showing
+    the buffer before the drawer rule is ever consulted, so every later switch
+    into that conversation goes back to the stray window."
+      (dolist (win (my/claude--pane-windows))
+        (when (and (window-live-p win)
+                   (not (window-parameter win 'window-side))
+                   (not (one-window-p)))
+          (ignore-errors (delete-window win)))))
 
     (defun my/claude-show-session (key)
       "Show the session KEY in the Claude pane and put the point in it.
@@ -204,6 +223,7 @@ in
         ;; `claude-code-ide' still reopens the session last looked at.
         (when (fboundp 'claude-code-ide--touch-session)
           (ignore-errors (claude-code-ide--touch-session key)))
+        (my/claude--collapse-stray-panes)
         (pop-to-buffer buf)))
 
     (defun my/claude-pane-toggle ()
@@ -236,6 +256,55 @@ in
         (evil-define-key 'normal claude-code-ide-manager-mode-map
           (kbd "RET") #'my/claude-sidebar-visit
           (kbd "SPC") #'my/claude-sidebar-peek)))
+
+    (defun my/claude--manager-switch-in-pane (session-key &optional keep-manager-focus scope)
+      "Show SESSION-KEY in the Claude pane, in place of the package's workspace.
+
+    The override for `claude-code-ide-manager-switch-to-session', which
+    otherwise captures the frame's layout under the session being left, runs
+    `delete-other-windows', and rebuilds the frame as a status buffer -- magit,
+    or dired when magit is absent -- beside the session. Switching conversation
+    is not switching project here: the pane is somewhere to talk to Claude, and
+    the windows around it belong to whatever you were reading. A conversation
+    that has nothing to do with the code in front of you is the ordinary case,
+    not the exception.
+
+    The sidebar's own bookkeeping is kept: the row for SESSION-KEY becomes the
+    current one, its state glyph clears on the way in, and the recency order
+    `claude-code-ide' reopens by is updated. KEEP-MANAGER-FOCUS leaves the point
+    where it is, which is what the sidebar passes while `n' and `p' walk it."
+      (let ((scope (or scope (claude-code-ide-manager--scope-for-command))))
+        (unless (claude-code-ide-manager--ensure-live-target session-key scope)
+          (user-error "No live session buffer for %s" session-key))
+        ;; Best-effort on purpose: all of this only decides how the sidebar
+        ;; draws itself, and a private function moving under the fork is not
+        ;; worth an error between you and the conversation.
+        (ignore-errors
+          (setq claude-code-ide-manager--current-session-key session-key)
+          (claude-code-ide-manager--set-scope-active-session-key scope session-key)
+          (claude-code-ide-manager--mark-session-managed session-key)
+          (claude-code-ide-manager--reset-session-idle-state session-key)
+          (claude-code-ide-manager--save-state)
+          (claude-code-ide-manager--refresh-sidebar-state scope nil))
+        (if keep-manager-focus
+            (save-selected-window (my/claude-show-session session-key))
+          (my/claude-show-session session-key))
+        (my/claude--pane-window)))
+
+    (defun my/claude--manager-layout-in-pane (session-key &optional _scope)
+      "Show SESSION-KEY in the pane and return the window it is in.
+    The override for `claude-code-ide-manager--build-default-layout', which is
+    what opens the project: it is the frame-rebuilding half of the workspace
+    model, reached from the restore path and from `R' on a sidebar row. There is
+    nothing to rebuild when the layout is one pane."
+      (my/claude-show-session session-key)
+      (my/claude--pane-window))
+
+    (with-eval-after-load 'claude-code-ide-manager
+      (advice-add 'claude-code-ide-manager-switch-to-session
+                  :override #'my/claude--manager-switch-in-pane)
+      (advice-add 'claude-code-ide-manager--build-default-layout
+                  :override #'my/claude--manager-layout-in-pane))
 
     (defun my/claude-sidebar-open-maybe (&optional _frame)
       "Open the live-session sidebar on this frame, once.

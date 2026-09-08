@@ -211,6 +211,36 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
+    (defvar-local my/claude--resumed-sid nil
+      "Conversation this session was resumed from, when it was resumed.
+
+    The transcript path is the exact handle between a running session and its
+    file on disk, but it only holds until a resumed session says something:
+    `claude --resume' continues the conversation into a transcript of its own,
+    and the hooks then report that new file. This is the handle that does not
+    move, so the chat list can still tell that a row in the history and the
+    session running in the pane are one conversation.")
+
+    (defun my/claude--live-session-for (sid path)
+      "Key of the session already running conversation SID, if one is.
+    Matched on the transcript at PATH while a session is still writing that
+    file, and on the conversation it was resumed from once it is not."
+      (when (and (fboundp 'claude-code-ide-manager--build-items)
+                 (fboundp 'claude-code-ide-manager--session-buffer))
+        (catch 'found
+          (dolist (item (claude-code-ide-manager--build-items '(:type global)))
+            (let* ((key (claude-code-ide-manager-item-session-key item))
+                   (buf (claude-code-ide-manager--session-buffer key)))
+              (when (and (buffer-live-p buf)
+                         (or (and path
+                                  (equal path (buffer-local-value
+                                               'my/claude--transcript-path buf)))
+                             (and sid
+                                  (equal sid (buffer-local-value
+                                              'my/claude--resumed-sid buf)))))
+                (throw 'found key))))
+          nil)))
+
     (defun my/claude-resume-session (sid cwd &optional label path)
       "Resume conversation SID in a claude-code-ide session rooted at CWD.
     LABEL, when given, names the session so the manager sidebar has something
@@ -235,23 +265,42 @@ in
     around a private entry point, because the public commands cannot express
     \"this directory, a new session, these flags\" -- `claude-code-ide-resume'
     would toggle into the project's existing session instead of starting one on
-    the conversation asked for."
+    the conversation asked for.
+
+    A conversation already resumed and still running is switched into rather
+    than resumed again: a second CLI on one conversation is two panes, two sets
+    of hooks and two claims on the transcript, and it is never what picking the
+    row meant."
       (unless (file-directory-p cwd)
         (user-error "That conversation's directory no longer exists: %s" cwd))
       (require 'claude-code-ide)
-      (let ((claude-code-ide-cli-extra-flags (format "--resume %s" sid)))
-        (claude-code-ide--start-session nil nil cwd t))
-      (when path
-        (setq-local my/claude--transcript-path path))
-      ;; Cosmetic, and deliberately best-effort: an unnamed sibling session is
-      ;; still a working session, and it is not worth an error on the way into
-      ;; one if the fork renames or moves either private function.
-      (when label
-        (ignore-errors
-          (when-let* ((key (claude-code-ide-manager--session-key-for-buffer
-                            (current-buffer))))
-            (claude-code-ide-manager-rename-session
-             key (truncate-string-to-width label 28))))))
+      (if-let* ((running (my/claude--live-session-for sid path)))
+          (my/claude-show-session running)
+        (let* ((claude-code-ide-cli-extra-flags (format "--resume %s" sid))
+               (session (claude-code-ide--start-session nil nil cwd t))
+               ;; The struct's own buffer rather than the current one: this
+               ;; happens to run in the new session's buffer, because the
+               ;; package selects its window on the way out, and that is a
+               ;; setting away from being false.
+               (buf (or (and (claude-code-ide-session-p session)
+                             (claude-code-ide-session-buffer session))
+                        (and (claude-code-ide-session-buffer-p (current-buffer))
+                             (current-buffer)))))
+          (when (buffer-live-p buf)
+            (with-current-buffer buf
+              (setq-local my/claude--resumed-sid sid)
+              (when path
+                (setq-local my/claude--transcript-path path)))
+            ;; Cosmetic, and deliberately best-effort: an unnamed sibling
+            ;; session is still a working session, and it is not worth an error
+            ;; on the way into one if the fork renames or moves either private
+            ;; function.
+            (when label
+              (ignore-errors
+                (when-let* ((key (claude-code-ide-manager--session-key-for-buffer
+                                  buf)))
+                  (claude-code-ide-manager-rename-session
+                   key (truncate-string-to-width label 28)))))))))
 
     (defun my/claude-resume (&optional all)
       "Pick a past Claude conversation from this project and resume it.
@@ -381,17 +430,21 @@ in
     Reads its root from the defvar for the reason `my/claude--row-here-p' does."
       (file-in-directory-p (plist-get row :cwd) my/claude--root))
 
-    (defun my/claude--chat-title (path fallback)
-      "Title the index gives the conversation at PATH, or FALLBACK.
+    (defun my/claude--chat-title (path sid fallback)
+      "Title the index gives the conversation at PATH or with id SID, or FALLBACK.
     claude-code-ide names a live session after its directory, which says where
     a conversation is and nothing about which one it is -- so a live row borrows
     the title the index already has for its transcript, and reads the same as
-    the past rows below it. FALLBACK covers a session that has not written
-    anything yet, or one running somewhere the index skips."
-      (or (when path
+    the past rows below it. SID is the same lookup for a resumed session, whose
+    transcript has moved on but whose conversation the index still knows.
+    FALLBACK covers a session that has not written anything yet, or one running
+    somewhere the index skips."
+      (or (when (or path sid)
             (let ((found nil))
               (dolist (f my/claude--chats-index)
-                (when (and (not found) (equal (nth 6 f) path))
+                (when (and (not found)
+                           (or (and path (equal (nth 6 f) path))
+                               (and sid (equal (nth 4 f) sid))))
                   (setq found (nth 3 f))))
               found))
           fallback))
@@ -413,7 +466,9 @@ in
                    (buf (claude-code-ide-manager--session-buffer key))
                    (path (and (buffer-live-p buf)
                               (buffer-local-value 'my/claude--transcript-path
-                                                  buf))))
+                                                  buf)))
+                   (sid (and (buffer-live-p buf)
+                             (buffer-local-value 'my/claude--resumed-sid buf))))
               (push (list :live t
                           :key key
                           :glyph (string-trim
@@ -423,8 +478,9 @@ in
                                     (directory-file-name dir))
                           :when "live"
                           :title (my/claude--chat-title
-                                  path
+                                  path sid
                                   (claude-code-ide-manager-item-display-name item))
+                          :sid sid
                           :path path)
                     rows)))
           (nreverse rows))))
@@ -433,11 +489,17 @@ in
       "Rows for the conversations on disk, minus the ones LIVE already covers.
     Matched on the transcript path, which is exact: it is the file the CLI says
     it is writing, and the same string the index reports. claude-code-ide's own
-    session id cannot do this job -- it is its own, and the CLI never sees it."
+    session id cannot do this job -- it is its own, and the CLI never sees it.
+
+    A resumed conversation is matched on the conversation it came from as well,
+    since the CLI writes the continuation to a transcript of its own and the
+    path stops matching as soon as it does."
       (let ((open (delq nil (mapcar (lambda (row) (plist-get row :path)) live)))
+            (resumed (delq nil (mapcar (lambda (row) (plist-get row :sid)) live)))
             (rows nil))
         (dolist (f my/claude--chats-index)
-          (unless (member (nth 6 f) open)
+          (unless (or (member (nth 6 f) open)
+                      (member (nth 4 f) resumed))
             (push (list :live nil
                         :glyph ""
                         :cwd (nth 5 f)
