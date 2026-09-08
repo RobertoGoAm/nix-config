@@ -104,19 +104,27 @@
       "c"   '(my/add-cursors :which-key "add cursor")
 
       ;; ai — no nvim counterpart; the Claude Code CLI, in the editor.
+      ;;
+      ;; aa is the hub: every session, in every project, with the state of each
+      ;; one. at is the old aa, one project's session toggled in place, which
+      ;; claude-code-ide gives for free -- the my/claude-toggle wrapper that
+      ;; used to be needed here is gone with claude-code.el.
       "a"  '(:ignore t :which-key "ai")
-      "aa" '(my/claude-toggle :which-key "toggle claude")
+      "aa" '(my/claude-sessions :which-key "all sessions + state")
       "ab" '(my/claude-send-region-or-file :which-key "send region or file")
       "ac" '(gptel :which-key "chat")
-      "ad" '(claude-code-fix-diagnostic :which-key "fix diagnostic at point")
-      "af" '(claude-code-insert-current-file-path-to-session :which-key "send file reference")
+      "ad" '(my/claude-fix-diagnostic :which-key "fix diagnostic at point")
+      "af" '(claude-code-ide-send-current-file-line-reference :which-key "send file reference")
       "ag" '(my/claude-search :which-key "search all conversations")
       "ah" '(my/claude-resume :which-key "resume conversation (C-u: any project)")
       "aH" '(my/claude-view :which-key "view transcript (C-u: any project)")
-      "al" '(my/claude-switch :which-key "switch live session")
-      "am" '(claude-code-transient :which-key "claude menu")
+      "al" '(claude-code-ide-list-sessions :which-key "switch live session")
+      "am" '(claude-code-ide-menu :which-key "claude menu")
+      "an" '(claude-code-ide-new-session :which-key "new session here")
+      "ar" '(claude-code-ide-manager-toggle-repo-sidebar :which-key "this repo's sessions")
+      "at" '(claude-code-ide :which-key "toggle claude here")
       "ax" '(my/ai-drawer-close :which-key "close drawer")
-      "aq" '(claude-code-quit :which-key "quit claude")
+      "aq" '(claude-code-ide-stop :which-key "quit claude")
       "as" '(gptel-send :which-key "send to chat")
       "aw" '(gptel-rewrite :which-key "rewrite region")
 
