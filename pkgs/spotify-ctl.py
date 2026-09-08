@@ -193,14 +193,21 @@ def main():
         elif cmd == "use":
             # Transfer playback. Accepts a device id, or a name to look up --
             # ids change between librespot restarts, names do not.
-            want = sys.argv[2] if len(sys.argv) > 2 else "Emacs"
+            #
+            # Transferring does not start anything unless --play says so.
+            # Selecting the device is a setup step -- it is what stops the
+            # next play/pause asking which device you meant -- and something
+            # run at login has no business deciding that music should begin.
+            args = [a for a in sys.argv[2:] if a != "--play"]
+            play = "--play" in sys.argv[2:]
+            want = args[0] if args else "Emacs"
             d = call("GET", "/me/player/devices", token) or {}
             devs = d.get("devices", [])
             match = next((x for x in devs if x.get("id") == want), None) \
                 or next((x for x in devs if (x.get("name") or "").lower() == want.lower()), None)
             if match:
                 call("PUT", "/me/player", token,
-                     {"device_ids": [match["id"]], "play": True})
+                     {"device_ids": [match["id"]], "play": play})
         elif cmd == "next":
             call("POST", "/me/player/next", token)
         elif cmd == "previous":

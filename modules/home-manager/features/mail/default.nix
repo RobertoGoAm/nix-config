@@ -40,6 +40,20 @@ let
   mailAccounts = private.accounts or { };
   enable = mailAccounts != { };
 
+  # The primary account first, everything else after it.
+  #
+  # mu4e picks a context by asking each one's match-func about a message, and
+  # at startup there is no message -- so the choice falls to
+  # `mu4e-context-policy', which is set to `pick-first' below so that starting
+  # mail in the background never stops to ask. First is therefore the account
+  # a reply with no context behind it is sent from, and alphabetical order has
+  # no opinion about which account that should be. This does.
+  orderedNames =
+    let
+      byPrimary = lib.partition (n: mailAccounts.${n}.primary or false) (lib.attrNames mailAccounts);
+    in
+    byPrimary.right ++ byPrimary.wrong;
+
   maildir = "${config.home.homeDirectory}/Mail";
 
   # mbsync and msmtp both take the password from a command rather than...
@@ -90,10 +104,26 @@ lib.mkIf enable {
           ;; mbsync alone is not enough: the launchd agent pulls new mail into
           ;; the Maildir every 15 minutes, but nothing indexes it, so mu4e
           ;; keeps showing the store as it was when it last looked. This makes
-          ;; mu4e run the fetch AND the index itself while it is open. The
-          ;; agent still earns its place for the hours Emacs is closed -- the
-          ;; next update indexes whatever it collected.
+          ;; mu4e run the fetch AND the index itself. Now that mu4e is started
+          ;; in the background at the first frame (below), this is the loop
+          ;; that runs all day, and the agent is the one that covers the hours
+          ;; the daemon is down.
           mu4e-update-interval 300
+          ;; Every one of those updates would otherwise narrate itself in the
+          ;; echo area -- "Indexing... checked 41283, updated 2" -- five
+          ;; minutes apart, forever, over whatever you were reading. The
+          ;; arrival of mail is announced by the banner below; the mechanics
+          ;; of fetching it are not news.
+          mu4e-hide-index-messages t
+          ;; Never stop to ask which account this is.
+          ;;
+          ;; The default is `ask-if-none', and with no context yet and no
+          ;; message to match against, starting mu4e in the background would
+          ;; open with a prompt -- in the minibuffer, in whatever frame
+          ;; happened to be in front, seconds after login. `pick-first' takes
+          ;; the head of `mu4e-contexts', which is why the list above is built
+          ;; with the primary account first.
+          mu4e-context-policy 'pick-first
           mu4e-change-filenames-when-moving t
           mu4e-completing-read-function #'completing-read
           mu4e-confirm-quit nil
@@ -111,8 +141,12 @@ lib.mkIf enable {
       (setq mu4e-contexts
             (list
     ${
-      lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (name: a: ''
+      lib.concatMapStringsSep "\n" (
+        name:
+        let
+          a = mailAccounts.${name};
+        in
+        ''
           (make-mu4e-context
            :name "${name}"
            :match-func
@@ -123,8 +157,8 @@ lib.mkIf enable {
                    (user-full-name    . "${a.realName}")
                    (mu4e-sent-folder   . "/${name}/Sent")
                    (mu4e-drafts-folder . "/${name}/Drafts")
-                   (mu4e-trash-folder  . "/${name}/Trash")))'') mailAccounts
-      )
+                   (mu4e-trash-folder  . "/${name}/Trash")))''
+      ) orderedNames
     })))
 
     ;; One inbox across every account.
@@ -219,6 +253,25 @@ lib.mkIf enable {
     (add-hook 'mu4e-index-updated-hook #'my/mail-notify-new)
     (run-with-timer 30 180 #'my/mail-notify-new)
 
+    ;; Mail that arrives without being asked for.
+    ;;
+    ;; `mu4e-update-interval' only means anything while mu4e is running, and
+    ;; nothing ran it: the fetch loop began when the mailbox was opened and
+    ;; stopped when it was quit, so on a day mu4e was never opened the only
+    ;; thing pulling mail was the quarter-hourly agent. This starts mu4e with
+    ;; the first frame instead -- `mu4e' with a non-nil argument is mu4e's own
+    ;; "start the server and the update timer, do not show the main view", so
+    ;; there is nothing to look at unless you ask for it.
+    ;;
+    ;; The first fetch is immediate: mu4e's update timer is created with a
+    ;; delay of 0, so the inbox is current by the time you first look at it.
+    (defun my/mail-start-in-background ()
+      "Start mu4e without showing it, so mail keeps arriving on its own."
+      (unless (bound-and-true-p mu4e--started)
+        (mu4e t)))
+
+    (add-hook 'my/startup-hook #'my/mail-start-in-background)
+
     ;; Jumping straight at one account's inbox, for when the question is the
     ;; other one.
     ;;
@@ -251,19 +304,27 @@ lib.mkIf enable {
     config = {
       ProgramArguments = [
         "${pkgs.writeShellScript "mbsync-and-index" ''
-          ${pkgs.isync}/bin/mbsync -a
-          # Index what was just fetched. Without this the Maildir grows while
-          # mu's view of it does not, so everything reading the index -- the
-          # dashboard count, the status-bar badge -- reports the store as mu
-          # last saw it, which stays wrong for as long as Emacs is closed.
+          # Nothing to do while mu4e has the store open.
           #
-          # Skipped while mu4e holds the server open: mu4e indexes on its own
-          # timer, and a second indexer fights it for the write lock. With
-          # Emacs closed there is no contention, and this is then the only
-          # thing keeping the index current.
-          if ! ${pkgs.procps}/bin/pgrep -f "mu server" >/dev/null 2>&1; then
-            ${pkgs.mu}/bin/mu index --quiet || true
+          # mu4e is started with the first Emacs frame now, and it fetches
+          # every five minutes against this agent's fifteen -- so for as long
+          # as the daemon is up this agent has nothing to add, and running
+          # anyway is worse than idling. Two mbsyncs over one Maildir contend
+          # for the per-channel lock and the loser aborts, and a second
+          # indexer fights mu4e's own for the write lock.
+          #
+          # What is left is the case this agent exists for: the hours the
+          # daemon is down, when it is the only thing pulling mail in and the
+          # only thing keeping the index current. Without the index step the
+          # Maildir grows while mu's view of it does not, and everything
+          # reading that index -- the dashboard count, the status-bar badge --
+          # reports the store as mu last saw it.
+          if ${pkgs.procps}/bin/pgrep -f "mu server" >/dev/null 2>&1; then
+            exit 0
           fi
+
+          ${pkgs.isync}/bin/mbsync -a
+          ${pkgs.mu}/bin/mu index --quiet || true
         ''}"
       ];
       RunAtLoad = true;

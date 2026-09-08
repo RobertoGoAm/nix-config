@@ -11,6 +11,42 @@
 }:
 let
   darwin = pkgs.stdenv.hostPlatform.isDarwin;
+
+  # Everything the Emacs device needs on the way in, in one script.
+  #
+  # In shell rather than in a chain of process sentinels because it is a
+  # sequence, not a computation: ask, maybe kill, wait, ask again, select. It
+  # is started detached, so the fifteen-second wait costs Emacs nothing.
+  ensureDevice = pkgs.writeShellScript "spotify-ensure-device" ''
+    list=$(${lib.getExe pkgs.spotify-ctl} devices 2>/dev/null)
+
+    # Only ever act on a positive answer. spotify-ctl exits 0 whether the API
+    # failed or genuinely returned nothing, so an empty list proves nothing --
+    # treating it as "device missing" would kill a working daemon on every
+    # network blip, the same trap the watchdog in features/media/spotify.nix
+    # documents.
+    [ -n "$list" ] || exit 0
+
+    if ! printf '%s\n' "$list" | cut -f2 | grep -qx 'Emacs'; then
+      # Running but not advertising is the failure KeepAlive cannot see:
+      # librespot loses its websocket and stays up. Killing it is the cure,
+      # and launchd has it back before this script has finished sleeping.
+      /usr/bin/pkill -x librespot || true
+      sleep 15
+      list=$(${lib.getExe pkgs.spotify-ctl} devices 2>/dev/null)
+    fi
+
+    case "$(printf '%s\n' "$list" | awk -F'\t' '$2 == "Emacs" { print ($3 == "active") ? "active" : "idle" }')" in
+      # Selecting the device is what stops the first play/pause of the day
+      # answering "No active device. Would you like to select one?" -- see
+      # smudge-connect-when-device-active. Without --play it transfers and
+      # nothing starts, which is the point: this runs at login.
+      idle) ${lib.getExe pkgs.spotify-ctl} use Emacs ;;
+      # Already in front, or still missing after a restart. Neither is
+      # something to do anything about from here.
+      *) exit 0 ;;
+    esac
+  '';
 in
 {
 #+end_src
@@ -104,6 +140,23 @@ separate change.
                        (if (string-match-p "^Emacs$" out)
                            "Emacs device is back."
                          "Emacs device still missing — check ~/Library/Logs/librespot.err.log")))))))))) 
+
+        ;; The same check, unasked, at the start of the day.
+        ;;
+        ;; The device you meant to play to is the one thing about this setup
+        ;; that can be quietly wrong for hours: librespot is up, launchd is
+        ;; happy, and the picker does not list it. Asking once when the first
+        ;; frame appears costs one Web API call and means the answer to the
+        ;; first play/pause is music rather than a question about devices.
+        ;;
+        ;; Detached -- a destination of 0 neither waits nor keeps a buffer --
+        ;; because the script sleeps fifteen seconds when it has to restart
+        ;; librespot, and none of that is Emacs's business.
+        (defun my/music-ensure-device ()
+          "Make sure the Emacs Connect device is up, and is the one selected."
+          (call-process "${ensureDevice}" nil 0 nil))
+
+        (add-hook 'my/startup-hook #'my/music-ensure-device)
 
         (defun my/music-playpause ()
           "Toggle play/pause, then report what happened."

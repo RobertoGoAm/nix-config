@@ -33,6 +33,7 @@ in
     ./keybinds.nix
     ./options.nix
     ./plugins
+    ./startup.nix
   ];
 
   # TRAMP writes temp files under the XDG cache, and a root-owned
