@@ -46,6 +46,7 @@
           ;; the menu bar says it did not, and unread mail is a number that
           ;; changes nothing about what to open next.
           dashboard-items '((config   . 1)
+                            (todo     . 8)
                             (recents  . 12)
                             (projects . 8)
                             (bookmarks . 5))
@@ -63,23 +64,14 @@
     ;; Setting that variable by hand as well is what makes `emacsclient file' open the
     ;; dashboard instead of the file, so it is deliberately left to dashboard.el.
     ;; Two custom sections, each answering a question the editor is otherwise
-    ;; silent about.
-    ;;
-    ;; Backup age, because restic has twice stopped for days unnoticed -- once
-    ;; while still pinging its dead-man switch. The SwiftBar collector already
-    ;; caches the last snapshot time, so this reads that file rather than
-    ;; talking to the repository again.
-    ;;
-    ;; Unread mail, because mu4e only reports it while running, and a home
-    ;; screen is exactly where you want what arrived while you were not
-    ;; looking. Shelling out to mu keeps it independent of mu4e being loaded.
+    ;; silent about: what state the config is in, and what is on the list.
     ;;
     ;; Both bodies are wrapped in condition-case: a generator that signals
     ;; takes the whole dashboard with it, and this is the first buffer of
     ;; every session.
     (defun my/dashboard-config (_list-size)
       "Insert the state of the nix config: uncommitted, unpushed, drifted."
-      (dashboard-insert-heading "nix-config:" "g")
+      (dashboard-insert-heading "nix-config:" (dashboard-get-shortcut 'config))
       (insert "\n    ")
       (insert
        (condition-case nil
@@ -96,6 +88,121 @@
                "clean"))
          (error "unavailable")))
       (insert "\n"))
+
+    ;; The list, read from the file the phone edits too.
+    ;;
+    ;; One file rather than the whole vault. A vault is full of "- [ ]" lines
+    ;; that are template scaffolding rather than work -- a single daily note
+    ;; carries a dozen empty ones -- so scanning it would fill the home screen
+    ;; with blanks. TaskForge.md is the file TaskForge syncs, which makes it
+    ;; exactly the list that also exists on the phone: added here, it is on the
+    ;; phone; ticked there, it is gone from here.
+    ;;
+    ;; Obsidian Tasks keeps its metadata in emoji -- created, start, scheduled,
+    ;; due, done, cancelled, recurrence, priority -- all of it after the
+    ;; description. So the description is everything before the first of them,
+    ;; and the only piece worth showing next to it is the due date.
+    (defvar my/dashboard-todo-file "TaskForge.md"
+      "File, relative to the Obsidian vault, that the Todo section reads.")
+
+    (defconst my/dashboard--task-meta-rx
+      "[📅⏳🛫➕✅❌🔁⏫🔼🔽🔺]"
+      "Where the Obsidian Tasks metadata starts on a task line.")
+
+    (defun my/dashboard--todo-path ()
+      "Absolute path of the todo file, or nil when there is no vault."
+      (let ((vault (bound-and-true-p obsidian-directory)))
+        (when vault (expand-file-name my/dashboard-todo-file vault))))
+
+    (defun my/dashboard--tasks ()
+      "Open tasks in the todo file as (DUE TEXT LINE), soonest first.
+    DUE is nil for a task with no date, and those sort last -- a list with no
+    deadline on it is not more urgent than one with a deadline next week."
+      (let ((path (my/dashboard--todo-path))
+            (rows nil))
+        (when (and path (file-readable-p path))
+          (with-temp-buffer
+            (insert-file-contents path)
+            (goto-char (point-min))
+            (let ((n 0))
+              (while (not (eobp))
+                (setq n (1+ n))
+                (let ((line (buffer-substring-no-properties
+                             (line-beginning-position) (line-end-position))))
+                  (when (string-match "\\`[ \t]*[-*+] \\[ \\] +\\(.*\\)\\'" line)
+                    (let* ((body (match-string 1 line))
+                           (due (when (string-match
+                                       "📅 *\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)"
+                                       body)
+                                  (match-string 1 body)))
+                           (text (string-trim
+                                  (car (split-string body my/dashboard--task-meta-rx)))))
+                      (unless (string-empty-p text)
+                        (push (list due text n) rows)))))
+                (forward-line 1)))))
+        (sort (nreverse rows)
+              (lambda (a b)
+                (let ((da (car a)) (db (car b)))
+                  (cond ((and da db) (string< da db))
+                        (da t)
+                        (t nil)))))))
+
+    (defvar my/dashboard-todo-map
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "RET") #'my/dashboard-todo-open)
+        (define-key m [mouse-1] #'my/dashboard-todo-open)
+        m)
+      "Keymap active on a task row in the dashboard.")
+
+    (defun my/dashboard-todo-open ()
+      "Open the todo file at the task on this line."
+      (interactive)
+      (let ((line (get-text-property (point) 'my/todo-line))
+            (path (my/dashboard--todo-path)))
+        (if (not (and line path))
+            (message "No task on this line")
+          (find-file path)
+          (goto-char (point-min))
+          (forward-line (1- line)))))
+
+    (defun my/dashboard-todo (list-size)
+      "Insert the open tasks from the vault, soonest first."
+      (dashboard-insert-heading "Todo:" (dashboard-get-shortcut 'todo))
+      (insert "\n")
+      (condition-case nil
+          (let ((path (my/dashboard--todo-path)))
+            (cond
+             ((null path) (insert "    no vault\n"))
+             ((not (file-readable-p path))
+              (insert (format "    no %s in the vault\n" my/dashboard-todo-file)))
+             (t
+              (let ((rows (seq-take (my/dashboard--tasks) (or list-size 8)))
+                    (today (format-time-string "%Y-%m-%d")))
+                (if (null rows)
+                    (insert "    nothing open\n")
+                  (dolist (r rows)
+                    (let* ((due (nth 0 r))
+                           (start (point))
+                           ;; Late is an error, today is a warning, and a date
+                           ;; further out is dimmed -- it is on the list, but it
+                           ;; is not what today is for.
+                           (face (cond ((null due) 'shadow)
+                                       ((string< due today) 'error)
+                                       ((string= due today) 'warning)
+                                       (t 'shadow))))
+                      (insert (format "    %-58s %s\n"
+                                      (truncate-string-to-width (nth 1 r) 58)
+                                      (propertize (or due "") (quote face) face)))
+                      ;; Stop one character short of point, so the trailing
+                      ;; newline stays bare: a `mouse-face' covering the line
+                      ;; break highlights into the row below.
+                      (add-text-properties
+                       start (1- (point))
+                       (list 'my/todo-line (nth 2 r)
+                             'keymap my/dashboard-todo-map
+                             'mouse-face 'highlight
+                             'help-echo "RET or click: open this task in the vault")))))))))
+        (error (insert "    unavailable\n"))))
 
     ;; Jump to any single entry, not just to a section.
     ;;
@@ -157,16 +264,42 @@
         (define-key dashboard-mode-map (kbd "O") #'my/dashboard-jump-to-entry)))
 
     (add-to-list (quote dashboard-item-generators) (quote (config . my/dashboard-config)))
+    (add-to-list (quote dashboard-item-generators) (quote (todo . my/dashboard-todo)))
 
-    ;; The key each heading advertises is the SECOND argument to
-    ;; dashboard-insert-heading. Passing nil there -- as these did at first --
-    ;; registers the shortcut but prints no hint, so the keys worked and were
-    ;; invisible.
+    ;; The letters in brackets, made true.
     ;;
-    ;; Section shortcuts. dashboard drives these through a
-    ;; dashboard-jump-to-<section> function, which it only defines for its own
-    ;; built-in sections -- a custom generator gets a shortcut that silently
-    ;; does nothing unless the function exists, so define one per section.
+    ;; Every one of them did nothing. Three things were in the way, and each
+    ;; would have been enough on its own:
+    ;;
+    ;;   - The hint next to a heading comes from `dashboard-item-shortcuts',
+    ;;     but the KEY is bound by `dashboard-insert-shortcut', which only runs
+    ;;     inside dashboard's own `dashboard-insert-section' macro. A custom
+    ;;     generator -- nix-config, and now Todo -- calls
+    ;;     `dashboard-insert-heading' directly, so it advertised a key that was
+    ;;     never bound to anything at all.
+    ;;
+    ;;   - What dashboard does bind, for its own sections, is not a jump: it is
+    ;;     `dashboard-cycle-section-forward', which steps one WIDGET and only
+    ;;     moves to the section when it notices it has left it. The custom
+    ;;     sections here are plain text with no widgets in them.
+    ;;
+    ;;   - And evil normal state sits above the major mode map, so any binding
+    ;;     dashboard did make lost to `evil-set-marker' and friends anyway. The
+    ;;     live buffer showed m as evil-set-marker and g as the g prefix.
+    ;;
+    ;; So the sections are declared once, here, and everything else is derived
+    ;; from that: the hints, the bindings in the mode map, and the bindings in
+    ;; evil's normal state. c rather than g for the config, because g is a
+    ;; prefix worth more than a section jump -- and c is free now that the
+    ;; Claude section is gone.
+    (defvar my/dashboard-sections
+      '((todo      "t" "Todo:")
+        (config    "c" "nix-config:")
+        (recents   "r" "Recent Files:")
+        (projects  "p" "Projects:")
+        (bookmarks "m" "Bookmarks:"))
+      "Each section: its symbol, the key that jumps to it, and its heading.")
+
     (defun my/dashboard--jump-to (heading)
       "Move point to the first line under HEADING."
       (goto-char (point-min))
@@ -176,15 +309,34 @@
 
     (defun dashboard-jump-to-config () (interactive) (my/dashboard--jump-to "nix-config:"))
 
-    ;; k for backup (b is taken by bookmarks), u for unread, g for the config
-    ;; since n is nothing here and c is not a heading any more.
     (setq dashboard-item-shortcuts
-          '((backup    . "k")
-            (unread    . "u")
-            (config    . "g")
-            (recents   . "r")
-            (projects  . "p")
-            (bookmarks . "m")))
+          (mapcar (lambda (s) (cons (nth 0 s) (nth 1 s))) my/dashboard-sections))
+
+    ;; After every render, and in both maps.
+    ;;
+    ;; Rendering re-binds the section keys in `dashboard-mode-map' -- the
+    ;; shortcut macro runs again for each section it inserts -- and
+    ;; evil-collection then copies r, m and p out of that map into evil's
+    ;; normal state. Both of those happen after init, so binding these once at
+    ;; startup would simply be overwritten. Hanging it off the same function
+    ;; evil-collection advises, added later, puts it last in the queue.
+    (defun my/dashboard-bind-sections (&rest _)
+      "Bind each section key to a jump to that section's heading."
+      (dolist (section my/dashboard-sections)
+        (let* ((key (kbd (nth 1 section)))
+               (heading (nth 2 section))
+               (command (lambda ()
+                          (interactive)
+                          (my/dashboard--jump-to heading))))
+          (define-key dashboard-mode-map key command)
+          (when (fboundp 'evil-define-key*)
+            (evil-define-key* 'normal dashboard-mode-map key command)))))
+
+    (with-eval-after-load 'dashboard
+      (require 'evil nil t)
+      (my/dashboard-bind-sections)
+      (advice-add 'dashboard-insert-startupify-lists
+                  :after #'my/dashboard-bind-sections))
 
     (dashboard-setup-startup-hook)
 
