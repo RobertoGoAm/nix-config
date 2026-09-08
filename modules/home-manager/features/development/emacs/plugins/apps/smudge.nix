@@ -201,6 +201,32 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       (advice-add 'smudge-api-get-playlist-track-count
                   :override #'my/smudge-playlist-track-count))
 
+    ;; market=from_token is gone.
+    ;;
+    ;; Spotify removed it, and smudge still sends it on four endpoints --
+    ;; search, the two album calls and one more -- so every one of them comes
+    ;; back 400 and the surrounding command looks broken for no visible reason.
+    ;; Track search and album search both failed this way.
+    ;;
+    ;; Rewritten on the way out rather than by advising each caller: the
+    ;; parameter is built into the URI string by `url-build-query-string', and
+    ;; `smudge-api-call-async' is the one place all of them pass through.
+    (defcustom my/smudge-market "ES"
+      "The market code sent to Spotify in place of the retired `from_token'."
+      :type 'string
+      :group 'smudge)
+
+    (defun my/smudge-market-fix (orig method uri &rest args)
+      "Call ORIG with `market=from_token' replaced by a real market code."
+      (apply orig method
+             (replace-regexp-in-string "market=from_token"
+                                       (concat "market=" my/smudge-market)
+                                       uri t t)
+             args))
+
+    (with-eval-after-load 'smudge
+      (advice-add 'smudge-api-call-async :around #'my/smudge-market-fix))
+
     ;; Album search. smudge searches tracks and playlists but never exposes
     ;; type=album, though its own API layer takes the type as an argument.
     ;; Picking an album plays it as a context, so the whole record queues up
