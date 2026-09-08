@@ -161,24 +161,30 @@ pipeline content into this public repo.
           "Bash(xargs *)"
 #+end_src
 
-* `timeout <dur> <cmd>` — a command WRAPPER, so NOT blanket-allowed:
+* `timeout <dur> <cmd>` — a command WRAPPER, so never allow-listed:
 
 `Bash(timeout *)` would let `timeout 5 git push --force` / `timeout 5 rm
--rf …` slip past the prefix-match deny list. Treated like rtk — scoped to
-safe inner commands only; any other timeout-wrapped command still prompts.
-(Compound forms `timeout 5 X; <danger>` are split + checked per-segment.)
+-rf …` slip past the prefix-match deny list. Narrowing the wrapper to a
+specific inner command does not help either: these patterns have no regex,
+so the `*` standing in for the duration spans whole words. `Bash(timeout *
+pnpm test*)` also matches `timeout 5 sudo pnpm test` and `timeout 5 env
+LD_PRELOAD=… pnpm test` — the wildcard is an arbitrary-argument hole in
+front of the part that was supposed to be pinned down.
+
+Pinning the duration literally (`Bash(timeout 300 pnpm test*)`) is the only
+safe spelling, and it needs one rule per command × duration pair. Not worth
+it: timeout-wrapped commands are rare here. So nothing `timeout`-wrapped is
+allow-listed — each one prompts. Run the inner command bare when it is
+already allowed, and reach for the wrapper only when a real hang is likely.
+
+* ── Archive listing, version probes ─────────────────────────────
+
+No `timeout <dur> <cmd>` rules appear here or anywhere else in this list,
+and that is deliberate — do not add any. A `*` standing in for the duration
+spans whole words, so `Bash(timeout * pnpm test*)` also approves `timeout 5
+sudo pnpm test`. See the literate source for the full reasoning.
 
 #+begin_src nix
-          "Bash(timeout * pnpm test*)"
-          "Bash(timeout * pnpm build*)"
-          "Bash(timeout * pnpm dev*)"
-          "Bash(timeout * pnpm storybook*)"
-          "Bash(timeout * pnpm docs:dev*)"
-          "Bash(timeout * curl http://localhost:*)"
-          "Bash(timeout * curl -s http://localhost:*)"
-          "Bash(timeout * bash $HOME/.claude/pipeline/scripts/*)"
-          "Bash(timeout * node scripts/*)"
-          "Bash(timeout * python3 scripts/*)"
           "Bash(tar tzf *)"
           "Bash(tar tvf *)"
           "Bash(node --version)"
