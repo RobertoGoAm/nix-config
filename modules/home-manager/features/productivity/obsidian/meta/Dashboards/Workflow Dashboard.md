@@ -71,12 +71,7 @@ if (inbox.length > 0) {
 const right = container.createDiv({ cls: "dashboard-col" });
 right.createEl("h3", { text: "Work — Open Tasks" });
 if (tasks.length > 0) {
-  const ul = right.createEl("ul", { cls: "contains-task-list" });
-  for (const t of tasks.slice(0, 15)) {
-    const li = ul.createEl("li", { cls: "task-list-item" });
-    const cb = li.createEl("input", { attr: { type: "checkbox", disabled: true } });
-    li.appendText(" " + t.text);
-  }
+  await dv.taskList(tasks.slice(0, 15), false, right);
 } else {
   right.createEl("p", { text: "No open tasks", cls: "dashboard-empty" });
 }
