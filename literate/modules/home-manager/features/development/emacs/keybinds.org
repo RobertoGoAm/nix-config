@@ -216,10 +216,45 @@ rotation moves, so they apply under both layouts.
         (evil-define-key 'normal 'global
           (kbd "TAB") #'indent-for-tab-command)
 
-        ;; Escape leaves the terminal, mirroring <Esc> -> <C-\><C-n>.
+        ;; Escape leaves the terminal, mirroring <Esc> -> <C-\><C-n> -- unless the
+        ;; program inside the terminal is the one that wants the key. Claude reads
+        ;; <escape> as "interrupt this turn" and a second one as "rewind", so evil
+        ;; taking it left no way to stop a running turn from inside the sidebar.
+        ;;
+        ;; In those buffers <escape> goes to the process and C-\ is the way out to
+        ;; normal state: the vim escape hatch, minus the C-n.
+        (defvar-local my/vterm-escape-target nil
+          "Where <escape> goes in this vterm.
+        `process' hands it to the program, `evil' keeps it for normal state, and nil
+        decides from the buffer name.")
+
+        (defun my/vterm-escape-to-process-p ()
+          "Whether <escape> belongs to the program running in this vterm."
+          (pcase my/vterm-escape-target
+            ('process t)
+            ('evil nil)
+            (_ (string-prefix-p "*claude-code[" (buffer-name)))))
+
+        (defun my/vterm-escape ()
+          "Leave the terminal, or send <escape> on to a program that reads it."
+          (interactive)
+          (if (my/vterm-escape-to-process-p)
+              (vterm-send-escape)
+            (evil-normal-state)))
+
+        (defun my/vterm-escape-toggle ()
+          "Flip where <escape> goes in this terminal.
+        For the other programs that read it: nvim over ssh, htop, a nested emacs."
+          (interactive)
+          (setq my/vterm-escape-target
+                (if (my/vterm-escape-to-process-p) 'evil 'process))
+          (message "<escape> -> %s"
+                   (if (eq my/vterm-escape-target 'process) "the program" "normal state")))
+
         (with-eval-after-load 'vterm
-          (evil-define-key 'insert vterm-mode-map (kbd "<escape>") #'evil-normal-state)
-          (evil-define-key 'emacs vterm-mode-map (kbd "<escape>") #'evil-normal-state))
+          (evil-define-key '(insert emacs) vterm-mode-map
+            (kbd "<escape>") #'my/vterm-escape
+            (kbd "C-\\") #'evil-normal-state))
 
         ;; LSP signature help on C-k in both normal and insert, as the LspAttach autocmd
         ;; does. Insert-state C-k shadows `kill-line' here, same trade the nvim config
