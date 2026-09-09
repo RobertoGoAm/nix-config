@@ -196,15 +196,14 @@ lib.mkIf enable {
       "Non-nil once the first scan has recorded what was already unread.")
 
     (defun my/mail--banner (title body)
-      "Post TITLE and BODY as a macOS notification.
-    osascript rather than a notifier app, and the text in argv rather than in
-    the script: an app bundle steals focus for an instant, and a subject line
-    with a quote in it would otherwise break -- or rewrite -- the script."
-      (call-process "/usr/bin/osascript" nil 0 nil
-                    "-e" "on run argv"
-                    "-e" "display notification (item 2 of argv) with title (item 1 of argv)"
-                    "-e" "end run"
-                    title body))
+      "Post TITLE and BODY through the config's one notification door.
+
+    `my/notify' -- plugins/ui/notifications.nix -- posts from inside Emacs' own
+    bundle, so the banner carries Emacs' icon and clicking it raises Emacs. The
+    osascript subprocess this used to call is attributed to Script Editor
+    instead, which is whose icon every mail banner was wearing; it survives
+    there only as the fallback for a session with no graphical frame."
+      (my/notify title body))
 
     (defun my/mail--announce (json)
       "Announce anything in JSON that has not been announced before."
