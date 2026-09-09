@@ -59,6 +59,56 @@
     (unless (fboundp 'projectile-persp-switch-project)
       (setq dashboard-projects-switch-function #'projectile-switch-project-by-name))
 
+    ;; Heading icons, which the package works out at load and this config asks
+    ;; for afterwards.
+    ;;
+    ;; `dashboard-heading-icons' is a defcustom whose default is derived from
+    ;; `dashboard-icon-type', which itself defaults to nil unless
+    ;; `dashboard-set-heading-icons' was already non-nil when dashboard was
+    ;; loaded. It was not: both are turned on in the setq above, which runs
+    ;; after the require. So the alist was empty, `dashboard-heading-icon'
+    ;; returned its two-space fallback for every section, and no heading had
+    ;; an icon at all -- while the ROWS did, because `dashboard-set-file-icons'
+    ;; is read per row at draw time rather than once at load.
+    ;;
+    ;; Setting it here gives every heading an icon, and gives the two custom
+    ;; sections theirs from the same table as the built-in ones -- which is
+    ;; what makes them indent identically, since the icon is the indent.
+    (setq dashboard-heading-icons
+          '((todo      . "nf-oct-checklist")
+            (config    . "nf-oct-gear")
+            (recents   . "nf-oct-history")
+            (projects  . "nf-oct-rocket")
+            (bookmarks . "nf-oct-bookmark")
+            (agenda    . "nf-oct-calendar")
+            (registers . "nf-oct-database")))
+
+    ;; The indent dashboard's own rows use, so the custom sections line up
+    ;; with them.
+    ;;
+    ;; A generated section inserts whatever it likes, and these two inserted
+    ;; four spaces and the text. `dashboard-insert-section-list' -- what the
+    ;; built-in sections go through -- inserts four spaces, a file icon and a
+    ;; space, so every Todo and nix-config row started two columns to the left
+    ;; of every row above and below it.
+    (defun my/dashboard--row-icon (name)
+      "Row icon NAME plus its trailing space, or the blank of the same width.
+    Two columns either way. A row with no icon still has to occupy the width
+    of one, or the text in this section hangs left of the text in the next."
+      (let ((icon (and name
+                       (dashboard-display-icons-p)
+                       (ignore-errors
+                         (dashboard-octicon name :height 1.0 :v-adjust 0.0)))))
+        (if (and (stringp icon) (not (string-empty-p icon)))
+            (concat icon " ")
+          "  ")))
+
+    (defun my/dashboard--row (icon text)
+      "TEXT as a section row: dashboard's indent, then ICON, then TEXT."
+      (concat (make-string (or standard-indent tab-width 4) ?\s)
+              (my/dashboard--row-icon icon)
+              text))
+
     ;; This also points `initial-buffer-choice' at the dashboard, which is what makes
     ;; it appear in frames the daemon creates later rather than only the first one.
     ;; Setting that variable by hand as well is what makes `emacsclient file' open the
@@ -71,22 +121,25 @@
     ;; every session.
     (defun my/dashboard-config (_list-size)
       "Insert the state of the nix config: uncommitted, unpushed, drifted."
-      (dashboard-insert-heading "nix-config:" (dashboard-get-shortcut 'config))
-      (insert "\n    ")
+      (dashboard-insert-heading "nix-config:" (dashboard-get-shortcut 'config)
+                                (dashboard-heading-icon 'config))
+      (insert "\n")
       (insert
-       (condition-case nil
-           (let* ((default-directory (expand-file-name "~/nix-config"))
-                  (dirty (string-to-number
-                          (shell-command-to-string "git status --porcelain 2>/dev/null | wc -l")))
-                  (ahead (string-to-number
-                          (shell-command-to-string
-                           "git rev-list --count @{u}..HEAD 2>/dev/null || echo 0")))
-                  (parts (delq nil
-                               (list (when (> dirty 0) (format "%d uncommitted" dirty))
-                                     (when (> ahead 0) (format "%d unpushed" ahead))))))
-             (if parts (propertize (string-join parts ", ") (quote face) (quote warning))
-               "clean"))
-         (error "unavailable")))
+       (my/dashboard--row
+        "nf-oct-git_branch"
+        (condition-case nil
+            (let* ((default-directory (expand-file-name "~/nix-config"))
+                   (dirty (string-to-number
+                           (shell-command-to-string "git status --porcelain 2>/dev/null | wc -l")))
+                   (ahead (string-to-number
+                           (shell-command-to-string
+                            "git rev-list --count @{u}..HEAD 2>/dev/null || echo 0")))
+                   (parts (delq nil
+                                (list (when (> dirty 0) (format "%d uncommitted" dirty))
+                                      (when (> ahead 0) (format "%d unpushed" ahead))))))
+              (if parts (propertize (string-join parts ", ") (quote face) (quote warning))
+                "clean"))
+          (error "unavailable"))))
       (insert "\n"))
 
     ;; The list, read from the file the phone edits too.
@@ -167,19 +220,35 @@
 
     (defun my/dashboard-todo (list-size)
       "Insert the open tasks from the vault, soonest first."
-      (dashboard-insert-heading "Todo:" (dashboard-get-shortcut 'todo))
+      (dashboard-insert-heading "Todo:" (dashboard-get-shortcut 'todo)
+                                (dashboard-heading-icon 'todo))
       (insert "\n")
       (condition-case nil
           (let ((path (my/dashboard--todo-path)))
             (cond
-             ((null path) (insert "    no vault\n"))
+             ((null path) (insert (my/dashboard--row nil "no vault") "\n"))
              ((not (file-readable-p path))
-              (insert (format "    no %s in the vault\n" my/dashboard-todo-file)))
+              (insert (my/dashboard--row
+                       nil (format "no %s in the vault" my/dashboard-todo-file))
+                      "\n"))
              (t
-              (let ((rows (seq-take (my/dashboard--tasks) (or list-size 8)))
-                    (today (format-time-string "%Y-%m-%d")))
+              (let* ((rows (seq-take (my/dashboard--tasks) (or list-size 8)))
+                     (today (format-time-string "%Y-%m-%d"))
+                     ;; The due dates stay in a column, and the column is as
+                     ;; wide as the titles actually are.
+                     ;;
+                     ;; It was a constant 58, which made every row of this
+                     ;; section the widest line on the page -- and
+                     ;; `dashboard-center-text' takes ONE maximum width across
+                     ;; every section and gives them all the same `line-prefix'
+                     ;; from it. So the padding of a todo decided the left edge
+                     ;; of the recent files and the projects too, and editing a
+                     ;; task title shifted the whole dashboard sideways.
+                     (width (min 58 (apply #'max 0 (mapcar (lambda (r)
+                                                             (string-width (nth 1 r)))
+                                                           rows)))))
                 (if (null rows)
-                    (insert "    nothing open\n")
+                    (insert (my/dashboard--row nil "nothing open") "\n")
                   (dolist (r rows)
                     (let* ((due (nth 0 r))
                            (start (point))
@@ -190,9 +259,15 @@
                                        ((string< due today) 'error)
                                        ((string= due today) 'warning)
                                        (t 'shadow))))
-                      (insert (format "    %-58s %s\n"
-                                      (truncate-string-to-width (nth 1 r) 58)
-                                      (propertize (or due "") (quote face) face)))
+                      (insert (string-trim-right
+                               (my/dashboard--row
+                                "nf-oct-dot_fill"
+                                (format "%s  %s"
+                                        (string-pad
+                                         (truncate-string-to-width (nth 1 r) width)
+                                         width)
+                                        (propertize (or due "") (quote face) face))))
+                              "\n")
                       ;; Stop one character short of point, so the trailing
                       ;; newline stays bare: a `mouse-face' covering the line
                       ;; break highlights into the row below.
@@ -202,7 +277,7 @@
                              'keymap my/dashboard-todo-map
                              'mouse-face 'highlight
                              'help-echo "RET or click: open this task in the vault")))))))))
-        (error (insert "    unavailable\n"))))
+        (error (insert (my/dashboard--row nil "unavailable") "\n"))))
 
     ;; Jump to any single entry, not just to a section.
     ;;
@@ -454,7 +529,16 @@
           ;; In that window: `my/dashboard-home' switches the selected one,
           ;; and the selected one is not necessarily the window just judged.
           (with-selected-window window (my/dashboard-home))
-          (my/dashboard--flatten frame window)))))
+          (my/dashboard--flatten frame window)
+          ;; And then the point goes there, said rather than assumed.
+          ;;
+          ;; It has been landing on the dashboard only because everything that
+          ;; opens a pane on this hook puts the selection back afterwards. That
+          ;; is a property of the other hooks, not of this one, and the frame
+          ;; that opened with the point in a side strip is what it costs when
+          ;; one of them stops holding.
+          (when (window-live-p window)
+            (select-window window))))))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
 
