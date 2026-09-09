@@ -227,17 +227,46 @@ these plugins bound.
     (defvar my/window-state-restored nil
       "Non-nil once a layout has been replayed in this daemon's lifetime.")
 
+    (defun my/window-state-worth-saving-p (frame)
+      "Non-nil when FRAME's panes are worth replaying into the next frame.
+
+A layout earns that by having a file open in it. Without this rule the
+last frame closed each day was usually a home screen -- *scratch*, or the
+dashboard, and the Claude sidebar beside it -- and that got written out
+as the layout to restore. The next frame then replayed it: an empty
+sidebar, *scratch* behind it, and the dashboard standing down because it
+had been told a real layout was restored. Every frame after that
+inherited the same nothing, which is what \"nothing renders, just panes\"
+was."
+      (seq-some (lambda (w)
+                  (and (not (window-parameter w 'window-side))
+                       (buffer-file-name (window-buffer w))))
+                (window-list frame)))
+
     (defun my/save-window-state (&optional frame)
       "Write FRAME's pane layout for the next session.
 Hung on frame deletion rather than only on `kill-emacs-hook': the daemon
 usually outlives every frame, so by the time Emacs is actually exiting
-there is no layout left to record."
+there is no layout left to record.
+
+The main window tree, not the root window: side windows -- the Claude
+sidebar, the which-key panel, the bottom terminal -- are drawn by the
+hooks that own them on every frame, and a layout that carried its own
+copy restored a stale one for those hooks to duplicate.
+
+A layout with no work in it deletes the saved one rather than replacing
+it. Keeping the older file would mean replaying a layout from a session
+whose buffers may be long gone; the honest default with nothing to
+restore is the home screen."
       (let ((frame (or frame (selected-frame))))
         (when (and (frame-live-p frame) (display-graphic-p frame))
           (condition-case nil
-              (let ((state (window-state-get (frame-root-window frame) t)))
-                (with-temp-file my/window-state-file
-                  (prin1 state (current-buffer))))
+              (if (not (my/window-state-worth-saving-p frame))
+                  (when (file-exists-p my/window-state-file)
+                    (delete-file my/window-state-file))
+                (let ((state (window-state-get (window-main-window frame) t)))
+                  (with-temp-file my/window-state-file
+                    (prin1 state (current-buffer)))))
             ;; A layout that cannot be written is not worth an error on the way
             ;; out the door.
             (error nil)))))
@@ -293,7 +322,10 @@ that hook's *scratch*/*dashboard* guard declines on its own."
                 ;; which silently undoes the selection below. window-state-put
                 ;; takes the target window as an argument and does not need
                 ;; the frame selected anyway.
-                (window-state-put state (frame-root-window frame) 'safe)
+                ;; Into the main window tree, matching what is saved: putting
+                ;; a state into the root window replaces the side windows too,
+                ;; and the sidebar this frame has just been given is one.
+                (window-state-put state (window-main-window frame) 'safe)
                 ;; window-state-put restores which window is selected but
                 ;; leaves `current-buffer' pointing at whatever it was --
                 ;; *scratch*, in a fresh frame. The dashboard's new-frame hook
@@ -301,7 +333,15 @@ that hook's *scratch*/*dashboard* guard declines on its own."
                 ;; called `delete-other-windows' and flattened the layout that
                 ;; had just been replayed.
                 (let ((w (frame-selected-window frame)))
-                  (when (window-live-p w) (select-window w t))))
+                  (when (window-live-p w) (select-window w t)))
+                ;; On the frame, so the dashboard's new-frame hook can tell a
+                ;; frame with a replayed layout from every later frame, which
+                ;; has nothing but *scratch* to protect. That hook used to read
+                ;; the daemon-wide flag above instead, which the one replay it
+                ;; allows sets for good -- so it stood down for every frame of
+                ;; the session, and those opened on *scratch* with no home
+                ;; screen at all.
+                (set-frame-parameter frame 'my/window-state-replayed t))
             (error (message "Saved layout not restored: %S" err))))))
 
     (defun my/forget-window-state ()

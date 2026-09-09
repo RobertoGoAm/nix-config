@@ -323,12 +323,21 @@ in
 
     `ignore-errors' because this runs on the path that creates a frame. The
     sidebar is worth having by default; it is not worth a frame that will not
-    open."
+    open.
+
+    `save-selected-window', because opening the sidebar selects it and a frame
+    must not open with the point in a side pane. The pane is in emacs state --
+    so hnei do not move -- and every later hook that asks what the frame is
+    showing gets the sidebar as the answer: the dashboard's own new-frame hook
+    read that, decided the frame had something of its own to show, and stood
+    down. A frame that opened on an empty strip with the point in it and no
+    home screen behind it is what that looked like."
       (unless (frame-parameter nil 'my/claude-sidebar-shown)
         (set-frame-parameter nil 'my/claude-sidebar-shown t)
         (ignore-errors
           (require 'claude-code-ide)
-          (claude-code-ide-manager-toggle-global-sidebar))))
+          (save-selected-window
+            (claude-code-ide-manager-toggle-global-sidebar)))))
 
     (add-hook 'server-after-make-frame-hook #'my/claude-sidebar-open-maybe)
     (add-hook 'emacs-startup-hook #'my/claude-sidebar-open-maybe)

@@ -362,27 +362,41 @@
           (switch-to-buffer "*dashboard*")
         (dashboard-open)))
 
+    (defun my/dashboard--ordinary-windows (frame)
+      "FRAME's windows that are not side windows."
+      (seq-remove (lambda (w) (window-parameter w 'window-side))
+                  (window-list frame)))
+
     (defun my/dashboard--flatten (frame window)
       "Leave FRAME showing one ordinary window, WINDOW for preference.
 
-    Side windows -- the which-key panel, the AI chat, the bottom terminal --
-    refuse to be the last window standing, and `delete-other-windows' signals
-    rather than declining; a signal inside a frame hook abandons the rest of
-    it. `ignore-window-parameters' lifts the refusal, but on its own it lets a
-    side window be the survivor, and a survivor keeps its parameters: the frame
-    is then rooted on a dedicated bottom slot, which-key has nowhere to put its
-    panel, and `display-buffer' opens a new window rather than reuse a
-    dedicated one. So the window that stays is an ordinary one wherever the
-    frame has one, and is stripped of the parameters where it does not."
-      (let* ((keep (or (seq-find (lambda (w) (not (window-parameter w 'window-side)))
-                                 (cons window (window-list frame)))
-                       window))
-             (ignore-window-parameters t))
+    Ordinary windows only. This used to lift `ignore-window-parameters' and
+    call `delete-other-windows', which takes the side windows with it -- and
+    now that the Claude sidebar is opened on every frame, that meant opening a
+    frame, drawing the sidebar and deleting it again. The duplicate this exists
+    to collapse is a second ordinary pane, so a side window is not its
+    business.
+
+    `delete-window' per window rather than `delete-other-windows' on the one to
+    keep, for the same reason: there is no way to tell the latter to spare
+    them. Failures are swallowed one at a time -- a signal here abandons the
+    rest of the frame hook, and a pane that will not go is worth less than the
+    hooks behind this one.
+
+    The window that stays is an ordinary one wherever the frame has one, and
+    is stripped of its side parameters where it does not: a survivor keeps
+    them, and a frame rooted on a dedicated slot leaves which-key nowhere to
+    put its panel."
+      (let ((keep (or (seq-find (lambda (w) (not (window-parameter w 'window-side)))
+                                (cons window (window-list frame)))
+                      window)))
         (when (window-parameter keep 'window-side)
           (set-window-parameter keep 'window-side nil)
           (set-window-parameter keep 'slot nil)
           (set-window-dedicated-p keep nil))
-        (delete-other-windows keep)))
+        (dolist (w (my/dashboard--ordinary-windows frame))
+          (unless (eq w keep)
+            (ignore-errors (delete-window w))))))
 
     (defun my/dashboard-on-client-frame ()
       "Show the dashboard alone in a client frame that has nothing else to show.
@@ -400,10 +414,19 @@
     What the frame is showing, not `current-buffer'. Inside
     `server-after-make-frame-hook' the current buffer is \" *server*\" --
     server.el's own -- so the guard below never matched and the flattening
-    never ran, which is how the split dashboard came back."
+    never ran, which is how the split dashboard came back.
+
+    And what its ORDINARY windows are showing, not its selected one. The
+    Claude sidebar is opened on this same hook, ahead of this function; it is
+    a side window, and while it was also left selected the question \"what is
+    this frame showing\" was answered with the sidebar. That is neither
+    *scratch* nor the dashboard, so this declined, and the frame opened on an
+    empty strip with *scratch* behind it."
       (let* ((frame (selected-frame))
-             (window (frame-selected-window frame))
-             (windows (window-list frame))
+             (ordinary (my/dashboard--ordinary-windows frame))
+             (window (or (car (memq (frame-selected-window frame) ordinary))
+                         (car ordinary)
+                         (frame-selected-window frame)))
              (shown (buffer-name (window-buffer window))))
         (cond
          ;; A frame showing nothing but the dashboard is a home screen that got
@@ -412,17 +435,25 @@
          ;; usual one -- leaves the pane behind when it is dismissed, still
          ;; showing what was under it, and two panes of dashboard is what "the
          ;; dashboard opened twice" looks like.
-         ((and (cdr windows)
+         ((and (cdr ordinary)
                (seq-every-p (lambda (w)
                               (equal (buffer-name (window-buffer w)) "*dashboard*"))
-                            windows))
+                            ordinary))
           (my/dashboard--flatten frame window))
-         ;; Not when a saved layout has just been replayed: that layout can have
-         ;; the dashboard in its selected window, and flattening would throw
-         ;; away the panes restored beside it.
-         ((bound-and-true-p my/window-state-restored) nil)
+         ;; Not into a frame a saved layout has just been replayed into: that
+         ;; layout can have the dashboard in its selected window, and
+         ;; flattening would throw away the panes restored beside it.
+         ;;
+         ;; A frame parameter, not the daemon-wide `my/window-state-restored'
+         ;; flag that used to be read here. That flag is set for the life of
+         ;; the daemon by the one replay it allows, so every frame after the
+         ;; first stood down as well -- and those frames have no restored
+         ;; layout to protect, only *scratch*.
+         ((frame-parameter frame 'my/window-state-replayed) nil)
          ((member shown '("*scratch*" "*dashboard*"))
-          (my/dashboard-home)
+          ;; In that window: `my/dashboard-home' switches the selected one,
+          ;; and the selected one is not necessarily the window just judged.
+          (with-selected-window window (my/dashboard-home))
           (my/dashboard--flatten frame window)))))
 
     (add-hook 'server-after-make-frame-hook #'my/dashboard-on-client-frame)
