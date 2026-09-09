@@ -75,7 +75,16 @@ never take the index lock out from under the shell in the next pane.
       printf '%s' "$payload" | jq -r --arg branch "$branch" '
         def firstkey($k): [.. | objects | select(has($k)) | .[$k]] | first;
         def num($k): [.. | objects | select(has($k)) | .[$k] | numbers] | first;
-        def util($k): (firstkey($k) | if type == "object" then (.utilization | numbers) else null end);
+        # Total by construction: =numbers= applied to a value that is not one
+        # yields an empty stream, and an empty stream anywhere in this program
+        # suppresses the whole line rather than one segment. Collecting the candidates into
+        # an array and taking the first number out of it turns "absent" back
+        # into null. The candidate names are the shapes releases have used for
+        # the same quantity.
+        def util($k): (firstkey($k)
+          | if   type == "object" then ([.utilization, .used_percentage, .used, .percent] | map(numbers) | first)
+            elif type == "number" then .
+            else null end);
 
         def dim($s): "\u001b[2m\($s)\u001b[0m";
         def pct($v): ($v | round) as $n
@@ -93,7 +102,10 @@ never take the index lock out from under the shell in the next pane.
         | ($p.model.display_name // $p.model.id // "") as $model
         | num("used") as $used
         | num("context_window_size") as $size
-        | num("used_percentage") as $usedpct
+        # Explicit path first: =rate_limits= carries a =used_percentage= of its
+        # own, so a release that puts it ahead of =context_window= would have
+        # the search return the wrong quantity for this segment.
+        | ($p.context_window.used_percentage // num("used_percentage")) as $usedpct
         # Preferred from the two token counts: a ratio needs no guess about
         # whether a percentage is written 0-1 or 0-100.
         | (if   ($used != null and $size != null and $size > 0) then 100 * $used / $size
