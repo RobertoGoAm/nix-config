@@ -225,12 +225,31 @@ mean the same thing in a magit buffer as in a source file.
       "ls" '(consult-lsp-file-symbols :which-key "document symbols")
       "lS" '(consult-lsp-symbols :which-key "workspace symbols")
 
-      ;; notes
+      ;; notes — the Obsidian vault. SPC n o is fd over the vault and answers on
+      ;; a cold session; SPC n j is obsidian.el's own jump, which knows titles
+      ;; and aliases and pays for the index the first time it is used.
       "n"  '(:ignore t :which-key "notes")
       "nn" '(my/obsidian-new :which-key "new note")
-      "nN" '(my/obsidian-new-from-template :which-key "new note with template")
+      "nN" '(my/obsidian-new-from-template :which-key "new note from template")
       "no" '(my/obsidian-open-note :which-key "open note")
-      "nO" '(my/obsidian-open-app :which-key "open app")
+      "nj" '(my/obsidian-jump :which-key "jump by title or alias")
+      "ns" '(my/obsidian-search :which-key "search vault (C-u: backups too)")
+      "nd" '(my/obsidian-daily-note :which-key "today's daily note")
+      "nh" '(my/obsidian-headings :which-key "heading in this note")
+      "nt" '(my/obsidian-find-tag :which-key "notes with tag")
+      "nT" '(my/obsidian-insert-tag :which-key "insert tag")
+      "nl" '(my/obsidian-insert-wikilink :which-key "insert wiki link")
+      "nL" '(my/obsidian-insert-link :which-key "insert markdown link")
+      "nx" '(my/obsidian-remove-link :which-key "unlink")
+      "nf" '(my/obsidian-follow-link :which-key "follow link at point")
+      "nF" '(my/obsidian-jump-back :which-key "back from link")
+      "nb" '(my/obsidian-backlinks :which-key "backlinks")
+      "nB" '(my/obsidian-toggle-backlinks :which-key "backlinks panel")
+      "nm" '(my/obsidian-move-note :which-key "move to folder")
+      "nr" '(my/markdown-toggle-render :which-key "rendered / raw markdown")
+      "np" '(markdown-live-preview-mode :which-key "rendered HTML preview")
+      "nu" '(my/obsidian-rescan :which-key "rebuild vault index")
+      "nO" '(my/obsidian-open-app :which-key "open in Obsidian app")
 
       ;; help — diagnostics worth sending to someone else.
       "h"  '(:ignore t :which-key "help")
