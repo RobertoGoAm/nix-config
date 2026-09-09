@@ -5,8 +5,174 @@
 
 #+begin_src nix
 {
+  pkgs,
   ...
 }:
+let
+#+end_src
+
+* Today's Claude usage, counted once and then only added to
+
+The number the strip shows is every token Claude Code has spent today,
+across every session and every project, read from the transcripts it writes
+under =~/.claude/projects=. That is a gigabyte of JSONL, so it is read the
+way a log is read: each file is remembered by the byte offset already
+counted, and a run only parses what has been appended since. Offsets survive
+the date rolling over -- bytes written before today cannot contain today's
+messages -- so the daily total resets while the reading position does not.
+
+Two more things keep it cheap. Only files touched today are opened at all,
+and every line is checked for today's date as a substring before it is
+handed to the JSON parser, which is what keeps the one-off first run of the
+day from parsing a hundred megabytes to find a handful of messages.
+
+Timestamps in a transcript are UTC and the day the strip means is the local
+one, so both candidate UTC dates are let through the substring filter and
+the local date is settled properly afterwards.
+
+#+begin_src nix
+  usage = pkgs.writers.writePython3Bin "claude-usage-today" { flakeIgnore = [ "E501" ]; } ''
+    """Sum today's Claude Code token usage across every session transcript."""
+
+    import datetime
+    import json
+    import os
+    import pathlib
+    import sys
+
+    ROOT = pathlib.Path.home() / ".claude" / "projects"
+    CACHE = pathlib.Path(
+        os.environ.get("XDG_CACHE_HOME", pathlib.Path.home() / ".cache")
+    ) / "claude-usage"
+    STATE = CACHE / "state.json"
+
+    FIELDS = {
+        "input": "input_tokens",
+        "output": "output_tokens",
+        "cache_write": "cache_creation_input_tokens",
+        "cache_read": "cache_read_input_tokens",
+    }
+
+
+    def local_date(stamp):
+        """The local calendar date of an ISO-8601 UTC timestamp, or None."""
+        try:
+            when = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        except (AttributeError, ValueError):
+            return None
+        return when.astimezone().date()
+
+
+    def load_state():
+        try:
+            with STATE.open() as handle:
+                state = json.load(handle)
+        except (OSError, ValueError):
+            state = {}
+        state.setdefault("date", "")
+        state.setdefault("files", {})
+        return state
+
+
+    def main():
+        today = datetime.date.today()
+        midnight = datetime.datetime.combine(
+            today, datetime.time.min
+        ).timestamp()
+
+        state = load_state()
+        fresh_day = state["date"] != today.isoformat()
+        totals = {key: 0 for key in FIELDS}
+        totals["messages"] = 0
+        if not fresh_day:
+            for key in totals:
+                totals[key] = state.get("totals", {}).get(key, 0)
+
+        # The substring gate. A UTC day straddles two local ones and the other
+        # way round, so both UTC dates that can carry a local-today message are
+        # let through and the real check happens after parsing.
+        day = datetime.timedelta(days=1)
+        stamps = tuple(
+            '"timestamp":"%s' % d.isoformat()
+            for d in (today - day, today, today + day)
+        )
+
+        files = {}
+        paths = sorted(ROOT.rglob("*.jsonl")) if ROOT.is_dir() else []
+        for path in paths:
+            name = str(path)
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            offset = state["files"].get(name, 0)
+            # Untouched today: nothing of today's can be in it, and its offset
+            # is worth keeping so tomorrow does not re-read it either.
+            if stat.st_mtime < midnight:
+                files[name] = min(offset, stat.st_size)
+                continue
+            # Truncated or replaced since the last run: start over.
+            if offset > stat.st_size:
+                offset = 0
+            try:
+                with path.open("rb") as handle:
+                    handle.seek(offset)
+                    data = handle.read()
+            except OSError:
+                files[name] = offset
+                continue
+            # Only whole lines: the file may be mid-write.
+            cut = data.rfind(b"\n")
+            if cut == -1:
+                files[name] = offset
+                continue
+            files[name] = offset + cut + 1
+            for raw in data[:cut].split(b"\n"):
+                line = raw.decode("utf-8", "replace")
+                if not any(stamp in line for stamp in stamps):
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue
+                message = record.get("message")
+                if not isinstance(message, dict):
+                    continue
+                usage = message.get("usage")
+                if not isinstance(usage, dict):
+                    continue
+                if local_date(record.get("timestamp")) != today:
+                    continue
+                totals["messages"] += 1
+                for key, field in FIELDS.items():
+                    value = usage.get(field)
+                    if isinstance(value, int):
+                        totals[key] += value
+
+        totals["billable"] = (
+            totals["input"] + totals["output"] + totals["cache_write"]
+        )
+        try:
+            CACHE.mkdir(parents=True, exist_ok=True)
+            with STATE.open("w") as handle:
+                json.dump(
+                    {
+                        "date": today.isoformat(),
+                        "totals": totals,
+                        "files": files,
+                    },
+                    handle,
+                )
+        except OSError:
+            pass
+
+        json.dump(dict(totals, date=today.isoformat()), sys.stdout)
+        sys.stdout.write("\n")
+
+
+    main()
+  '';
+in
 {
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
@@ -233,6 +399,8 @@
     only the face depends on whether the count is zero.")
     (defvar my/status-music ""
       "Cached now-playing badge. Written by `my/status-update-music'.")
+    (defvar my/status-claude-tokens 0
+      "Tokens Claude Code has spent today. Written by `my/status-update-claude'.")
     (defvar my/status--procs (make-hash-table :test 'equal)
       "Live status subprocesses, keyed by name, so they cannot stack up.")
 
@@ -286,6 +454,66 @@ stale badge, not to an unbounded pile of processes."
     (with-eval-after-load 'mu4e
       (add-hook 'mu4e-index-updated-hook #'my/status-update-mail)
       (add-hook 'mu4e-message-changed-hook #'my/status-update-mail))
+
+    (defun my/status-update-claude ()
+      "Refresh today's Claude token total."
+      (my/status--run
+       "claude"
+       (list "${usage}/bin/claude-usage-today")
+       (lambda (out)
+         (setq my/status-claude-tokens
+               (or (ignore-errors
+                     (alist-get 'billable
+                                (json-parse-string out :object-type 'alist)))
+                   0)))))
+
+    (defun my/status--compact (n)
+      "N as a short human number: 12, 4k, 1.2M."
+      (cond ((>= n 1000000) (format "%.1fM" (/ n 1000000.0)))
+            ((>= n 1000) (format "%dk" (/ n 1000)))
+            (t (format "%d" n))))
+
+    (defun my/status-claude--states ()
+      "The agent state of every live Claude session, `idle' when it has none."
+      (when (fboundp 'claude-code-ide-session-buffer-p)
+        (delq nil
+              (mapcar (lambda (buffer)
+                        (when (ignore-errors
+                                (claude-code-ide-session-buffer-p buffer))
+                          (or (buffer-local-value
+                               'claude-code-ide-session-agent-state buffer)
+                              'idle)))
+                      (buffer-list)))))
+
+    (defun my/status-claude ()
+      "Live Claude sessions and what the day has cost.
+
+    The count is coloured by the session that most wants you: one waiting on an
+    answer or stopped on a failure outranks one still working, which outranks a
+    row of idle sessions. Which is the same order the manager sidebar draws its
+    glyphs in, so the strip and the sidebar never disagree.
+
+    The token total is the day across every project, not this session -- the
+    per-session numbers are in the status line under Claude's own prompt, which
+    is where you are looking when they matter."
+      (let* ((states (my/status-claude--states))
+             (n (length states))
+             (face (cond ((seq-some (lambda (s) (memq s '(needs-input failed))) states)
+                          'warning)
+                         ((memq 'working states) 'success)
+                         (t 'shadow))))
+        (concat (propertize (format "✳ %d" n)
+                            'face (if (> n 0) face 'shadow))
+                (when (> my/status-claude-tokens 0)
+                  (propertize (format " %s" (my/status--compact my/status-claude-tokens))
+                              'face 'shadow)))))
+
+    ;; A session changes state between timer ticks, and the hooks that report it
+    ;; land in a buffer that is displayed nowhere -- the same blind spot telega's
+    ;; badge had above, and the same fix.
+    (with-eval-after-load 'claude-code-ide
+      (advice-add 'claude-code-ide-session-idle-set-agent-state
+                  :after #'my/status-repaint))
 
     (defun my/status-update-music ()
       "Refresh the now-playing line from spotify-ctl.
@@ -369,6 +597,7 @@ the badge rather than showing an error in the modeline."
        (delq nil
              (list (my/status-count "✉" my/status-mail-count 'success)
                    (my/status-telega)
+                   (my/status-claude)
                    (unless (string-empty-p my/status-music)
                      (propertize my/status-music 'face 'shadow))))
        "   "))
@@ -379,7 +608,11 @@ the badge rather than showing an error in the modeline."
     (unless my/status--timers
       (setq my/status--timers
             (list (run-with-timer 5 150 #'my/status-update-mail)
-                  (run-with-timer 8 20 #'my/status-update-music))))
+                  (run-with-timer 8 20 #'my/status-update-music)
+                  ;; Two minutes: the total only moves when a turn ends, and
+                  ;; every run after the first of the day reads a few kilobytes
+                  ;; of appended lines.
+                  (run-with-timer 12 120 #'my/status-update-claude))))
 
     ;; A one-line status strip across the top of the frame.
     ;;
