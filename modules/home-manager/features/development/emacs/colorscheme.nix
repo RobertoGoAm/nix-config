@@ -142,9 +142,23 @@
         (my/apply-transparency)
 
         ;; dim_inactive: the window you are not in recedes.
+        ;;
+        ;; Interpolated in RGB rather than in CIELAB, which is the default.
+        ;; CIELAB is the perceptually even colourspace and dims every hue by
+        ;; the same apparent amount, but a point on the line between two
+        ;; in-gamut colours is not necessarily in gamut itself, and dimmer
+        ;; clamps whichever channel fell outside. Clamping a channel is not a
+        ;; darkening, it is a rotation: the colour that comes back is a
+        ;; different colour, not a quieter one. Its own docstring says as much
+        ;; -- "If you think the dimmed values look wrong, then try HSL or RGB
+        ;; instead" -- and against this palette it was wrong on exactly the
+        ;; buffers with saturated foregrounds, the dashboard's icons and the
+        ;; diagnostic colours in a code window. Interpolating in RGB cannot
+        ;; leave the cube, so an inactive window is the active one, faded.
         (require 'dimmer)
         (setq dimmer-fraction 0.25
               dimmer-adjustment-mode :foreground
+              dimmer-use-colorspace :rgb
               dimmer-watch-frame-focus-events nil)
         (dimmer-configure-which-key)
         (dimmer-configure-magit)
