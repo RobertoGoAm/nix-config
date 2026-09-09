@@ -121,6 +121,7 @@ in
       coreutils
       gnutar
       graphviz
+      julia-mono
       mdfried
       mozjpeg
       nanum
