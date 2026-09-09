@@ -306,14 +306,33 @@ in
       (advice-add 'claude-code-ide-manager--build-default-layout
                   :override #'my/claude--manager-layout-in-pane))
 
+    (defun my/claude--live-session-p ()
+      "Non-nil when at least one Claude session is running anywhere.
+
+    Asked without loading claude-code-ide, and that is the point rather than a
+    detail: nothing can be running until something has loaded the package, so
+    an unloaded package is an honest no. The sidebar therefore stops being the
+    thing that drags a websocket client, an HTTP server and a set of
+    per-session timers into every frame that opens."
+      (and (fboundp 'claude-code-ide-manager--live-sessions)
+           (consp (claude-code-ide-manager--live-sessions))))
+
     (defun my/claude-sidebar-open-maybe (&optional _frame)
-      "Open the live-session sidebar on this frame, once.
+      "Open the live-session sidebar on this frame, once, if there is a session.
     Per frame rather than once per Emacs: a side window belongs to a frame, and
     these are daemon frames -- `emacsclient -c' makes a new one every time, and
     each one starts without it.
 
     The frame parameter is what makes it once: without it, toggling the sidebar
-    off and opening another frame would put it back on the first one too.
+    off and opening another frame would put it back on the first one too. It is
+    set only when the sidebar is actually drawn, so a frame that opened with
+    nothing running is still owed one when the first session starts.
+
+    Nothing running, nothing drawn. A list of live sessions with no live
+    sessions in it is a 26-column empty strip, permanently, on every frame --
+    and the pane is worth its width only once it has something to say. The
+    session-setup hook below is the other half: the sidebar arrives with the
+    first session rather than waiting for the next frame.
 
     `ignore-errors' because this runs on the path that creates a frame. The
     sidebar is worth having by default; it is not worth a frame that will not
@@ -326,7 +345,8 @@ in
     read that, decided the frame had something of its own to show, and stood
     down. A frame that opened on an empty strip with the point in it and no
     home screen behind it is what that looked like."
-      (unless (frame-parameter nil 'my/claude-sidebar-shown)
+      (when (and (not (frame-parameter nil 'my/claude-sidebar-shown))
+                 (my/claude--live-session-p))
         (set-frame-parameter nil 'my/claude-sidebar-shown t)
         (ignore-errors
           (require 'claude-code-ide)
@@ -335,6 +355,51 @@ in
 
     (add-hook 'server-after-make-frame-hook #'my/claude-sidebar-open-maybe)
     (add-hook 'emacs-startup-hook #'my/claude-sidebar-open-maybe)
+
+    ;; The first session of a frame's life draws the pane it belongs in.
+    ;;
+    ;; Deferred by a timer rather than run inline. The hook fires while the
+    ;; session buffer is being configured, and `--live-sessions' filters on
+    ;; `process-live-p' of a process the registry may not have been handed yet
+    ;; -- so asked inline the answer is sometimes no for the session that just
+    ;; asked the question. A zero-second timer asks once the stack has unwound,
+    ;; by which point the registry is complete.
+    (defun my/claude-sidebar-on-session ()
+      "Draw the sidebar on this frame now that a session exists."
+      (let ((frame (selected-frame)))
+        (run-at-time 0 nil
+                     (lambda ()
+                       (when (frame-live-p frame)
+                         (with-selected-frame frame
+                           (my/claude-sidebar-open-maybe)))))))
+
+    (with-eval-after-load 'claude-code-ide-session
+      (add-hook 'claude-code-ide-session-setup-hook #'my/claude-sidebar-on-session))
+
+    ;; And the pane can be moved into, which it could not be.
+    ;;
+    ;; claude-code-ide sets `no-other-window' on its sidebar -- in the
+    ;; display-buffer call that creates it, again in the treemacs-collocated
+    ;; variant, and again in the two functions that reassert a sidebar's
+    ;; parameters after a refresh. `evil-window-left' asks
+    ;; `window-in-direction', which honours that parameter, so `SPC w h' from
+    ;; the dashboard skipped straight past the pane and reported no window
+    ;; there. The only way in was `SPC a A', which toggles the sidebar SHUT
+    ;; when it is already open.
+    ;;
+    ;; Cleared on `window-configuration-change-hook' rather than by advising
+    ;; the four setters: it is one hook instead of four advices, it survives
+    ;; the package growing a fifth, and it undoes the reassertions as well as
+    ;; the initial set. What keeps `display-buffer' from choosing the pane for
+    ;; an ordinary buffer is `window-side', which is untouched.
+    (defun my/claude-sidebar-reachable (&rest _)
+      "Let window motion into any manager sidebar on any frame."
+      (dolist (window (window-list-1 nil 'nomini t))
+        (when (and (window-parameter window 'claude-code-ide-manager-sidebar)
+                   (window-parameter window 'no-other-window))
+          (set-window-parameter window 'no-other-window nil))))
+
+    (add-hook 'window-configuration-change-hook #'my/claude-sidebar-reachable)
 
     (defvar-local my/claude--transcript-path nil
       "Transcript the Claude session in this buffer is writing.
