@@ -1,6 +1,7 @@
 # development emacs plugins notes markview
 
 {
+  pkgs,
   ...
 }:
 {
@@ -8,6 +9,11 @@
     epkgs: with epkgs; [
       markdown-mode
     ];
+
+  # markdown-command shells out to this. Without it `markdown-export' and the
+  # live HTML preview both fail with "pandoc: no such file or directory", which
+  # is the kind of breakage that only shows up the first time you reach for it.
+  home.packages = [ pkgs.pandoc ];
 
   programs.emacs.extraConfig = ''
     ;;; Markdown — markdown-mode in place of markview.nvim.
@@ -37,6 +43,16 @@
           markdown-header-scaling t
           markdown-list-item-bullets '("•" "◦" "▪" "▫"))
 
+    ;; The third way to read a note, after the rendered look and the raw markup:
+    ;; pandoc's HTML in a side window, which is where a table or a block of math
+    ;; finally lays out the way it does in the Obsidian app.
+    ;;
+    ;; eww named explicitly rather than left to the default. markdown-mode picks
+    ;; an embedded WebKit when the build has one, and notes from work must not
+    ;; open in Emacs' xwidget.
+    (setq markdown-live-preview-window-function #'markdown-live-preview-window-eww
+          markdown-live-preview-delete-export 'delete-on-destroy)
+
     ;; GitHub-flavoured markdown for READMEs and for the GhostText buffers that come
     ;; back from GitHub and GitLab comment boxes.
     (add-to-list 'auto-mode-alist '("README\\.md\\'" . gfm-mode))
@@ -49,9 +65,8 @@
     ;; variable-pitch has to be applied per-face rather than by turning on
     ;; variable-pitch-mode wholesale -- that would reflow code blocks, tables and
     ;; the list bullets above, where column alignment is the whole point.
-    (defun my/markdown-prose-faces ()
-      "Proportional prose, monospaced code, inside a markdown buffer."
-      (variable-pitch-mode 1)
+    (defun my/markdown-code-faces ()
+      "Keep code, tables and bullets monospaced under a proportional body face."
       (dolist (face '(markdown-code-face
                       markdown-pre-face
                       markdown-inline-code-face
@@ -60,27 +75,59 @@
         (when (facep face)
           (set-face-attribute face nil :inherit 'fixed-pitch))))
 
-    (add-hook 'markdown-mode-hook #'my/markdown-prose-faces)
+    (defun my/markdown-images (enable)
+      "Show inline images when ENABLE is non-nil, hide them otherwise.
 
-    ;; Images inline, as in the Obsidian editor. Only on files: a GhostText buffer
-    ;; from a comment box has no directory to resolve relative paths against.
-    (defun my/markdown-show-images ()
-      "Display inline images when the buffer is a file."
-      (when buffer-file-name
-        (ignore-errors (markdown-display-inline-images))))
+    Guarded on `display-images-p' on both sides, because a terminal frame cannot
+    show an image and asking anyway signals rather than declining: markdown-mode
+    raises \"Cannot show images\" on the display side, and the remove side ends in
+    a `clear-image-cache' that raises \"Window system frame should be used\".
 
-    (add-hook 'markdown-mode-hook #'my/markdown-show-images)
+    Only files get images at all -- a GhostText buffer from a comment box has no
+    directory to resolve a relative path against."
+      (when (display-images-p)
+        (if enable
+            (when buffer-file-name
+              (ignore-errors (markdown-display-inline-images)))
+          (markdown-remove-inline-images))))
 
+    ;; One switch for the whole rendered look, because the three parts are only
+    ;; useful together. Hiding the markup while the proportional face and the
+    ;; inline images stay put is the state that gets in the way: raw markdown is
+    ;; what you reach for when you want to edit the syntax, and then reflowed
+    ;; prose and half-page images are still in front of it.
+    ;;
+    ;; `markdown-hide-markup' is the stored state rather than a variable of our
+    ;; own. It is already buffer-local, and SPC T m flips it on its own.
+    (defun my/markdown-render (enable)
+      "Show the rendered look when ENABLE is non-nil, raw markdown otherwise."
+      (setq-local markdown-hide-markup (and enable t))
+      (variable-pitch-mode (if enable 1 -1))
+      (my/markdown-images enable)
+      (font-lock-flush))
+
+    (defun my/markdown-toggle-render ()
+      "Flip the buffer between the rendered look and raw markdown."
+      (interactive)
+      (my/markdown-render (not markdown-hide-markup))
+      (message "Markdown %s" (if markdown-hide-markup "rendered" "raw")))
+
+    (defun my/markdown-setup ()
+      "Open a markdown buffer in the rendered look."
+      (my/markdown-code-faces)
+      (my/markdown-render t))
+
+    (add-hook 'markdown-mode-hook #'my/markdown-setup)
+
+    ;; The halves, still separately reachable, for when only one of them is in
+    ;; the way.
     (defun my/toggle-markdown-images ()
       "Show or hide inline images."
       (interactive)
-      (if (bound-and-true-p markdown-inline-image-overlays)
-          (markdown-remove-inline-images)
-        (markdown-display-inline-images)))
+      (my/markdown-images (not (bound-and-true-p markdown-inline-image-overlays))))
 
-    ;; Toggling the markup back on is useful while editing raw markdown.
     (defun my/toggle-markdown-markup ()
-      "Show or hide the markdown markup characters."
+      "Show or hide the markdown markup characters, leaving the rest as it is."
       (interactive)
       (setq-local markdown-hide-markup (not markdown-hide-markup))
       (font-lock-flush)
