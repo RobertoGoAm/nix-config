@@ -29,13 +29,23 @@ in
               ;;; Colemak hnei rotation — the machinery.
 
               (defconst my/colemak-swaps
-              '(("n" . "j") ("N" . "J")
-                ("e" . "k") ("E" . "K")
-                ("i" . "l") ("I" . "L"))
-              "Key pairs the rotation exchanges.
-        Read as a permutation, the nvim keymaps are three transpositions applied in both
-        cases: n<->j, e<->k, i<->l. So hnei moves the cursor, j/J take over
-        search-next/previous, k/K word-end, and l/L insert.")
+              '(("n" . "j") ("e" . "k") ("i" . "l"))
+              "Key pairs the rotation exchanges everywhere.
+        Read as a permutation, the nvim keymaps are three transpositions: n<->j, e<->k,
+        i<->l. So hnei moves the cursor, j takes over search-next, k word-end, and l
+        insert.")
+
+            (defconst my/colemak-swaps-shifted
+              '(("N" . "J") ("E" . "K") ("I" . "L"))
+              "Key pairs the rotation exchanges in the evil state maps only.
+        The shifted half of the permutation is a motion only in vim's own vocabulary:
+        J joins, K opens the manual, L jumps to the bottom of the screen, and moving
+        those onto the Colemak positions is the point. A plugin's capitals are not
+        motions at all -- they are mnemonics. mu4e is the clear case: `J' is
+        jump-to-maildir in every mu4e document and screencast there is, and rotating it
+        onto `N' left `J' bound to nothing and the docs wrong. Same for `E' (compose an
+        edit) landing on `K'. Lowercase still rotates in those maps, because there the
+        keys really are movement: `n' and `e' walk the header list.")
 
             (defvar my/colemak-rotated-maps nil
               "Keymaps the rotation has already been applied to.
@@ -56,11 +66,11 @@ in
                         (if (numberp def) nil def)))
                   (when parent (set-keymap-parent map parent)))))
 
-            (defun my/colemak-rotate (map)
-              "Exchange the `my/colemak-swaps' pairs in MAP, at most once."
+            (defun my/colemak-rotate (map &optional pairs)
+              "Exchange PAIRS in MAP, at most once, defaulting to `my/colemak-swaps'."
               (when (and (keymapp map) (not (memq map my/colemak-rotated-maps)))
                 (push map my/colemak-rotated-maps)
-                (dolist (pair my/colemak-swaps)
+                (dolist (pair (or pairs my/colemak-swaps))
                   (let* ((a (car pair))
                          (b (cdr pair))
                          (ca (my/keymap-own-binding map a))
@@ -134,12 +144,13 @@ in
         ;; actually want on Colemak. To match nvim exactly instead, cut this list down
         ;; to `evil-normal-state-map'.
         (defun my/colemak-rotate-states ()
-          "Rotate the four evil state maps."
+          "Rotate the four evil state maps, capitals included."
           (dolist (map (list evil-motion-state-map
                              evil-normal-state-map
                              evil-visual-state-map
                              evil-operator-state-map))
-            (my/colemak-rotate map)))
+            (my/colemak-rotate map (append my/colemak-swaps
+                                           my/colemak-swaps-shifted))))
 
         (my/colemak-rotate-states)
 
