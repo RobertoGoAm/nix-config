@@ -25,16 +25,21 @@ phone number -- see the login note in extraConfig below.
 #+begin_src nix
   home.packages = [
     pkgs.qrencode
-  ]
+  ];
 #+end_src
 
-* Notification transport on macOS -- see the notify override in...
+* No notifier binary. The banner is posted by Emacs itself...
 
-Notification transport on macOS -- see the notify override in extraConfig.
+No notifier binary. The banner is posted by Emacs itself.
+
+terminal-notifier used to be installed here, and it is not needed now: a
+notification is attributed to the bundle of the process that posts it, and
+the daemon already runs from inside Emacs.app. Posting from within Emacs --
+which is what =my/notify= in plugins/ui/notifications.nix does -- therefore
+gets Emacs' own icon without a helper, and without terminal-notifier's habit
+of stealing focus for the instant it is frontmost.
 
 #+begin_src nix
-  ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.terminal-notifier;
-
   programs.emacs.extraConfig = ''
     ;;; Telegram — telega.el, a real client rather than a bridge.
     ;;;
@@ -130,42 +135,30 @@ Notification transport on macOS -- see the notify override in extraConfig.
     ;;
     ;; telega-notifications--notify calls `notifications-notify', which is
     ;; D-Bus and therefore Linux-only: on darwin telega-notifications-mode runs
-    ;; and silently produces nothing. terminal-notifier is the usual bridge to
-    ;; Notification Center for a program that is not itself an .app.
+    ;; and silently produces nothing. This is the bridge.
     ;;
-    ;; -sender org.gnu.Emacs makes the banner carry the Emacs icon and raise
-    ;; Emacs when clicked, and -group replaces the previous banner rather than
-    ;; stacking one per message -- the same intent as the
-    ;; notifications-close-notification call in the function being replaced.
+    ;; Everything about HOW a banner is posted lives in `my/notify' and the
+    ;; alert style behind it, in plugins/ui/notifications.nix -- posted from
+    ;; inside Emacs' own bundle so the banner carries Emacs' icon and raises
+    ;; Emacs when clicked, deferred to an idle moment so the AppleScript call
+    ;; never blocks a keystroke, and coalesced per title, which here means per
+    ;; chat. None of that is telega's business, and every other notification in
+    ;; this config wants the same three things.
     ;;
-    ;; Properties are stripped: telega's :title and :body carry faces and image
-    ;; specs for the Emacs display, and terminal-notifier wants plain argv.
-    ;; call-process with a destination of 0 does not wait, so a slow banner
-    ;; never blocks the chat.
+    ;; What is telega's business is the shape of NOTIFY-SPEC, which is all that
+    ;; is left here. Text properties are stripped on the way through: telega's
+    ;; :title and :body carry faces and image specs meant for the Emacs display.
+    ;;
+    ;; Not terminal-notifier, which this used to be. It is a GUI app bundle:
+    ;; posting a banner makes it frontmost for an instant, and macOS then hands
+    ;; focus back to whatever was frontmost before Emacs -- so a message
+    ;; arriving while you type threw you into the app you were in previously.
+    ;; -sender does not prevent it.
     ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
       (defun my/telega-notify-macos (notify-spec)
-        "Show NOTIFY-SPEC through terminal-notifier instead of D-Bus."
-        (let ((title (substring-no-properties
-                      (or (plist-get notify-spec :title) "Telegram")))
-              (body (substring-no-properties
-                     (or (plist-get notify-spec :body) ""))))
-          ;; osascript, not terminal-notifier. terminal-notifier is a GUI app
-          ;; bundle: posting a banner makes it frontmost for an instant, and
-          ;; macOS then hands focus back to whatever was frontmost before
-          ;; Emacs -- so a message arriving while you type throws you into the
-          ;; app you were in previously. -sender does not prevent that.
-          ;; osascript is not an app, activates nothing, and the banner is the
-          ;; same.
-          ;;
-          ;; The text travels in argv rather than in the script source.
-          ;; Interpolating a chat message into AppleScript would let any
-          ;; message containing a quote break the script, and a crafted one
-          ;; run arbitrary AppleScript -- this content comes from other people.
-          (call-process "/usr/bin/osascript" nil 0 nil
-                        "-e" "on run argv"
-                        "-e" "display notification (item 2 of argv) with title (item 1 of argv)"
-                        "-e" "end run"
-                        title body)))
+        "Show NOTIFY-SPEC as a desktop notification, in place of D-Bus."
+        (my/notify (or (plist-get notify-spec :title) "Telegram")
+                   (or (plist-get notify-spec :body) "")))
 
       (with-eval-after-load 'telega
         (advice-add 'telega-notifications--notify
