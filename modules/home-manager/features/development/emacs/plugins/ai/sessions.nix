@@ -515,6 +515,12 @@ in
                   rows)))
         (nreverse rows)))
 
+    (defvar my/claude--chats-narrowed nil
+      "Non-nil when the last redraw actually narrowed to one project.
+    Not the same question as `my/claude--chats-scope': asking for one project
+    with no conversations in it falls back to showing every project, and the
+    header has to say what is on screen rather than what was asked for.")
+
     (defun my/claude--chats-entries ()
       "Live sessions first, then the conversations on disk by recency."
       (let* ((my/claude--chats-index
@@ -522,13 +528,16 @@ in
              (live (my/claude--live-chats))
              (rows (append live (my/claude--past-chats live)))
              (entries nil))
+        (setq my/claude--chats-narrowed nil)
         (when (eq my/claude--chats-scope 'project)
           (let* ((my/claude--root (my/claude--project-root))
                  (here (seq-filter #'my/claude--chat-here-p rows)))
             ;; An empty list is worse than a wide one: a project with no history
             ;; would otherwise open a pane with nothing in it and no clue that
             ;; `a' is what fills it.
-            (when here (setq rows here))))
+            (when here
+              (setq rows here
+                    my/claude--chats-narrowed t))))
         (dolist (row rows)
           (let ((glyph (plist-get row :glyph)))
             (push (list row
@@ -654,9 +663,12 @@ in
           (forward-line (1- line)))))
 
     (defun my/claude--chats-redraw ()
-      "Redraw the list in the current buffer, keeping the point on its line."
+      "Redraw the list in the current buffer, keeping the point on its line.
+    The header goes in after the print, not before: it names the scope the
+    rows are actually in, and that is only known once they have been built."
       (let ((line (line-number-at-pos)))
         (tabulated-list-print)
+        (my/claude--chats-header)
         (goto-char (point-min))
         (forward-line (1- line))))
 
@@ -756,14 +768,35 @@ in
       "Keymap for `my/claude-chats-mode'.
     Avoids h/n/e/i/p/f, which are movement and scrolling on this layout.")
 
+    ;; Which scope you are in, on screen rather than in the echo area.
+    ;;
+    ;; `a' announced the switch in a message, and a message is gone by the time
+    ;; you have read the second row. The list is grouped by project either way,
+    ;; so a narrowed list and a wide one whose first group happens to be this
+    ;; project look identical -- which is exactly when you want to be told.
+    ;;
+    ;; It rides in the "Chat" column header because that is the one line always
+    ;; on screen and never scrolled away.
+    (defun my/claude--chats-scope-label ()
+      "How the header names the scope the rows on screen are in."
+      (if my/claude--chats-narrowed
+          (file-name-nondirectory (directory-file-name (my/claude--project-root)))
+        "every project"))
+
+    (defun my/claude--chats-header ()
+      "Install the column header, with the current scope named in it."
+      (setq tabulated-list-format
+            (vector '("" 2 nil)
+                    (list (format "Chat — %s" (my/claude--chats-scope-label)) 58 nil)
+                    '("When" 18 nil)))
+      (tabulated-list-init-header))
+
     (define-derived-mode my/claude-chats-mode tabulated-list-mode "Claude chats"
       "Every Claude conversation, the running ones and the kept ones."
       ;; The project is the group heading, so no column repeats it.
-      (setq tabulated-list-format
-            [("" 2 nil) ("Chat" 58 nil) ("When" 18 nil)]
-            tabulated-list-padding 1
+      (setq tabulated-list-padding 1
             tabulated-list-groups #'my/claude--chats-groups)
-      (tabulated-list-init-header))
+      (my/claude--chats-header))
 
     ;; The major mode map alone loses to evil's normal state, which is why RET
     ;; on a row did nothing: `evil-ret' moved down a line instead. Same keys
@@ -791,16 +824,25 @@ in
     own project directory.
 
     Opens on every project, which is the case both the manager sidebar and
-    `claude --resume' refuse; `a' narrows it to this one. TAB folds and unfolds
-    a project, `v' reads a conversation without starting anything, `r'
-    refreshes.
+    `claude --resume' refuse; `a' narrows it to this one and back, and the
+    column header says which of the two is on screen. TAB folds and unfolds a
+    project, `v' reads a conversation without starting anything, `r' refreshes.
 
     Called again while it is up, closes it."
       (interactive)
       (if (my/claude--chats-window)
           (my/claude--chats-close)
-        (let ((buf (get-buffer-create "*claude chats*")))
+        ;; The project `a' narrows to is the one you opened the list from.
+        ;;
+        ;; It is read from the list buffer's own `default-directory', and that
+        ;; is inherited from whatever buffer was current when the buffer was
+        ;; first created -- so without this it stayed pinned to the project of
+        ;; the very first invocation, and narrowing in a second project
+        ;; silently filtered by the first one.
+        (let ((root (my/claude--project-root))
+              (buf (get-buffer-create "*claude chats*")))
           (with-current-buffer buf
+            (setq default-directory root)
             (my/claude-chats-mode)
             (my/claude-chats-refresh))
           (pop-to-buffer buf))))
