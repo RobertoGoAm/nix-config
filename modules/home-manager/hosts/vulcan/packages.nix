@@ -105,6 +105,7 @@ in
       coreutils
       cyberduck
       graphviz
+      julia-mono
       mdfried
       mozjpeg
       nerd-fonts.jetbrains-mono

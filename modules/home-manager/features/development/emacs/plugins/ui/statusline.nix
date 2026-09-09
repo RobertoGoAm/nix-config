@@ -399,11 +399,20 @@
 
         ;; disabled_filetypes: help, the file tree and the terminal get no modeline at
         ;; all — which is also hide_inactive_statusline's spirit, less clutter.
+        ;;
+        ;; The Claude sidebar and chat list belong here for the same reason the file
+        ;; tree does. They are columns of names in a narrow pane, and every segment
+        ;; the eviline layout draws — the filename, the position, the encoding, the
+        ;; branch — is either meaningless for them or already on screen. The session
+        ;; itself arrives via `vterm-mode-hook', so without these two the drawer had
+        ;; a modeline on its list panes and none on the conversation between them.
         (require 'hide-mode-line)
         (dolist (hook '(treemacs-mode-hook
                         vterm-mode-hook
                         help-mode-hook
                         dashboard-mode-hook
+                        claude-code-ide-manager-mode-hook
+                        my/claude-chats-mode-hook
                         lsp-treemacs-error-list-mode-hook))
           (add-hook hook #'hide-mode-line-mode))
   '';

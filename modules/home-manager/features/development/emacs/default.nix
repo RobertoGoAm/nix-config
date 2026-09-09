@@ -179,6 +179,32 @@ in
     ;; too and is in place before the first redisplay -- same reason the
     ;; colours are set here.
     (push '(font . "JetBrainsMono Nerd Font Mono-12") default-frame-alist)
+
+    ;; JuliaMono covers the two blocks JetBrainsMono leaves empty, and it has to,
+    ;; because a terminal emulator inside Emacs is only aligned for as long as
+    ;; every glyph on a line advances by exactly one cell.
+    ;;
+    ;; When the font in front lacks a character, macOS picks the substitute and
+    ;; nothing constrains its width. In the Claude pane, at a 7-pixel cell:
+    ;;
+    ;;   ⎿  U+23BF, on every tool-result line   Hiragino Maru Gothic ProN  12px
+    ;;   ⏺  U+23FA, on every message            STIX Two Math               8px
+    ;;   ⏵  U+23F5, in the status footer        STIX Two Math               6px
+    ;;   ✻  U+273B / ✽ U+273D, the spinner      Arial Unicode MS            8px
+    ;;
+    ;; So a result line started five pixels to the right of the text above it,
+    ;; and the spinner — which cycles between a dingbat at 8px and a middle dot
+    ;; at 7px — shoved its own line sideways on every animation frame. That is
+    ;; the flicker and the drift, and neither is vterm's doing.
+    ;;
+    ;; JuliaMono is the fit: it carries U+2190-U+2429 and U+2460-U+2B73 whole,
+    ;; and its advance is 1200/2000 em against JetBrainsMono's 600/1000 — the
+    ;; same 0.6, so the substituted glyphs land on the same grid at any size.
+    ;;
+    ;; Appended rather than prepended: JetBrainsMono keeps every character it
+    ;; actually has, and JuliaMono is consulted only for the holes.
+    (set-fontset-font t '(#x2300 . #x23ff) (font-spec :family "JuliaMono") nil 'append)
+    (set-fontset-font t '(#x2700 . #x27bf) (font-spec :family "JuliaMono") nil 'append)
     (push '(background-color . "#24283b") default-frame-alist)
     (push '(foreground-color . "#c0caf5") default-frame-alist)
     (push '(ns-transparent-titlebar . t) default-frame-alist)
