@@ -397,13 +397,25 @@ mean the same thing in a magit buffer as in a source file.
       "st" '(consult-imenu :which-key "buffer tags")
       "sT" '(consult-imenu-multi :which-key "project tags")
 
-      ;; test
+      ;; test -- jest.el's own commands, and its popup for everything else.
+      ;;
+      ;; f is the plain "run this file" and F is the dwim, which is the opposite
+      ;; way round from jest.el's own popup. The dwim asks projectile whether
+      ;; the current file is a test, and projectile calls a JS test `.test'
+      ;; whatever the repository actually names them -- so on a `.spec' project
+      ;; it is wrong until that project's .dir-locals.el says otherwise. See the
+      ;; note in plugins/code/test.nix. The one that is always right gets the
+      ;; lowercase key.
+      ;;
+      ;; No key for the output buffer: every run displays it. None for watch or
+      ;; coverage either -- those are switches on the popup, not commands.
       "t"  '(:ignore t :which-key "test")
-      "tf" '(my/test-file :which-key "file")
-      "tl" '(my/test-last :which-key "last")
-      "tn" '(my/test-nearest :which-key "nearest")
-      "to" '(my/test-output :which-key "output")
-      "ts" '(my/test-summary :which-key "toggle summary")
+      "tt" '(jest-popup :which-key "menu (watch, coverage, -t, --config)")
+      "ta" '(jest :which-key "all")
+      "tf" '(jest-file :which-key "this file")
+      "tF" '(jest-file-dwim :which-key "this file's test (needs projectile suffix)")
+      "tn" '(jest-function :which-key "test at point")
+      "tr" '(jest-repeat :which-key "repeat last run")
       "td" '(dape :which-key "debug")
 
       ;; toggles. precognition and hardtime have no Emacs counterpart, so SPC T p is
