@@ -375,8 +375,12 @@ in
     ;; actions differ in kind -- one moves the point, the other starts a
     ;; process.
 
-    (defvar my/claude--chats-scope 'project
-      "Whether the chat list shows `project' or `all' conversations.")
+    (defvar my/claude--chats-scope 'all
+      "Whether the chat list shows `project' or `all' conversations.
+    Every project by default: this list exists to be browsed, and the fold
+    below keeps that from being a wall of text -- five conversations a project,
+    the rest a TAB away. Narrowing to one project is the special case, and `a'
+    is what asks for it.")
 
     ;; Faces by meaning rather than by colour, so the theme decides the colour.
     ;; `error', `warning' and `success' already read as stop, look and done in
@@ -794,10 +798,10 @@ in
     and RET switches into it. A past row has no glyph, and RET resumes it in its
     own project directory.
 
-    Opens on this project, which is the ordinary case; `a' widens it to every
-    project, which is the case both the manager sidebar and `claude --resume'
-    refuse. TAB folds and unfolds a project, `v' reads a conversation without
-    starting anything, `r' refreshes.
+    Opens on every project, which is the case both the manager sidebar and
+    `claude --resume' refuse; `a' narrows it to this one. TAB folds and unfolds
+    a project, `v' reads a conversation without starting anything, `r'
+    refreshes.
 
     Called again while it is up, closes it."
       (interactive)
