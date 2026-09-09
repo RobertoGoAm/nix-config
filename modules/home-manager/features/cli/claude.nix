@@ -3,26 +3,93 @@
 { lib, pkgs, ... }:
 let
 
-  # The Emacs manager sidebar draws a state glyph beside every live...
+  # The status line under the prompt: where this session stands
 
-  # The Emacs manager sidebar draws a state glyph beside every live session, and
-  # it has two sources for it. One is a guess: whether the pty wrote anything
-  # recently, which distinguishes "still going" from "gone quiet" and nothing
-  # else. The other is a state the agent reports over MCP -- waiting on you,
-  # finished, failed -- which Claude Code does not send, because it reports
-  # through hooks instead.
+  # Claude Code draws one line of your own beneath the input box and refreshes it
+  # as the conversation moves, by running a command and reading its stdout. The
+  # whole session arrives on that command's stdin as JSON: the model, the
+  # workspace, the running cost, how much of the context window is spoken for
+  # and -- the numbers actually worth having -- the rolling five-hour and
+  # seven-day rate limit utilisation.
 
-  # So the hooks send it. Each one names the state its event means and this
-  # carries it into the session's buffer, where the sidebar reads it back.
-  # =EMACS_BUFFER_NAME= is exported into every session claude-code-ide starts and
-  # is unset everywhere else, so the same hooks are a no-op in a plain terminal.
+  # The payload's shape is undocumented and has moved between releases, so every
+  # field is found by searching the object for its key rather than by walking a
+  # fixed path. A release that nests =current_usage= one level deeper costs
+  # nothing here, and a field that stops being sent costs its own segment and no
+  # more. `touch ~/.cache/claude-statusline/debug' to have the raw payload
+  # written next to it as =last-payload.json=, which is how to see what a new
+  # release really sends.
 
-  # There is no hook for a failed turn, so the failed glyph stays reachable only
-  # by an agent that reports over MCP. The three that matter here are covered.
+  # Two jq passes rather than one, because the branch is a fallback: the payload
+  # carries it only inside a worktree, and asking git is what fills the gap. The
+  # ask is `--no-optional-locks', since a status line runs constantly and must
+  # never take the index lock out from under the shell in the next pane.
 
-  # Silent by contract: a =UserPromptSubmit= hook's stdout is appended to
-  # Claude's context, so anything this printed would land in the conversation as
-  # if the user had typed it.
+  statusline = pkgs.writeShellApplication {
+    name = "claude-statusline";
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.git
+    ];
+    text = ''
+      payload="$(cat)"
+
+      cache="''${XDG_CACHE_HOME:-$HOME/.cache}/claude-statusline"
+      if [ -e "$cache/debug" ]; then
+        printf '%s' "$payload" > "$cache/last-payload.json"
+      fi
+
+      dir="$(printf '%s' "$payload" | jq -r '.workspace.current_dir // .cwd // ""')"
+      branch="$(printf '%s' "$payload" | jq -r '.workspace.git_worktree.branch // .gitBranch // ""')"
+      if [ -z "$branch" ] && [ -d "$dir" ]; then
+        branch="$(git --no-optional-locks -C "$dir" branch --show-current 2>/dev/null || true)"
+      fi
+
+      printf '%s' "$payload" | jq -r --arg branch "$branch" '
+        def firstkey($k): [.. | objects | select(has($k)) | .[$k]] | first;
+        def num($k): [.. | objects | select(has($k)) | .[$k] | numbers] | first;
+        def util($k): (firstkey($k) | if type == "object" then (.utilization | numbers) else null end);
+
+        def dim($s): "\u001b[2m\($s)\u001b[0m";
+        def pct($v): ($v | round) as $n
+          | if   $n >= 80 then "\u001b[31m\($n)%\u001b[0m"
+            elif $n >= 60 then "\u001b[33m\($n)%\u001b[0m"
+            else "\($n)%" end;
+
+        # A utilisation is a fraction in some releases and a percentage in
+        # others. Nothing sits at exactly 1% often enough for the ambiguity to
+        # matter, and reading 0.34 as 34% is right far more often than as 0%.
+        def as_pct($v): if $v <= 1 then $v * 100 else $v end;
+
+        . as $p
+        | (($p.workspace.current_dir // $p.cwd // "") | split("/") | last) as $dir
+        | ($p.model.display_name // $p.model.id // "") as $model
+        | num("used") as $used
+        | num("context_window_size") as $size
+        | num("used_percentage") as $usedpct
+        # Preferred from the two token counts: a ratio needs no guess about
+        # whether a percentage is written 0-1 or 0-100.
+        | (if   ($used != null and $size != null and $size > 0) then 100 * $used / $size
+           elif ($usedpct != null) then as_pct($usedpct)
+           else null end) as $ctx
+        | util("five_hour") as $h5
+        | util("seven_day") as $d7
+        | ($p.cost.total_cost_usd // num("total_cost_usd")) as $cost
+        | [ (if $dir    == ""   then null else $dir end),
+            (if $branch == ""   then null else dim($branch) end),
+            (if $model  == ""   then null else $model end),
+            (if $ctx    == null then null else "\(dim("ctx")) \(pct($ctx))" end),
+            (if $h5     == null then null else "\(dim("5h")) \(pct(as_pct($h5)))" end),
+            (if $d7     == null then null else "\(dim("7d")) \(pct(as_pct($d7)))" end),
+            (if ($cost == null or $cost < 0.005) then null
+             else dim("$\(($cost * 100 | round) / 100)") end)
+          ]
+        | map(select(. != null))
+        # Two spaces: at the size a status line is drawn, one space reads as a
+        # single run-on sentence.
+        | join("  ")'
+    '';
+  };
 
   emacs-state = pkgs.writeShellApplication {
     name = "claude-emacs-state";
@@ -998,6 +1065,10 @@ in
         ];
       };
       agentPushNotifEnabled = true;
+      statusLine = {
+        type = "command";
+        command = lib.getExe statusline;
+      };
     };
   };
 
