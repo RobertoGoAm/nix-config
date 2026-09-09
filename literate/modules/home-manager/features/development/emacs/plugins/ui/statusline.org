@@ -335,6 +335,28 @@ the badge rather than showing an error in the modeline."
            0)
        'telega-unmuted-count))
 
+    ;; And the repaint telega's own bookkeeping does not do.
+    ;;
+    ;; `telega-mode-line-update' ends in `(force-mode-line-update)' with no
+    ;; argument, which repaints the selected window's mode line and nothing
+    ;; else. It runs from a tdlib event handler, and the current buffer there
+    ;; is telega's own process buffer, which is displayed in no window at all
+    ;; -- so the call had nothing to repaint. The badge is in the tab bar,
+    ;; drawn once per frame, and the number it showed was therefore whatever
+    ;; it had been the last time something unrelated forced a redisplay.
+    ;;
+    ;; The two update handlers rather than `telega-mode-line-update' itself:
+    ;; that function is advice telega adds to them, and advising advice is a
+    ;; longer way round to the same two events.
+    (defun my/status-repaint (&rest _)
+      "Repaint every mode line and tab bar on every frame."
+      (force-mode-line-update t))
+
+    (with-eval-after-load 'telega
+      (dolist (handler '(telega--on-updateUnreadChatCount
+                         telega--on-updateUnreadMessageCount))
+        (advice-add handler :after #'my/status-repaint)))
+
     (defun my/status-string ()
       "The ambient status: unread mail, unread Telegram, then the track.
 

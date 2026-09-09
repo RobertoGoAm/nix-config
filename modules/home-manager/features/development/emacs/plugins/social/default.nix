@@ -105,11 +105,16 @@
     (with-eval-after-load 'telega
       (setq telega-use-images (display-graphic-p)))
 
-    ;; Keeps telega's unread counters current, and calls
-    ;; `force-mode-line-update' when they change -- which is what makes the
-    ;; my/telega segment in statusline.nix refresh. Its own mode-line string
-    ;; goes to `mode-line-misc-info', which this modeline does not render; the
-    ;; mode is enabled for the bookkeeping, not the string.
+    ;; Keeps telega's unread counters current, which is what the my/telega
+    ;; segment in statusline.nix reads. Its own mode-line string goes to
+    ;; `mode-line-misc-info', which this modeline does not render; the mode is
+    ;; enabled for the bookkeeping, not the string.
+    ;;
+    ;; It does not carry the repaint with it. `telega-mode-line-update' calls
+    ;; `force-mode-line-update' with no argument, from a buffer no window is
+    ;; showing, so nothing is marked for redisplay and the tab-bar badge stays
+    ;; on its old number. statusline.nix advises the two update handlers to
+    ;; repaint every frame; see my/status-repaint there.
     (with-eval-after-load 'telega
       (telega-mode-line-mode 1))
 
