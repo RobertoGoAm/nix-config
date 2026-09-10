@@ -172,6 +172,10 @@
       ;; function reads as unchanged rather than as a wall of red and green.
       "gw" '(difftastic-magit-diff :which-key "diff (structural)")
       "gD" '(magit-diff-buffer-file :which-key "diff split")
+      ;; Two panes, old on the left, in the theme's diff colours -- the shape VS
+      ;; Code opens a comparison in. magit's own `e' does the same job but the
+      ;; Colemak rotation has taken that key.
+      "gE" '(my/git-diff-side-by-side :which-key "diff side by side")
       "ge" '(diff-hl-previous-hunk :which-key "prev hunk")
       "gf" '(forge-dispatch :which-key "forge (PRs, MRs, issues)")
       "gA" '(my/gitlab-approve-mr :which-key "approve MR (gitlab)")
