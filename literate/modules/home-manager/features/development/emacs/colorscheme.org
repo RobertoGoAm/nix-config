@@ -36,7 +36,17 @@
             (orange   . "#ff9e64")
             (violet   . "#9d7cd8")
             (red      . "#f7768e")
-            (yellow   . "#e0af68"))
+            (yellow   . "#e0af68")
+            ;; The diff group from the same palette, for the two-pane ediff
+            ;; compare in version-control/git.nix. diff-add and diff-del are
+            ;; tokyonight's own diff.add and diff.delete; the -hl pair is each of
+            ;; them mixed halfway to the matching git.add / git.delete, because
+            ;; ediff paints the changed words inside an already-tinted hunk and
+            ;; the two tints have to be told apart.
+            (diff-add    . "#20303b")
+            (diff-del    . "#37222c")
+            (diff-add-hl . "#326673")
+            (diff-del-hl . "#643740"))
           "tokyonight storm, as used by the nvim config and the modeline.")
 
         (defun my/tn (key)

@@ -28,6 +28,7 @@
       git-link
       git-timemachine
       magit
+      magit-delta
     ];
 
   programs.emacs.extraConfig = ''
@@ -68,6 +69,132 @@
               ;; The commit buffer gets the prose layout from ui/linenumbers.nix.
               magit-commit-show-diff t
               git-commit-summary-max-length 72)
+
+        ;; Syntax highlighting inside the hunks.
+        ;;
+        ;; magit paints a diff in two colours: green for what arrived, red for
+        ;; what left. delta re-renders the same hunks with the file's own syntax
+        ;; highlighting on top of those two backgrounds, so a diff reads like
+        ;; code that happens to be coloured by change rather than like a wall of
+        ;; red and green -- which is the whole of what a diff in VS Code is
+        ;; doing.
+        ;;
+        ;; --color-only is what makes this safe: delta is handed the washed diff
+        ;; and adds ANSI colour to it, changing not one character of the text.
+        ;; magit's sections still sit on the bytes git produced, so s, u, v and
+        ;; the rest keep applying to the hunk under point. delta's layout flags
+        ;; -- --line-numbers, --side-by-side -- rewrite that text, and magit
+        ;; parses the text to know what to stage, so they must stay off. The
+        ;; side-by-side view lives in ediff below instead.
+        ;;
+        ;; The binary is pinned to the store rather than looked up on PATH: this
+        ;; runs from `magit-diff-wash-diffs', which can fire before
+        ;; exec-path-from-shell has fixed up the PATH of a GUI Emacs started
+        ;; from Finder.
+        ;;
+        ;; Nord is the closest of delta's built-in syntax themes to tokyonight
+        ;; -- the same desaturated blues, so the highlighting sits on the diff
+        ;; backgrounds instead of fighting them.
+        ;;
+        ;; Enabled per magit buffer, not globally: the mode remaps faces and
+        ;; hooks the wash buffer-locally. While it is on it also forces
+        ;; `magit-diff-refine-hunk' to nil, because delta does its own
+        ;; word-level refinement -- the 'all above is what any diff delta is not
+        ;; rendering still gets.
+        (setq magit-delta-delta-executable "${pkgs.delta}/bin/delta"
+              magit-delta-default-dark-theme "Nord")
+
+        ;; The hunk backgrounds, in the theme's diff colours.
+        ;;
+        ;; The syntax theme colours the code; these four colour the ground it
+        ;; sits on, and delta's own defaults for that are a flat dark red and
+        ;; green that have nothing to do with tokyonight. The same four values
+        ;; the ediff faces below use, so a hunk is the same colour whichever of
+        ;; the three views it is being read in -- and `syntax' as the foreground
+        ;; is what keeps the highlighting on the removed lines too, which
+        ;; delta's default minus style drops.
+        ;;
+        ;; Appended rather than assigned: the package's own defaults carry
+        ;; --color-only and the true-colour decision, which is read off
+        ;; `xterm-color--support-truecolor' and so cannot be computed before
+        ;; magit-delta has loaded.
+        (with-eval-after-load 'magit-delta
+          (setq magit-delta-delta-args
+                (append magit-delta-delta-args
+                        (list "--minus-style"      (concat "syntax " (my/tn 'diff-del))
+                              "--minus-emph-style" (concat "syntax " (my/tn 'diff-del-hl))
+                              "--plus-style"       (concat "syntax " (my/tn 'diff-add))
+                              "--plus-emph-style"  (concat "syntax " (my/tn 'diff-add-hl))))))
+
+        (add-hook 'magit-mode-hook #'magit-delta-mode)
+
+        ;; ediff: the two-pane compare, for the reads a unified diff is the
+        ;; wrong shape for -- a rewritten function, a file whose changes are
+        ;; easier to judge beside the original than interleaved with it.
+        ;;
+        ;; Unconfigured ediff is the worst-looking thing in Emacs, and both
+        ;; settings here are why. `plain' keeps the control panel in a window of
+        ;; this frame; the default puts it in a separate tiny frame that the
+        ;; window manager then has its own opinions about. And splitting
+        ;; horizontally is what makes the comparison side by side rather than
+        ;; one buffer stacked above the other.
+        (setq ediff-window-setup-function #'ediff-setup-windows-plain
+              ediff-split-window-function #'split-window-horizontally
+              ediff-merge-split-window-function #'split-window-horizontally
+              ;; Tint every difference, not only the one point is on, so the
+              ;; shape of the change is visible without walking it.
+              ediff-highlight-all-diffs t)
+
+        ;; ediff's faces, in the theme's diff colours.
+        ;;
+        ;; The stock ones are bright cyan and magenta backgrounds that swallow
+        ;; the syntax highlighting underneath. A is the left pane, which for
+        ;; every comparison started below is the older side, so A takes the
+        ;; delete tint and B the add tint -- the same red/green sense as the
+        ;; magit diff and the gutter. current-diff is the hunk point is in,
+        ;; fine-diff the words within it that actually differ.
+        (custom-set-faces
+         `(ediff-current-diff-A ((t (:background ,(my/tn 'diff-del) :extend t))))
+         `(ediff-fine-diff-A    ((t (:background ,(my/tn 'diff-del-hl) :extend t))))
+         `(ediff-current-diff-B ((t (:background ,(my/tn 'diff-add) :extend t))))
+         `(ediff-fine-diff-B    ((t (:background ,(my/tn 'diff-add-hl) :extend t))))
+         ;; C is the merge output pane, and Ancestor the common base: both only
+         ;; appear while resolving a conflict, where the pane matters more than
+         ;; the direction of the change.
+         `(ediff-current-diff-C ((t (:background ,(my/tn 'prompt) :extend t))))
+         `(ediff-fine-diff-C    ((t (:background ,(my/tn 'bg-hl) :foreground ,(my/tn 'yellow) :weight bold :extend t))))
+         ;; The diffs point is not in. Alternating shades are ediff's way of
+         ;; showing where one hunk ends and the next begins; keep them barely
+         ;; there, so they read as texture and the current hunk stays the thing
+         ;; the eye lands on.
+         `(ediff-even-diff-A ((t (:background ,(my/tn 'bg-hl) :extend t))))
+         `(ediff-even-diff-B ((t (:background ,(my/tn 'bg-hl) :extend t))))
+         `(ediff-even-diff-C ((t (:background ,(my/tn 'bg-hl) :extend t))))
+         `(ediff-odd-diff-A  ((t (:background ,(my/tn 'bg-dark) :extend t))))
+         `(ediff-odd-diff-B  ((t (:background ,(my/tn 'bg-dark) :extend t))))
+         `(ediff-odd-diff-C  ((t (:background ,(my/tn 'bg-dark) :extend t)))))
+
+        ;; Put the windows back on quit.
+        ;;
+        ;; ediff takes over the frame's layout and leaves it that way. Sessions
+        ;; started from magit are exempt and must be left alone: magit saves the
+        ;; configuration itself, restores it from its own
+        ;; `magit-ediff-quit-hook', and deliberately ignores `ediff-quit-hook'
+        ;; for the sessions it set up. So this covers the ones it did not --
+        ;; `ediff-files', `ediff-buffers'.
+        (defvar my/ediff-saved-winconf nil
+          "Window configuration from before the current ediff session.")
+
+        (defun my/ediff-save-winconf ()
+          (setq my/ediff-saved-winconf (current-window-configuration)))
+
+        (defun my/ediff-restore-winconf ()
+          (when my/ediff-saved-winconf
+            (set-window-configuration my/ediff-saved-winconf)
+            (setq my/ediff-saved-winconf nil)))
+
+        (add-hook 'ediff-before-setup-hook #'my/ediff-save-winconf)
+        (add-hook 'ediff-quit-hook #'my/ediff-restore-winconf t)
 
         ;; forge covers both hosts the workflow uses. Both need a token in ~/.authinfo.gpg
         ;; before the first pull:
@@ -276,6 +403,25 @@
            ((fboundp 'diff-hl-stage-dwim) (diff-hl-stage-dwim))
            ((fboundp 'diff-hl-stage-current-hunk) (diff-hl-stage-current-hunk))
            (t (magit-stage-buffer-file))))
+
+        (defun my/git-diff-side-by-side ()
+          "Compare side by side in ediff, the two-pane view VS Code opens on a file.
+    From a magit buffer, compare whatever the section under point refers to -- a
+    commit, a range, the staged or unstaged changes. From a file buffer, compare the
+    file against HEAD. Anywhere else, ask for two files.
+
+    magit's own `e' would do the first of those, but the Colemak rotation moves `e'
+    to a motion key in every evil-collection map, magit's included, so this is the
+    way in."
+          (interactive)
+          ;; magit is deliberately not loaded at startup, and none of these are
+          ;; autoloaded, so pull ediff support in at the point of use.
+          (require 'magit-ediff)
+          (cond
+           ((derived-mode-p 'magit-mode) (call-interactively #'magit-ediff-dwim))
+           ((and buffer-file-name (magit-file-relative-name))
+            (magit-ediff-show-working-tree (magit-file-relative-name)))
+           (t (call-interactively #'ediff-files))))
 
         (defun my/git-toggle-signs ()
           "Toggle the git gutter."
