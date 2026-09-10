@@ -1089,6 +1089,16 @@ in
     source = ./enforce-comment-policy.mjs;
   };
 
+  # The reporting side of the same install
+
+  # `claude-stats` reads the transcripts this configuration produces and says
+  # where the tokens went: per tool, per skill, per rule file, per subagent, per
+  # hook. It is a package of its own so it can be run anywhere (see
+  # =pkgs/claude-stats.org=); installed here because the questions it answers are
+  # about this configuration.
+
+  home.packages = [ (pkgs.callPackage ../../../../pkgs/claude-stats.nix { }) ];
+
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
 
   # Claude Code hook subshells (/bin/sh -c …) and login shells.

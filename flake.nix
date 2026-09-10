@@ -186,12 +186,17 @@
       # module from an app's live preferences.
       # `nix run .#lit-tangle -- --check` — verifies the committed Nix still
       # matches the literate org sources it was generated from.
+      # `nix run .#claude-stats -- --since 7d` — reports which tools, skills, rules
+      # and subagents a Claude Code install has actually been using, and what each
+      # cost. Exposed as a package rather than only installed, so a colleague can run
+      # it against their own machine without cloning anything.
 
       packages = lib.genAttrs (lib.attrValues hosts) (system: {
         check-pins = (import nixpkgs { inherit system; }).callPackage ./pkgs/check-pins.nix { };
         pin-prefs = (import nixpkgs { inherit system; }).callPackage ./pkgs/pin-prefs.nix { };
         clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
         lit-tangle = (import nixpkgs { inherit system; }).callPackage ./pkgs/lit-tangle.nix { };
+        claude-stats = (import nixpkgs { inherit system; }).callPackage ./pkgs/claude-stats.nix { };
       });
 
       # MacOS configuration entrypoint
