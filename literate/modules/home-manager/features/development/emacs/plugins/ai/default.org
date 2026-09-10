@@ -544,6 +544,48 @@ in
                      (preserve-size . (t . nil))
                      (window-parameters . ((no-delete-other-windows . t))))))
 
+    ;; A phone is not a narrow desktop.
+    ;;
+    ;; A tty frame from `emacsclient -t' is sized by the terminal that asked for
+    ;; it, so a session reattached over ssh from a phone gets a frame of about
+    ;; forty columns. Forty per cent of that is sixteen columns of conversation,
+    ;; which is not a drawer but a crack -- and there is nothing to put beside
+    ;; it on a frame that size anyway. Below the threshold the AI buffers take
+    ;; the whole frame instead.
+    ;;
+    ;; Prepended rather than appended: `display-buffer-alist' is searched in
+    ;; order and the drawer rules above match the same buffers. The condition is
+    ;; a predicate because it has two halves -- the buffer and the frame it is
+    ;; about to be shown on -- and an alist entry has no way to say "and".
+    ;;
+    ;; The pty itself needs no help. A process shown in several windows is sized
+    ;; by `window-adjust-process-window-size-function', which defaults to the
+    ;; smallest of them, so Claude reflows to the phone the moment the phone
+    ;; frame shows it, and back again once that frame stops -- the same
+    ;; arrangement as two tmux clients of different sizes, and just as
+    ;; deterministic.
+
+    (defvar my/ai-full-frame-width 90
+      "Frame width below which AI buffers take the whole frame instead of the drawer.")
+
+    (defun my/ai-buffer-p (buffer)
+      "Non-nil when BUFFER is one of the drawer's AI buffers."
+      (let* ((buf (get-buffer buffer))
+             (name (and (buffer-live-p buf) (buffer-name buf))))
+        (and name
+             (or (my/ai-gptel-buffer-p buf)
+                 (string-prefix-p "*claude" name))
+             t)))
+
+    (defun my/ai-cramped-frame-p (buffer &optional _alist)
+      "Non-nil when BUFFER is an AI buffer and this frame is too narrow to share."
+      (and (my/ai-buffer-p buffer)
+           (< (frame-width) my/ai-full-frame-width)))
+
+    (add-to-list 'display-buffer-alist
+                 '(my/ai-cramped-frame-p
+                   (display-buffer-reuse-window display-buffer-full-frame)))
+
     (defun my/ai-drawer-close ()
       "Close the AI drawer, leaving the sessions running behind it.
     Deliberately narrower than `window-toggle-side-windows', which would take
