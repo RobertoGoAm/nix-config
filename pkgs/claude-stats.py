@@ -38,7 +38,7 @@ STATE = CACHE / "state.json"
 
 # Bumped whenever the shape of a bucket changes, which throws the cache away
 # rather than adding numbers counted one way to numbers counted another.
-VERSION = 5
+VERSION = 6
 
 # USD per million tokens: input, output, cache write, cache read. Keyed by
 # family rather than by model id, because a dated id arrives with every release
@@ -162,21 +162,46 @@ def short_path(path):
     return str(path).replace(str(pathlib.Path.home()), "~")
 
 
-def bash_verb(command):
-    """The command a Bash call is really about.
+# Words that never answer for what a call actually ran. Plumbing and shell
+# keywords are skipped over; wrappers -- a token proxy above all, which is why
+# this matters -- are looked through to the verb underneath, along with their
+# own flags, their proxy/exec/run subcommands and any leading assignments.
+PLUMBING = {
+    "cd", "export", "source", ".", "set", "setopt", "eval", "true", "builtin",
+    "for", "do", "done", "while", "until", "if", "then", "else", "elif", "fi",
+    "case", "esac", "function", "select", "in",
+}
+WRAPPERS = {
+    "rtk", "sudo", "doas", "env", "command", "nohup", "time", "timeout",
+    "nice", "stdbuf", "xargs", "watch",
+}
+WRAPPER_SUBCOMMANDS = {"proxy", "exec", "run"}
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-    Auto mode prefixes a `cd` on to almost everything and the shell snapshot
-    exports a page of variables, so the first word of the line is nearly always
-    one of three answers. The interesting verb is the first one that is not
-    plumbing.
-    """
-    plumbing = {"cd", "export", "source", ".", "set", "setopt", "eval", "true", "builtin"}
+
+def unwrap(words):
+    index = 0
+    while index < len(words):
+        if os.path.basename(words[index].strip("(){}$")) not in WRAPPERS:
+            break
+        index += 1
+        while index < len(words) and (
+            words[index].startswith("-") or words[index] in WRAPPER_SUBCOMMANDS
+        ):
+            index += 1
+        while index < len(words) and ASSIGNMENT.match(words[index]):
+            index += 1
+    return words[index:]
+
+
+def bash_verb(command):
+    """The command a Bash call is really about."""
     for piece in re.split(r"&&|\|\||;|\|", command):
-        words = piece.strip().split()
+        words = unwrap(piece.strip().split())
         if not words:
             continue
         verb = os.path.basename(words[0].strip("(){}$"))
-        if verb and verb not in plumbing:
+        if verb and verb not in PLUMBING:
             return verb[:24]
     return "?"
 
@@ -265,14 +290,16 @@ def parse(chunk, days, state, agent_type, installed):
         elif kind == "user":
             fold_user(entry, bucket, state, agent_type, pending, installed)
         elif kind == "attachment":
-            fold_attachment(entry.get("attachment") or {}, bucket)
+            fold_attachment(entry.get("attachment") or {}, bucket, state)
         elif kind == "system":
             fold_system(entry, bucket, state)
 
     # A tool call whose result never arrives, and a request id from an hour
     # ago, would otherwise be kept for ever and travel into the cache.
-    if len(pending) > 64:
-        state["pending"] = dict(list(pending.items())[-64:])
+    for key in ("pending", "verbs", "proxied"):
+        held = state.get(key) or {}
+        if len(held) > 64:
+            state[key] = dict(list(held.items())[-64:])
     if len(counted) > 32:
         state["counted"] = counted[-32:]
 
@@ -314,7 +341,10 @@ def fold_assistant(entry, bucket, state, agent_type, pending, counted):
         if skill:
             bump(bucket["skills"], skill, tool_calls=1)
         if name == "Bash":
-            bump(bucket["bash"], bash_verb(str(args.get("command", ""))), calls=1)
+            verb = bash_verb(str(args.get("command", "")))
+            bump(bucket["bash"], verb, calls=1)
+            if block.get("id"):
+                state.setdefault("verbs", {})[block["id"]] = verb
         elif name == "Skill":
             asked = str(args.get("skill") or "?")
             bump(bucket["skills"], asked, calls=1)
@@ -329,6 +359,8 @@ def fold_assistant(entry, bucket, state, agent_type, pending, counted):
 def fold_user(entry, bucket, state, agent_type, pending, installed):
     results = [b for b in blocks_of(entry) if b.get("type") == "tool_result"]
     where = "agent_tools" if agent_type else "tools"
+    verbs = state.setdefault("verbs", {})
+    proxied = state.setdefault("proxied", {})
     for block in results:
         name = pending.pop(block.get("tool_use_id"), None) or "?"
         body = text_of(block.get("content"))
@@ -337,6 +369,14 @@ def fold_user(entry, bucket, state, agent_type, pending, installed):
             result_tokens=tokens_of(body),
             errors=1 if block.get("is_error") else 0,
         )
+        verb = verbs.pop(block.get("tool_use_id"), None)
+        if verb:
+            # A proxy earns its place in the output it saves, so a verb run
+            # through the proxy is counted apart from the same verb run plain.
+            if proxied.pop(block.get("tool_use_id"), False):
+                bump(bucket["bash"], verb, proxied=1, proxied_result_tokens=tokens_of(body))
+            else:
+                bump(bucket["bash"], verb, plain=1, plain_result_tokens=tokens_of(body))
         if state.get("skill"):
             if name == "Skill":
                 bump(bucket["skills"], state["skill"], load_tokens=tokens_of(body))
@@ -365,7 +405,7 @@ def fold_user(entry, bucket, state, agent_type, pending, installed):
             state["skill"] = bare
 
 
-def fold_attachment(attachment, bucket):
+def fold_attachment(attachment, bucket, state):
     kind = attachment.get("type")
 
     if kind == "instructions":
@@ -401,16 +441,44 @@ def fold_attachment(attachment, bucket):
 
     if kind and kind.startswith(("hook_", "async_hook")):
         failed = kind in ("hook_non_blocking_error", "hook_blocking_error")
+        # A PreToolUse hook can hand back a different command from the one
+        # Claude asked to run, which is what a token proxy does. The tool call
+        # in the transcript still shows the original, so the rewrite is only
+        # ever visible here.
+        rewritten, denied = hook_decision(attachment)
         bump(
             bucket["hooks"], hook_label(attachment),
             fired=1,
             errors=1 if failed else 0,
             blocked=1 if kind == "hook_blocking_error" else 0,
+            rewrites=1 if rewritten else 0,
+            denials=1 if denied else 0,
             duration_ms=attachment.get("durationMs") or 0,
             out_tokens=tokens_of(
                 str(attachment.get("stdout") or "") + str(attachment.get("content") or "")
             ),
         )
+        if rewritten and attachment.get("toolUseID"):
+            state.setdefault("proxied", {})[attachment["toolUseID"]] = True
+
+
+def hook_decision(attachment):
+    """What a hook decided, as far as its own output says.
+
+    Everything is optional and any shape is possible, so a hook that prints
+    something else is simply a hook that decided nothing.
+    """
+    raw = str(attachment.get("stdout") or "").strip()
+    if not raw.startswith("{"):
+        return False, False
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return False, False
+    specific = payload.get("hookSpecificOutput") or {}
+    decision = specific.get("permissionDecision") or payload.get("permissionDecision")
+    updated = (specific.get("updatedInput") or {}).get("command")
+    return isinstance(updated, str), decision == "deny"
 
 
 def fold_system(entry, bucket, state):
@@ -600,13 +668,47 @@ def sections(total, args):
                 title, ["tool", "calls", "errors", "result tokens", "per call"], rows,
                 "Result tokens are what each tool's output added to the conversation.",
             ))
-        rows = [
-            [verb, compact(row.get("calls", 0))]
-            for verb, row in sorted(total["bash"].items(), key=lambda kv: -kv[1].get("calls", 0))
-        ]
+        any_proxied = sum(row.get("proxied", 0) for row in total["bash"].values())
+        rows = []
+        for verb, row in sorted(total["bash"].items(), key=lambda kv: -kv[1].get("calls", 0)):
+            plain_each = (
+                row.get("plain_result_tokens", 0) / row["plain"] if row.get("plain") else None
+            )
+            proxied_each = (
+                row.get("proxied_result_tokens", 0) / row["proxied"] if row.get("proxied") else None
+            )
+            if not any_proxied:
+                answered = row.get("plain", 0) + row.get("proxied", 0)
+                results = row.get("plain_result_tokens", 0) + row.get("proxied_result_tokens", 0)
+                rows.append([
+                    verb, compact(row.get("calls", 0)), compact(results),
+                    compact(results / answered) if answered else "-",
+                ])
+                continue
+            rows.append([
+                verb, compact(row.get("calls", 0)),
+                "%s (%s)" % (compact(row["proxied"]),
+                             rate(row["proxied"], row["proxied"] + row.get("plain", 0)))
+                if row.get("proxied") else "-",
+                "-" if plain_each is None else compact(plain_each),
+                "-" if proxied_each is None else compact(proxied_each),
+                "%s%s" % ("-" if plain_each > proxied_each else "+",
+                          compact(abs(plain_each - proxied_each)))
+                if (plain_each is not None and proxied_each is not None) else "-",
+            ])
         out.append((
-            "Shell commands", ["command", "calls"], rows,
-            "The first non-plumbing verb of each Bash call.",
+            "Shell commands",
+            ["command", "calls", "proxied", "plain per call", "proxied per call", "saved per call"]
+            if any_proxied else ["command", "calls", "result tokens", "per call"],
+            rows,
+            "The verb each Bash call is really about, with wrappers such as a token proxy, sudo "
+            "or env looked through. A PreToolUse hook that rewrote the command is what "
+            "\"proxied\" counts; the hook picks which calls to rewrite, usually the ones with "
+            "big output, so the comparison is a signal about where the proxy is pointed rather "
+            "than a controlled measurement."
+            if any_proxied else
+            "The verb each Bash call is really about, with wrappers such as sudo or env looked "
+            "through.",
         ))
 
     if "skills" in wanted:
@@ -690,11 +792,16 @@ def sections(total, args):
             fired = row.get("fired", 0)
             rows.append([
                 name, compact(fired), compact(row.get("errors", 0)),
-                rate(row.get("errors", 0), fired), clock(row.get("duration_ms", 0)),
+                rate(row.get("errors", 0), fired),
+                compact(row["rewrites"]) if row.get("rewrites") else "-",
+                compact(row["denials"]) if row.get("denials") else "-",
+                clock(row.get("duration_ms", 0)),
                 compact(row.get("out_tokens", 0)),
             ])
         out.append((
-            "Hooks", ["hook", "fired", "errors", "error rate", "time", "output tokens"], rows,
+            "Hooks",
+            ["hook", "fired", "errors", "error rate", "rewrote", "denied", "time", "output tokens"],
+            rows,
             "The enforcement half of the rules: what actually ran, how often it failed, and "
             "how much it said back into the conversation.",
         ))
