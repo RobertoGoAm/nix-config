@@ -32,6 +32,19 @@ ones that were never reached. And a hook's error rate is counted from the
 attachment the CLI records for each firing, which is how a hook that has been
 failing for a thousand invocations stops being invisible.
 
+A command proxy is read the two ways it hides. Where Claude types =rtk git
+status= the shell table would answer "rtk" and say nothing about what ran, so
+wrappers -- rtk, sudo, env, timeout and the rest -- are looked through to the
+verb underneath. Where the proxy's =PreToolUse= hook rewrites the command
+instead, the tool call in the transcript still shows the original, so the
+rewrite is taken from the hook's own output, where
+=hookSpecificOutput.updatedInput= records what will really run. Each rewritten
+call is remembered by its tool-use id, and the result it returns is counted
+apart from the results of the calls the hook left alone -- which gives a
+per-verb comparison of proxied against plain. The hook chooses which calls to
+rewrite and it chooses the ones with big output, so that comparison is reported
+as a signal about where the proxy is pointed, not as a measurement.
+
 Attribution is honest about its two estimates: a payload's own token count is
 never recorded, so sizes are taken at four characters to the token, and the
 money column is list API prices applied to the tokens that were recorded --
