@@ -289,6 +289,11 @@
     ;;
     ;; The regex matches the four-space indent every generator here writes,
     ;; which keeps hints on the entries and off the headings and blank lines.
+    ;; Declared because the `let' below binds it and avy is not loaded when this
+    ;; file is compiled: an unbound-at-compile-time symbol binds lexically, and
+    ;; the hints would go on every window after all.
+    (defvar avy-all-windows)
+
     (defun my/dashboard-jump-to-entry ()
       "Label every dashboard entry with an avy hint and jump to the one picked."
       (interactive)

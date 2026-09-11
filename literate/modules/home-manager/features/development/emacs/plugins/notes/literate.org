@@ -57,6 +57,11 @@ that before a commit does.
             (expand-file-name (concat (file-name-sans-extension rel) ".nix")
                               my/lit-out-root)))
 
+        ;; Declared because the `let's below bind it and ob-core is not loaded
+        ;; when this file is compiled: an unbound-at-compile-time symbol binds
+        ;; lexically, and a tangle could still stop to ask.
+        (defvar org-confirm-babel-evaluate)
+
         (defun my/lit-buffer-p ()
           "Non-nil when this buffer is a literate source, not just any org file."
           (and buffer-file-name

@@ -157,6 +157,11 @@
         ;; binding there is both the narrowest fix and the correct one. `jest-repeat'
         ;; deliberately does not go through it: it replays the command line it
         ;; stored, runner included.
+        ;; Declared because the `let' below binds it and jest is not loaded when
+        ;; this file is compiled: an unbound-at-compile-time symbol binds
+        ;; lexically, and jest would keep running its global executable.
+        (defvar jest-executable)
+
         (defun my/jest--with-project-runner (fn &rest args)
           "Call FN with `jest-executable' set to this project's runner."
           (let ((jest-executable (my/jest-executable (plist-get args :args))))

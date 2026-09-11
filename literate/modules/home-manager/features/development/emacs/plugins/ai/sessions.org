@@ -219,6 +219,11 @@ in
                         nil t)))
           (cdr (assoc choice table)))))
 
+    ;; Declared here because the `let' below binds it, and this file is compiled
+    ;; without claude-code-ide loaded: an unbound-at-compile-time symbol is bound
+    ;; lexically, and the flag never reaches the CLI.
+    (defvar claude-code-ide-cli-extra-flags)
+
     (defvar-local my/claude--resumed-sid nil
       "Conversation this session was resumed from, when it was resumed.
 
