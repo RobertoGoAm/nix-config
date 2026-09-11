@@ -126,6 +126,11 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     ;; rebound around the search call instead of being lowered globally --
     ;; otherwise every listing in the package shrinks to a fifth of a page to
     ;; fix one endpoint.
+    ;; Declared because the `let' below binds it and smudge is not loaded when
+    ;; this file is compiled: an unbound-at-compile-time symbol binds lexically,
+    ;; and the clamp never reaches the API call.
+    (defvar smudge-api-search-limit)
+
     (defun my/smudge-search-limit (orig &rest args)
       "Call ORIG with the page size clamped to what /search accepts."
       (let ((smudge-api-search-limit (min smudge-api-search-limit 10)))
