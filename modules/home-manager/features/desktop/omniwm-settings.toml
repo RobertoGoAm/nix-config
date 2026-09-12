@@ -9,7 +9,7 @@ schemaVersion = 3
 mode = "dark"
 
 [borders]
-enabled = true
+enabled = false
 width = 5.0
 
 [borders.color]
@@ -156,7 +156,7 @@ height = 24.0
 hideEmptyWorkspaces = false
 hideInNativeFullscreen = false
 notchActiveZoneWidth = 180.0
-notchMode = "moveBelowMenuBar"
+notchMode = "splitActiveLeft"
 position = "overlappingMenuBar"
 reserveLayoutSpace = false
 revealHoldMilliseconds = 200.0
@@ -166,7 +166,7 @@ showLabels = true
 systemStatsButton = false
 windowLevel = "popup"
 xOffset = 0.0
-yOffset = 0.0
+yOffset = 5.0
 
 [workspaceBar.iconOverrides]
 
