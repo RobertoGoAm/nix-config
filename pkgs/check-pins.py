@@ -137,8 +137,55 @@ def collect(root):
     return report
 
 
+def literate_twin(root, path):
+    """The org file a tangled .nix is generated from, if there is one.
+
+    modules/a/b.nix comes from literate/modules/a/b.org, and lit-tangle
+    regenerates the former from the latter. Rewriting only the .nix therefore
+    lasts until the next tangle, which puts the old pin straight back -- so an
+    extension updated here reappears as stale on the next run, over and over,
+    and nothing says why.
+    """
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    if relative.parts and relative.parts[0] == "literate":
+        return None
+    org = root / "literate" / relative.with_suffix(".org")
+    return org if org.is_file() else None
+
+
+def rewrite_pin(path, pin, new_version, new_hash):
+    """Point one pin in PATH at NEW_VERSION and NEW_HASH. True when it was there.
+
+    The pin is located afresh rather than by the span recorded during the scan:
+    this also rewrites the literate source, whose offsets are its own, and a
+    file already rewritten above has moved everything after the first edit.
+    """
+    text = path.read_text()
+    for candidate in parse_extension_pins(text):
+        if (candidate["publisher"], candidate["name"], candidate["version"]) != (
+            pin["publisher"],
+            pin["name"],
+            pin["version"],
+        ):
+            continue
+        start, end = candidate["span"]
+        block = text[start:end]
+        block = block.replace(f'version = "{pin["version"]}";', f'version = "{new_version}";')
+        block = block.replace(f'sha256 = "{pin["sha256"]}";', f'sha256 = "{new_hash}";')
+        path.write_text(text[:start] + block + text[end:])
+        return True
+    return False
+
+
 def apply_updates(root, stale):
-    """Rewrite stale pins in place, refreshing each hash alongside its version."""
+    """Rewrite stale pins in place, refreshing each hash alongside its version.
+
+    Both copies where the file is generated: the .nix so the tree builds with
+    the new pin now, and the literate source so it survives the next tangle.
+    """
     fixed, failed = [], []
 
     extensions = [row for row in stale if row.get("kind") == "extension"]
@@ -149,8 +196,9 @@ def apply_updates(root, stale):
         by_file.setdefault(row["pin"]["path"], []).append(row)
 
     for path, rows in by_file.items():
-        text = path.read_text()
-        # Rewrite back to front so earlier spans stay valid as the text shifts.
+        org = literate_twin(root, path)
+        # Back to front, so an earlier pin is still where the scan found it
+        # after a later one in the same file has changed length.
         for row in sorted(rows, key=lambda r: r["pin"]["span"][0], reverse=True):
             pin, new_version = row["pin"], row["to"]
             url = VSIX_URL.format(publisher=pin["publisher"], name=pin["name"], version=new_version)
@@ -159,13 +207,16 @@ def apply_updates(root, stale):
             except Exception as exc:  # noqa: BLE001
                 failed.append((row["subject"], str(exc)))
                 continue
-            start, end = pin["span"]
-            block = text[start:end]
-            block = block.replace(f'version = "{pin["version"]}";', f'version = "{new_version}";')
-            block = block.replace(f'sha256 = "{pin["sha256"]}";', f'sha256 = "{new_hash}";')
-            text = text[:start] + block + text[end:]
+            rewrite_pin(path, pin, new_version, new_hash)
             fixed.append(f"{row['subject']} {pin['version']} -> {new_version}")
-        path.write_text(text)
+            if org is not None and not rewrite_pin(org, pin, new_version, new_hash):
+                failed.append(
+                    (
+                        row["subject"],
+                        f"updated {path.name} but not its source {org}: "
+                        "the next tangle will undo this",
+                    )
+                )
 
     return fixed, failed
 

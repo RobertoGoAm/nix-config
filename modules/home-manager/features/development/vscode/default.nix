@@ -153,8 +153,8 @@ in
             {
               publisher = "vitest";
               name = "explorer";
-              version = "1.50.8";
-              sha256 = "sha256-LkfCnEELkdj1BRlHZpphM+bTSh/U7oE11U/E+Hx/8sU=";
+              version = "1.52.0";
+              sha256 = "sha256-umMYz17CGdqOtRAsGqtLpBElFteK2vkBsnlEnZPd5zc=";
             }
             {
               name = "format-code-action";
