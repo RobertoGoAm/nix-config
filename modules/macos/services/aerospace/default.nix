@@ -17,6 +17,11 @@ let
 
   colemak = config.home-manager.users.${user}.features.productivity.keyboard.layout == "colemak";
 
+  # The same route for the same reason: which window manager this host runs is
+  # declared in the HM tree, at features/desktop/window-manager.nix, because
+  # the other half of the choice -- OmniWM -- is a home-manager module.
+  chosen = config.home-manager.users.${user}.features.desktop.windowManager;
+
   # aerospace defines no directional bindings of its own, so unlike vim...
 
   # aerospace defines no directional bindings of its own, so unlike vim or warpd
@@ -95,7 +100,10 @@ let
 in
 {
   services.aerospace = {
-    enable = true;
+    # Off when the host has picked the other one. Two tiling window managers
+    # on one desktop each move the same windows, and what you see is windows
+    # jumping as one undoes what the other just did.
+    enable = chosen == "aerospace";
     settings = base // {
       mode = base.mode // {
         main = base.mode.main // {
