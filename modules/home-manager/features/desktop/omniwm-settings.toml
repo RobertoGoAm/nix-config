@@ -89,9 +89,9 @@ alwaysCenterSingleColumn = false
 centerFocusedColumn = "never"
 containerPrimarySpanPresets = [0.3333333333333333, 0.5, 0.6666666666666666]
 defaultContainerPrimarySpan = 0.5
-infiniteLoop = false
+infiniteLoop = true
 singleWindowFit = "fill"
-visibleContainerCount = 2
+visibleContainerCount = 1
 
 [overview]
 zoom = 1.0
@@ -158,7 +158,7 @@ hideInNativeFullscreen = false
 notchActiveZoneWidth = 180.0
 notchMode = "splitActiveLeft"
 position = "overlappingMenuBar"
-reserveLayoutSpace = false
+reserveLayoutSpace = true
 revealHoldMilliseconds = 200.0
 revealModifier = "off"
 showFloatingWindows = false
@@ -166,87 +166,127 @@ showLabels = true
 systemStatsButton = false
 windowLevel = "popup"
 xOffset = 0.0
-yOffset = 5.0
+yOffset = -3.0
 
 [workspaceBar.iconOverrides]
 
 [[appRules]]
+assignToWorkspace = "Code"
 bundleId = "com.openai.codex"
-id = "6A31F08A-4051-4354-B439-42F4C71894A3"
+id = "875652F9-0C18-5ADD-A2B8-A3510B491CB3"
 minHeight = 600.0
 minWidth = 800.0
 
 [[appRules]]
 bundleId = "com.eltima.cmd1.pro.mas"
-id = "4BA546DA-2875-4BEF-B13F-1539E833B1A0"
+id = "C09E165A-F342-509F-8648-484D4F0BA6B9"
 minHeight = 550.0
 minWidth = 950.0
 
 [[appRules]]
+assignToWorkspace = "Work"
 bundleId = "com.google.Chrome"
-id = "486CEFA6-69AA-4A3C-AF27-BCD38F4F138B"
+id = "E8F18693-55EE-5559-B8F2-B063F3AA44E2"
 minHeight = 375.0
 minWidth = 500.0
 
 [[appRules]]
+assignToWorkspace = "Code"
 bundleId = "dev.zed.Zed"
-id = "979F05F4-FFA2-4EDD-B23F-08A9944C759F"
+id = "2AA0EC61-3626-5B7D-A254-96D31AEE31B4"
 minHeight = 240.0
 minWidth = 360.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "com.apple.Safari"
-id = "81426D13-C1A5-475E-AFBC-00BBA05042D0"
+id = "47E7F235-7065-5142-BD0E-1598E450FC0B"
 minHeight = 220.0
 minWidth = 574.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "app.zen-browser.zen"
-id = "1CF39647-F30D-4E76-9686-79B551F1B094"
+id = "EC5346C2-B0C3-583F-97B7-10288B298A35"
 minHeight = 495.0
 minWidth = 500.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "org.mozilla.firefox"
-id = "005C00D3-F665-47F8-BDAE-D80790E9E46B"
+id = "078CAC07-41ED-529F-8409-B0A4255E6557"
 minHeight = 120.0
 minWidth = 500.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "company.thebrowser.dia"
-id = "C21156B1-0224-4998-97E3-8F4FA65B9F3B"
+id = "D2614C97-B2E2-565B-BE40-C5F90C3A46B1"
 minHeight = 420.0
 minWidth = 500.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "com.spotify.client"
-id = "2DE9390B-0DB4-4D0C-9ABA-06F76F1D4EA9"
+id = "6E8E2CB5-6428-5135-92DC-FF736952B67A"
 minHeight = 600.0
 minWidth = 800.0
 
 [[appRules]]
+assignToWorkspace = "Media"
 bundleId = "com.hnc.Discord"
-id = "AF752D95-8497-4844-BE20-4C93E73BAEF2"
+id = "20B423D3-381F-5A40-9853-185445AC8271"
 minHeight = 500.0
 minWidth = 800.0
 
 [[appRules]]
 bundleId = "com.mitchellh.ghostty"
-id = "7876C9EF-437E-4D4F-9C27-B1B02F4AABCE"
+id = "3F2D0300-DD86-5705-A88E-D520CFE59F01"
 minHeight = 48.0
 minWidth = 90.0
 
 [[appRules]]
+assignToWorkspace = "Work"
 bundleId = "com.microsoft.Outlook"
-id = "8ECAB78B-BCDD-4245-BC25-1609A49B1C86"
+id = "7DB4B792-C6E2-5867-8BC6-04993DDDFA20"
 minHeight = 650.0
 minWidth = 930.0
 
 [[appRules]]
 bundleId = "com.apple.MobileSMS"
-id = "552FB77D-BF0E-4737-90A6-B5BC6986C579"
+id = "8918E1A5-22FE-5C76-A90A-5D654AAC7B30"
 minHeight = 320.0
 minWidth = 660.0
+
+[[appRules]]
+assignToWorkspace = "Code"
+bundleId = "org.gnu.Emacs"
+id = "9E4A8D6D-965E-5B4F-8134-2B2C6E4F6FC1"
+
+[[appRules]]
+assignToWorkspace = "Code"
+bundleId = "com.todesktop.230313mzl4w4u92"
+id = "ABFAADC1-ED20-5224-8B45-B049751422B0"
+
+[[appRules]]
+assignToWorkspace = "Work"
+bundleId = "com.microsoft.teams2"
+id = "C20EDF6D-341D-5D36-A00A-9790B9553909"
+
+[[appRules]]
+assignToWorkspace = "Media"
+bundleId = "com.colliderli.iina"
+id = "BD628F32-56A2-55CD-ACC7-5195F6FE20A5"
+
+[[appRules]]
+bundleId = "com.libretro.dist.RetroArch"
+id = "CF7E0ED1-7612-56EE-B6F9-B39A71839AFD"
+layout = "float"
+
+[[appRules]]
+bundleId = "com.googlecode.iterm2"
+id = "585E6660-2DDB-5760-85CF-89EB3F7DECC7"
+layout = "float"
 
 [[hotkeys]]
 binding = "Unassigned"
@@ -985,7 +1025,7 @@ binding = "Unassigned"
 id = "toggleHiddenBarPanel"
 
 [[hotkeys]]
-binding = "Option+Grave"
+binding = "Command+Grave"
 id = "toggleQuakeTerminal"
 
 [[hotkeys]]
@@ -1001,7 +1041,8 @@ binding = "Unassigned"
 id = "toggleSystemStats"
 
 [[workspaces]]
-id = "AD36F001-C57E-41A5-AC1D-DF5249D007F0"
+displayName = "Main"
+id = "da7543e7-2cfc-5b86-89b2-dab6b5e6cbdd"
 layoutType = "niri"
 name = "1"
 
@@ -1009,7 +1050,8 @@ name = "1"
 type = "main"
 
 [[workspaces]]
-id = "454CECD4-5E9D-4ED1-95D7-979D48817F5F"
+displayName = "Code"
+id = "0c4f1aa2-e89d-5571-bb78-b3c4b0d02e70"
 layoutType = "niri"
 name = "2"
 
@@ -1017,7 +1059,8 @@ name = "2"
 type = "main"
 
 [[workspaces]]
-id = "BEB842B5-E894-4791-9FD1-397C3CDD3538"
+displayName = "Work"
+id = "927f5eb4-e7a6-5618-a23d-f0f9007a19a9"
 layoutType = "niri"
 name = "3"
 
@@ -1025,7 +1068,8 @@ name = "3"
 type = "main"
 
 [[workspaces]]
-id = "248AA883-2261-4D45-943C-79C0E46A232B"
+displayName = "Media"
+id = "29631734-062e-5b64-a740-8df13af1a7c1"
 layoutType = "niri"
 name = "4"
 
@@ -1033,43 +1077,10 @@ name = "4"
 type = "main"
 
 [[workspaces]]
-id = "8B8C45D6-CE9E-41D9-BD50-BE4989D5E3DE"
+displayName = "Misc"
+id = "4e98b0de-c9ac-586d-ab5e-a63da24b279f"
 layoutType = "niri"
 name = "5"
-
-[workspaces.monitorAssignment]
-type = "main"
-
-[[workspaces]]
-displayName = "❤️"
-id = "5953F2BF-A378-4266-91B2-287174C4FA4D"
-layoutType = "niri"
-name = "6"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-displayName = "🚀"
-id = "A7D5E104-6985-4516-8ED5-07F144F2A33D"
-layoutType = "niri"
-name = "7"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "0E18F6B0-345A-4078-8B21-33641F07A861"
-layoutType = "niri"
-name = "8"
-
-[workspaces.monitorAssignment]
-type = "main"
-
-[[workspaces]]
-id = "8D4D711C-2B2F-4FEC-86BF-FA952037738A"
-layoutType = "niri"
-name = "9"
 
 [workspaces.monitorAssignment]
 type = "main"
