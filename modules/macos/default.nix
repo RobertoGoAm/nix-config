@@ -273,7 +273,7 @@
           _FXSortFoldersFirst = false;
         };
         dock = {
-          autohide = false;
+          autohide = true;
           tilesize = 38;
           orientation = "left";
           mru-spaces = false; # don't auto-rearrange Spaces by most-recent use

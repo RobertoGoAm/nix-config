@@ -68,7 +68,27 @@ file or directory" -- the IPC and CLI surface the README documents is simply
 absent. Nothing here depends on it yet; it is on because a window manager that
 can be driven from a script is the reason for choosing one with a CLI.
 
+** Copied, not linked
+
+=programs.omniwm.settings= would take this path and symlink it in, which is
+what it did until now -- and OmniWM could then never save anything of its own.
+Renaming a workspace in its GUI appeared to work and was gone on the next
+look: the store file is read-only, so the write failed, and nothing said so.
+Adding a rule with =omniwmctl= behaves the same way; the rule takes effect in
+memory and the file is untouched.
+
+A copy makes the GUI work again and leaves this file the source of truth on
+the same terms as every other app's preferences here: change it in the app, and
+the next activation puts this back. Anything worth keeping gets folded in here
+first.
+
 #+begin_src nix
-  programs.omniwm.settings = ./omniwm-settings.toml;
+  home.activation.omniwmSettings = lib.mkIf (config.programs.omniwm.enable) (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run mkdir -p "${config.xdg.configHome}/omniwm"
+      run cp -f ${./omniwm-settings.toml} "${config.xdg.configHome}/omniwm/settings.toml"
+      run chmod u+w "${config.xdg.configHome}/omniwm/settings.toml"
+    ''
+  );
 }
 #+end_src

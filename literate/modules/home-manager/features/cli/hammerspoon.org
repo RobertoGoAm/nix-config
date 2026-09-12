@@ -55,8 +55,16 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
     -- § (keycode 10) while ` sits left-of-Z. Bind both so the same physical key works
     -- on either board (muscle memory). keycode 10 isn't emitted by ANSI boards, so
     -- it's a harmless no-op there.
-    hs.hotkey.bind({ "cmd" }, "`", toggleQuake)
-    hs.hotkey.bind({ "cmd" }, "#10", toggleQuake)
+    -- Cmd+` belongs to OmniWM's quake terminal now, so these are not bound.
+    -- Two things answering one key means both fire: the Ghostty panel and an
+    -- Alacritty window, every press. `toggleQuake' is left defined and reachable
+    -- from the console, which is all it takes to put it back on a key.
+    --
+    -- Both spellings were bound because the top-left key is ` on the ANSI
+    -- Bridge75 and § (keycode 10) on an Apple ISO board; whichever key OmniWM's
+    -- own binding ends up on inherits that problem, not this file.
+    -- hs.hotkey.bind({ "cmd" }, "`", toggleQuake)
+    -- hs.hotkey.bind({ "cmd" }, "#10", toggleQuake)
 
     -- Toggle terminal transparency on Cmd+Shift+` via Alacritty's runtime IPC.
     local transparent = false
