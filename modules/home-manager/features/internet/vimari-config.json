@@ -1,0 +1,31 @@
+{
+  "excludedUrls": "",
+  "linkHintCharacters": "sadfjklewcmpgh",
+  "detectByCursorStyle": false,
+  "scrollSize": 150,
+  "openTabUrl": "https://duckduckgo.com/",
+  "modifier": "",
+  "smoothScroll": true,
+  "scrollDuration": 25,
+  "transparentBindings": true,
+  "bindings": {
+      "hintToggle": "f",
+      "newTabHintToggle": "shift+f",
+      "scrollUp": "e",
+      "scrollDown": "n",
+      "scrollLeft": "h",
+      "scrollRight": "i",
+      "scrollUpHalfPage": "u",
+      "scrollDownHalfPage": "d",
+      "goToPageTop": "shift+k",
+      "goToPageBottom": "k",
+      "goToFirstInput": "l",
+      "goBack": "shift+h",
+      "goForward": "shift+l",
+      "reload": "r",
+      "tabForward": "shift+n",
+      "tabBack": "shift+e",
+      "closeTab": "x",
+      "openTab": "t"
+  }
+}

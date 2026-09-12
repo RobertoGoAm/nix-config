@@ -46,6 +46,7 @@
     ../../features/internet/chrome-dev.nix
     ../../features/internet/cyberduck.nix
     ../../features/internet/discord.nix
+    ../../features/internet/vimari.nix
     ../../features/internet/zen.nix
     ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
