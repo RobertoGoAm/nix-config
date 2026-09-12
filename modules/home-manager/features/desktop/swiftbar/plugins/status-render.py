@@ -166,19 +166,30 @@ if problems:
     print(f"⚠ {problems[0]} | color=red")
 
 if backup_age_h is not None:
-    print(f"⏱ backup {backup_line}")
+    # Without the "ago": the clock icon and the word already say that this is
+    # an age, and in a rotating slot four characters of nothing is four
+    # characters everything to the left of the item shifts by.
+    print(f"⏱ backup {backup_line.removesuffix(' ago')}")
 
 # The heaviest thing on the machine right now — the question you actually have
 # when the fans spin up, answered without opening anything.
 if usage:
     top_cpu = max(usage.items(), key=lambda kv: kv[1][1])
     if top_cpu[1][1] >= 5:
-        print(f"⚡ {top_cpu[0]} {top_cpu[1][1]:.0f}%")
+        # Capped, because this name is whatever the busiest process calls
+        # itself and some of them are long. The lines here rotate through one
+        # slot, so the longest of them decides how wide the item is and how far
+        # the icons to its left jump when it comes round.
+        name = top_cpu[0] if len(top_cpu[0]) <= 14 else top_cpu[0][:13] + "…"
+        print(f"⚡ {name} {top_cpu[1][1]:.0f}%")
 
+# The track is read here for the dropdown, and deliberately not printed in the
+# rotation. It was the widest line by a long way -- forty characters against
+# eleven for the vitals -- and because these lines rotate through one slot, the
+# widest of them sets how much of the menu bar the item claims and how far
+# everything to its left jumps every few seconds. The whole of it, with the
+# controls, is still one click away below.
 track, artist = env("SPOT_TRACK", ""), env("SPOT_ARTIST", "")
-if track:
-    icon = "▶" if env("SPOT_STATE") == "playing" else "❚❚"
-    print(f"{icon} {artist} — {track} | length=40")
 
 # Only when there is something to look at. A tracker that says "0" all week is
 # a line you stop reading, and then it says "3" and you still do not read it.
@@ -190,9 +201,11 @@ if track:
 if wallapop_items:
     print(f"🛒 {len(wallapop_items)}")
 
-# Nothing above is guaranteed: with macmon unavailable, no problems and no
-# music, the item would render blank and look broken.
-if not metrics and not problems and not track:
+# Nothing above is guaranteed: with macmon unavailable and nothing wrong, the
+# item would render blank and look broken. The track no longer counts towards
+# this -- it is not in the rotation any more, so music playing does not save
+# the title from being empty.
+if not metrics and not problems:
     print("✓ | color=green")
 
 # ---- dropdown -------------------------------------------------------------
