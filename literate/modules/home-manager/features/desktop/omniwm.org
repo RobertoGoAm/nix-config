@@ -68,6 +68,22 @@ file or directory" -- the IPC and CLI surface the README documents is simply
 absent. Nothing here depends on it yet; it is on because a window manager that
 can be driven from a script is the reason for choosing one with a CLI.
 
+** Rules assign by the workspace's name, not its label
+
+A workspace has a =name= and a =displayName=: OmniWM's own GUI creates them
+named "1" through "5" and puts the readable label in =displayName=, which is
+what the bar draws. =assignToWorkspace= matches the =name=.
+
+This is worth spelling out because getting it wrong fails silently. A rule
+saying =assignToWorkspace = "Media"= is reported valid by
+=omniwmctl query rules=, shows "Media" in its WORKSPACE column, and does
+nothing at all -- windows keep opening wherever you already were. Replacing
+that one value with "4" and re-applying the rule moved the window
+immediately, which is how the two were told apart.
+
+So the rules below read 1 to 5, and the mapping is the workspace list further
+down: 1 Main, 2 Code, 3 Work, 4 Media, 5 Misc.
+
 ** Copied, not linked
 
 =programs.omniwm.settings= would take this path and symlink it in, which is

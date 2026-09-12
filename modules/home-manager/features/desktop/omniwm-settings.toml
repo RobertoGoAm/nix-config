@@ -171,7 +171,7 @@ yOffset = -3.0
 [workspaceBar.iconOverrides]
 
 [[appRules]]
-assignToWorkspace = "Code"
+assignToWorkspace = "2"
 bundleId = "com.openai.codex"
 id = "875652F9-0C18-5ADD-A2B8-A3510B491CB3"
 minHeight = 600.0
@@ -184,56 +184,56 @@ minHeight = 550.0
 minWidth = 950.0
 
 [[appRules]]
-assignToWorkspace = "Work"
+assignToWorkspace = "3"
 bundleId = "com.google.Chrome"
 id = "E8F18693-55EE-5559-B8F2-B063F3AA44E2"
 minHeight = 375.0
 minWidth = 500.0
 
 [[appRules]]
-assignToWorkspace = "Code"
+assignToWorkspace = "2"
 bundleId = "dev.zed.Zed"
 id = "2AA0EC61-3626-5B7D-A254-96D31AEE31B4"
 minHeight = 240.0
 minWidth = 360.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "com.apple.Safari"
 id = "47E7F235-7065-5142-BD0E-1598E450FC0B"
 minHeight = 220.0
 minWidth = 574.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "app.zen-browser.zen"
 id = "EC5346C2-B0C3-583F-97B7-10288B298A35"
 minHeight = 495.0
 minWidth = 500.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "org.mozilla.firefox"
 id = "078CAC07-41ED-529F-8409-B0A4255E6557"
 minHeight = 120.0
 minWidth = 500.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "company.thebrowser.dia"
 id = "D2614C97-B2E2-565B-BE40-C5F90C3A46B1"
 minHeight = 420.0
 minWidth = 500.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "com.spotify.client"
 id = "6E8E2CB5-6428-5135-92DC-FF736952B67A"
 minHeight = 600.0
 minWidth = 800.0
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "com.hnc.Discord"
 id = "20B423D3-381F-5A40-9853-185445AC8271"
 minHeight = 500.0
@@ -246,7 +246,7 @@ minHeight = 48.0
 minWidth = 90.0
 
 [[appRules]]
-assignToWorkspace = "Work"
+assignToWorkspace = "3"
 bundleId = "com.microsoft.Outlook"
 id = "7DB4B792-C6E2-5867-8BC6-04993DDDFA20"
 minHeight = 650.0
@@ -259,22 +259,22 @@ minHeight = 320.0
 minWidth = 660.0
 
 [[appRules]]
-assignToWorkspace = "Code"
+assignToWorkspace = "2"
 bundleId = "org.gnu.Emacs"
 id = "9E4A8D6D-965E-5B4F-8134-2B2C6E4F6FC1"
 
 [[appRules]]
-assignToWorkspace = "Code"
+assignToWorkspace = "2"
 bundleId = "com.todesktop.230313mzl4w4u92"
 id = "ABFAADC1-ED20-5224-8B45-B049751422B0"
 
 [[appRules]]
-assignToWorkspace = "Work"
+assignToWorkspace = "3"
 bundleId = "com.microsoft.teams2"
 id = "C20EDF6D-341D-5D36-A00A-9790B9553909"
 
 [[appRules]]
-assignToWorkspace = "Media"
+assignToWorkspace = "4"
 bundleId = "com.colliderli.iina"
 id = "BD628F32-56A2-55CD-ACC7-5195F6FE20A5"
 
