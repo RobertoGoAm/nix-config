@@ -49,7 +49,7 @@ size = 10.0
 bottom = 10.0
 left = 10.0
 right = 10.0
-top = 24.0
+top = 10.0
 
 [general]
 animationsEnabled = true
@@ -166,7 +166,7 @@ showLabels = true
 systemStatsButton = false
 windowLevel = "popup"
 xOffset = 0.0
-yOffset = -6.0
+yOffset = 0.0
 
 [workspaceBar.iconOverrides]
 
