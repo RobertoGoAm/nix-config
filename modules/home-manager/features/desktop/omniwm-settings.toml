@@ -313,6 +313,181 @@ assignToWorkspace = "6"
 bundleId = "com.apple.iCal"
 id = "A27A21D6-B9FC-5109-9CA9-89F7AF981BEA"
 
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.google.antigravity-ide"
+id = "A0DF05BA-60EB-5B37-9CB3-9C91B89D9AC9"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.microsoft.VSCode"
+id = "D33DCF6B-DD3A-5A3E-8C41-6DE17DA4AAE5"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.anthropic.claudefordesktop"
+id = "964CC0F3-6D8D-5002-AABF-574C54B54930"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.postmanlabs.mac"
+id = "96D0CF26-EB7F-530B-89EB-D1CDF7ED259C"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "org.jkiss.dbeaver.core.product"
+id = "B23B3996-482A-5DDE-8DD7-056A1E492A98"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "dev.kdrag0n.MacVirt"
+id = "33D5C646-7489-5466-824D-B6201F7CE10D"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "org.alacritty"
+id = "E341DF89-4519-5E0F-AD18-B4C86F688B57"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "ch.sudo.cyberduck"
+id = "330A0355-1EEB-510F-8F86-D8C265DC23C4"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.canonical.multipassGui"
+id = "3B12F144-1606-5F45-9587-8DE1366A2EB0"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "com.google.Chrome.Dev"
+id = "69653F38-803C-531D-B3CD-3C31D0561977"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "net.dannote.open-pencil"
+id = "4BC3BB4E-F3EC-58F8-8C48-6827BC1FBFE3"
+
+[[appRules]]
+assignToWorkspace = "3"
+bundleId = "com.fortinet.FortiClient"
+id = "53BBA799-62EB-5691-8F8D-D5C8DEBA798D"
+
+[[appRules]]
+assignToWorkspace = "4"
+bundleId = "org.videolan.vlc"
+id = "45CFBF46-00A5-566D-8BF0-2CBEC36F3390"
+
+[[appRules]]
+assignToWorkspace = "4"
+bundleId = "com.westbridge.stremio5-mac"
+id = "D68A0E0C-A17E-5B26-AAFE-AD335929886D"
+
+[[appRules]]
+assignToWorkspace = "4"
+bundleId = "org.qbittorrent.qBittorrent"
+id = "6CF75945-6FC7-5C7E-A6C4-9C24A59A0A92"
+
+[[appRules]]
+assignToWorkspace = "4"
+bundleId = "org.jdownloader.launcher"
+id = "17379940-6A28-5A49-A7FC-8231FBE7CE03"
+
+[[appRules]]
+assignToWorkspace = "4"
+bundleId = "org.freedownloadmanager.fdm6"
+id = "3F2DF1EC-C31C-5596-967D-9379876132EF"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "notion.id"
+id = "66753028-A2AB-5690-AEEB-4B91145B8EA1"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "net.ankiweb.anki"
+id = "9EC2577F-FB82-5229-A753-EB97859193C4"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.azhard.taskforge"
+id = "6D9370E7-EB93-5E61-97EB-555B5F73E0EF"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.readdle.PDFExpert-Mac"
+id = "3634A6F4-7AAA-5EC4-A7D4-845148FCBBD3"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "org.libreoffice.script"
+id = "BD9ABB54-70C5-503F-A365-AB74F1D6C423"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.apple.iWork.Pages"
+id = "1E728982-F370-5DEF-932C-5C0DE36FA2A5"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.apple.iWork.Numbers"
+id = "1E78094D-E139-5956-A000-EB612E5B280E"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.apple.iWork.Keynote"
+id = "5C1416C3-E192-573B-A720-6F7DD768B1B7"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "io.filen.desktop"
+id = "A588FD6C-8959-5604-91DE-274011A3463C"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "com.omnigroup.OmniDiskSweeper"
+id = "3764ACCD-C0EF-576C-B81F-E75EC4FF0D53"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "net.pornel.ImageOptim"
+id = "4D211F9A-35BC-58ED-929A-3E83F2EAC38F"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "fm.qmk.toolbox"
+id = "DC7F2965-B501-500D-A9EA-F67635AC93C9"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "org.via.configurator"
+id = "C68C5E0C-4A0F-57B7-A0C0-307F9F0EC572"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "today.vial"
+id = "B3A1570E-E8FF-5765-9B29-25B2C7F04C06"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "org.pqrs.Karabiner-Elements.Settings"
+id = "25C5611A-C13E-5915-9C5A-A5D9BF70B9EC"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "org.pqrs.Karabiner-EventViewer"
+id = "9DA559EF-E14D-55E5-93B1-0D6D300D3299"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "com.google.android.mtpviewer"
+id = "F9911002-8527-5CF2-8F05-6DD0B1B5C95F"
+
+[[appRules]]
+assignToWorkspace = "5"
+bundleId = "org.gpgtools.gpgkeychain"
+id = "15A39E35-5EA0-5A38-AEBF-299C4517A680"
+
 [[hotkeys]]
 binding = "Unassigned"
 id = "toggleScratchpad.1"
