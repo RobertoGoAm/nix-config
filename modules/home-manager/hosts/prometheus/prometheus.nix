@@ -27,6 +27,18 @@
 
   features.desktop.sketchybar.enable = false;
 
+  # Trying OmniWM in aerospace's place
+
+  # Scrolling columns and a BSP layout against aerospace's workspace model, on a
+  # machine that meets its requirements: Apple Silicon, macOS 26. The aerospace
+  # module and its TOML stay exactly where they are and its agent goes away, so
+  # the way back is this word.
+
+  # Accessibility and Input Monitoring are granted by hand on first launch, and
+  # until they are, the agent runs and nothing gets tiled.
+
+  features.desktop.windowManager = "omniwm";
+
   programs.home-manager = {
     enable = true;
   };
@@ -45,6 +57,7 @@
     ../../features/development/antigravity.nix
     ../../features/internet/chrome-dev.nix
     ../../features/internet/cyberduck.nix
+    ../../features/desktop/omniwm.nix
     ../../features/internet/discord.nix
     ../../features/internet/vimari.nix
     ../../features/internet/zen.nix
