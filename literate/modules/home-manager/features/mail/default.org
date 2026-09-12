@@ -115,7 +115,27 @@ lib.mkIf enable {
           ;; in the background at the first frame (below), this is the loop
           ;; that runs all day, and the agent is the one that covers the hours
           ;; the daemon is down.
-          mu4e-update-interval 300
+          ;;
+          ;; Fifteen minutes, not five. Five was chosen when this loop only
+          ;; ran while the mailbox was open; all day it is a different bargain,
+          ;; because every pass is an `mbsync -a' against every account and an
+          ;; index over the whole store.
+          mu4e-update-interval 900
+          ;; And the index skips what cannot have changed.
+          ;;
+          ;; Without this, a pass checks every message in the store: the live
+          ;; status reads `:checked 49704 :updated 0' against a 4.3GB Maildir,
+          ;; which is fifty thousand files stat'd to discover nothing, on a
+          ;; timer, forever. Lazy checking looks at directory mtimes and only
+          ;; descends into the ones that moved.
+          ;;
+          ;; The documented cost is that a flag changed by another client
+          ;; without touching the directory's mtime can be missed. mbsync is
+          ;; the other client here and it carries flags in the filename, so a
+          ;; flag change is a rename and a rename moves the mtime; the full
+          ;; pass the launchd agent runs while the daemon is down is the
+          ;; backstop for anything that still slips through.
+          mu4e-index-lazy-check t
           ;; Every one of those updates would otherwise narrate itself in the
           ;; echo area -- "Indexing... checked 41283, updated 2" -- five
           ;; minutes apart, forever, over whatever you were reading. The
