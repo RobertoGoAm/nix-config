@@ -125,14 +125,14 @@ red = 0.3
 [quakeTerminal]
 animationDuration = 0.2
 autoHide = false
-backgroundBlurRadius = 0
+backgroundBlurRadius = 20
 backgroundEffect = "standardBlur"
 enabled = true
-heightPercent = 50.0
+heightPercent = 100.0
 monitorMode = "focusedWindow"
-opacity = 1.0
+opacity = 0.8
 position = "center"
-widthPercent = 50.0
+widthPercent = 100.0
 
 [routing]
 arrangements = []
@@ -156,7 +156,7 @@ height = 24.0
 hideEmptyWorkspaces = false
 hideInNativeFullscreen = false
 notchActiveZoneWidth = 180.0
-notchMode = "splitActiveLeft"
+notchMode = "moveBelowMenuBar"
 position = "overlappingMenuBar"
 reserveLayoutSpace = true
 revealHoldMilliseconds = 200.0
