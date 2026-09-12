@@ -184,7 +184,7 @@ minHeight = 550.0
 minWidth = 950.0
 
 [[appRules]]
-assignToWorkspace = "3"
+assignToWorkspace = "2"
 bundleId = "com.google.Chrome"
 id = "E8F18693-55EE-5559-B8F2-B063F3AA44E2"
 minHeight = 375.0
@@ -287,6 +287,31 @@ layout = "float"
 bundleId = "com.googlecode.iterm2"
 id = "585E6660-2DDB-5760-85CF-89EB3F7DECC7"
 layout = "float"
+
+[[appRules]]
+assignToWorkspace = "3"
+bundleId = "com.omnissa.horizon.client.mac"
+id = "444BDF64-C3A2-57FC-9436-217BC2AB4029"
+
+[[appRules]]
+assignToWorkspace = "3"
+bundleId = "ru.keepcoder.Telegram"
+id = "235F08BB-74B8-5C43-897F-B089D6ECFE40"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "md.obsidian"
+id = "FB88EC69-9C0B-57E4-AC39-104301D17113"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.apple.mail"
+id = "45717C18-E3E4-5361-8823-18583A1E27BD"
+
+[[appRules]]
+assignToWorkspace = "6"
+bundleId = "com.apple.iCal"
+id = "A27A21D6-B9FC-5109-9CA9-89F7AF981BEA"
 
 [[hotkeys]]
 binding = "Unassigned"
@@ -1081,6 +1106,15 @@ displayName = "Misc"
 id = "4e98b0de-c9ac-586d-ab5e-a63da24b279f"
 layoutType = "niri"
 name = "5"
+
+[workspaces.monitorAssignment]
+type = "main"
+
+[[workspaces]]
+displayName = "Productivity"
+id = "DBECA440-1C0A-5C00-91A5-B5E9CE88CA8C"
+layoutType = "niri"
+name = "6"
 
 [workspaces.monitorAssignment]
 type = "main"
