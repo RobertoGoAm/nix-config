@@ -1,6 +1,11 @@
 # cli hammerspoon
 
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 # macOS quake terminal via Hammerspoon — a drop-down Alacritty on...
 
@@ -54,8 +59,67 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       hs.execute("alacritty msg config window.opacity=" .. (transparent and "0.85" or "1.0"), true)
     end)
 
+    -- The app keys live in their own file; see apps.lua below.
+    require("apps")
+
     -- Auto-reload this config when ~/.hammerspoon changes (handy while iterating).
     hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", hs.reload):start()
     hs.alert.show("Hammerspoon loaded")
+  '';
+
+  # The app keys the window manager used to own
+
+  # aerospace carried two bindings that had nothing to do with tiling: =alt-enter=
+  # summoned Emacs and =alt-b= summoned Chrome. Turning aerospace off took both
+  # with it, and =alt-enter= is worse than merely gone -- OmniWM binds
+  # =Option+Return= to =toggleFullscreen=, so the old key now maximises whatever is
+  # in front of you.
+
+  # They come back here because this is the only thing running that can bind a key
+  # to a command at all. OmniWM's hotkeys are a fixed list of 188 window-manager
+  # actions with no case for running something; the nearest it offers is a command
+  # palette.
+
+  # Emacs moves to =Ctrl+Option+Return=: the same finger, one modifier further out,
+  # and claimed by none of OmniWM's 67 bound chords. Chrome stays exactly where it
+  # was on =Option+B=, which OmniWM does not bind either.
+
+  # A real toggle, unlike the aerospace version -- that one ran =emacsclient -c -n=
+  # and opened another frame on every press. This hides the app when it is already
+  # in front, raises it when it is running, and only asks for a new frame when
+  # there is none, which is the shape the quake terminal above already has.
+
+  # emacsclient rather than =open=: Emacs runs as a daemon, so opening the bundle
+  # would start a second, unrelated instance while emacsclient asks the running one
+  # for a frame. =--alternate-editor= with an empty value starts the daemon if
+  # nothing is listening, so the key works before the agent is up. The profile path
+  # rather than the bare name, because by name LaunchServices has picked a stale
+  # Emacs out of an old generation before.
+
+  home.file.".hammerspoon/apps.lua".text = ''
+    local EMACSCLIENT = "/etc/profiles/per-user/${config.home.username}/bin/emacsclient";
+
+    local function toggleApp(name, launch)
+      local app = hs.application.get(name)
+      if app and app:isFrontmost() then
+        app:hide()
+      elseif app and #app:allWindows() > 0 then
+        app:activate()
+      else
+        launch()
+      end
+    end
+
+    hs.hotkey.bind({ "ctrl", "alt" }, "return", function()
+      toggleApp("Emacs", function()
+        hs.execute(EMACSCLIENT .. " -c -n --alternate-editor= &", true)
+      end)
+    end)
+
+    hs.hotkey.bind({ "alt" }, "b", function()
+      toggleApp("Google Chrome", function()
+        hs.application.launchOrFocus("/Applications/Google Chrome.app")
+      end)
+    end)
   '';
 }
