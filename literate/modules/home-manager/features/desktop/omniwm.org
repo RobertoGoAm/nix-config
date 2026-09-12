@@ -32,27 +32,43 @@ manager simply does not manage anything.
   };
 #+end_src
 
-* The settings file is deliberately not set yet
+* The settings file is OmniWM's own, with three edits
 
-=programs.omniwm.settings= takes either an attrset or a path to a TOML file,
-and writing one from scratch would be guesswork. OmniWM's README documents the
-behaviour and the GUI rather than the key names, and says the canonical file is
-the one OmniWM itself writes to =~/.config/omniwm/settings.toml=, live-reloaded
-when it changes. The binary carries the section names -- =general=, =gaps=,
-=layout=, =niri=, =dwindle=, =hotkeys=, =appRules=, =workspaces=,
-=workspaceBar=, =mouse= -- but not a schema anyone should be inventing keys
-against: a wrong key does not fail, it is ignored, and the setting silently
-does not apply.
+Not a file written from scratch. OmniWM's README documents its behaviour and
+its GUI rather than the key names, and a key invented against those does not
+fail -- it is ignored, and the setting silently does not apply. What is tracked
+here is the file OmniWM itself wrote on its first run, which is the schema
+exactly as it round-trips, with three deliberate changes on top. The path form
+is what upstream recommends for this, and the module re-links it on every
+switch because OmniWM replaces the link with a regular file whenever its GUI
+saves.
 
-So the order is: run it once, let it write its own file, then track that file
-here and set =settings = ./omniwm-settings.toml=. Upstream's own documentation
-recommends the path form for exactly this reason, and the module forces the
-link on every switch because OmniWM replaces it with a regular file whenever
-the GUI saves.
+** The eight directional keys, as aerospace bound them
 
-Until then the app keeps its own settings, which costs nothing except that
-they are not yet in this repo.
+OmniWM ships focus and move on Option and Option+Shift with the arrow keys.
+The rest of this config has had those four directions on =h n e i= for years --
+left, down, up, right on Colemak's home row -- so they move here too. Nothing
+else had to be touched: OmniWM already puts workspace switching on
+=Option+1..9= and moving a window to one on =Option+Shift+1..9=, which is the
+same arrangement =alt-1..6= and =alt-shift-1..6= had.
+
+Checked for collisions rather than assumed: with these eight applied, no two
+of the 67 bound hotkeys claim the same chord.
+
+** Gaps of ten
+
+aerospace ran ten inner and ten outer; OmniWM's own default is sixteen inner
+and none outer. This keeps the spacing that was there before rather than the
+one that came with the new manager.
+
+** The CLI needs the socket
+
+=ipcEnabled= ships =false=, and with it off =omniwmctl ping= answers "No such
+file or directory" -- the IPC and CLI surface the README documents is simply
+absent. Nothing here depends on it yet; it is on because a window manager that
+can be driven from a script is the reason for choosing one with a CLI.
 
 #+begin_src nix
+  programs.omniwm.settings = ./omniwm-settings.toml;
 }
 #+end_src
