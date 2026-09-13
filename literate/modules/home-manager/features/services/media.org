@@ -1,0 +1,116 @@
+#+TITLE: services media
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Jellyfin, for the courses that live on vulcan
+
+The reading stack next door already established the shape: a launchd agent on
+vulcan, bound to every interface, reached from the LAN by name and from
+anywhere else over the tailnet. This is the same arrangement for video.
+
+Video courses are the case that earns a media server rather than a file share.
+They are watched in order over weeks, so the thing that matters is that
+something remembers where you stopped -- which a folder mounted over SMB
+cannot do, and which the web player does on any machine you open it from.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.features.services.media;
+in
+{
+  options.features.services.media = {
+    enable = lib.mkEnableOption "the self-hosted media server (jellyfin)";
+
+    host = lib.mkOption {
+      type = lib.types.str;
+      default = "0.0.0.0";
+      description = ''
+        Interface to bind. Every one, as with the reading stack: the point is
+        reaching it from the other machine and the phone, not from vulcan.
+      '';
+    };
+
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 8096;
+      description = "Jellyfin's HTTP port, its own default.";
+    };
+
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/Library/Application Support/jellyfin";
+      description = ''
+        Database, metadata and the transcode cache. Deliberately not under the
+        library: the library is 30GB of video that can be downloaded again,
+        and this is the small part that cannot.
+      '';
+    };
+
+    libraryDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/Media";
+      description = ''
+        Where the video lives. Jellyfin is pointed at this from its own setup
+        wizard on first run rather than from here -- libraries are rows in its
+        database, not configuration it reads from a file.
+      '';
+    };
+  };
+#+end_src
+
+* The agent
+
+ffmpeg is the one thing Jellyfin cannot do without and does not ship: it is
+what reads the container, and what re-encodes when a client cannot play the
+file as it stands. =jellyfin-ffmpeg= is the build Jellyfin expects, so it goes
+on PATH rather than leaving it to find whatever is installed.
+
+The web UI is a separate package from the server, and =--webdir= is how the
+server is told where it went. Without it Jellyfin serves the API and an empty
+page, which looks like a broken install rather than a missing flag.
+
+KeepAlive on unsuccessful exit only, matching calibre-web: a server that
+crashes should come back, and one told to quit should stay down.
+
+#+begin_src nix
+  config = lib.mkIf cfg.enable {
+    home.activation.jellyfinDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run mkdir -p ${lib.escapeShellArg cfg.dataDir} ${lib.escapeShellArg cfg.libraryDir}
+    '';
+
+    launchd.agents.jellyfin = {
+      enable = true;
+      config = {
+        ProgramArguments = [
+          "${lib.getExe pkgs.jellyfin}"
+          "--service"
+          "--datadir"
+          cfg.dataDir
+          "--configdir"
+          "${cfg.dataDir}/config"
+          "--cachedir"
+          "${cfg.dataDir}/cache"
+          "--webdir"
+          "${pkgs.jellyfin-web}/share/jellyfin-web"
+        ];
+        RunAtLoad = true;
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        WorkingDirectory = cfg.dataDir;
+        EnvironmentVariables = {
+          JELLYFIN_PublishedServerUrl = cfg.host;
+          PATH = "${pkgs.jellyfin-ffmpeg}/bin:/usr/bin:/bin";
+        };
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.out.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.err.log";
+      };
+    };
+  };
+}
+#+end_src

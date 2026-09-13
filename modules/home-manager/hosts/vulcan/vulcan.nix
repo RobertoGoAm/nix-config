@@ -39,6 +39,8 @@
   # services being broken rather than never installed.
   targets.darwin.copyApps.enable = false;
 
+  features.services.media.enable = true;
+
   features.services.reading = {
     enable = true;
     # Calibre put the library at the top of $HOME here, not under books/. The
@@ -70,6 +72,8 @@
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
+    ../../features/desktop/window-manager.nix
+    ../../features/services/media.nix
     ../../features/services/reading.nix
   ];
 }
