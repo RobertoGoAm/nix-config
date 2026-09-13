@@ -2268,6 +2268,21 @@ to recompile them and go hunting for error patterns in a balance sheet.
                                    (read-string "Period: ")
                                  "12 months ago..")))
 
+    (defun my/hledger-balances ()
+      "Every real balance at once: the bank accounts, the cash, the card.
+
+    `assets' and `liabilities' rather than the balance sheet behind SPC $ n,
+    because the question this answers is what each account holds right now,
+    not how the year moved.
+
+    In tree form, so the envelopes appear underneath the account they are
+    carved out of. That matters here: the bank's own figure is the total of
+    the tree, not the parent line -- which is why the reconciliation
+    assertions in the journal are written `==*' rather than `='."
+      (interactive)
+      (my/hledger--report "*hledger balances*"
+                          "balance" "assets" "liabilities" "--tree"))
+
     (defun my/hledger-networth ()
       "What is owned against what is owed, month by month."
       (interactive)
