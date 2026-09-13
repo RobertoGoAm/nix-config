@@ -299,17 +299,17 @@ bundleId = "ru.keepcoder.Telegram"
 id = "235F08BB-74B8-5C43-897F-B089D6ECFE40"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "md.obsidian"
 id = "FB88EC69-9C0B-57E4-AC39-104301D17113"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.apple.mail"
 id = "45717C18-E3E4-5361-8823-18583A1E27BD"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.apple.iCal"
 id = "A27A21D6-B9FC-5109-9CA9-89F7AF981BEA"
 
@@ -399,92 +399,92 @@ bundleId = "org.freedownloadmanager.fdm6"
 id = "3F2DF1EC-C31C-5596-967D-9379876132EF"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "notion.id"
 id = "66753028-A2AB-5690-AEEB-4B91145B8EA1"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "net.ankiweb.anki"
 id = "9EC2577F-FB82-5229-A753-EB97859193C4"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.azhard.taskforge"
 id = "6D9370E7-EB93-5E61-97EB-555B5F73E0EF"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.readdle.PDFExpert-Mac"
 id = "3634A6F4-7AAA-5EC4-A7D4-845148FCBBD3"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "org.libreoffice.script"
 id = "BD9ABB54-70C5-503F-A365-AB74F1D6C423"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.apple.iWork.Pages"
 id = "1E728982-F370-5DEF-932C-5C0DE36FA2A5"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.apple.iWork.Numbers"
 id = "1E78094D-E139-5956-A000-EB612E5B280E"
 
 [[appRules]]
-assignToWorkspace = "6"
+assignToWorkspace = "5"
 bundleId = "com.apple.iWork.Keynote"
 id = "5C1416C3-E192-573B-A720-6F7DD768B1B7"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "io.filen.desktop"
 id = "A588FD6C-8959-5604-91DE-274011A3463C"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "com.omnigroup.OmniDiskSweeper"
 id = "3764ACCD-C0EF-576C-B81F-E75EC4FF0D53"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "net.pornel.ImageOptim"
 id = "4D211F9A-35BC-58ED-929A-3E83F2EAC38F"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "fm.qmk.toolbox"
 id = "DC7F2965-B501-500D-A9EA-F67635AC93C9"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "org.via.configurator"
 id = "C68C5E0C-4A0F-57B7-A0C0-307F9F0EC572"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "today.vial"
 id = "B3A1570E-E8FF-5765-9B29-25B2C7F04C06"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "org.pqrs.Karabiner-Elements.Settings"
 id = "25C5611A-C13E-5915-9C5A-A5D9BF70B9EC"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "org.pqrs.Karabiner-EventViewer"
 id = "9DA559EF-E14D-55E5-93B1-0D6D300D3299"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "com.google.android.mtpviewer"
 id = "F9911002-8527-5CF2-8F05-6DD0B1B5C95F"
 
 [[appRules]]
-assignToWorkspace = "5"
+assignToWorkspace = "1"
 bundleId = "org.gpgtools.gpgkeychain"
 id = "15A39E35-5EA0-5A38-AEBF-299C4517A680"
 
@@ -1282,19 +1282,10 @@ name = "4"
 type = "main"
 
 [[workspaces]]
-displayName = "Misc"
-id = "4e98b0de-c9ac-586d-ab5e-a63da24b279f"
-layoutType = "niri"
-name = "5"
-
-[workspaces.monitorAssignment]
-type = "main"
-
-[[workspaces]]
 displayName = "Productivity"
 id = "DBECA440-1C0A-5C00-91A5-B5E9CE88CA8C"
 layoutType = "niri"
-name = "6"
+name = "5"
 
 [workspaces.monitorAssignment]
 type = "main"
