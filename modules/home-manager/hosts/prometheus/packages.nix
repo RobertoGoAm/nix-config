@@ -94,6 +94,17 @@ in
 
       ffmpeg
       iina
+
+      # The Jellyfin desktop client, not the browser
+
+      # The courses on vulcan are half MPEG-TS -- 122 of The Joy of React's 222 files
+      # -- and no browser plays that container, so every one of those episodes makes
+      # vulcan transcode with ffmpeg while you watch. This client is mpv underneath
+      # and plays them as they are, which turns the server's job back into serving
+      # bytes. The browser is still the right answer from an office, where installing
+      # nothing is the point.
+
+      jellyfin-media-player
       spotify
 
       # Tool

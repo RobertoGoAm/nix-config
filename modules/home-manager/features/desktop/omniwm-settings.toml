@@ -488,6 +488,11 @@ assignToWorkspace = "5"
 bundleId = "org.gpgtools.gpgkeychain"
 id = "15A39E35-5EA0-5A38-AEBF-299C4517A680"
 
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "org.jellyfin.JellyfinDesktop"
+id = "C8F9CBE2-61D1-5FA5-ABFB-D0BEA2E7F065"
+
 [[hotkeys]]
 binding = "Unassigned"
 id = "toggleScratchpad.1"
