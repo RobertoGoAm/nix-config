@@ -1803,12 +1803,22 @@ in
           ;; "can I pay this now", which is the other half of the same glance
           ;; and used to mean leaving the screen for SPC $ l or SPC $ k.
           ;;
-          ;; Bank is the whole tree: the envelope subaccounts are carved out of
-          ;; one real account, so the parent line alone is not what the bank
-          ;; would tell you -- the same reason the journal asserts with `==*'.
+          ;; Bank is assets:bank:main and its envelopes, not every bank
+          ;; account there is. The other two hold 176 between them and are
+          ;; dormant -- second takes two direct debits, bunq was closed down to
+          ;; a residue -- so adding them buys nothing and costs the number its
+          ;; meaning: "the bank balance" is the account the salary lands in,
+          ;; and a figure that reads 30,095 when that account holds 29,919 is
+          ;; one you have to stop and decompose. SPC $ l has the full tree for
+          ;; when that is the question.
+          ;;
+          ;; The envelope subaccounts do come in, because they are carved out
+          ;; of the one real account -- the same reason the journal asserts
+          ;; that balance with `==*' rather than `='.
+          ;;
           ;; The card shows what is owed as a positive number, since "owed" is
           ;; how it is read, with the headroom beside it.
-          (let* ((bank (my/hledger--amount "^assets:bank"))
+          (let* ((bank (my/hledger--amount "^assets:bank:main"))
                  (cash (my/hledger--amount "^assets:cash"))
                  (owed (abs (my/hledger--amount "^liabilities:card$"))))
             (insert (format "  Bank       %10.2f  Cash %10.2f  Card %10.2f owed, %.2f left\n\n"
