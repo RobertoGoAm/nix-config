@@ -47,6 +47,15 @@ in
       '';
     };
 
+    filesPort = lib.mkOption {
+      type = lib.types.port;
+      default = 8097;
+      description = ''
+        Port for the plain file listing of the same tree. Next to Jellyfin's
+        8096 on purpose: it is the other half of the same service.
+      '';
+    };
+
     libraryDir = lib.mkOption {
       type = lib.types.str;
       default = "${config.home.homeDirectory}/Media";
@@ -103,6 +112,68 @@ in
         };
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.out.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.err.log";
+      };
+    };
+
+    # And the same tree as plain files
+
+    # Jellyfin indexes media and ignores everything else, which for a course is
+    # most of it: the exercise repository, the slides, the PDFs, the starter
+    # projects. Those need to be reachable too, and the way to reach them from
+    # an office is HTTP rather than a mounted share.
+
+    # SMB is the obvious alternative and the wrong one here. It is a chatty
+    # protocol -- a directory listing is several round trips -- built for a LAN.
+    # The tailnet has a direct path between these two machines today, but a
+    # corporate network is where that fails over to a DERP relay, and SMB over a
+    # relay is where a mount hangs and the Finder stops answering. HTTP is
+    # stateless: nothing to mount, nothing to go stale when the laptop lid
+    # closes or the connection moves from wifi to cellular, and a dropped
+    # request costs a retry rather than a wedged mount.
+
+    # Read-only, which is the trade being made. Writing to the tree still means
+    # ssh or rsync; if dragging files onto vulcan becomes the common case, a
+    # share is the honest answer and this is not.
+
+    # The same caveat as the rest of the stack applies: bound to every
+    # interface, this is readable by anything on the LAN, and over the tailnet
+    # it is Tailscale's ACLs doing the gating.
+
+    launchd.agents.media-files = {
+      enable = true;
+      config = {
+        ProgramArguments = [
+          "${lib.getExe pkgs.caddy}"
+          "run"
+          "--adapter"
+          "caddyfile"
+          "--config"
+          "${pkgs.writeText "media-files.Caddyfile" ''
+            {
+              admin off
+              auto_https off
+            }
+
+            :${toString cfg.filesPort} {
+              root * ${cfg.libraryDir}
+              file_server browse
+            }
+          ''}"
+        ];
+        RunAtLoad = true;
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        WorkingDirectory = cfg.dataDir;
+        EnvironmentVariables = {
+          # Caddy writes a certificate store and its own state; with no
+          # https to manage it is empty, but it still wants somewhere to put
+          # it, and that somewhere should not be a surprise.
+          XDG_DATA_HOME = "${cfg.dataDir}/caddy";
+          XDG_CONFIG_HOME = "${cfg.dataDir}/caddy";
+        };
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/media-files.out.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/media-files.err.log";
       };
     };
   };
