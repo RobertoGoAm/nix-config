@@ -1794,9 +1794,25 @@ in
           (insert (format "  Budgeted   %10.2f%sUnassigned %10.2f\n"
                           (or budget-total 0) (make-string 25 ?\s)
                           (- (or income-budget 0) (or budget-total 0))))
-          (insert (format "  Spent      %10.2f of %-10.2f budgeted  Left       %10.2f\n\n"
+          (insert (format "  Spent      %10.2f of %-10.2f budgeted  Left       %10.2f\n"
                           (or spent-total 0) (or budget-total 0)
                           (- (or budget-total 0) (or spent-total 0))))
+          ;; What is actually in the accounts, under what the month says.
+          ;;
+          ;; The envelopes answer "is this month on track"; they cannot answer
+          ;; "can I pay this now", which is the other half of the same glance
+          ;; and used to mean leaving the screen for SPC $ l or SPC $ k.
+          ;;
+          ;; Bank is the whole tree: the envelope subaccounts are carved out of
+          ;; one real account, so the parent line alone is not what the bank
+          ;; would tell you -- the same reason the journal asserts with `==*'.
+          ;; The card shows what is owed as a positive number, since "owed" is
+          ;; how it is read, with the headroom beside it.
+          (let* ((bank (my/hledger--amount "^assets:bank"))
+                 (cash (my/hledger--amount "^assets:cash"))
+                 (owed (abs (my/hledger--amount "^liabilities:card$"))))
+            (insert (format "  Bank       %10.2f  Cash %10.2f  Card %10.2f owed, %.2f left\n\n"
+                            bank cash owed (- my/hledger-card-limit owed))))
           (insert (propertize
                    (format "  %-26s %9s / %-9s %s %5s  %10s  %s\n"
                            "envelope" "spent" "budget"
