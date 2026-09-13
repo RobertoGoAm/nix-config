@@ -88,9 +88,10 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # actions with no case for running something; the nearest it offers is a command
   # palette.
 
-  # Emacs moves to =Ctrl+Option+Return=: the same finger, one modifier further out,
-  # and claimed by none of OmniWM's 67 bound chords. Chrome stays exactly where it
-  # was on =Option+B=, which OmniWM does not bind either.
+  # Emacs keeps =Option+Return=, the key it has always had. OmniWM claimed it for
+  # =toggleFullscreen= and that is what took it away; fullscreen has been moved to
+  # =Option+Shift+Return= instead, which nothing else wanted. Chrome stays on
+  # =Option+B=, which OmniWM does not bind either.
 
   # A real toggle, unlike the aerospace version -- that one ran =emacsclient -c -n=
   # and opened another frame on every press. This hides the app when it is already
@@ -118,7 +119,7 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
       end
     end
 
-    hs.hotkey.bind({ "ctrl", "alt" }, "return", function()
+    hs.hotkey.bind({ "alt" }, "return", function()
       toggleApp("Emacs", function()
         hs.execute(EMACSCLIENT .. " -c -n --alternate-editor= &", true)
       end)
