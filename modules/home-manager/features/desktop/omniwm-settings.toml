@@ -166,7 +166,7 @@ showLabels = true
 systemStatsButton = false
 windowLevel = "popup"
 xOffset = 0.0
-yOffset = 0.0
+yOffset = -3.0
 
 [workspaceBar.iconOverrides]
 
@@ -921,7 +921,7 @@ binding = "Unassigned"
 id = "moveWindowToMonitor.down"
 
 [[hotkeys]]
-binding = "Option+Return"
+binding = "Option+Shift+Return"
 id = "toggleFullscreen"
 
 [[hotkeys]]
