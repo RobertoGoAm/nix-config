@@ -137,7 +137,20 @@
     security.pam.services.sudo_local = {
       touchIdAuth = true;
       watchIdAuth = true;
-      reattach = true;
+      # reattach is off, because with it on sudo does not work at all on
+      # vulcan: in Terminal.app there, `sudo -v' answers "unable to
+      # initialize PAM: Undefined error: 0" and nothing can be authorised.
+      #
+      # Only in a GUI session. The same sudo over ssh reaches "a password is
+      # required", which is PAM initialising normally -- and a GUI session is
+      # exactly what pam_reattach is for: it re-attaches the process to the
+      # login session's bootstrap namespace so Touch ID works from inside tmux
+      # or screen. Over ssh there is no session to attach to and the module
+      # has nothing to do, which is why the failure hides there.
+      #
+      # What it costs: Touch ID for sudo inside a multiplexer. Touch ID
+      # outside one is pam_tid, which stays on.
+      reattach = false;
     };
 
     nix =
