@@ -74,14 +74,17 @@ in
 
 * The agent
 
-ffmpeg is the one thing Jellyfin cannot do without and does not ship: it is
-what reads the container, and what re-encodes when a client cannot play the
-file as it stands. =jellyfin-ffmpeg= is the build Jellyfin expects, so it goes
-on PATH rather than leaving it to find whatever is installed.
+ffmpeg and the web UI are both handled already, and passing either again is
+not a no-op. The nixpkgs wrapper ends in
 
-The web UI is a separate package from the server, and =--webdir= is how the
-server is told where it went. Without it Jellyfin serves the API and an empty
-page, which looks like a broken install rather than a missing flag.
+:   exec .../jellyfin --ffmpeg=.../ffmpeg --webdir=.../jellyfin-web "$@"
+
+so a =--webdir= of our own arrives second and Jellyfin refuses to start at
+all: "Option 'w, webdir' is defined multiple times", followed by its help,
+into the error log. Nothing listens on the port and the agent flaps.
+
+Which is also why there is no jellyfin-ffmpeg on PATH here. The wrapper names
+the binary by absolute path, so PATH never comes into it.
 
 KeepAlive on unsuccessful exit only, matching calibre-web: a server that
 crashes should come back, and one told to quit should stay down.
@@ -104,8 +107,6 @@ crashes should come back, and one told to quit should stay down.
           "${cfg.dataDir}/config"
           "--cachedir"
           "${cfg.dataDir}/cache"
-          "--webdir"
-          "${pkgs.jellyfin-web}/share/jellyfin-web"
         ];
         RunAtLoad = true;
         KeepAlive = {
@@ -113,8 +114,7 @@ crashes should come back, and one told to quit should stay down.
         };
         WorkingDirectory = cfg.dataDir;
         EnvironmentVariables = {
-          JELLYFIN_PublishedServerUrl = cfg.host;
-          PATH = "${pkgs.jellyfin-ffmpeg}/bin:/usr/bin:/bin";
+          PATH = "/usr/bin:/bin";
         };
         StandardOutPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.out.log";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/jellyfin.err.log";
