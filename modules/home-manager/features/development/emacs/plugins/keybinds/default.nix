@@ -389,6 +389,7 @@
       "$f" '(my/hledger-forecast :which-key "projection")
       "$s" '(my/hledger-spending :which-key "spending by category")
       "$i" '(my/hledger-income :which-key "income vs expenses")
+      "$l" '(my/hledger-balances :which-key "balances: every account now")
       "$n" '(my/hledger-networth :which-key "net worth")
       "$r" '(my/hledger-register :which-key "account register")
       "$c" '(my/hledger-check :which-key "check journal")
