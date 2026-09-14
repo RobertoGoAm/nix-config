@@ -57,8 +57,24 @@
     (setq treesit-fold-line-count-show t
           treesit-fold-line-count-format " ⋯ %d lines ")
     (global-treesit-fold-mode 1)
-    ;; foldcolumn = "1"
-    (global-treesit-fold-indicators-mode 1)
+
+    ;; The fold indicators are off, and this is not a matter of taste.
+    ;;
+    ;; `treesit-fold-indicators-mode' hangs its refresh on the window scroll
+    ;; and size-change hooks, and that refresh runs a whole
+    ;; `treesit-query-capture' over the visible window. So every redisplay --
+    ;; every keystroke that scrolls, every line a terminal prints -- re-queries
+    ;; the tree. Emacs' own CPU profiler, taken while the daemon sat at 99%:
+    ;;
+    ;;   554693  97%  redisplay_internal
+    ;;   266077  46%    treesit-fold-indicators--scroll
+    ;;   219430  38%      treesit-query-capture
+    ;;
+    ;; Forty-six per cent of everything, for triangles in the fringe. Folding
+    ;; itself is untouched -- `global-treesit-fold-mode' above is what za, zc,
+    ;; zo, zM and zR drive, and it costs nothing until a fold is asked for.
+    ;; nvim's foldcolumn = "1" is what this was mirroring, and nvim redraws a
+    ;; fold column without re-parsing the buffer to do it.
 
     (evil-define-key 'normal 'global
       (kbd "za") #'treesit-fold-toggle
@@ -67,10 +83,17 @@
       (kbd "zM") #'treesit-fold-close-all
       (kbd "zR") #'treesit-fold-open-all)
 
-    ;; scrollview: a scrollbar drawn in the buffer, so it works in the terminal too.
+    ;; scrollview: a scrollbar drawn in the buffer, so it works in the terminal
+    ;; too. Off for the same reason as the fold indicators, and found in the
+    ;; same profile: `yascroll:after-window-scroll' was 22% of all CPU, second
+    ;; only to them. Two decorations between them were taking sixty-eight per
+    ;; cent of the daemon.
+    ;;
+    ;; `yascroll:delay-to-hide' does not help: the cost is in the scroll hook
+    ;; that decides where to draw, which runs whether or not the bar is then
+    ;; shown.
     (require 'yascroll)
     (setq yascroll:delay-to-hide 1.0)
-    (global-yascroll-bar-mode 1)
 
     ;; lspsaga's beacon = true: flash the line you land on, so a jump is never
     ;; disorienting.
