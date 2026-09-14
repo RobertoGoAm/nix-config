@@ -54,6 +54,24 @@ the conditional sops-secrets.nix import above.
   };
 
   config = {
+#+end_src
+
+* mac-app-util's trampoline sync is off: SBCL cannot start on macOS 27
+
+mac-app-util is a Common Lisp program, and SBCL maps its static and text
+spaces at a fixed 0x300000000 on arm64 Darwin. macOS 27 reserves
+0x300000000-0x37FFFFFFF, so every SBCL binary dies at startup with
+"failed to allocate 1048576 bytes at 0x300100000" — deterministically, and
+regardless of ulimits, despite what the hint in that message says. The sync
+runs from system.activationScripts.postActivation, so while it is enabled
+darwin-rebuild aborts there and never reaches the home-manager activation.
+
+Nothing is lost on these machines: /Applications/Nix Apps is empty, and
+Emacs.app comes from home-manager's own ~/Applications/Home Manager Apps.
+
+#+begin_src nix
+    services.mac-app-util.enable = false;
+
     sops = lib.mkIf config.features.security.sops.enable {
       defaultSopsFile = "/Users/${user}/.config/nix-secrets/secrets.yaml";
       validateSopsFiles = false;
