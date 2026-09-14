@@ -70,11 +70,49 @@
     ;;   266077  46%    treesit-fold-indicators--scroll
     ;;   219430  38%      treesit-query-capture
     ;;
-    ;; Forty-six per cent of everything, for triangles in the fringe. Folding
-    ;; itself is untouched -- `global-treesit-fold-mode' above is what za, zc,
-    ;; zo, zM and zR drive, and it costs nothing until a fold is asked for.
-    ;; nvim's foldcolumn = "1" is what this was mirroring, and nvim redraws a
-    ;; fold column without re-parsing the buffer to do it.
+    ;; Forty-six per cent of everything, for triangles in the fringe.
+    ;;
+    ;; The markers are worth having, though -- not to read constantly, but so
+    ;; that a fold is visibly there rather than something you find out about by
+    ;; pressing za and watching nothing happen. So the mode goes back on with
+    ;; the two costly hooks taken off it.
+    ;;
+    ;; Only two of its five are the problem. `after-change-functions' and
+    ;; `after-save-hook' merely set a flag that `post-command-hook' acts on, so
+    ;; the indicators still follow edits and saves for the cost of a boolean.
+    ;; It is `window-scroll-functions' and `window-size-change-functions' that
+    ;; refresh eagerly, and the refresh is worse than per-window: it queries
+    ;; from `treesit-buffer-root-node' -- the whole buffer -- and only then
+    ;; filters to what is between window-start and window-end. Scrolling a
+    ;; large file re-parses all of it on every frame.
+    ;;
+    ;; An idle timer does the same job: the markers land a quarter-second after
+    ;; scrolling stops, which for something you glance at is indistinguishable,
+    ;; and a repeating idle timer fires once per idle period rather than
+    ;; continuously, so it is one query per pause instead of one per frame.
+    ;;
+    ;; The advice is what makes it stick: `--enable' runs per buffer and adds
+    ;; those two global hooks back every time a buffer turns the mode on, so
+    ;; removing them once would last until the next file was opened.
+    (global-treesit-fold-indicators-mode 1)
+
+    (defun my/treesit-fold-indicators-unhook (&rest _)
+      "Take the eager window hooks back off; the idle timer covers them."
+      (remove-hook 'window-scroll-functions #'treesit-fold-indicators--scroll)
+      (remove-hook 'window-size-change-functions
+                   #'treesit-fold-indicators--size-change))
+
+    (advice-add 'treesit-fold-indicators--enable :after
+                #'my/treesit-fold-indicators-unhook)
+    (my/treesit-fold-indicators-unhook)
+
+    (defun my/treesit-fold-indicators-idle ()
+      "Refresh the fold markers in the selected window, once things are still."
+      (when (bound-and-true-p treesit-fold-indicators-mode)
+        (ignore-errors
+          (treesit-fold-indicators--render-window (selected-window)))))
+
+    (run-with-idle-timer 0.25 t #'my/treesit-fold-indicators-idle)
 
     (evil-define-key 'normal 'global
       (kbd "za") #'treesit-fold-toggle
