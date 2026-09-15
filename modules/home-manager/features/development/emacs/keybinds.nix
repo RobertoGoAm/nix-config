@@ -263,6 +263,26 @@ in
         ;; makes.
         (evil-define-key '(normal insert) 'global
           (kbd "C-k") #'my/lsp-signature-help)
+
+        ;; <escape> lands you in normal state from wherever you are. Evil already
+        ;; binds it inside its own states; this covers the buffers it leaves in
+        ;; emacs state, where the key is otherwise the meta prefix and just sits
+        ;; there waiting for a second one.
+        ;;
+        ;; That prefix stays reachable on C-<escape>, bound to the same `esc-map',
+        ;; so C-<escape> x is still M-x. Terminal frames are untouched: a TTY sends
+        ;; the ESC character, not the <escape> key event, so ESC remains meta there.
+        (defun my/escape-dwim ()
+          "Drop whatever is in progress and settle in normal state."
+          (interactive)
+          (cond
+           ((minibufferp) (abort-recursive-edit))
+           ((region-active-p) (deactivate-mark))
+           ((not (evil-normal-state-p)) (evil-force-normal-state))
+           (t (keyboard-quit))))
+
+        (global-set-key (kbd "C-<escape>") esc-map)
+        (global-set-key (kbd "<escape>") #'my/escape-dwim)
       '')
     ]
   );
