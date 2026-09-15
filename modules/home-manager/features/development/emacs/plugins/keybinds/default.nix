@@ -32,6 +32,28 @@
           vterm-kill-buffer-on-exit t
           vterm-copy-exclude-prompt t)
 
+    ;; A way back from a torn frame. A full-screen TUI redrawing at the bottom
+    ;; of the terminal repaints by walking the cursor up over its last frame and
+    ;; erasing it; when the frame it is replacing is taller than the one before
+    ;; -- Claude Code's input box gaining a row on shift-RET, say -- the screen
+    ;; scrolls between the two, the count is one short, and the erase lands a row
+    ;; off. The text underneath is intact and only the picture is wrong.
+    ;;
+    ;; SIGWINCH is what such a program answers by drawing everything again, so
+    ;; the size goes out a column short and straight back.
+    (defun my/vterm-force-repaint ()
+      "Make the program in this terminal redraw its whole frame."
+      (interactive)
+      (unless (derived-mode-p 'vterm-mode)
+        (user-error "Not a vterm buffer"))
+      (let ((w (window-body-width))
+            (h (window-body-height)))
+        (vterm--set-size vterm--term h (1- w))
+        (redisplay t)
+        (vterm--set-size vterm--term h w)))
+
+    (define-key vterm-mode-map (kbd "C-c C-l") #'my/vterm-force-repaint)
+
     ;; size = 10, direction = horizontal: a short window along the bottom, not a
     ;; buffer that steals the frame.
     (add-to-list 'display-buffer-alist
