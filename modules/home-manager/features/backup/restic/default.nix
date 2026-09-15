@@ -69,6 +69,14 @@ let
     .DS_Store
     .Trash
     .orbstack
+    # ~/.claude keeps its settings, skills, agents and plugins; these three are
+    # the parts that are either regenerable or enormous. projects/ is the session
+    # transcripts: 1.1G of the directory's 1.1G, appended to all day. Object lock
+    # holds every snapshot for 90 days, so anything sent there cannot be taken
+    # back out -- which is the whole argument for leaving them until asked for.
+    ${config.home.homeDirectory}/.claude/projects
+    ${config.home.homeDirectory}/.claude/shell-snapshots
+    ${config.home.homeDirectory}/.claude/image-cache
   '';
 
   backup = pkgs.writeShellScript "restic-backup" ''
@@ -171,7 +179,7 @@ let
     PATHS=""
     for p in Development Documents Desktop Pictures finance books \
              .local/state/vulcan \
-             .config .ssh .gnupg .aws .kube; do
+             .config .claude .ssh .gnupg .aws .kube; do
       [ -e "$HOME/$p" ] && PATHS="$PATHS $HOME/$p"
     done
     [ -n "$PATHS" ] || { echo "restic-backup: nothing to back up"; exit 0; }
