@@ -203,8 +203,27 @@ in
     ;;
     ;; Appended rather than prepended: JetBrainsMono keeps every character it
     ;; actually has, and JuliaMono is consulted only for the holes.
-    (set-fontset-font t '(#x2300 . #x23ff) (font-spec :family "JuliaMono") nil 'append)
-    (set-fontset-font t '(#x2700 . #x27bf) (font-spec :family "JuliaMono") nil 'append)
+    ;;
+    ;; The rules have to reach the fontset the default face is actually using.
+    ;; Naming the frame font by family realises `fontset-startup', and that is
+    ;; what every frame inherits, emacsclient's included; the default fontset is
+    ;; consulted for a character only when no realised fontset answers first, so
+    ;; rules left there alone never run and macOS keeps picking the substitute.
+    (defvar my/fallback-glyph-fontsets nil
+      "Fontsets already routing their gaps to JuliaMono.")
+
+    (defun my/map-fallback-glyphs (&rest _)
+      "Send the ranges JetBrainsMono lacks to JuliaMono rather than to macOS."
+      (dolist (fontset (list t (and (query-fontset "fontset-startup")
+                                    "fontset-startup")))
+        (when (and fontset (not (member fontset my/fallback-glyph-fontsets)))
+          (push fontset my/fallback-glyph-fontsets)
+          (dolist (range '((#x2300 . #x23ff) (#x2700 . #x27bf)))
+            (set-fontset-font fontset range (font-spec :family "JuliaMono")
+                              nil 'append)))))
+
+    (my/map-fallback-glyphs)
+    (add-hook 'server-after-make-frame-hook #'my/map-fallback-glyphs)
     (push '(background-color . "#24283b") default-frame-alist)
     (push '(foreground-color . "#c0caf5") default-frame-alist)
     (push '(ns-transparent-titlebar . t) default-frame-alist)
