@@ -212,15 +212,22 @@ in
     (defvar my/fallback-glyph-fontsets nil
       "Fontsets already routing their gaps to JuliaMono.")
 
+    ;; Guarded on a display, and demoted besides. `query-fontset' signals
+    ;; "Window system is not in use or not initialized" where there is none,
+    ;; which in a daemon means every early-init run: the frame is the client's
+    ;; and arrives long after this file. An error raised here takes the rest of
+    ;; the file with it, and the rest of the file is what turns the tool bar and
+    ;; the titlebar off -- so nothing in here is worth a frame with decorations.
     (defun my/map-fallback-glyphs (&rest _)
       "Send the ranges JetBrainsMono lacks to JuliaMono rather than to macOS."
-      (dolist (fontset (list t (and (query-fontset "fontset-startup")
-                                    "fontset-startup")))
-        (when (and fontset (not (member fontset my/fallback-glyph-fontsets)))
-          (push fontset my/fallback-glyph-fontsets)
-          (dolist (range '((#x2300 . #x23ff) (#x25a0 . #x25ff) (#x2700 . #x27bf)))
-            (set-fontset-font fontset range (font-spec :family "JuliaMono")
-                              nil 'append)))))
+      (when (display-graphic-p)
+        (with-demoted-errors "my/map-fallback-glyphs: %S"
+          (dolist (fontset (list t (query-fontset "fontset-startup")))
+            (when (and fontset (not (member fontset my/fallback-glyph-fontsets)))
+              (push fontset my/fallback-glyph-fontsets)
+              (dolist (range '((#x2300 . #x23ff) (#x25a0 . #x25ff) (#x2700 . #x27bf)))
+                (set-fontset-font fontset range (font-spec :family "JuliaMono")
+                                  nil 'append)))))))
 
     (my/map-fallback-glyphs)
     (add-hook 'server-after-make-frame-hook #'my/map-fallback-glyphs)
