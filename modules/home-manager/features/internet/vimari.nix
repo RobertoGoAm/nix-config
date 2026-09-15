@@ -42,11 +42,23 @@ in
   # here too rather than assumed: a fresh machine that has installed the app but
   # never opened it would otherwise fail the copy.
 
+  # Best effort, because the destination is a sandbox container. Everything under
+  # =~/Library/Containers/<app>= is TCC-protected: the file is the user's own and
+  # mode 644, and writing it still returns =Operation not permitted= unless the
+  # process driving activation holds Full Disk Access. Activation runs under
+  # =set -eu=, so an unguarded =cp= there takes the whole generation down with it
+  # and leaves every later step unapplied -- for one settings file the app is
+  # free to rewrite anyway.
+
   home.activation.vimari = lib.mkIf (colemak && pkgs.stdenv.hostPlatform.isDarwin) (
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run mkdir -p "$(dirname ${lib.escapeShellArg settings})"
-      run cp -f ${./vimari-config.json} ${lib.escapeShellArg settings}
-      run chmod u+w ${lib.escapeShellArg settings}
+      vimariSettings=${lib.escapeShellArg settings}
+      if run mkdir -p "$(dirname "$vimariSettings")" \
+         && run cp -f ${./vimari-config.json} "$vimariSettings"; then
+        run chmod u+w "$vimariSettings"
+      else
+        echo "vimari: cannot write $vimariSettings -- grant Full Disk Access to whatever runs darwin-rebuild, or set the bindings in Vimari's own pane" >&2
+      fi
     ''
   );
 }
