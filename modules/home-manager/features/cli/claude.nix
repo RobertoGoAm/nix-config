@@ -24,6 +24,10 @@ let
   # instead. =~/.claude/claude-hud.json= holds the display config and is left
   # unmanaged, so it stays editable without a rebuild.
 
+  rtk-shim = pkgs.writeShellScriptBin "rtk" ''
+    exec /opt/homebrew/bin/rtk "$@"
+  '';
+
   hud = pkgs.fetchFromGitHub {
     owner = "jarrodwatts";
     repo = "claude-hud";
@@ -929,13 +933,35 @@ in
             ];
           }
         ];
+
+        # Hooks name their programs by path, never by PATH
+
+        # A hook runs under =/bin/sh= with the environment Claude Code was started
+        # with, which here descends from the Emacs daemon under launchd rather than
+        # from a login shell. =/opt/homebrew/bin= is on no PATH this config sets, and
+        # node comes from mise, which shims itself into interactive shells only. A
+        # hook calling either by name gets =command not found= and reports it as a
+        # non-blocking status code on every single tool call.
+
+        # So rtk is named at its Homebrew prefix -- fixed at =/opt/homebrew= on Apple
+        # Silicon, and the formula is declared in homebrew.brews -- and node comes from
+        # the store, where it needs no PATH at all.
+
+        # Naming the hook's own copy is only half of it. What the hook returns is an
+        # =updatedInput= of =rtk <the original command>=, and that runs in the same
+        # kind of shell the hook did, so rtk has to answer to its bare name as well.
+        # =rtk-shim= puts it in the profile, which is on every PATH here, rather than
+        # =/opt/homebrew/bin= as a whole: that directory holds 210 entries, ffmpeg and
+        # openssl and gettext among them, and none of those should be shadowing the
+        # store's copies.
+
         PreToolUse = [
           {
             matcher = "Bash";
             hooks = [
               {
                 type = "command";
-                command = "rtk hook claude";
+                command = "/opt/homebrew/bin/rtk hook claude";
                 description = "RTK token-killer proxy — rewrites Bash calls for token savings";
               }
               {
@@ -996,7 +1022,7 @@ in
             hooks = [
               {
                 type = "command";
-                command = "node $HOME/.claude/hooks/enforce-comment-policy.mjs";
+                command = "${lib.getExe pkgs.nodejs} $HOME/.claude/hooks/enforce-comment-policy.mjs";
                 timeout = 15;
                 description = "Enforce the code-comment policy: flag added non-conforming comments (JSDoc / directives / tooling markers / obscure-only)";
               }
@@ -1025,7 +1051,10 @@ in
   # =pkgs/claude-stats.org=); installed here because the questions it answers are
   # about this configuration.
 
-  home.packages = [ (pkgs.callPackage ../../../../pkgs/claude-stats.nix { }) ];
+  home.packages = [
+    (pkgs.callPackage ../../../../pkgs/claude-stats.nix { })
+    rtk-shim
+  ];
 
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
 
