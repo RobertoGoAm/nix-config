@@ -7,100 +7,28 @@ let
 
   # Claude Code draws one line of your own beneath the input box and refreshes it
   # as the conversation moves, by running a command and reading its stdout. The
-  # whole session arrives on that command's stdin as JSON: the model, the
-  # workspace, the running cost, how much of the context window is spoken for
-  # and -- the numbers actually worth having -- the rolling five-hour and
-  # seven-day rate limit utilisation.
+  # whole session arrives on that command's stdin as JSON.
 
-  # The payload's shape is undocumented and has moved between releases, so every
-  # field is found by searching the object for its key rather than by walking a
-  # fixed path. A release that nests =current_usage= one level deeper costs
-  # nothing here, and a field that stops being sent costs its own segment and no
-  # more. `touch ~/.cache/claude-statusline/debug' to have the raw payload
-  # written next to it as =last-payload.json=, which is how to see what a new
-  # release really sends.
+  # [[https://github.com/jarrodwatts/claude-hud][claude-hud]] renders it. It
+  # reports the same figures a shell script could reach -- model, project, branch,
+  # context window, rate limit utilisation, cost -- and the ones it could not
+  # without parsing the transcript itself: which tools are running, which
+  # subagents are out, and how far down the todo list the turn has got.
 
-  # Two jq passes rather than one, because the branch is a fallback: the payload
-  # carries it only inside a worktree, and asking git is what fills the gap. The
-  # ask is `--no-optional-locks', since a status line runs constantly and must
-  # never take the index lock out from under the shell in the next pane.
+  # Pinned to a tag and run under node, which is the whole packaging: =dist/= is
+  # committed built, and the package declares no runtime dependencies.
 
-  statusline = pkgs.writeShellApplication {
-    name = "claude-statusline";
-    runtimeInputs = [
-      pkgs.jq
-      pkgs.git
-    ];
-    text = ''
-      payload="$(cat)"
+  # The plugin marketplace is deliberately not used. =/claude-hud:setup= writes
+  # =statusLine= into =~/.claude/settings.json=, and that path is a symlink into
+  # the store here, so the write cannot land; the same entry is declared below
+  # instead. =~/.claude/claude-hud.json= holds the display config and is left
+  # unmanaged, so it stays editable without a rebuild.
 
-      cache="''${XDG_CACHE_HOME:-$HOME/.cache}/claude-statusline"
-      if [ -e "$cache/debug" ]; then
-        printf '%s' "$payload" > "$cache/last-payload.json"
-      fi
-
-      dir="$(printf '%s' "$payload" | jq -r '.workspace.current_dir // .cwd // ""')"
-      branch="$(printf '%s' "$payload" | jq -r '.workspace.git_worktree.branch // .gitBranch // ""')"
-      if [ -z "$branch" ] && [ -d "$dir" ]; then
-        branch="$(git --no-optional-locks -C "$dir" branch --show-current 2>/dev/null || true)"
-      fi
-
-      printf '%s' "$payload" | jq -r --arg branch "$branch" '
-        def firstkey($k): [.. | objects | select(has($k)) | .[$k]] | first;
-        def num($k): [.. | objects | select(has($k)) | .[$k] | numbers] | first;
-        # Total by construction: =numbers= applied to a value that is not one
-        # yields an empty stream, and an empty stream anywhere in this program
-        # suppresses the whole line rather than one segment. Collecting the candidates into
-        # an array and taking the first number out of it turns "absent" back
-        # into null. The candidate names are the shapes releases have used for
-        # the same quantity.
-        def util($k): (firstkey($k)
-          | if   type == "object" then ([.utilization, .used_percentage, .used, .percent] | map(numbers) | first)
-            elif type == "number" then .
-            else null end);
-
-        def dim($s): "\u001b[2m\($s)\u001b[0m";
-        def pct($v): ($v | round) as $n
-          | if   $n >= 80 then "\u001b[31m\($n)%\u001b[0m"
-            elif $n >= 60 then "\u001b[33m\($n)%\u001b[0m"
-            else "\($n)%" end;
-
-        # A utilisation is a fraction in some releases and a percentage in
-        # others. Nothing sits at exactly 1% often enough for the ambiguity to
-        # matter, and reading 0.34 as 34% is right far more often than as 0%.
-        def as_pct($v): if $v <= 1 then $v * 100 else $v end;
-
-        . as $p
-        | (($p.workspace.current_dir // $p.cwd // "") | split("/") | last) as $dir
-        | ($p.model.display_name // $p.model.id // "") as $model
-        | num("used") as $used
-        | num("context_window_size") as $size
-        # Explicit path first: =rate_limits= carries a =used_percentage= of its
-        # own, so a release that puts it ahead of =context_window= would have
-        # the search return the wrong quantity for this segment.
-        | ($p.context_window.used_percentage // num("used_percentage")) as $usedpct
-        # Preferred from the two token counts: a ratio needs no guess about
-        # whether a percentage is written 0-1 or 0-100.
-        | (if   ($used != null and $size != null and $size > 0) then 100 * $used / $size
-           elif ($usedpct != null) then as_pct($usedpct)
-           else null end) as $ctx
-        | util("five_hour") as $h5
-        | util("seven_day") as $d7
-        | ($p.cost.total_cost_usd // num("total_cost_usd")) as $cost
-        | [ (if $dir    == ""   then null else $dir end),
-            (if $branch == ""   then null else dim($branch) end),
-            (if $model  == ""   then null else $model end),
-            (if $ctx    == null then null else "\(dim("ctx")) \(pct($ctx))" end),
-            (if $h5     == null then null else "\(dim("5h")) \(pct(as_pct($h5)))" end),
-            (if $d7     == null then null else "\(dim("7d")) \(pct(as_pct($d7)))" end),
-            (if ($cost == null or $cost < 0.005) then null
-             else dim("$\(($cost * 100 | round) / 100)") end)
-          ]
-        | map(select(. != null))
-        # Two spaces: at the size a status line is drawn, one space reads as a
-        # single run-on sentence.
-        | join("  ")'
-    '';
+  hud = pkgs.fetchFromGitHub {
+    owner = "jarrodwatts";
+    repo = "claude-hud";
+    rev = "v0.8.0";
+    hash = "sha256-2Oo5cI8Xq0MgRkDshJ9Ls56n6++975R4+fqNJpF0ZCQ=";
   };
 
   emacs-state = pkgs.writeShellApplication {
@@ -1079,7 +1007,7 @@ in
       agentPushNotifEnabled = true;
       statusLine = {
         type = "command";
-        command = lib.getExe statusline;
+        command = "${lib.getExe pkgs.nodejs} ${hud}/dist/index.js";
       };
     };
   };

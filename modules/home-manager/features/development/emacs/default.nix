@@ -218,7 +218,7 @@ in
                                     "fontset-startup")))
         (when (and fontset (not (member fontset my/fallback-glyph-fontsets)))
           (push fontset my/fallback-glyph-fontsets)
-          (dolist (range '((#x2300 . #x23ff) (#x2700 . #x27bf)))
+          (dolist (range '((#x2300 . #x23ff) (#x25a0 . #x25ff) (#x2700 . #x27bf)))
             (set-fontset-font fontset range (font-spec :family "JuliaMono")
                               nil 'append)))))
 
