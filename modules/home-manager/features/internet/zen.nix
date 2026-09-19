@@ -272,9 +272,12 @@ in
         # further. Containers by id: 2 and 3 are the ones assigned above, they survive a
         # rename, and the names live outside this repo.
 
-        # Within a window a tab still has to have gone ~idleMinutes~ untouched, so
-        # something opened at 18:30 to finish a thought is not taken away while it is
-        # being read. An always-on rule is the same shape without ~windows~.
+        # Within a window a tab still has to have gone ~idleMinutes~ untouched, and
+        # "untouched" means since it was last in front, not since it was last clicked --
+        # so a suspended tab resumed at seven and worked in until quarter to eight has
+        # its full half hour from quarter to eight. Resume as many as the evening needs;
+        # each one goes back to sleep on its own once it is genuinely left alone. An
+        # always-on rule is the same shape without ~windows~.
 
         # The settings reach the extension as ~storage.local~, which is what home-manager
         # writes. The extension prefers ~storage.managed~ where a policy exists, but this

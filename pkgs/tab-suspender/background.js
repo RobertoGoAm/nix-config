@@ -18,6 +18,54 @@ const DEFAULTS = {
   rules: [],
 };
 
+// Where "last used" is remembered between sweeps.
+//
+// tabs.lastAccessed is not that: Gecko stamps it when a tab is *activated*, so
+// a tab resumed at 19:00 and read until 19:45 still reports 19:00, and the
+// first sweep after you switch away sees three quarters of an hour of idleness
+// and discards work you touched a minute ago. What matters is when a tab
+// stopped being used, which nothing reports, so it is recorded here: on every
+// switch, for both the tab being left and the tab being entered, and on every
+// sweep for whatever is in front at the time. The later of that and
+// lastAccessed is the answer.
+//
+// storage.session and not storage.local: this is per-run state that should not
+// survive a restart, and local is the file home-manager writes the settings
+// into.
+
+const SEEN_KEY = "lastSeen";
+
+async function readSeen() {
+  try {
+    return (await browser.storage.session.get(SEEN_KEY))[SEEN_KEY] || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+async function writeSeen(seen) {
+  try {
+    await browser.storage.session.set({ [SEEN_KEY]: seen });
+  } catch (e) {
+    // Without session storage the extension still works, just from
+    // lastAccessed alone.
+  }
+}
+
+async function markSeen(tabIds, when) {
+  const seen = await readSeen();
+  for (const id of tabIds) {
+    if (typeof id === "number") {
+      seen[id] = when;
+    }
+  }
+  await writeSeen(seen);
+}
+
+function lastSeenOf(tab, seen) {
+  return Math.max(Number(tab.lastAccessed) || 0, Number(seen[tab.id]) || 0);
+}
+
 // A rule:
 //   containerIds  [2, 3]        which jars it applies to; empty/absent = all
 //   urls          ["a.com"]     which sites within them; empty/absent = all
@@ -158,21 +206,40 @@ async function sweep() {
   const config = await readConfig();
   const rules = Array.isArray(config.rules) ? config.rules : [];
   const now = new Date();
+  const tabs = await browser.tabs.query({});
+
+  // Whatever is in front right now is in use right now, in every window. Doing
+  // this before the rules are consulted is what keeps a tab that has been read
+  // for an hour from looking like a tab abandoned an hour ago.
+  const seen = await readSeen();
+  for (const tab of tabs) {
+    if (tab.active) {
+      seen[tab.id] = now.getTime();
+    }
+  }
+
+  // Forget tabs that no longer exist, so the map cannot grow for a whole run.
+  const live = new Set(tabs.map((tab) => String(tab.id)));
+  for (const id of Object.keys(seen)) {
+    if (!live.has(id)) {
+      delete seen[id];
+    }
+  }
+  await writeSeen(seen);
+
   const awake = rules.filter((rule) => ruleAwake(rule, now));
   if (awake.length === 0) {
     return;
   }
 
-  const tabs = await browser.tabs.query({});
   const doomed = [];
-
   for (const tab of tabs) {
     for (const rule of awake) {
       if (!ruleCovers(rule, tab) || tabProtected(rule, tab)) {
         continue;
       }
       const idleMs = Math.max(0, Number(rule.idleMinutes) || 0) * 60000;
-      if (idleMs > 0 && now.getTime() - (tab.lastAccessed || 0) < idleMs) {
+      if (idleMs > 0 && now.getTime() - lastSeenOf(tab, seen) < idleMs) {
         continue;
       }
       doomed.push(tab.id);
@@ -196,6 +263,14 @@ browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "sweep") {
     sweep();
   }
+});
+
+// Both ends of a switch: the tab being entered starts its clock now, and the
+// tab being left was in use up to this moment, which is the reading Gecko does
+// not keep.
+browser.tabs.onActivated.addListener(({ tabId, previousTabId }) => {
+  const ids = typeof previousTabId === "number" ? [tabId, previousTabId] : [tabId];
+  markSeen(ids, Date.now());
 });
 browser.runtime.onStartup.addListener(schedule);
 browser.runtime.onInstalled.addListener(schedule);
