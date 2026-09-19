@@ -207,8 +207,6 @@ in
         force = true;
 
         packages = with inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}; [
-          pkgs.browser-gt-extension
-          pkgs.tab-suspender
           bitwarden
           cookie-autodelete
           darkreader
@@ -720,30 +718,51 @@ in
     };
   };
 
-  # The add-on state cache is dropped on every activation
+  # The locally built extensions are copied in, not linked
 
-  # =addonStartup.json.lz4= is where the recorded mtime and path of every installed
-  # extension live. While it exists and says an extension is unchanged the browser
-  # believes it -- and since a store path never carries a new mtime, that belief is
-  # permanent. Removing the file leaves no recorded state at all, and Gecko has an
-  # explicit branch for exactly that: it force-scans every location and reads each
-  # manifest afresh.
+  # Every other extension here is a store symlink placed by home-manager, and for
+  # the two built in this repo that does not work. Gecko re-reads an extension in
+  # the profile only when
 
-  # It is a cache and nothing else; the browser rebuilds it during the startup
-  # after it goes. The cost is reading a dozen manifests once, on the first launch
-  # after a rebuild that changed one of them.
+  #   xpiState.getModTime(entry) || entry.path != xpiState.path
 
-  # Only while Zen is closed. With the browser running the file is written back
-  # from memory on exit, which would put the stale state straight back, so the
-  # activation says what it skipped instead of pretending.
+  # -- the mtime moved, or the file is somewhere else. A symlink under a fixed name
+  # pointing into the store satisfies neither: the name never changes and every
+  # store file carries the same epoch mtime. Rebuild the extension as often as you
+  # like and the browser keeps running the manifest it first read, which is a very
+  # quiet way to lose an afternoon.
 
-  home.activation.zenAddonStartupCache = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      _zen_cache="/Users/${user}/Library/Application Support/Zen/Profiles/${user}/addonStartup.json.lz4"
+  # Copying gives the file a real mtime, which moves whenever the build does, and
+  # that is the whole fix. They are left out of ~extensions.packages~ above so
+  # home-manager does not also try to own those two paths -- two managers of one
+  # file is how the other extensions here ended up with =.backup= files beside
+  # them.
+
+  # The state cache goes too. It records the mtime each extension was last read
+  # with, and dropping it costs one manifest scan on the next start while removing
+  # any chance of the old reading surviving the change. Both need Zen closed: it
+  # rewrites that cache from memory on exit, and a running browser will not notice
+  # the new file anyway.
+
+  home.activation.zenLocalExtensions = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
+    lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      _zen_profile="/Users/${user}/Library/Application Support/Zen/Profiles/${user}"
+      _zen_ext="$_zen_profile/extensions"
+
       if ${pkgs.procps}/bin/pgrep -x zen >/dev/null 2>&1; then
-        echo "zen: running, so $_zen_cache is left alone -- extension changes land after it restarts"
+        echo "zen: running -- leaving the locally built extensions alone until it restarts"
       else
-        run rm -f "$_zen_cache"
+        run mkdir -p "$_zen_ext"
+        for _xpi in \
+          ${pkgs.tab-suspender}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/tab-suspender@nix-config.xpi \
+          ${pkgs.browser-gt-extension}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/browser-gt@dmgerman.xpi
+        do
+          _dest="$_zen_ext/$(basename "$_xpi")"
+          run rm -f "$_dest"
+          run install -m 644 "$_xpi" "$_dest"
+          run touch "$_dest"
+        done
+        run rm -f "$_zen_profile/addonStartup.json.lz4"
       fi
     ''
   );
