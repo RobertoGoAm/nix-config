@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Tab Suspender</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5d5d5d;
+    --line: #d8d8d8; --card: #f7f7f7; --accent: #2f6fd0; --warn: #8a5300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b22; --fg: #f0f0f4; --muted: #b0b0bb;
+      --line: #3a3944; --card: #2a2a33; --accent: #7aa7ea; --warn: #e0b070;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 64px; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 system-ui, -apple-system, sans-serif;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0; font-weight: 600; }
+  p.sub { color: var(--muted); margin: 0 0 20px; }
+  .banner {
+    border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    background: var(--card); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px;
+  }
+  .banner code { font-size: 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 16px; padding: 14px 16px; background: var(--card); }
+  legend { padding: 0 6px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  label.inline { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--fg); }
+  input[type=text], input[type=number], textarea, select {
+    font: inherit; color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px;
+  }
+  input[type=number] { width: 86px; }
+  input[type=time] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; }
+  textarea { width: 100%; min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; resize: vertical; }
+  button {
+    font: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.link { border: none; background: none; color: var(--accent); padding: 2px 4px; }
+  .days { display: flex; gap: 2px; }
+  .days label { font-size: 11px; display: flex; flex-direction: column; align-items: center; color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .hint code { background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+  .window { border: 1px dashed var(--line); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .bar { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line);
+         padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
+  .status { color: var(--muted); font-size: 12.5px; }
+  .spacer { flex: 1; }
+</style>
+<div class="wrap">
+  <h1>Tab Suspender</h1>
+  <p class="sub">Discards tabs by container and site, on an idle timer that can vary by the hour.</p>
+  <div class="banner" id="source"></div>
+  <fieldset>
+    <legend>General</legend>
+    <div class="row">
+      <label class="field">Check every
+        <input type="number" id="interval" min="1" step="1">
+      </label>
+      <span class="status">minutes. A tab is never discarded while it is the one in front.</span>
+    </div>
+  </fieldset>
+  <div id="rules"></div>
+  <button id="add-rule">Add a rule</button>
+  <div class="bar">
+    <button class="primary" id="save">Save</button>
+    <button id="revert">Revert</button>
+    <button id="export">Copy as Nix</button>
+    <span class="spacer"></span>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+<script src="options.js"></script>
