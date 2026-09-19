@@ -407,9 +407,21 @@ async function updateBadge() {
   }
 }
 
-async function schedule() {
+// Creating the alarm is not idempotent, and this is an event page: it unloads
+// when idle and runs again from the top on the next event. Clearing and
+// recreating the alarm each time pushes its next firing a full period into the
+// future, and the events that wake it arrive far more often than the period --
+// so the sweep never ran at all while the browser was in use. Leave an
+// existing alarm alone unless the period it was made with has changed.
+async function schedule({ force = false } = {}) {
   const config = await readConfig();
   const period = Math.max(1, Number(config.intervalMinutes) || DEFAULTS.intervalMinutes);
+
+  const existing = await browser.alarms.get("sweep");
+  if (!force && existing && existing.periodInMinutes === period) {
+    return;
+  }
+
   await browser.alarms.clear("sweep");
   browser.alarms.create("sweep", { periodInMinutes: period, delayInMinutes: period });
 }
@@ -429,12 +441,15 @@ browser.tabs.onActivated.addListener(({ tabId, previousTabId }) => {
 });
 browser.runtime.onStartup.addListener(schedule);
 browser.runtime.onInstalled.addListener(schedule);
-browser.storage.onChanged.addListener(schedule);
+browser.storage.onChanged.addListener(() => schedule({ force: true }));
 
 // A tab is discarded and restored by more than this extension -- Gecko does it
 // under memory pressure, and clicking a sleeping tab wakes it -- so the count
 // follows the tabs themselves rather than only this extension's own work.
-browser.tabs.onUpdated.addListener(updateBadge);
+// Filtered: an unfiltered onUpdated fires on every status, title and favicon
+// change of every tab, which is a wake-up of this page each time for a count
+// that cannot have changed. Only a tab being unloaded or reloaded moves it.
+browser.tabs.onUpdated.addListener(updateBadge, { properties: ["discarded"] });
 browser.tabs.onRemoved.addListener(updateBadge);
 browser.tabs.onCreated.addListener(updateBadge);
 
