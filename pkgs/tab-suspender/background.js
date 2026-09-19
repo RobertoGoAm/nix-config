@@ -20,9 +20,16 @@ const DEFAULTS = {
 
 // A rule:
 //   containerIds  [2, 3]        which jars it applies to; empty/absent = all
+//   urls          ["a.com"]     which sites within them; empty/absent = all
 //   idleMinutes   30            how long untouched before it may be discarded
 //   windows       [ { days, from, to } ]   when the rule is awake; absent = always
 //   protect       { pinned, audio }        both default to true
+//
+// A rule is the intersection of the two: the calendar in one jar can sleep
+// while the same calendar signed in as someone else stays awake. That is also
+// what lets the patterns be plain vendor hostnames -- "atlassian.net" is
+// ambiguous on its own and exact once the container has already chosen whose
+// Atlassian it is.
 //
 // days are JS weekdays, Sunday 0 .. Saturday 6. from/to are "HH:MM" on a
 // 24-hour clock, and "24:00" is a legal end meaning midnight.
@@ -81,12 +88,52 @@ function containerOf(tab) {
   return m ? Number(m[1]) : 0;
 }
 
-function ruleCovers(rule, tab) {
+function ruleCoversContainer(rule, tab) {
   const ids = rule.containerIds;
   if (!Array.isArray(ids) || ids.length === 0) {
     return true;
   }
   return ids.includes(containerOf(tab));
+}
+
+// "atlassian.net" matches the host and anything under it, never a host that
+// merely ends in those letters -- notatlassian.net is a different site. A
+// pattern may carry a path prefix ("github.com/some-org") when the host alone
+// is too coarse; without one the whole host matches.
+function urlMatches(pattern, url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    return false;
+  }
+
+  const slash = String(pattern).indexOf("/");
+  const patternHost = (slash === -1 ? pattern : pattern.slice(0, slash))
+    .toLowerCase()
+    .replace(/^\*\./, "");
+  const patternPath = slash === -1 ? "" : pattern.slice(slash).toLowerCase();
+
+  const host = parsed.hostname.toLowerCase();
+  if (host !== patternHost && !host.endsWith("." + patternHost)) {
+    return false;
+  }
+  if (patternPath === "" || patternPath === "/") {
+    return true;
+  }
+  return parsed.pathname.toLowerCase().startsWith(patternPath);
+}
+
+function ruleCoversUrl(rule, tab) {
+  const urls = rule.urls;
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return true;
+  }
+  return urls.some((pattern) => urlMatches(pattern, tab.url || ""));
+}
+
+function ruleCovers(rule, tab) {
+  return ruleCoversContainer(rule, tab) && ruleCoversUrl(rule, tab);
 }
 
 // The active tab of every window is never a candidate: discarding it would

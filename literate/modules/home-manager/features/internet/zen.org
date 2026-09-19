@@ -38,8 +38,15 @@ config at the same time.
 
 The private file adds one attribute to the set it already returns:
 
-  zen.spaces.work   = { name = "..."; routes = [ "host" "host" ]; };
-  zen.spaces.client = { name = "..."; routes = [ "host" ]; };
+  zen.spaces.work   = { name = "..."; routes = [ "host" ]; suspendUrls = [ "host" ]; };
+  zen.spaces.client = { name = "..."; routes = [ "host" ]; suspendUrls = [ "host" ]; };
+
+~suspendUrls~ extends the list of sites the suspender puts to sleep after hours.
+The common ones are named in the open below -- Google, Atlassian, the forges --
+because a vendor hostname on its own says nothing about who uses it. Anything
+that would (an internal tool, a self-hosted forge, an HR system) goes here
+instead, on the same reasoning that keeps the VDI client and the rest of the
+corporate stack in this file.
 
 Route ids are prefixed with the identity key because Zen keeps every route in
 one file, and two spaces both declaring a first route would otherwise collide
@@ -66,6 +73,57 @@ let
         }
       ) ((identities.${key} or { }).routes or [ ])
     );
+
+  identitySuspendUrls = key: (identities.${key} or { }).suspendUrls or [ ];
+
+  # Outside 09:00-18:00, Monday to Friday. Three windows rather than the one
+  # "18:00 to 09:00" it reads as: a window ending at or before it starts crosses
+  # midnight and belongs to the day it opens on, and Monday morning has no
+  # workday evening before it, so a single crossing window leaves 00:00 to 09:00
+  # on Monday awake. Split at midnight there is no such corner.
+
+  offHours = [
+    {
+      days = [
+        1
+        2
+        3
+        4
+        5
+      ];
+      from = "18:00";
+      to = "24:00";
+    }
+    {
+      days = [
+        1
+        2
+        3
+        4
+        5
+      ];
+      from = "00:00";
+      to = "09:00";
+    }
+    {
+      days = [
+        6
+        0
+      ];
+      from = "00:00";
+      to = "24:00";
+    }
+  ];
+
+  # The sites that are only ever work, whoever "work" is. Scoped by container
+  # in the rules below, so the same hostname means a different account in each.
+
+  officeUrls = [
+    "mail.google.com"
+    "calendar.google.com"
+    "meet.google.com"
+    "atlassian.net"
+  ];
 in
 {
   imports = [
@@ -214,27 +272,28 @@ fires under memory pressure, which on 16 GiB means it acts once the machine is
 already struggling rather than keeping it from getting there, and it has no
 notion of whose tab it is discarding.
 
-The rule below is the shape the extension takes: the work jars, asleep outside
-working hours. Containers 2 and 3 by id rather than by name -- the ids are the
-ones assigned above, they survive a rename, and the names live outside this
-repo. ~windows~ makes the rule awake only in the hours it lists, so nothing is
-discarded during the working day; within a window a tab still has to have gone
-~idleMinutes~ untouched.
+A rule is a container and a set of sites and a schedule, and it needs all
+three. Container alone is too blunt: a jar holds the things worth suspending
+and the things worth keeping, and a reference page left open in the work jar is
+not the same as the work calendar. Sites alone cannot tell two accounts apart,
+since both organisations are on the same Google and the same Atlassian. Pair
+them and each is exact -- which is also why the patterns below can be plain
+vendor hostnames in a public file: the container has already decided whose
+Atlassian it is.
 
-Three windows rather than the one "18:00 to 09:00" it reads as. A window whose
-end is at or before its start crosses midnight and belongs to the day it opens
-on, which the extension handles -- but a Monday morning has no workday evening
-before it, so a single crossing window leaves 00:00 to 09:00 on Monday awake
-and everything else asleep. Split at midnight there is no such corner: evening,
-early morning, and the weekend entire.
+One rule per identity rather than one rule with both containers, because the
+lists diverge -- one forge here, the other there -- and they will diverge
+further. Containers by id: 2 and 3 are the ones assigned above, they survive a
+rename, and the names live outside this repo.
 
-An always-on rule is one more attrset -- containers, an idle time, no
-~windows~ -- if the daytime pile-up ever wants the same treatment.
+Within a window a tab still has to have gone ~idleMinutes~ untouched, so
+something opened at 18:30 to finish a thought is not taken away while it is
+being read. An always-on rule is the same shape without ~windows~.
 
-The settings reach the extension as ~storage.local~, which is what
-home-manager writes. The extension prefers ~storage.managed~ where a policy
-exists, but this module only passes ~policies~ into the Linux package, so on
-darwin the local copy is the one that arrives.
+The settings reach the extension as ~storage.local~, which is what home-manager
+writes. The extension prefers ~storage.managed~ where a policy exists, but this
+module only passes ~policies~ into the Linux package, so on darwin the local
+copy is the one that arrives.
 
 #+begin_src nix
         settings."tab-suspender@nix-config".settings = {
@@ -242,43 +301,16 @@ darwin the local copy is the one that arrives.
 
           rules = [
             {
-              containerIds = [
-                2
-                3
-              ];
+              containerIds = [ 2 ];
+              urls = officeUrls ++ [ "github.com" ] ++ identitySuspendUrls "work";
               idleMinutes = 30;
-              windows = [
-                {
-                  days = [
-                    1
-                    2
-                    3
-                    4
-                    5
-                  ];
-                  from = "18:00";
-                  to = "24:00";
-                }
-                {
-                  days = [
-                    1
-                    2
-                    3
-                    4
-                    5
-                  ];
-                  from = "00:00";
-                  to = "09:00";
-                }
-                {
-                  days = [
-                    6
-                    0
-                  ];
-                  from = "00:00";
-                  to = "24:00";
-                }
-              ];
+              windows = offHours;
+            }
+            {
+              containerIds = [ 3 ];
+              urls = officeUrls ++ [ "gitlab.com" ] ++ identitySuspendUrls "client";
+              idleMinutes = 30;
+              windows = offHours;
             }
           ];
         };
