@@ -69,9 +69,20 @@ function lastSeenOf(tab, seen) {
 // A rule:
 //   containerIds  [2, 3]        which jars it applies to; empty/absent = all
 //   urls          ["a.com"]     which sites within them; empty/absent = all
-//   idleMinutes   30            how long untouched before it may be discarded
-//   windows       [ { days, from, to } ]   when the rule is awake; absent = always
+//   idleMinutes   30            the standing time; absent = never suspend
+//   windows       [ ... ]       hours that override that time; absent = none
 //   protect       { pinned, audio, sharing }   all three default to true
+//
+// A window is { days, from, to } plus what it does to the time:
+//
+//   suspend: false     never, in these hours, however long it sits
+//   idleMinutes: 120   a different time in these hours
+//   neither            the rule's standing time, said explicitly
+//
+// The first window matching the moment decides; where none matches, the rule's
+// own idleMinutes applies. So "never during the working day, five minutes
+// outside it" is one workday window marked suspend false over a standing five,
+// rather than an enumeration of the hours that are not the working day.
 //
 // A rule is the intersection of the two: the calendar in one jar can sleep
 // while the same calendar signed in as someone else stays awake. That is also
@@ -125,9 +136,30 @@ function inWindow(win, now) {
   return days.includes((today + 6) % 7) && mins < to;
 }
 
-function ruleAwake(rule, now) {
+function standingIdleMs(rule) {
+  const minutes = Number(rule.idleMinutes);
+  return Number.isFinite(minutes) && minutes >= 0 ? minutes * 60000 : null;
+}
+
+// How long this rule wants a tab left alone *right now*, or null for "not at
+// this hour". Computed once per sweep rather than once per tab: it depends on
+// the clock, not on the tab.
+function idleMsNow(rule, now) {
   const windows = Array.isArray(rule.windows) ? rule.windows : [];
-  return windows.length === 0 || windows.some((w) => inWindow(w, now));
+  for (const win of windows) {
+    if (!inWindow(win, now)) {
+      continue;
+    }
+    if (win.suspend === false) {
+      return null;
+    }
+    const minutes = Number(win.idleMinutes);
+    if (Number.isFinite(minutes) && minutes >= 0) {
+      return minutes * 60000;
+    }
+    break;
+  }
+  return standingIdleMs(rule);
 }
 
 // "firefox-container-2" -> 2; the default jar and private windows -> 0.
@@ -243,22 +275,27 @@ async function sweep() {
   }
   await writeSeen(seen);
 
-  const awake = rules.filter((rule) => ruleAwake(rule, now));
+  const awake = [];
+  for (const rule of rules) {
+    const idleMs = idleMsNow(rule, now);
+    if (idleMs !== null) {
+      awake.push({ rule, idleMs });
+    }
+  }
   if (awake.length === 0) {
     return;
   }
 
   // Rules are a union, not a chain: a tab is discarded as soon as any rule that
-  // covers it has had its threshold met, so the shortest applicable time wins
-  // and the order they are declared in does not matter.
+  // covers it has had its time met, so the shortest applicable time wins and
+  // the order they are declared in does not matter.
   const doomed = [];
   for (const tab of tabs) {
-    for (const rule of awake) {
+    for (const { rule, idleMs } of awake) {
       if (!ruleCovers(rule, tab) || tabProtected(rule, tab)) {
         continue;
       }
-      const idleMs = Math.max(0, Number(rule.idleMinutes) || 0) * 60000;
-      if (idleMs > 0 && now.getTime() - lastSeenOf(tab, seen) < idleMs) {
+      if (now.getTime() - lastSeenOf(tab, seen) < idleMs) {
         continue;
       }
       doomed.push(tab.id);

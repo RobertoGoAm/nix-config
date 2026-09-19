@@ -76,48 +76,22 @@ let
 
   identitySuspendUrls = key: (identities.${key} or { }).suspendUrls or [ ];
 
-  # Outside 09:00-18:00, Monday to Friday: the hours in which a rule carrying
-  # this is allowed to act, and by omission the hours it must not.
-  #
-  # Three windows rather than the one "18:00 to 09:00" it reads as. A window
-  # ending at or before it starts crosses midnight and belongs to the day it
-  # opens on, which the extension handles -- but Monday morning has no workday
-  # evening before it, so a single crossing window leaves 00:00 to 09:00 on
-  # Monday awake and everything else asleep. Split at midnight there is no such
-  # corner.
+  # The working day. A rule names these hours to treat them differently from
+  # the rest of the week -- and naming the working day is the whole trick: the
+  # hours that are *not* it take three windows to enumerate and leave a corner
+  # on Monday morning, where a window opening on Friday evening does not reach.
 
-  offHours = [
-    {
-      days = [
-        1
-        2
-        3
-        4
-        5
-      ];
-      from = "18:00";
-      to = "24:00";
-    }
-    {
-      days = [
-        1
-        2
-        3
-        4
-        5
-      ];
-      from = "00:00";
-      to = "09:00";
-    }
-    {
-      days = [
-        6
-        0
-      ];
-      from = "00:00";
-      to = "24:00";
-    }
-  ];
+  workdayHours = {
+    days = [
+      1
+      2
+      3
+      4
+      5
+    ];
+    from = "09:00";
+    to = "18:00";
+  };
 
   # The sites that are only ever work, whoever "work" is. Scoped by container
   # in the rules below, so the same hostname means a different account in each.
@@ -284,19 +258,29 @@ each is exact -- which is also why the patterns below can be plain vendor
 hostnames in a public file: the container has already decided whose Atlassian
 it is.
 
-Rules are a union rather than a chain. A tab goes as soon as any rule covering
-it has had its time met, so the shortest applicable threshold is the one that
-acts and the order they appear in does not matter. The client's mail is the
-reason that matters: it is the one thing that must survive a working day
-untouched, so it is not in the general list at all but carries its own rule,
-awake only outside office hours and impatient once it is -- five minutes, not
-thirty, because after six in the evening an inbox left open is just resident
-memory.
+A rule carries a standing idle time and, optionally, hours that override it. A
+window can say ~suspend = false~ and make those hours untouchable however long
+a tab sits, or give ~idleMinutes~ of its own and merely be more patient then;
+the first window matching the moment decides, and where none matches the
+standing time applies. A rule with no windows behaves the same way around the
+clock, which is what most of them want.
+
+The client's inbox is why the override exists. It must survive a working day
+untouched, so it leaves the general list, takes a standing five minutes, and
+marks the working day itself as off limits -- after six an inbox left open is
+just resident memory, but at eleven in the morning it is the job. Naming the
+working day is also what makes it simple: the hours that are *not* it need
+three windows and still leave a corner on Monday morning, which a window
+opening on Friday evening never reaches.
 
 Everything else is on idle alone, at any hour. A page nobody has looked at for
 half an hour is not doing anything at half past ten in the morning either, and
-getting it back costs a reload. Give those rules ~windows = offHours~ too if
-the working day should be left entirely alone.
+getting it back costs a reload. Any of them can grow a window later without
+touching the extension.
+
+Rules are a union rather than a chain: a tab goes as soon as any rule covering
+it has had its time met, so the shortest applicable time acts and the order
+they appear in does not matter.
 
 Untouched means since the tab was last in front, not since it was last clicked,
 so a suspended tab resumed at seven and worked in until quarter to eight has
@@ -322,7 +306,7 @@ copy is the one that arrives.
               containerIds = [ 3 ];
               urls = [ "mail.google.com" ];
               idleMinutes = 5;
-              windows = offHours;
+              windows = [ (workdayHours // { suspend = false; }) ];
             }
             {
               containerIds = [ 2 ];
