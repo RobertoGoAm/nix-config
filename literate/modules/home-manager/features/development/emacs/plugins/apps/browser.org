@@ -12,6 +12,39 @@
 {
 #+end_src
 
+* browser-gt: Emacs and the browser on speaking terms
+
+The browser keeps a WebSocket open to Emacs on =127.0.0.1:9130= and the two
+drive each other over it. What is wanted from it here is the tab manager:
+=browser-gt-tab-jump= lists every tab in every connected browser in one
+completion prompt, with a client column once more than one is attached, and
+focuses the chosen tab and its window in whichever browser it came from. That
+is the half that is awkward from the browser side -- Vimium is already the
+better answer for everything inside a page.
+
+The extension is a separate package (=pkgs/browser-gt-extension.nix=), installed
+into Zen by the zen module; Chrome's copy is loaded by hand, since current
+Chrome has no way to install one from a path.
+
+~browser-gt-babel~ is deliberately not required. It is the only module that uses
+=EVAL_IN_ACTIVE_TAB=, which runs arbitrary JavaScript inside a page and can read
+its DOM, cookies and storage; the tab manager, the capture actions, and the
+YouTube and ChatGPT savers all use their own handlers and need none of it.
+Leaving the module unloaded means the capability is simply absent rather than
+merely unused -- worth having in a browser signed into three organisations.
+
+The socket itself has no authentication: it is bound to the loopback interface,
+so nothing off this machine can reach it, but any local process can. That is
+the same trust boundary as the Emacs server, and the reason to keep the set of
+registered handlers small.
+
+#+begin_src nix
+  programs.emacs.extraPackages = epkgs: with epkgs; [
+    browser-gt
+    websocket
+  ];
+#+end_src
+
 * A real browser inside Emacs. This build has xwidgets compiled in
 
 (withXwidgets = true, xwidget-internal present), so xwidget-webkit renders
@@ -146,6 +179,11 @@ my/browse-external exists for exactly those, and the Meet/Chat commands use it.
     ;; pages, RFCs, anything you want to search and yank as plain text.
     (setq browse-url-browser-function 'browse-url-default-browser
           eww-search-prefix "https://duckduckgo.com/html/?q=")
+
+    ;;; browser-gt: the tab manager, and nothing that evaluates JavaScript.
+    (require 'browser-gt)
+    (require 'browser-gt-tab-manager)
+    (browser-gt-start)
   '';
 }
 #+end_src

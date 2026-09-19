@@ -45,6 +45,10 @@
 
   tab-suspender = import ./tab-suspender.nix;
 
+  # browser-gt-extension: the browser half of the Emacs bridge
+
+  browser-gt-extension = import ./browser-gt-extension.nix;
+
   # When applied, the unstable nixpkgs set (declared in the flake...
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will

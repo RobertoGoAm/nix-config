@@ -1,0 +1,10 @@
+#+TITLE: overlays browser-gt-extension
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* browser-gt-extension: the WebExtension that talks to Emacs
+
+#+begin_src nix
+final: _prev: {
+  browser-gt-extension = final.callPackage ../pkgs/browser-gt-extension.nix { };
+}
+#+end_src
