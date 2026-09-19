@@ -388,6 +388,23 @@ async function sweep() {
   if (doomed.length > 0) {
     await browser.tabs.discard(doomed);
   }
+
+  await updateBadge();
+}
+
+// The badge is the only thing this extension puts on screen. It carries the
+// number of tabs currently not loaded -- blank rather than a zero when they all
+// are, since an indicator that is always lit stops being read.
+async function updateBadge() {
+  try {
+    const discarded = await browser.tabs.query({ discarded: true });
+    await browser.browserAction.setBadgeText({
+      text: discarded.length > 0 ? String(discarded.length) : "",
+    });
+  } catch (e) {
+    // Nothing to do: the badge is decoration, and a failure here must not
+    // take the sweep down with it.
+  }
 }
 
 async function schedule() {
@@ -414,4 +431,21 @@ browser.runtime.onStartup.addListener(schedule);
 browser.runtime.onInstalled.addListener(schedule);
 browser.storage.onChanged.addListener(schedule);
 
+// A tab is discarded and restored by more than this extension -- Gecko does it
+// under memory pressure, and clicking a sleeping tab wakes it -- so the count
+// follows the tabs themselves rather than only this extension's own work.
+browser.tabs.onUpdated.addListener(updateBadge);
+browser.tabs.onRemoved.addListener(updateBadge);
+browser.tabs.onCreated.addListener(updateBadge);
+
+// "Suspend now" in the popup, for when the schedule says later and you are
+// leaving the desk anyway.
+browser.runtime.onMessage.addListener((message) => {
+  if (message && message.type === "sweep-now") {
+    return sweep().then(() => ({ ok: true }));
+  }
+  return undefined;
+});
+
 schedule();
+updateBadge();

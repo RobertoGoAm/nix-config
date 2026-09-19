@@ -367,6 +367,13 @@ camera, the microphone or a screen share is in use precisely while nobody is
 touching it, and audio would not catch it, since Meet keeps the microphone
 captured through a mute and a call where nobody is speaking is silent.
 
+A suspended tab is otherwise hard to tell from a loaded one -- Gecko fades it in
+the strip and that is all -- so the extension carries a toolbar badge with the
+number of tabs not currently loaded, blank when they all are, and a popup
+listing them by container with a click to wake one. It counts every discarded
+tab rather than only the ones a rule took: Gecko discards under memory pressure
+too, and the question the badge answers is what is asleep, not who put it there.
+
 The settings reach the extension as ~storage.local~, which is what home-manager
 writes. The extension prefers ~storage.managed~ where a policy exists, but this
 module only passes ~policies~ into the Linux package, so on darwin the local
