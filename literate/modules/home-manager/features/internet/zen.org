@@ -757,5 +757,35 @@ extension's, lowercased with =@= and =.= turned into underscores and
       };
     };
   };
+#+end_src
+
+* The add-on state cache is dropped on every activation
+
+=addonStartup.json.lz4= is where the recorded mtime and path of every installed
+extension live. While it exists and says an extension is unchanged the browser
+believes it -- and since a store path never carries a new mtime, that belief is
+permanent. Removing the file leaves no recorded state at all, and Gecko has an
+explicit branch for exactly that: it force-scans every location and reads each
+manifest afresh.
+
+It is a cache and nothing else; the browser rebuilds it during the startup
+after it goes. The cost is reading a dozen manifests once, on the first launch
+after a rebuild that changed one of them.
+
+Only while Zen is closed. With the browser running the file is written back
+from memory on exit, which would put the stale state straight back, so the
+activation says what it skipped instead of pretending.
+
+#+begin_src nix
+  home.activation.zenAddonStartupCache = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      _zen_cache="/Users/${user}/Library/Application Support/Zen/Profiles/${user}/addonStartup.json.lz4"
+      if ${pkgs.procps}/bin/pgrep -x zen >/dev/null 2>&1; then
+        echo "zen: running, so $_zen_cache is left alone -- extension changes land after it restarts"
+      else
+        run rm -f "$_zen_cache"
+      fi
+    ''
+  );
 }
 #+end_src
