@@ -64,6 +64,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   nix-preflight = import ./nix-preflight.nix;
 #+end_src
 
+* tab-suspender: discards tabs by container on a schedule
+
+#+begin_src nix
+  tab-suspender = import ./tab-suspender.nix;
+#+end_src
+
 * When applied, the unstable nixpkgs set (declared in the flake...
 
 When applied, the unstable nixpkgs set (declared in the flake inputs) will

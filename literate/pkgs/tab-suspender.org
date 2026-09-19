@@ -1,0 +1,62 @@
+#+TITLE: pkgs tab-suspender
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* A tab discarder that knows which container a tab is in
+
+Nothing off the shelf does this. Auto Tab Discard, the obvious candidate, has
+no =cookieStoreId= anywhere in its source: it discards by idle time across every
+tab alike and filters only by hostname, which cannot express "the work jars,
+after hours". So the extension is written here, against the container ids this
+repo already assigns.
+
+Unsigned, and that is fine: this Zen build reports ~MOZ_REQUIRE_SIGNING: false~,
+so an extension installed from a store path loads without going near AMO.
+
+The sources are plain files rather than a generated bundle, because an
+extension that fits in two files should be readable as two files. See
+=pkgs/tab-suspender/background.js= for the matching and scheduling rules.
+
+#+begin_src nix
+{
+  lib,
+  runCommand,
+  zip,
+}:
+let
+  addonId = "tab-suspender@nix-config";
+in
+#+end_src
+
+* The layout is Firefox's, not ours
+
+Gecko looks for extensions under a directory named after its own application
+id, and the file has to be named for the extension's id or the browser will
+not match the manifest to it. home-manager reads =passthru.addonId= to link the
+result into the profile and to aim the settings at the right storage.
+
+=-X= drops the platform's extra file attributes, which keeps the zip identical
+between builds; the store's fixed timestamps do the rest.
+
+#+begin_src nix
+runCommand "tab-suspender-1.0.0"
+  {
+    nativeBuildInputs = [ zip ];
+
+    passthru = {
+      inherit addonId;
+    };
+
+    meta = {
+      description = "Discard tabs by container, on an idle timer or a weekly schedule";
+      platforms = lib.platforms.all;
+    };
+  }
+  ''
+    out_dir="$out/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}"
+    mkdir -p "$out_dir" src
+    cp -r ${./tab-suspender}/. src/
+    chmod -R u+w src
+    cd src
+    zip -r -q -X "$out_dir/${addonId}.xpi" .
+  ''
+#+end_src
