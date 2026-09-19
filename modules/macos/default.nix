@@ -196,6 +196,7 @@
 
     nixpkgs = {
       overlays = [
+        outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins
         outputs.overlays.checkov
         outputs.overlays.lit-tangle

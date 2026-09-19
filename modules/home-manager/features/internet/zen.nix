@@ -164,6 +164,7 @@ in
         force = true;
 
         packages = with inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}; [
+          pkgs.browser-gt-extension
           pkgs.tab-suspender
           bitwarden
           cookie-autodelete

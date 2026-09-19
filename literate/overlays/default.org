@@ -70,6 +70,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   tab-suspender = import ./tab-suspender.nix;
 #+end_src
 
+* browser-gt-extension: the browser half of the Emacs bridge
+
+#+begin_src nix
+  browser-gt-extension = import ./browser-gt-extension.nix;
+#+end_src
+
 * When applied, the unstable nixpkgs set (declared in the flake...
 
 When applied, the unstable nixpkgs set (declared in the flake inputs) will
