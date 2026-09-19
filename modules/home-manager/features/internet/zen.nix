@@ -639,6 +639,29 @@ in
 
         "xpinstall.signatures.required" = false;
 
+        # Preferences: noticing that a store path changed
+
+        # Every file in the nix store carries the same mtime -- one second past the
+        # epoch -- and Gecko decides whether an extension in the profile directory needs
+        # re-reading by looking at exactly that. Two builds of the same extension are
+        # therefore indistinguishable to it: the symlink points somewhere new, the
+        # manifest says something new, and the browser goes on running what it read the
+        # first time.
+
+        # It is not stuck forever, which is what makes it confusing. A changed
+        # application build id forces a full scan, so an extension picks up its changes
+        # the next time Zen itself updates -- days later, with nothing connecting the
+        # two. In between, an extension rebuilt here looks installed, is installed, and
+        # is not the version on disk.
+
+        # =extensions.startupScanScopes= is the scope mask for what to scan at every
+        # startup, and it defaults to nothing at all. =1= is =SCOPE_PROFILE=: read the
+        # profile's extension directory each time. It costs a directory scan of a dozen
+        # files at startup, and without it no extension this configuration builds or
+        # pins can ever be updated on purpose.
+
+        "extensions.startupScanScopes" = 1;
+
         # Preferences: toolbar layout
 
         # Pinned as JSON because Firefox stores the whole toolbar arrangement in one
