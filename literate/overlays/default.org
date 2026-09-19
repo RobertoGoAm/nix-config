@@ -58,6 +58,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   sops-go = import ./sops-go.nix;
 #+end_src
 
+* nix-preflight: prices the next nix-update before it is run
+
+#+begin_src nix
+  nix-preflight = import ./nix-preflight.nix;
+#+end_src
+
 * When applied, the unstable nixpkgs set (declared in the flake...
 
 When applied, the unstable nixpkgs set (declared in the flake inputs) will

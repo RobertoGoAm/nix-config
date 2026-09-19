@@ -137,6 +137,12 @@ REPO="$HOME/nix-config"
 DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | grep -vc '^??' || echo 0)"
 AHEAD="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
 
+# What `nix-update` would cost. A cat, not a probe: working the answer out means
+# updating a flake and evaluating a whole darwin system, minutes of CPU, so a
+# launchd agent does it every six hours and leaves the verdict here. See
+# features/cli/nix-preflight.nix.
+PREFLIGHT="$(cat "$HOME/.cache/nix-preflight/report.json" 2>/dev/null || true)"
+
 # Now-playing over the Web API rather than AppleScript, so this works with no
 # desktop app: it reports whatever Connect device is active, normally the
 # headless librespot agent. spotify-ctl prints nothing and exits 0 when it has
@@ -152,5 +158,5 @@ if [ -n "$SPOT_LINE" ]; then
   SPOT_TRACK="$(printf '%s' "$SPOT_LINE" | cut -f3)"
 fi
 
-export WALLAPOP BACKUP_TS PINS_STALE VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST SPOT_DEVICES
+export WALLAPOP BACKUP_TS PINS_STALE PREFLIGHT VULCAN SSID PS_DATA CONTAINERS DOCKER_UP UNHEALTHY IFACE NET_CODE FILTERED TS_JSON AWAKE HOLDER DISK METRICS DIRTY AHEAD SPOT_STATE SPOT_TRACK SPOT_ARTIST SPOT_DEVICES
 python3 "$HOME/.config/swiftbar/lib/status-render.py"

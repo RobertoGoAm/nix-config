@@ -66,6 +66,18 @@ except Exception:
     pass
 wallapop_items = wallapop.get("items") or []
 
+preflight = {}
+try:
+    preflight = json.loads(env("PREFLIGHT") or "")
+except Exception:
+    pass
+
+
+def ago(seconds):
+    return (f"{seconds/60:.0f}m" if seconds < 7200
+            else f"{seconds/3600:.0f}h" if seconds < 86400
+            else f"{seconds/86400:.0f}d")
+
 # ---- health ---------------------------------------------------------------
 problems = []
 
@@ -96,6 +108,12 @@ if tail and not online:
 pins_stale = num("PINS_STALE")
 if pins_stale:
     problems.append(f"{pins_stale} pins stale")
+
+# An update that would not evaluate belongs here rather than in the nix-config
+# section alone: it is the one preflight verdict that is a fault and not just a
+# cost, and it means `nix-update` will rewrite the lock file and then fail.
+if preflight.get("verdict") == "broken":
+    problems.append("update would not evaluate")
 
 # Containers: exited ones are not a fault — one here has been down six weeks by
 # choice — but an unhealthy one means a health check is actively failing.
@@ -282,9 +300,44 @@ if usage:
             print(f"--{fmt(entry)}")
 
 dirty, ahead = num("DIRTY"), num("AHEAD")
-print(f"nix-config {'clean' if not (dirty or ahead) else f'{dirty}△ {ahead}↑'}")
+state = "clean" if not (dirty or ahead) else f"{dirty}△ {ahead}↑"
+# The verdict rides on the parent row only when it is not "clear": on a good day
+# the row should read the same as it always did, and the whole point of the
+# check is to be silent until it has something to say.
+verdict = preflight.get("verdict")
+if verdict and verdict != "clear":
+    state += " · update " + {"heavy": "heavy", "big": "long", "broken": "broken"}.get(verdict, verdict)
+print(f"nix-config {state}")
 print(f"--Uncommitted: {dirty}    Unpushed: {ahead}")
 print(f"--Pins stale: {pins_stale}")
+
+# What `nix-update` would cost, from the report the launchd agent leaves behind.
+# Nothing is printed when there is no report yet -- a machine that has never run
+# the agent should not grow an empty section.
+if preflight:
+    age = ago(max(0, int(datetime.datetime.now().timestamp()) - preflight.get("checked", 0)))
+    builds = preflight.get("builds") or []
+    heavy = preflight.get("heavy") or []
+    moved = preflight.get("updated") or []
+    if verdict == "broken":
+        print(f"--Update: would not evaluate ({age} ago) | color=red")
+        print(f"----{preflight.get('error') or 'no message'}")
+    else:
+        mib = preflight.get("download_mb") or 0
+        summary = f"{len(builds)} to build, {mib/1024:.1f} GiB to fetch" if mib >= 1024 \
+            else f"{len(builds)} to build, {mib:.0f} MiB to fetch"
+        print(f"--Update: {summary} ({age} ago)" + (" | color=orange" if heavy else ""))
+    if verdict != "broken":
+        if heavy:
+            print(f"----Slow from source: {', '.join(heavy)}")
+        for name in builds[:40]:
+            print(f"----{name}")
+        if len(builds) > 40:
+            print(f"----... and {len(builds) - 40} more")
+    if moved:
+        print(f"--Inputs that moved: {', '.join(moved)}")
+    print("--Re-check now | bash=/bin/sh param1=-c param2='nix-preflight --out ~/.cache/nix-preflight/report.json' terminal=false refresh=true")
+
 print("--Update pins | bash=/bin/sh param1=-c param2='cd ~/nix-config && nix run .#check-pins -- . --update' terminal=true")
 
 # Wallapop, in the same item as everything else rather than a slot of its own.

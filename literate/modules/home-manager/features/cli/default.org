@@ -12,6 +12,7 @@
     ./devforge.nix
     ./qa-env.nix
     ./gh.nix
+    ./nix-preflight.nix # reports what the next nix-update would build; no-op off darwin
     ./gpg.nix
     ./hammerspoon.nix # macOS quake terminal (Alacritty drop-down); no-op off darwin
     ./aider.nix

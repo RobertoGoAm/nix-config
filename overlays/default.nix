@@ -37,6 +37,9 @@
 
   sops-go = import ./sops-go.nix;
 
+  # nix-preflight: prices the next nix-update before it is run
+
+  nix-preflight = import ./nix-preflight.nix;
 
   # When applied, the unstable nixpkgs set (declared in the flake...
 
