@@ -1,0 +1,29 @@
+# sops-nix pins its Go builder to a release that nixpkgs has retired
+
+# sops-install-secrets asks for =buildGo125Module= by name. nixpkgs keeps one
+# such alias per supported Go release and replaces it with a =throw= the moment
+# that release goes end-of-life, so a routine nixpkgs bump turns the attribute
+# into:
+
+#   error: Go 1.25 is end-of-life, and 'buildGo125Module' has been removed.
+
+# That lands nowhere near sops: =sops.package= is evaluated while building the
+# launchd daemon that installs the secrets, so the failure surfaces as a dead
+# =darwin-system= activation script (and, on perseus, a dead home-manager
+# generation) with no mention of Go until the bottom of the trace.
+
+# Nothing in sops-install-secrets wants 1.25 in particular -- it is simply the
+# release sops-nix targeted when the expression was written -- so we point the
+# retired alias at a live builder and carry on.
+
+# =buildGo126Module=, not the newest one available: the package also takes =go=
+# to hand =remove-references-to=, and that argument resolves to the default
+# =pkgs.go= (1.26). Matching the two keeps the toolchain that compiles the
+# binary and the toolchain whose store path gets scrubbed out of it the same
+# one; a newer builder would leave a stale reference behind.
+
+# Drop this overlay once sops-nix bumps its own builder.
+
+final: _prev: {
+  buildGo125Module = final.buildGo126Module;
+}

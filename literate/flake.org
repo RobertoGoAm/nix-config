@@ -158,6 +158,7 @@ package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
             overlays = [
               outputs.overlays.check-pins
               outputs.overlays.lit-tangle
+              outputs.overlays.sops-go
             ];
             config = {
               allowUnfree = true;

@@ -52,6 +52,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   spotify-ctl = import ./spotify-ctl.nix;
 #+end_src
 
+* sops-go: sops-nix asks for a Go builder nixpkgs has retired
+
+#+begin_src nix
+  sops-go = import ./sops-go.nix;
+#+end_src
+
 * When applied, the unstable nixpkgs set (declared in the flake...
 
 When applied, the unstable nixpkgs set (declared in the flake inputs) will

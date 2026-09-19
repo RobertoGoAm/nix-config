@@ -5,13 +5,37 @@
 
 #+begin_src nix
 {
+  lib,
   ...
 }:
 {
+#+end_src
+
+* Every treesit grammar nixpkgs ships, less the CUDA one
+
+~with-all-grammars~ would be the whole set in one word. It is spelled out as a
+filter instead because ~tree-sitter-cuda~'s pinned source hash no longer matches
+the tarball GitHub serves for the tag:
+
+  specified: sha256-QGNCld6J0eTPDv+VjjtGuv5/6SCJx8iSMECQTN01V6Q=
+     got:    sha256-s2qrZx5fEu/I6xE2paX/Nlmgvo6T27qqvy1cI8iznAA=
+
+A fixed-output derivation that cannot be fetched fails identically for everyone
+on that nixpkgs, and it takes the whole grammar link farm with it -- which is
+Emacs, which is the home-manager generation, which is the system. Overriding the
+hash locally would mean accepting a tarball whose contents nobody here has
+checked, so the grammar is dropped instead: nothing in this configuration reads
+CUDA.
+
+Back to ~with-all-grammars~ once nixpkgs repins it.
+
+#+begin_src nix
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
       evil-textobj-tree-sitter
-      treesit-grammars.with-all-grammars
+      (treesit-grammars.with-grammars (
+        g: lib.attrValues (lib.removeAttrs g [ "tree-sitter-cuda" ])
+      ))
     ];
 
   programs.emacs.extraConfig = ''
