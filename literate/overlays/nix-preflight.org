@@ -1,0 +1,10 @@
+#+TITLE: overlays nix-preflight
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* nix-preflight: what the next nix-update would build locally
+
+#+begin_src nix
+final: _prev: {
+  nix-preflight = final.callPackage ../pkgs/nix-preflight.nix { };
+}
+#+end_src

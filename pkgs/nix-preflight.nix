@@ -1,0 +1,46 @@
+# Prices the next ~nix-update~ before you run it
+
+# ~nix-update~ bumps every flake input and rebuilds. Most days that is a few
+# hundred substituted paths and a short activation. Some days an input moves onto
+# a package the binary cache has not built for this platform yet and the same
+# command becomes a forty minute compile, or onto one that does not evaluate at
+# all and fails after the lock file has already been rewritten.
+
+# This runs the same plan against a throwaway git worktree of HEAD and reports
+# what it would cost, so the answer is on screen before the decision is made.
+# Read the script for the method; the package here only puts it on PATH with the
+# two interpreters it shells out to.
+
+{
+  lib,
+  writeShellApplication,
+  git,
+  python3,
+}:
+writeShellApplication {
+  name = "nix-preflight";
+
+  runtimeInputs = [
+    git
+    python3
+  ];
+
+  # ~nix~ comes from the running system, not from this closure
+
+  # Two reasons. The CLI talks to whatever nix-daemon this machine runs, and
+  # pinning a second nix into the closure invites a client the daemon is older
+  # than. And under launchd there is no login shell, so ~PATH~ is the bare
+  # =/usr/bin:/bin= — neither the system profile nor the user profile is on it
+  # unless this script puts them there.
+
+  text = ''
+    export PATH="/run/current-system/sw/bin:/etc/profiles/per-user/''${USER:-$(id -un)}/bin:$PATH"
+    exec python3 "${./nix-preflight.py}" "$@"
+  '';
+
+  meta = {
+    description = "Report what the next nix-update would build locally";
+    mainProgram = "nix-preflight";
+    platforms = lib.platforms.darwin;
+  };
+}
