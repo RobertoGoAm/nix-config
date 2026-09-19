@@ -176,10 +176,69 @@ function ruleCoversContainer(rule, tab) {
   return ids.includes(containerOf(tab));
 }
 
-// "atlassian.net" matches the host and anything under it, never a host that
-// merely ends in those letters -- notatlassian.net is a different site. A
-// pattern may carry a path prefix ("github.com/some-org") when the host alone
-// is too coarse; without one the whole host matches.
+// How a pattern is read. A bare string is a hostname and matches that host and
+// anything under it, which is the common case and the one worth having short.
+// A prefix chooses something else:
+//
+//   atlassian.net                       host, with its subdomains
+//   host:*.atlassian.net                glob against the hostname alone
+//   url:https://mail.google.com/*/u/1/* glob against the whole URL
+//   exact:https://example.com/page      that URL and nothing else
+//   prefix:https://example.com/app      URLs starting with it
+//   suffix:/settings                    URLs ending with it
+//   contains:/jira/                     the text anywhere in the URL
+//   regex:^https://[a-z]+\.example\.com  a JS regular expression
+//
+// A string carrying "://" and no prefix is read as url: rather than as a
+// hostname, since no hostname contains a scheme.
+//
+// Globs are literal text with * for any run of characters and ? for one, so a
+// pattern never has to be escaped the way a regex does. "*" alone therefore
+// means every URL, and "url:*.pdf" every URL ending in .pdf.
+
+const PREFIXES = ["host", "url", "exact", "prefix", "suffix", "contains", "regex"];
+
+function parsePattern(pattern) {
+  const text = String(pattern);
+  const colon = text.indexOf(":");
+  if (colon > 0) {
+    const kind = text.slice(0, colon);
+    if (PREFIXES.includes(kind)) {
+      return { kind, value: text.slice(colon + 1) };
+    }
+  }
+  if (text === "*") {
+    // Every URL. Spelled without a prefix because it is the one pattern people
+    // reach for without thinking, and as a hostname it would match nothing.
+    return { kind: "url", value: "*" };
+  }
+  return text.includes("://") ? { kind: "url", value: text } : { kind: "hostname", value: text };
+}
+
+function globToRegExp(glob) {
+  const escaped = String(glob).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("^" + escaped.replace(/\\\*/g, ".*").replace(/\\\?/g, ".") + "$");
+}
+
+// The hostname form: the host itself, or anything under it at a dot boundary.
+// Never a bare substring -- notatlassian.net and atlassian.net.evil.com are
+// different sites, and a rule for atlassian.net must not reach them. A path
+// may follow the host when the host alone is too coarse.
+function hostnameMatches(value, parsed) {
+  const slash = value.indexOf("/");
+  const wantHost = (slash === -1 ? value : value.slice(0, slash)).toLowerCase().replace(/^\*\./, "");
+  const wantPath = slash === -1 ? "" : value.slice(slash).toLowerCase();
+
+  const host = parsed.hostname.toLowerCase();
+  if (host !== wantHost && !host.endsWith("." + wantHost)) {
+    return false;
+  }
+  if (wantPath === "" || wantPath === "/") {
+    return true;
+  }
+  return parsed.pathname.toLowerCase().startsWith(wantPath);
+}
+
 function urlMatches(pattern, url) {
   let parsed;
   try {
@@ -188,20 +247,43 @@ function urlMatches(pattern, url) {
     return false;
   }
 
-  const slash = String(pattern).indexOf("/");
-  const patternHost = (slash === -1 ? pattern : pattern.slice(0, slash))
-    .toLowerCase()
-    .replace(/^\*\./, "");
-  const patternPath = slash === -1 ? "" : pattern.slice(slash).toLowerCase();
+  const { kind, value } = parsePattern(pattern);
+  const full = parsed.href;
 
-  const host = parsed.hostname.toLowerCase();
-  if (host !== patternHost && !host.endsWith("." + patternHost)) {
-    return false;
+  switch (kind) {
+    case "hostname":
+      return hostnameMatches(value, parsed);
+    case "host":
+      try {
+        return globToRegExp(value.toLowerCase()).test(parsed.hostname.toLowerCase());
+      } catch (e) {
+        return false;
+      }
+    case "url":
+      try {
+        return globToRegExp(value).test(full);
+      } catch (e) {
+        return false;
+      }
+    case "exact":
+      return full === value;
+    case "prefix":
+      return full.startsWith(value);
+    case "suffix":
+      return full.endsWith(value);
+    case "contains":
+      return full.includes(value);
+    case "regex":
+      try {
+        return new RegExp(value).test(full);
+      } catch (e) {
+        // A pattern that does not compile matches nothing rather than
+        // everything: a typo should not suspend the browser.
+        return false;
+      }
+    default:
+      return false;
   }
-  if (patternPath === "" || patternPath === "/") {
-    return true;
-  }
-  return parsed.pathname.toLowerCase().startsWith(patternPath);
 }
 
 function ruleCoversUrl(rule, tab) {

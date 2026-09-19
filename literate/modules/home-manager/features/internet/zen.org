@@ -100,7 +100,7 @@ let
     "mail.google.com"
     "calendar.google.com"
     "meet.google.com"
-    "atlassian.net"
+    "host:*.atlassian.net"
   ];
 in
 {
@@ -281,6 +281,37 @@ touching the extension.
 Rules are a union rather than a chain: a tab goes as soon as any rule covering
 it has had its time met, so the shortest applicable time acts and the order
 they appear in does not matter.
+
+A site is named as loosely or as tightly as it deserves. A bare hostname takes
+the host and everything under it, which is the common case and so the short
+one; a prefix asks for something else:
+
+  atlassian.net                    the host and its subdomains
+  host:*.atlassian.net             a glob over the hostname alone
+  url:https://x.com/app/*          a glob over the whole URL
+  exact:https://x.com/page         that URL and nothing else
+  prefix: / suffix: / contains:    plain text against the whole URL
+  regex:^https://[a-z]+\.x\.com    when nothing else will do
+  *                                every URL
+
+Globs are literal text with ~*~ for any run of characters and ~?~ for one, so a
+pattern never needs escaping the way a regex does. A regex that does not
+compile matches nothing rather than everything -- a typo should not suspend the
+browser. Atlassian is written as a host glob here because both organisations
+live on a subdomain and nothing useful sits on the apex; a hostname that should
+match the apex too is the bare form.
+
+The extension carries an options page, reachable from the add-ons manager, with
+every rule editable: containers as tick boxes named from the browser rather
+than as numbers, sites as one pattern per line, the standing time, the
+protections, and the hour windows with their overrides. It needs the
+~contextualIdentities~ permission for the names alone, which is the whole
+reason it is asked for.
+
+Editing there is real but temporary: the page writes ~storage.local~, which is
+the file home-manager rewrites on the next activation. The page says so, and
+its "Copy as Nix" button produces the ~rules~ block to paste back into this
+file, so a change worked out by hand can become the declared one.
 
 Untouched means since the tab was last in front, not since it was last clicked,
 so a suspended tab resumed at seven and worked in until quarter to eight has
