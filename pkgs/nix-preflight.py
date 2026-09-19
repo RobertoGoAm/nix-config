@@ -10,7 +10,7 @@ already been rewritten.
 This answers both questions ahead of time, on a schedule, so the menu bar can
 say whether now is a good moment:
 
-  * clone HEAD into a throwaway git worktree, so nothing here is touched
+  * export HEAD into a throwaway directory, so nothing here is touched
   * update the flake inputs *there*
   * ask nix what that plan would build locally versus fetch
   * write the verdict as JSON
@@ -175,11 +175,29 @@ def preflight(repo, host, timeout):
     tmp = tempfile.mkdtemp(prefix="nix-preflight.")
     tree = os.path.join(tmp, "tree")
     try:
-        # --detach, so this never moves a branch, and HEAD rather than a named
-        # branch so it works the same on a detached checkout.
-        add = run(["git", "-C", repo, "worktree", "add", "--detach", tree, "HEAD"])
-        if add.returncode != 0:
-            report["error"] = error_summary(add.stderr or add.stdout)
+        # `git archive`, not `git worktree add`. A worktree is still the same
+        # repository: its .git is a pointer, nix resolves the flake through it
+        # to the real checkout, and `nix flake update` then rewrites the lock
+        # file *here* -- which is the one thing this must never do. An export
+        # has no .git at all, so the flake nix sees is a plain path and the
+        # lock it writes is the throwaway one.
+        os.makedirs(tree)
+        archive = subprocess.run(
+            ["git", "-C", repo, "archive", "--format=tar", "HEAD"],
+            capture_output=True,
+            timeout=timeout,
+        )
+        if archive.returncode != 0:
+            report["error"] = error_summary(archive.stderr.decode("utf-8", "replace"))
+            return report
+        untar = subprocess.run(
+            ["tar", "-x", "-C", tree],
+            input=archive.stdout,
+            capture_output=True,
+            timeout=timeout,
+        )
+        if untar.returncode != 0:
+            report["error"] = error_summary(untar.stderr.decode("utf-8", "replace"))
             return report
 
         upd = run(["nix", "flake", "update"], cwd=tree, timeout=timeout)
@@ -211,10 +229,6 @@ def preflight(repo, host, timeout):
         return report
     finally:
         report["duration_s"] = int(time.time() - started)
-        # Remove the worktree through git, not rm -rf: the administrative entry
-        # under .git/worktrees outlives the directory and `git worktree add`
-        # refuses the same path afterwards.
-        run(["git", "-C", repo, "worktree", "remove", "--force", tree])
         shutil.rmtree(tmp, ignore_errors=True)
 
 
