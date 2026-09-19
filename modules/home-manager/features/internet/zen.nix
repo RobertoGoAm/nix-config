@@ -645,6 +645,13 @@ in
         # pref. Editing it by hand in the browser and copying the result back out is
         # the only practical way to change this.
 
+        # Pinning it also means an extension installed later has nowhere to put its
+        # button: the arrangement is declared, ~unified-extensions-area~ is empty, and a
+        # button absent from both lists cannot be added from the UI either. So the two
+        # extensions built in this repo name their own widgets here. The id is the
+        # extension's, lowercased with =@= and =.= turned into underscores and
+        # =-browser-action= appended -- the same shape as uBlock's above.
+
         "browser.uiCustomization.state" = builtins.toJSON {
           currentVersion = 20;
           newElementCount = 5;
@@ -669,6 +676,8 @@ in
               "urlbar-container"
               "downloads-button"
               "ublock0_raymondhill_net-browser-action"
+              "tab-suspender_nix-config-browser-action"
+              "browser-gt_dmgerman-browser-action"
               "reset-pbm-toolbar-button"
               "unified-extensions-button"
             ];
@@ -680,6 +689,8 @@ in
             "save-to-pocket-button"
             "developer-button"
             "ublock0_raymondhill_net-browser-action"
+            "tab-suspender_nix-config-browser-action"
+            "browser-gt_dmgerman-browser-action"
           ];
         };
       };
