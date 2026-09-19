@@ -3,6 +3,7 @@
 {
   lib,
   pkgs,
+  user,
   ...
 }:
 {
@@ -177,6 +178,19 @@
     (require 'browser-gt)
     (require 'browser-gt-tab-manager)
     (browser-gt-start)
+
+    ;; Focusing a tab does not bring the browser forward on macOS, so browser-gt
+    ;; nudges it afterwards. Its precise path asks lsof which process holds the
+    ;; socket and matches the client's name against that process's command line
+    ;; -- and the client calls itself "firefox" while Zen's binary is
+    ;; .../Zen Browser (Beta).app/Contents/MacOS/zen. Nothing matches, so the
+    ;; lookup finds no pid and the `open -a' fallback is what actually runs.
+    ;;
+    ;; The full bundle path rather than a name: `open -a Zen' leaves the choice
+    ;; to LaunchServices, and the darwin build is the beta channel, whose bundle
+    ;; is named for it.
+    (setq browser-gt-client-app-names
+          '(("firefox" . "/Users/${user}/Applications/Home Manager Apps/Zen Browser (Beta).app")))
 
     ;; The tab manager is a tabulated list with dired-style keys -- d to mark
     ;; for deletion, x to execute, u to unmark, s to cycle the sort -- and
