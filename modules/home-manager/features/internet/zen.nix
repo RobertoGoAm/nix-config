@@ -33,10 +33,16 @@
 
 # The private file adds one attribute to the set it already returns:
 
-#   zen.spaces.work   = { name = "..."; routes = [ "host" ]; suspendUrls = [ "host" ]; };
-#   zen.spaces.client = { name = "..."; routes = [ "host" ]; suspendUrls = [ "host" ]; };
+#   zen.spaces.<key> = {
+#     name        = "...";
+#     routes      = [ "host" ];
+#     suspendUrls = [ "host" ];
+#     pins        = [ { title = "..."; url = "https://..."; } ];
+#   };
 
-# ~suspendUrls~ extends the list of sites the suspender puts to sleep after hours.
+# ~pins~ is the tabs that space opens with, as ={ title; url; }= -- the ones whose
+# address names an employer or a client. ~suspendUrls~ extends the list of sites
+# the suspender puts to sleep after hours.
 # The common ones are named in the open below -- Google, Atlassian, the forges --
 # because a vendor hostname on its own says nothing about who uses it. Anything
 # that would (an internal tool, a self-hosted forge, an HR system) goes here
@@ -68,6 +74,43 @@ let
     );
 
   identitySuspendUrls = key: (identities.${key} or { }).suspendUrls or [ ];
+
+  identityPins = key: (identities.${key} or { }).pins or [ ];
+
+  # Zen identifies a pin by a v4 UUID and will not take a pin without one.
+  # Deriving it rather than writing one out by hand keeps the pin lists to the
+  # two fields that carry meaning, and keeps the id stable: the same pin is the
+  # same id across rebuilds, so Zen updates it in place instead of growing a
+  # second copy beside it.
+  #
+  # The container is part of what is hashed, not just the URL. Two identities
+  # can pin the same address -- both of these open the same Meet landing page --
+  # and an id derived from the URL alone would make those one pin, which the
+  # module rejects outright rather than silently merging.
+
+  pinId =
+    container: url:
+    let
+      h = builtins.hashString "sha256" "${toString container}|${url}";
+      part = start: len: builtins.substring start len h;
+    in
+    "${part 0 8}-${part 8 4}-4${part 13 3}-a${part 17 3}-${part 20 12}";
+
+  # Pins are declared as a list so they keep their order; the attribute name is
+  # the title Zen shows, and the position is where it sits in the strip.
+
+  mkPins =
+    container: entries:
+    lib.listToAttrs (
+      lib.imap0 (
+        position: entry:
+        lib.nameValuePair entry.title {
+          inherit container position;
+          inherit (entry) url;
+          id = pinId container entry.url;
+        }
+      ) entries
+    );
 
   # The working day. A rule names these hours to treat them differently from
   # the rest of the week -- and naming the working day is the whole trick: the
@@ -323,17 +366,20 @@ in
               containerIds = [ 3 ];
               urls = [ "mail.google.com" ];
               idleMinutes = 5;
+              protect.pinned = false;
               windows = [ (workdayHours // { suspend = false; }) ];
             }
             {
               containerIds = [ 2 ];
               urls = officeUrls ++ [ "github.com" ] ++ identitySuspendUrls "work";
               idleMinutes = 30;
+              protect.pinned = false;
             }
             {
               containerIds = [ 3 ];
               urls = lib.remove "mail.google.com" officeUrls ++ [ "gitlab.com" ] ++ identitySuspendUrls "client";
               idleMinutes = 30;
+              protect.pinned = false;
             }
           ];
         };
@@ -381,6 +427,13 @@ in
       # strip and pins and is bound to a container, so switching space switches
       # identity rather than merely filtering tabs.
 
+      # The pins are what each space opens with: mail, calendar and meet in the open
+      # here, since an account index is not a name, and everything whose address would
+      # identify someone from the private file. They are pinned rather than merely
+      # opened so they survive a session and keep their order -- and the suspender
+      # rules below turn off their pinned protection, because a pinned tab is exactly
+      # what this is meant to put to sleep.
+
       # ~routes~ are the part worth having: a URL matching one opens in that space
       # whatever space is in front, which is what makes a link clicked from a chat or a
       # terminal land in the right jar instead of whichever one happened to be focused.
@@ -415,6 +468,23 @@ in
           icon = "💼";
           container = 2;
           routes = identityRoutes "work";
+          pins = mkPins 2 (
+            [
+              {
+                title = "Mail";
+                url = "https://mail.google.com/mail/u/1/#inbox";
+              }
+              {
+                title = "Calendar";
+                url = "https://calendar.google.com/calendar/u/1/r/day";
+              }
+              {
+                title = "Meet";
+                url = "https://meet.google.com/home";
+              }
+            ]
+            ++ identityPins "work"
+          );
         };
 
         Client = {
@@ -424,6 +494,23 @@ in
           icon = "🤝";
           container = 3;
           routes = identityRoutes "client";
+          pins = mkPins 3 (
+            [
+              {
+                title = "Mail";
+                url = "https://mail.google.com/mail/u/0/#inbox";
+              }
+              {
+                title = "Calendar";
+                url = "https://calendar.google.com/calendar/u/0/r/day";
+              }
+              {
+                title = "Meet";
+                url = "https://meet.google.com/home";
+              }
+            ]
+            ++ identityPins "client"
+          );
         };
       };
 
