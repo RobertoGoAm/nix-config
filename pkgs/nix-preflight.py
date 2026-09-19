@@ -35,10 +35,8 @@ import tempfile
 import time
 
 # Packages whose source build is measured in tens of minutes on an M-series
-# laptop. The list is deliberately short and specific: a name-substring rule
-# that tried to be clever would flag `emacs-with-packages`, which is a link
-# farm that finishes instantly. Anything not named here is counted, not
-# weighed -- the full build list goes into the report either way.
+# laptop. Anything not named here is counted, not weighed -- the full build
+# list goes into the report either way.
 HEAVY = (
     "nodejs",
     "chromium",
@@ -47,16 +45,16 @@ HEAVY = (
     "llvm",
     "clang",
     "rustc",
-    "ghc-",
+    "ghc",
     "texlive",
     "qtbase",
     "qtwebengine",
     "openjdk",
-    "gcc-",
+    "gcc",
     "boost",
     "ffmpeg",
     "mesa",
-    "swift-",
+    "swift",
     "sbcl",
     "firefox",
     "thunderbird",
@@ -72,6 +70,23 @@ HEAVY = (
 # them is individually famous for being slow: a hundred small compiles is still
 # an hour of fans.
 MANY_BUILDS = 60
+
+
+def is_heavy(name):
+    """Does this derivation name a long build?
+
+    Anchored at the start of the name rather than matched anywhere inside it.
+    A substring rule reads `hm-firefox-extensions` -- a link farm that finishes
+    instantly -- as a Firefox build, and then every report says the update is
+    expensive. The cost of anchoring is missing a heavy package that appears
+    under a prefix, `python3.13-torch` say; a false "clear" that turns into a
+    long build is a worse surprise than a false alarm, but a permanent false
+    alarm is the one that gets the whole indicator ignored.
+    """
+    low = name.lower()
+    if "wrapper" in low or "hook" in low:
+        return False
+    return any(low == h or low.startswith(h + "-") or low.startswith(h + "_") for h in HEAVY)
 
 
 def run(cmd, cwd=None, timeout=1800):
@@ -180,7 +195,7 @@ def preflight(repo, host, timeout):
             return report
 
         builds, download_mb = parse_plan(dry.stderr)
-        heavy = sorted({b for b in builds if any(h in b.lower() for h in HEAVY)})
+        heavy = sorted({b for b in builds if is_heavy(b)})
 
         report["build_count"] = len(builds)
         report["builds"] = sorted(builds)
