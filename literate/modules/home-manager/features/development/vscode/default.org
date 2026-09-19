@@ -222,8 +222,8 @@ version number.
             {
               name = "turbo-console-log";
               publisher = "chakrounanas";
-              version = "3.28.0";
-              sha256 = "sha256-S93wRGW1qT71SIOAj0HSBgWMA5pPZkccXSpRBiUO4p0=";
+              version = "3.29.0";
+              sha256 = "sha256-jBYGGM822gwKmDu4d+CcI/n6rASFtkky/ZqK26ymJnM=";
             }
             {
               name = "vite";
