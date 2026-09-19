@@ -146,6 +146,77 @@
         };
       };
 
+      # Containers: one browser, two cookie jars
+
+      # Work and personal accounts on the same site are the case this exists for.
+      # Google is the sharp edge -- work mail and personal mail are both
+      # =mail.google.com=, so no amount of URL matching separates them; only the
+      # cookie jar does. A container is that jar: tabs opened in one never see the
+      # other's cookies, storage or logins, and both stay signed in at once.
+
+      # Forced, like the bookmarks and the extensions above: what is written here is
+      # the whole set, and a container invented in the UI does not survive the next
+      # activation. Ids are explicit because everything else refers to a container by
+      # id, not by name -- renaming one must not silently repoint a space.
+
+      containersForce = true;
+
+      containers = {
+        personal = {
+          id = 1;
+          color = "green";
+          icon = "fingerprint";
+        };
+        work = {
+          id = 2;
+          color = "blue";
+          icon = "briefcase";
+        };
+      };
+
+      # Spaces: the container made visible, and URLs routed into it
+
+      # Zen's spaces are the UI over the containers. Each one carries its own tab
+      # strip and pins and is bound to a container, so switching space switches
+      # identity rather than merely filtering tabs.
+
+      # ~routes~ are the part worth having: a URL matching one opens in that space
+      # whatever space is in front, which is what makes a work link clicked from Slack
+      # or a terminal land in the work jar instead of whichever one happened to be
+      # focused. Only unambiguous vendor domains belong here -- this repo is public,
+      # so a client's own host never appears in it, and the ambiguous ones (Google
+      # again) cannot be routed by URL at all and are handled by pinning each account
+      # in its own space.
+
+      # ~spacesForce~ is deliberately left off. It deletes spaces that are not declared
+      # here, and Zen spaces hold live tabs; turn it on once this list is the whole
+      # truth, not before.
+
+      # The session store is written only when Zen is not running -- the module takes
+      # the profile lock and says so when it skips -- so these land on the first
+      # activation after the browser is closed.
+
+      spaces = {
+        Personal = {
+          id = "76b6baa5-dafa-4b86-8f2e-5240f05dddc7";
+          position = 0;
+          icon = "🏠";
+          container = 1;
+        };
+
+        Work = {
+          id = "ff0fd16a-4226-48b9-8911-3a0cc6235304";
+          position = 1;
+          icon = "💼";
+          container = 2;
+
+          routes.atlassian = {
+            reference = "atlassian.net";
+            matchType = "contains";
+          };
+        };
+      };
+
       # Preferences: first-run noise
 
       # autoDisableScopes = 0 stops Firefox disabling the addons installed above
@@ -238,6 +309,13 @@
         "privacy.trackingprotection.enabled" = true;
         "dom.security.https_only_mode" = true;
 
+        # Preferences: containers
+
+        # home-manager writes =containers.json= but never touches this pref, and without
+        # it the contextual identities exist on disk and nowhere in the browser.
+
+        "privacy.userContext.enabled" = true;
+
         # Preferences: toolbar layout
 
         # Pinned as JSON because Firefox stores the whole toolbar arrangement in one
@@ -268,7 +346,6 @@
               "urlbar-container"
               "downloads-button"
               "ublock0_raymondhill_net-browser-action"
-              "_testpilot-containers-browser-action"
               "reset-pbm-toolbar-button"
               "unified-extensions-button"
             ];
@@ -280,7 +357,6 @@
             "save-to-pocket-button"
             "developer-button"
             "ublock0_raymondhill_net-browser-action"
-            "_testpilot-containers-browser-action"
           ];
         };
       };

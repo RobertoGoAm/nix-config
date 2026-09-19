@@ -85,8 +85,8 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
 * The app keys the window manager used to own
 
 aerospace carried two bindings that had nothing to do with tiling: =alt-enter=
-summoned Emacs and =alt-b= summoned Chrome. Turning aerospace off took both
-with it, and =alt-enter= is worse than merely gone -- OmniWM binds
+summoned Emacs and =alt-b= summoned the browser. Turning aerospace off took
+both with it, and =alt-enter= is worse than merely gone -- OmniWM binds
 =Option+Return= to =toggleFullscreen=, so the old key now maximises whatever is
 in front of you.
 
@@ -97,8 +97,15 @@ palette.
 
 Emacs keeps =Option+Return=, the key it has always had. OmniWM claimed it for
 =toggleFullscreen= and that is what took it away; fullscreen has been moved to
-=Option+Shift+Return= instead, which nothing else wanted. Chrome stays on
+=Option+Shift+Return= instead, which nothing else wanted. The browser sits on
 =Option+B=, which OmniWM does not bind either.
+
+Zen is addressed by bundle id rather than by name. The darwin build is the beta
+channel and ships as "Zen Browser (Beta).app" while calling itself "Zen", so
+neither name is a safe handle and both change with the channel; the id does
+not. Chrome is not bound: it exists here for =chrome-dev= and its
+=--disable-web-security= profile, which is a thing you open for a local server,
+not a thing you summon.
 
 A real toggle, unlike the aerospace version -- that one ran =emacsclient -c -n=
 and opened another frame on every press. This hides the app when it is already
@@ -134,8 +141,8 @@ Emacs out of an old generation before.
     end)
 
     hs.hotkey.bind({ "alt" }, "b", function()
-      toggleApp("Google Chrome", function()
-        hs.application.launchOrFocus("/Applications/Google Chrome.app")
+      toggleApp("app.zen-browser.zen", function()
+        hs.application.launchOrFocusByBundleID("app.zen-browser.zen")
       end)
     end)
   '';
