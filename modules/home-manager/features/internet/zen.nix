@@ -613,6 +613,25 @@ in
 
         "privacy.userContext.enabled" = true;
 
+        # Preferences: locally built extensions
+
+        # Two of the extensions in this profile are built here rather than fetched from
+        # addons.mozilla.org -- the tab suspender and the browser-gt bridge -- and
+        # nothing signs them.
+
+        # Zen is compiled with ~MOZ_REQUIRE_SIGNING~ off, which is what makes that
+        # possible at all, but the capability and the policy are separate: the build
+        # merely lets the pref decide, and Firefox's own =firefox.js= then sets it back
+        # to =true=, overriding the =false= in =greprefs.js=. Left alone, an unsigned
+        # add-on is dropped on sight -- no error in the add-ons list, no entry in
+        # =extensions.json=, the file simply ignored.
+
+        # This turns enforcement off for the whole profile, which is the real cost.
+        # Everything else installed here still comes from the pinned =firefox-addons=
+        # set, so what it actually buys is the two local ones.
+
+        "xpinstall.signatures.required" = false;
+
         # Preferences: toolbar layout
 
         # Pinned as JSON because Firefox stores the whole toolbar arrangement in one
