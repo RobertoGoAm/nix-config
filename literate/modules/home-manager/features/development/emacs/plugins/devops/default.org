@@ -15,7 +15,6 @@
   programs.emacs.extraPackages =
     epkgs: with epkgs; [
       docker
-      docker-compose-mode
       dockerfile-mode
       envrc
       just-mode
@@ -38,10 +37,11 @@
             (:name "Ports" :width 20 :template "{{ json .Ports }}" :sort nil :format nil)))
 
     (require 'dockerfile-mode)
-    (require 'docker-compose-mode)
     (add-to-list 'auto-mode-alist '("[Dd]ockerfile\\'" . dockerfile-ts-mode))
-    (add-to-list 'auto-mode-alist '("docker-compose[^/]*\\.ya?ml\\'" . docker-compose-mode))
-    (add-to-list 'auto-mode-alist '("compose[^/]*\\.ya?ml\\'" . docker-compose-mode))
+
+    ;; compose.yml has no mode of its own here: it is ordinary YAML, and the
+    ;; key completion and validation a dedicated mode would offer already
+    ;; arrive through lsp-yaml's schemastore catalogue (code/languages.nix).
 
     ;; Devcontainers live in ./containers.nix: the tramp method, the project ->
     ;; container lookup, and the remote LSP clients that let a language server run

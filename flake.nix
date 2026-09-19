@@ -146,6 +146,7 @@
             overlays = [
               outputs.overlays.check-pins
               outputs.overlays.lit-tangle
+              outputs.overlays.sops-go
             ];
             config = {
               allowUnfree = true;

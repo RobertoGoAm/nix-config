@@ -33,6 +33,11 @@
 
   spotify-ctl = import ./spotify-ctl.nix;
 
+  # sops-go: sops-nix asks for a Go builder nixpkgs has retired
+
+  sops-go = import ./sops-go.nix;
+
+
   # When applied, the unstable nixpkgs set (declared in the flake...
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
