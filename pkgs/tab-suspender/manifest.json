@@ -24,5 +24,15 @@
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "Tab Suspender",
+    "default_popup": "popup.html",
+    "default_icon": "icon.svg"
+  },
+  "icons": {
+    "16": "icon.svg",
+    "48": "icon.svg",
+    "96": "icon.svg"
   }
 }

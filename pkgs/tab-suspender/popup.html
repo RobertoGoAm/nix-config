@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Suspended tabs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff; --fg: #1a1a1a; --muted: #5d5d5d; --line: #e0e0e0; --hover: #f0f0f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1c1b22; --fg: #f0f0f4; --muted: #b0b0bb; --line: #3a3944; --hover: #2a2a33; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-width: 320px; max-width: 420px; background: var(--bg); color: var(--fg);
+    font: 13px/1.45 system-ui, -apple-system, sans-serif;
+  }
+  header {
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  header strong { font-size: 13px; }
+  header span { color: var(--muted); font-size: 12px; }
+  .group { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .group:last-of-type { border-bottom: none; }
+  .group h2 {
+    margin: 0; padding: 2px 12px 4px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  }
+  button.tab {
+    display: block; width: 100%; text-align: left; border: 0; background: none;
+    color: inherit; font: inherit; padding: 5px 12px; cursor: pointer;
+  }
+  button.tab:hover { background: var(--hover); }
+  button.tab .title { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button.tab .host { display: block; color: var(--muted); font-size: 11.5px; }
+  .empty { padding: 18px 12px; color: var(--muted); text-align: center; }
+  footer { border-top: 1px solid var(--line); padding: 8px 12px; display: flex; gap: 8px; }
+  footer button {
+    font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 5px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer;
+  }
+  footer button:hover { background: var(--hover); }
+  .spacer { flex: 1; }
+</style>
+<header><strong id="count">—</strong> <span id="sub"></span></header>
+<div id="list"></div>
+<footer>
+  <button id="sweep">Suspend now</button>
+  <span class="spacer"></span>
+  <button id="options">Rules</button>
+</footer>
+<script src="popup.js"></script>
