@@ -177,5 +177,15 @@
     (require 'browser-gt)
     (require 'browser-gt-tab-manager)
     (browser-gt-start)
+
+    ;; The tab manager is a tabulated list with dired-style keys -- d to mark
+    ;; for deletion, x to execute, u to unmark, s to cycle the sort -- and
+    ;; evil-collection has no module for a package this new, so in normal state
+    ;; evil's own d/u/x/s would shadow every one of them. Making the map
+    ;; overriding hands those keys back without touching the motions: n and e
+    ;; are not in the map, so they still move between rows the way they do
+    ;; everywhere else.
+    (with-eval-after-load 'browser-gt-tab-manager
+      (evil-make-overriding-map browser-gt-tab-manager-mode-map 'normal))
   '';
 }

@@ -154,6 +154,8 @@
       ;; buffers
       "b"  '(:ignore t :which-key "buffers")
       "bb" '(consult-buffer :which-key "find buffer")
+      "bt" '(browser-gt-tab-jump :which-key "find browser tab")
+      "bT" '(browser-gt-tab-manager :which-key "browser tab manager")
       "bc" '(my/clean-buffers :which-key "clean stale buffers")
       "bd" '(kill-current-buffer :which-key "destroy buffer")
       "bh" '(my/dashboard-home :which-key "home buffer")
