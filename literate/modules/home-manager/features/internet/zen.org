@@ -22,6 +22,51 @@ in its own directory, not Firefox's, so there is no legacy path to pin.
   user,
   ...
 }:
+#+end_src
+
+* The identities are named outside this repo
+
+This repo is public, and the names of an employer and a client are exactly what
+must not be in it -- nor are the hostnames that would route to them, since an
+Atlassian site or a self-hosted forge is named after the organisation that owns
+it. Both live in the gitignored =work-extras.nix= alongside the corporate casks
+and packages, read at eval under ~--impure~, and what stays here is the shape.
+
+Absent that file the three identities still exist; they are called Work and
+Client and route nothing, which is a working browser and an honest public
+config at the same time.
+
+The private file adds one attribute to the set it already returns:
+
+  zen.spaces.work   = { name = "..."; routes = [ "host" "host" ]; };
+  zen.spaces.client = { name = "..."; routes = [ "host" ]; };
+
+Route ids are prefixed with the identity key because Zen keeps every route in
+one file, and two spaces both declaring a first route would otherwise collide
+on the same id.
+
+#+begin_src nix
+let
+  privatePath = "/Users/${user}/.config/nix-secrets/work-extras.nix";
+  private =
+    if builtins.pathExists privatePath then import privatePath { inherit pkgs; } else { };
+
+  identities = private.zen.spaces or { };
+
+  identityName = key: fallback: (identities.${key} or { }).name or fallback;
+
+  identityRoutes =
+    key:
+    lib.listToAttrs (
+      lib.imap0 (
+        i: reference:
+        lib.nameValuePair "${key}-${toString i}" {
+          inherit reference;
+          matchType = "contains";
+        }
+      ) ((identities.${key} or { }).routes or [ ])
+    );
+in
 {
   imports = [
     inputs.zen-browser.homeModules.default
@@ -159,11 +204,12 @@ default set plus the annoyance and cookie-notice lists.
 
 * Containers: one browser, two cookie jars
 
-Work and personal accounts on the same site are the case this exists for.
-Google is the sharp edge -- work mail and personal mail are both
-=mail.google.com=, so no amount of URL matching separates them; only the
-cookie jar does. A container is that jar: tabs opened in one never see the
-other's cookies, storage or logins, and both stay signed in at once.
+Three accounts on the same site are the case this exists for. Google is the
+sharp edge -- employer mail, client mail and personal mail are all
+=mail.google.com=, so no amount of URL matching separates them; only the cookie
+jar does. A container is that jar: tabs opened in one never see another's
+cookies, storage or logins, and all three stay signed in at once. Atlassian is
+the same story with two of them.
 
 Forced, like the bookmarks and the extensions above: what is written here is
 the whole set, and a container invented in the UI does not survive the next
@@ -181,8 +227,15 @@ id, not by name -- renaming one must not silently repoint a space.
         };
         work = {
           id = 2;
+          name = identityName "work" "Work";
           color = "blue";
           icon = "briefcase";
+        };
+        client = {
+          id = 3;
+          name = identityName "client" "Client";
+          color = "purple";
+          icon = "circle";
         };
       };
 #+end_src
@@ -194,12 +247,15 @@ strip and pins and is bound to a container, so switching space switches
 identity rather than merely filtering tabs.
 
 ~routes~ are the part worth having: a URL matching one opens in that space
-whatever space is in front, which is what makes a work link clicked from Slack
-or a terminal land in the work jar instead of whichever one happened to be
-focused. Only unambiguous vendor domains belong here -- this repo is public,
-so a client's own host never appears in it, and the ambiguous ones (Google
-again) cannot be routed by URL at all and are handled by pinning each account
-in its own space.
+whatever space is in front, which is what makes a link clicked from a chat or a
+terminal land in the right jar instead of whichever one happened to be focused.
+
+They have to be per-organisation hostnames, not vendor domains. Two of these
+identities are on Atlassian, so a rule for =atlassian.net= would drag both into
+one space and be wrong half the time; it is the site subdomain that
+distinguishes them, and that is a name this repo cannot hold. Hence the list
+coming from outside. Google cannot be routed by URL at all -- pin each account
+in its own space instead.
 
 ~spacesForce~ is deliberately left off. It deletes spaces that are not declared
 here, and Zen spaces hold live tabs; turn it on once this list is the whole
@@ -219,15 +275,21 @@ activation after the browser is closed.
         };
 
         Work = {
+          name = identityName "work" "Work";
           id = "ff0fd16a-4226-48b9-8911-3a0cc6235304";
           position = 1;
           icon = "💼";
           container = 2;
+          routes = identityRoutes "work";
+        };
 
-          routes.atlassian = {
-            reference = "atlassian.net";
-            matchType = "contains";
-          };
+        Client = {
+          name = identityName "client" "Client";
+          id = "3a3bb718-f2c3-41ae-a000-64a915c26514";
+          position = 2;
+          icon = "🤝";
+          container = 3;
+          routes = identityRoutes "client";
         };
       };
 #+end_src
