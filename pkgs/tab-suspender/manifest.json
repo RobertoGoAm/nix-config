@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Tab Suspender",
+  "version": "1.0.0",
+  "description": "Discards tabs by container, on an idle timer or a weekly schedule.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tab-suspender@nix-config",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "alarms",
+    "storage"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
+  }
+}

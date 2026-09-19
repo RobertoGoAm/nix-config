@@ -41,6 +41,10 @@
 
   nix-preflight = import ./nix-preflight.nix;
 
+  # tab-suspender: discards tabs by container on a schedule
+
+  tab-suspender = import ./tab-suspender.nix;
+
   # When applied, the unstable nixpkgs set (declared in the flake...
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will

@@ -1,0 +1,10 @@
+#+TITLE: overlays tab-suspender
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* tab-suspender: discards tabs by container on a schedule
+
+#+begin_src nix
+final: _prev: {
+  tab-suspender = final.callPackage ../pkgs/tab-suspender.nix { };
+}
+#+end_src

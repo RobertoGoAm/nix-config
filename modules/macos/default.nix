@@ -203,6 +203,7 @@
         outputs.overlays.nix-preflight
         outputs.overlays.sops-go
         outputs.overlays.spotify-ctl
+        outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
         outputs.overlays.warpd
       ];

@@ -139,6 +139,7 @@ than fetched by the browser at first run.
         force = true;
 
         packages = with inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}; [
+          pkgs.tab-suspender
           bitwarden
           cookie-autodelete
           darkreader
@@ -198,6 +199,88 @@ default set plus the annoyance and cookie-notice lists.
           userSettings = {
             uiTheme = "dark";
           };
+        };
+#+end_src
+
+* Tab Suspender
+
+Three signed-in organisations in one window is three organisations' worth of
+tabs left open, and a loaded tab costs a content process whether or not anyone
+has looked at it since lunch. Discarding one frees that process and leaves the
+tab in the strip; clicking it loads the page again.
+
+Gecko's own unloading does not cover this. =browser.tabs.unloadOnLowMemory=
+fires under memory pressure, which on 16 GiB means it acts once the machine is
+already struggling rather than keeping it from getting there, and it has no
+notion of whose tab it is discarding.
+
+The rule below is the shape the extension takes: the work jars, asleep outside
+working hours. Containers 2 and 3 by id rather than by name -- the ids are the
+ones assigned above, they survive a rename, and the names live outside this
+repo. ~windows~ makes the rule awake only in the hours it lists, so nothing is
+discarded during the working day; within a window a tab still has to have gone
+~idleMinutes~ untouched.
+
+Three windows rather than the one "18:00 to 09:00" it reads as. A window whose
+end is at or before its start crosses midnight and belongs to the day it opens
+on, which the extension handles -- but a Monday morning has no workday evening
+before it, so a single crossing window leaves 00:00 to 09:00 on Monday awake
+and everything else asleep. Split at midnight there is no such corner: evening,
+early morning, and the weekend entire.
+
+An always-on rule is one more attrset -- containers, an idle time, no
+~windows~ -- if the daytime pile-up ever wants the same treatment.
+
+The settings reach the extension as ~storage.local~, which is what
+home-manager writes. The extension prefers ~storage.managed~ where a policy
+exists, but this module only passes ~policies~ into the Linux package, so on
+darwin the local copy is the one that arrives.
+
+#+begin_src nix
+        settings."tab-suspender@nix-config".settings = {
+          intervalMinutes = 5;
+
+          rules = [
+            {
+              containerIds = [
+                2
+                3
+              ];
+              idleMinutes = 30;
+              windows = [
+                {
+                  days = [
+                    1
+                    2
+                    3
+                    4
+                    5
+                  ];
+                  from = "18:00";
+                  to = "24:00";
+                }
+                {
+                  days = [
+                    1
+                    2
+                    3
+                    4
+                    5
+                  ];
+                  from = "00:00";
+                  to = "09:00";
+                }
+                {
+                  days = [
+                    6
+                    0
+                  ];
+                  from = "00:00";
+                  to = "24:00";
+                }
+              ];
+            }
+          ];
         };
       };
 #+end_src
