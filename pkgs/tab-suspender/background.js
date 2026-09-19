@@ -71,7 +71,7 @@ function lastSeenOf(tab, seen) {
 //   urls          ["a.com"]     which sites within them; empty/absent = all
 //   idleMinutes   30            how long untouched before it may be discarded
 //   windows       [ { days, from, to } ]   when the rule is awake; absent = always
-//   protect       { pinned, audio }        both default to true
+//   protect       { pinned, audio, sharing }   all three default to true
 //
 // A rule is the intersection of the two: the calendar in one jar can sleep
 // while the same calendar signed in as someone else stays awake. That is also
@@ -184,10 +184,23 @@ function ruleCovers(rule, tab) {
   return ruleCoversContainer(rule, tab) && ruleCoversUrl(rule, tab);
 }
 
+// A tab holding the camera, the microphone or a screen share is in a call, and
+// a call is the one thing that is in use precisely while nobody touches the
+// tab. Audio is not the test: Meet keeps the microphone captured through a
+// mute, and a call where nobody is speaking is silent but very much alive.
+// sharingState is what Gecko reports for all three.
+function inCall(tab) {
+  const sharing = tab.sharingState;
+  if (!sharing) {
+    return false;
+  }
+  return Boolean(sharing.camera || sharing.microphone || sharing.screen);
+}
+
 // The active tab of every window is never a candidate: discarding it would
 // blank the page in front of someone. That also covers the tab being typed
 // into, which is why there is no form detection here -- a tab you left is a
-// tab whose lastAccessed stopped moving, and idleMinutes is the guard.
+// tab whose last-used stamp stopped moving, and idleMinutes is the guard.
 function tabProtected(rule, tab) {
   const protect = rule.protect || {};
   if (tab.active || tab.discarded) {
@@ -197,6 +210,9 @@ function tabProtected(rule, tab) {
     return true;
   }
   if (protect.audio !== false && tab.audible) {
+    return true;
+  }
+  if (protect.sharing !== false && inCall(tab)) {
     return true;
   }
   return false;
@@ -232,6 +248,9 @@ async function sweep() {
     return;
   }
 
+  // Rules are a union, not a chain: a tab is discarded as soon as any rule that
+  // covers it has had its threshold met, so the shortest applicable time wins
+  // and the order they are declared in does not matter.
   const doomed = [];
   for (const tab of tabs) {
     for (const rule of awake) {

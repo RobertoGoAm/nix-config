@@ -76,11 +76,15 @@ let
 
   identitySuspendUrls = key: (identities.${key} or { }).suspendUrls or [ ];
 
-  # Outside 09:00-18:00, Monday to Friday. Three windows rather than the one
-  # "18:00 to 09:00" it reads as: a window ending at or before it starts crosses
-  # midnight and belongs to the day it opens on, and Monday morning has no
-  # workday evening before it, so a single crossing window leaves 00:00 to 09:00
-  # on Monday awake. Split at midnight there is no such corner.
+  # Outside 09:00-18:00, Monday to Friday: the hours in which a rule carrying
+  # this is allowed to act, and by omission the hours it must not.
+  #
+  # Three windows rather than the one "18:00 to 09:00" it reads as. A window
+  # ending at or before it starts crosses midnight and belongs to the day it
+  # opens on, which the extension handles -- but Monday morning has no workday
+  # evening before it, so a single crossing window leaves 00:00 to 09:00 on
+  # Monday awake and everything else asleep. Split at midnight there is no such
+  # corner.
 
   offHours = [
     {
@@ -274,24 +278,35 @@ notion of whose tab it is discarding.
 
 A rule is a container and a set of sites and a schedule, and it needs all
 three. Container alone is too blunt: a jar holds the things worth suspending
-and the things worth keeping, and a reference page left open in the work jar is
-not the same as the work calendar. Sites alone cannot tell two accounts apart,
-since both organisations are on the same Google and the same Atlassian. Pair
-them and each is exact -- which is also why the patterns below can be plain
-vendor hostnames in a public file: the container has already decided whose
-Atlassian it is.
+and the things worth keeping. Sites alone cannot tell two accounts apart, since
+both organisations are on the same Google and the same Atlassian. Pair them and
+each is exact -- which is also why the patterns below can be plain vendor
+hostnames in a public file: the container has already decided whose Atlassian
+it is.
 
-One rule per identity rather than one rule with both containers, because the
-lists diverge -- one forge here, the other there -- and they will diverge
-further. Containers by id: 2 and 3 are the ones assigned above, they survive a
-rename, and the names live outside this repo.
+Rules are a union rather than a chain. A tab goes as soon as any rule covering
+it has had its time met, so the shortest applicable threshold is the one that
+acts and the order they appear in does not matter. The client's mail is the
+reason that matters: it is the one thing that must survive a working day
+untouched, so it is not in the general list at all but carries its own rule,
+awake only outside office hours and impatient once it is -- five minutes, not
+thirty, because after six in the evening an inbox left open is just resident
+memory.
 
-Within a window a tab still has to have gone ~idleMinutes~ untouched, and
-"untouched" means since it was last in front, not since it was last clicked --
+Everything else is on idle alone, at any hour. A page nobody has looked at for
+half an hour is not doing anything at half past ten in the morning either, and
+getting it back costs a reload. Give those rules ~windows = offHours~ too if
+the working day should be left entirely alone.
+
+Untouched means since the tab was last in front, not since it was last clicked,
 so a suspended tab resumed at seven and worked in until quarter to eight has
-its full half hour from quarter to eight. Resume as many as the evening needs;
-each one goes back to sleep on its own once it is genuinely left alone. An
-always-on rule is the same shape without ~windows~.
+its full half hour from quarter to eight. Each tab keeps its own clock.
+
+Three protections are on unless a rule turns them off: pinned, audio, and
+sharing. The last is the one that matters for a call -- a tab holding the
+camera, the microphone or a screen share is in use precisely while nobody is
+touching it, and audio would not catch it, since Meet keeps the microphone
+captured through a mute and a call where nobody is speaking is silent.
 
 The settings reach the extension as ~storage.local~, which is what home-manager
 writes. The extension prefers ~storage.managed~ where a policy exists, but this
@@ -304,16 +319,23 @@ copy is the one that arrives.
 
           rules = [
             {
-              containerIds = [ 2 ];
-              urls = officeUrls ++ [ "github.com" ] ++ identitySuspendUrls "work";
-              idleMinutes = 30;
+              containerIds = [ 3 ];
+              urls = [ "mail.google.com" ];
+              idleMinutes = 5;
               windows = offHours;
             }
             {
-              containerIds = [ 3 ];
-              urls = officeUrls ++ [ "gitlab.com" ] ++ identitySuspendUrls "client";
+              containerIds = [ 2 ];
+              urls = officeUrls ++ [ "github.com" ] ++ identitySuspendUrls "work";
               idleMinutes = 30;
-              windows = offHours;
+            }
+            {
+              containerIds = [ 3 ];
+              urls =
+                lib.remove "mail.google.com" officeUrls
+                ++ [ "gitlab.com" ]
+                ++ identitySuspendUrls "client";
+              idleMinutes = 30;
             }
           ];
         };
