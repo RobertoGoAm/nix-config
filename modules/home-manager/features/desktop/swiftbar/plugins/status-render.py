@@ -330,13 +330,26 @@ if preflight:
     if verdict != "broken":
         if heavy:
             print(f"----Slow from source: {', '.join(heavy)}")
-        for name in builds[:40]:
+        # A generation rebuilds dozens of wrappers, activation scripts and
+        # link farms whose names say nothing about what the update costs. The
+        # first handful is enough to recognise the shape of it; the count
+        # carries the rest.
+        for name in builds[:8]:
             print(f"----{name}")
-        if len(builds) > 40:
-            print(f"----... and {len(builds) - 40} more")
+        if len(builds) > 8:
+            print(f"----... and {len(builds) - 8} more")
     if moved:
         print(f"--Inputs that moved: {', '.join(moved)}")
     print("--Re-check now | bash=/bin/sh param1=-c param2='nix-preflight --out ~/.cache/nix-preflight/report.json' terminal=false refresh=true")
+    # The verdict exists to answer "is now a good moment", so the menu offers
+    # the thing it is a verdict about. Both are zsh functions, hence the
+    # interactive shell, and both re-launch themselves in Apple Terminal when
+    # they are not already there -- the TCC grant for writing into ~/Library
+    # follows the responsible process, so where a rebuild runs from decides
+    # whether it works. NIX_REBUILD_HERE would skip that check and is exactly
+    # what must not be set here.
+    print("--Run nix-update | bash=/bin/zsh param1=-ic param2='nix-update' terminal=true")
+    print("--Rebuild, no input bumps | bash=/bin/zsh param1=-ic param2='nix-build' terminal=true")
 
 print("--Update pins | bash=/bin/sh param1=-c param2='cd ~/nix-config && nix run .#check-pins -- . --update' terminal=true")
 
