@@ -30,99 +30,119 @@
 }:
 {
   programs.emacs.extraConfig = lib.mkOrder 1460 ''
-    ;;; GitLab merge requests -- the diff, and approving.
+        ;;; GitLab merge requests -- the diff, and approving.
 
-    (with-eval-after-load 'forge
-      (require 'forge-gitlab)
+        (with-eval-after-load 'forge
+          (require 'forge-gitlab)
 
-      (defun my/forge--gitlab-mr (&optional demand)
-        "Return the merge request at point, or nil.
-    Errors instead of returning nil when DEMAND is non-nil, and always errors
-    when point is on a topic belonging to a host that is not GitLab -- the
-    approval endpoint below is GitLab's alone."
-        (let ((topic (forge-current-pullreq demand)))
-          (cond ((null topic) nil)
-                ((forge-gitlab-repository-p (forge-get-repository topic)) topic)
-                (demand (user-error "Not a GitLab merge request"))
-                (t nil))))
+          (defun my/forge--gitlab-mr (&optional demand)
+            "Return the merge request at point, or nil.
+        Errors instead of returning nil when DEMAND is non-nil, and always errors
+        when point is on a topic belonging to a host that is not GitLab -- the
+        approval endpoint below is GitLab's alone."
+            (let ((topic (forge-current-pullreq demand)))
+              (cond ((null topic) nil)
+                    ((forge-gitlab-repository-p (forge-get-repository topic)) topic)
+                    (demand (user-error "Not a GitLab merge request"))
+                    (t nil))))
 
-      (defun my/forge--ensure-mr-ref (mr)
-        "Fetch MR's head ref if it is not local yet, and return the ref.
-    GitLab publishes merge request heads under refs/merge-requests/N/head, and
-    forge maps them to refs/pullreqs/N. Until something fetches that,
-    `forge--pullreq-range' has no head to anchor on and quietly returns nil,
-    which reads as \"no changes\" rather than \"not downloaded\"."
-        (let ((n (oref mr number)))
-          (or (forge--pullreq-ref mr)
-              (progn
-                (message "Fetching merge request !%s..." n)
-                (magit-run-git "fetch" (forge--get-remote)
-                               (format "+refs/merge-requests/%s/head:refs/pullreqs/%s" n n))
-                (forge--pullreq-ref mr)))))
+          (defun my/forge--ensure-mr-ref (mr)
+            "Fetch MR's head ref if it is not local yet, and return the ref.
+        GitLab publishes merge request heads under refs/merge-requests/N/head, and
+        forge maps them to refs/pullreqs/N. Until something fetches that,
+        `forge--pullreq-range' has no head to anchor on and quietly returns nil,
+        which reads as \"no changes\" rather than \"not downloaded\"."
+            (let ((n (oref mr number)))
+              (or (forge--pullreq-ref mr)
+                  (progn
+                    (message "Fetching merge request !%s..." n)
+                    (magit-run-git "fetch" (forge--get-remote)
+                                   (format "+refs/merge-requests/%s/head:refs/pullreqs/%s" n n))
+                    (forge--pullreq-ref mr)))))
 
-      (defun my/forge-mr-diff ()
-        "Show the diff of the merge request at point.
-    Diffs against the merge base rather than the target branch's tip, so
-    unrelated commits landing on the target while the review is open do not
-    appear as part of the change under review."
-        (interactive)
-        (let ((mr (or (forge-current-pullreq t)
-                      (user-error "Not on a merge request"))))
-          (unless (my/forge--ensure-mr-ref mr)
-            (user-error "Could not fetch the head of !%s" (oref mr number)))
-          (magit-diff-range (forge--pullreq-range mr))))
+          (defun my/forge-mr-diff ()
+            "Show the diff of the merge request at point.
+        Diffs against the merge base rather than the target branch's tip, so
+        unrelated commits landing on the target while the review is open do not
+        appear as part of the change under review."
+            (interactive)
+            (let ((mr (or (forge-current-pullreq t)
+                          (user-error "Not on a merge request"))))
+              (unless (my/forge--ensure-mr-ref mr)
+                (user-error "Could not fetch the head of !%s" (oref mr number)))
+              (magit-diff-range (forge--pullreq-range mr))))
 
-      ;; `apply-partially' rather than a lambda closing over the number: this
-      ;; configuration is tangled into a default.el with no lexical-binding
-      ;; cookie, so a lambda written here would be a dynamic-binding one and
-      ;; would fail with (void-variable n) by the time the request came back.
-      ;; The closure `apply-partially' builds is created inside subr.el, which
-      ;; is lexical, so it captures the value correctly.
+          ;; `apply-partially' rather than a lambda closing over the number: this
+          ;; configuration is tangled into a default.el with no lexical-binding
+          ;; cookie, so a lambda written here would be a dynamic-binding one and
+          ;; would fail with (void-variable n) by the time the request came back.
+          ;; The closure `apply-partially' builds is created inside subr.el, which
+          ;; is lexical, so it captures the value correctly.
 
-      (defun my/gitlab--report (verb number &rest _)
-        "Say that NUMBER was VERB'd. The callback for the two commands below."
-        (message "%s !%s" verb number))
+          (defun my/gitlab--report (verb number &rest _)
+            "Say that NUMBER was VERB'd. The callback for the two commands below."
+            (message "%s !%s" verb number))
 
-      (defvar my/gitlab-reviewer nil
-        "GitLab username to treat as \"me\" when listing review requests.
-    Asked for once per session rather than configured: it is an account name,
-    and this repository is public.")
+          (defun my/gitlab-approve-mr ()
+            "Approve the GitLab merge request at point."
+            (interactive)
+            (let* ((mr (my/forge--gitlab-mr t))
+                   (n (oref mr number)))
+              (when (y-or-n-p (format "Approve !%s: %s? " n (oref mr title)))
+                (forge--glab-post mr "/projects/:project/merge_requests/:number/approve" nil
+                  :callback (apply-partially #'my/gitlab--report "Approved" n)))))
 
-      (defun my/gitlab-list-my-reviews (&optional reread)
-        "List open merge requests across tracked repositories awaiting my review.
-    With a prefix argument REREAD, ask for the username again.
+          (defun my/gitlab-unapprove-mr ()
+            "Withdraw your approval of the GitLab merge request at point."
+            (interactive)
+            (let* ((mr (my/forge--gitlab-mr t))
+                   (n (oref mr number)))
+              (when (y-or-n-p (format "Withdraw approval of !%s? " n))
+                (forge--glab-post mr "/projects/:project/merge_requests/:number/unapprove" nil
+                  :callback (apply-partially #'my/gitlab--report "Unapproved" n))))))
 
-    forge reads its own database rather than the API here, so a repository only
-    appears once it is tracked and has been pulled -- `forge-add-repository'
-    then `forge-pull'. That is the trade for the rest of it working: the topics
-    in this list open with `forge-topic-menu', which is where the diff and the
-    approval commands above already live."
-        (interactive "P")
-        (when (or reread (not my/gitlab-reviewer))
-          (setq my/gitlab-reviewer (forge--read-filter-by-user "Review requests for")))
-        (forge-topics-setup-buffer nil nil
-                                   :global t
-                                   :type 'pullreq
-                                   :active t
-                                   :reviewer my/gitlab-reviewer)
-        (transient-setup 'forge-topics-menu))
+    # Listing the merge requests waiting on me
 
-      (defun my/gitlab-approve-mr ()
-        "Approve the GitLab merge request at point."
-        (interactive)
-        (let* ((mr (my/forge--gitlab-mr t))
-               (n (oref mr number)))
-          (when (y-or-n-p (format "Approve !%s: %s? " n (oref mr title)))
-            (forge--glab-post mr "/projects/:project/merge_requests/:number/approve" nil
-              :callback (apply-partially #'my/gitlab--report "Approved" n)))))
+    # Outside ~with-eval-after-load~, unlike everything above it. The commands above
+    # act on the topic under point, so forge is loaded by the time any of them can be
+    # reached; this one is the way in, pressed from wherever you happen to be, and a
+    # command that does not exist until forge loads is not a command -- Emacs says so
+    # in as many words: /Wrong type argument: commandp/. It requires forge itself
+    # instead.
 
-      (defun my/gitlab-unapprove-mr ()
-        "Withdraw your approval of the GitLab merge request at point."
-        (interactive)
-        (let* ((mr (my/forge--gitlab-mr t))
-               (n (oref mr number)))
-          (when (y-or-n-p (format "Withdraw approval of !%s? " n))
-            (forge--glab-post mr "/projects/:project/merge_requests/:number/unapprove" nil
-              :callback (apply-partially #'my/gitlab--report "Unapproved" n))))))
+    # forge's own reader asks ~forge-get-repository~ for a *tracked* repository and
+    # errors when there is none, which is exactly the situation a global entry point
+    # starts from. So it is used only when it can be: inside a tracked repository you
+    # get completion over the members, and anywhere else a plain prompt. The answer
+    # is kept for the session either way, and a prefix argument asks again.
+
+    # The username is never written down. It is an account name and this repository
+    # is public.
+
+
+    (defvar my/gitlab-reviewer nil
+          "GitLab username to treat as \"me\" when listing review requests.")
+
+        (defun my/gitlab-list-my-reviews (&optional reread)
+          "List open merge requests across tracked repositories awaiting my review.
+        With a prefix argument REREAD, ask for the username again.
+
+        Reads forge's database rather than the API, so a repository appears only
+        once it is tracked and pulled -- `forge-add-repository' then `forge-pull'.
+        That is the trade for the rest working: topics here open with
+        `forge-topic-menu', where the diff and approval commands above live."
+          (interactive "P")
+          (require 'forge)
+          (when (or reread (not my/gitlab-reviewer))
+            (setq my/gitlab-reviewer
+                  (if (forge-get-repository :tracked?)
+                      (forge--read-filter-by-user "Review requests for")
+                    (read-string "Review requests for (GitLab username): "))))
+          (forge-topics-setup-buffer nil nil
+                                     :global t
+                                     :type 'pullreq
+                                     :active t
+                                     :reviewer my/gitlab-reviewer)
+          (transient-setup 'forge-topics-menu))
   '';
 }

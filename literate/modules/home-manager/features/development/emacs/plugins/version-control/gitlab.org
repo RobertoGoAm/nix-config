@@ -87,30 +87,6 @@ there is no second credential to keep in step.
         "Say that NUMBER was VERB'd. The callback for the two commands below."
         (message "%s !%s" verb number))
 
-      (defvar my/gitlab-reviewer nil
-        "GitLab username to treat as \"me\" when listing review requests.
-    Asked for once per session rather than configured: it is an account name,
-    and this repository is public.")
-
-      (defun my/gitlab-list-my-reviews (&optional reread)
-        "List open merge requests across tracked repositories awaiting my review.
-    With a prefix argument REREAD, ask for the username again.
-
-    forge reads its own database rather than the API here, so a repository only
-    appears once it is tracked and has been pulled -- `forge-add-repository'
-    then `forge-pull'. That is the trade for the rest of it working: the topics
-    in this list open with `forge-topic-menu', which is where the diff and the
-    approval commands above already live."
-        (interactive "P")
-        (when (or reread (not my/gitlab-reviewer))
-          (setq my/gitlab-reviewer (forge--read-filter-by-user "Review requests for")))
-        (forge-topics-setup-buffer nil nil
-                                   :global t
-                                   :type 'pullreq
-                                   :active t
-                                   :reviewer my/gitlab-reviewer)
-        (transient-setup 'forge-topics-menu))
-
       (defun my/gitlab-approve-mr ()
         "Approve the GitLab merge request at point."
         (interactive)
@@ -128,6 +104,51 @@ there is no second credential to keep in step.
           (when (y-or-n-p (format "Withdraw approval of !%s? " n))
             (forge--glab-post mr "/projects/:project/merge_requests/:number/unapprove" nil
               :callback (apply-partially #'my/gitlab--report "Unapproved" n))))))
+#+end_src
+
+* Listing the merge requests waiting on me
+
+Outside ~with-eval-after-load~, unlike everything above it. The commands above
+act on the topic under point, so forge is loaded by the time any of them can be
+reached; this one is the way in, pressed from wherever you happen to be, and a
+command that does not exist until forge loads is not a command -- Emacs says so
+in as many words: /Wrong type argument: commandp/. It requires forge itself
+instead.
+
+forge's own reader asks ~forge-get-repository~ for a *tracked* repository and
+errors when there is none, which is exactly the situation a global entry point
+starts from. So it is used only when it can be: inside a tracked repository you
+get completion over the members, and anywhere else a plain prompt. The answer
+is kept for the session either way, and a prefix argument asks again.
+
+The username is never written down. It is an account name and this repository
+is public.
+
+#+begin_src nix
+    (defvar my/gitlab-reviewer nil
+      "GitLab username to treat as \"me\" when listing review requests.")
+
+    (defun my/gitlab-list-my-reviews (&optional reread)
+      "List open merge requests across tracked repositories awaiting my review.
+    With a prefix argument REREAD, ask for the username again.
+
+    Reads forge's database rather than the API, so a repository appears only
+    once it is tracked and pulled -- `forge-add-repository' then `forge-pull'.
+    That is the trade for the rest working: topics here open with
+    `forge-topic-menu', where the diff and approval commands above live."
+      (interactive "P")
+      (require 'forge)
+      (when (or reread (not my/gitlab-reviewer))
+        (setq my/gitlab-reviewer
+              (if (forge-get-repository :tracked?)
+                  (forge--read-filter-by-user "Review requests for")
+                (read-string "Review requests for (GitLab username): "))))
+      (forge-topics-setup-buffer nil nil
+                                 :global t
+                                 :type 'pullreq
+                                 :active t
+                                 :reviewer my/gitlab-reviewer)
+      (transient-setup 'forge-topics-menu))
   '';
 }
 #+end_src
