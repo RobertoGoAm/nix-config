@@ -46,6 +46,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   neovim = import ./neovim.nix;
 #+end_src
 
+* posthog: skip one timing-dependent test that fails the build
+
+#+begin_src nix
+  posthog = import ./posthog.nix;
+#+end_src
+
 * spotify-ctl: Web API now-playing and controls for the menu bar
 
 #+begin_src nix
