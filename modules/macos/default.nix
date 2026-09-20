@@ -206,6 +206,7 @@
         outputs.overlays.spotify-ctl
         outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
+        outputs.overlays.posthog
         outputs.overlays.warpd
       ];
       config = {

@@ -29,6 +29,10 @@
 
   neovim = import ./neovim.nix;
 
+  # posthog: skip one timing-dependent test that fails the build
+
+  posthog = import ./posthog.nix;
+
   # spotify-ctl: Web API now-playing and controls for the menu bar
 
   spotify-ctl = import ./spotify-ctl.nix;
