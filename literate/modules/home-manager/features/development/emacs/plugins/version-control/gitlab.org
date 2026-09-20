@@ -104,27 +104,23 @@ there is no second credential to keep in step.
           (when (y-or-n-p (format "Withdraw approval of !%s? " n))
             (forge--glab-post mr "/projects/:project/merge_requests/:number/unapprove" nil
               :callback (apply-partially #'my/gitlab--report "Unapproved" n))))))
-#+end_src
 
-* Listing the merge requests waiting on me
+    ;;; Listing the merge requests waiting on me.
+    ;;
+    ;; Outside `with-eval-after-load', unlike everything above. Those act on the
+    ;; topic under point, so forge is loaded by the time any of them can be
+    ;; reached; this one is the way in, pressed from wherever you happen to be,
+    ;; and a command that does not exist until forge loads is not a command --
+    ;; Emacs says so in as many words: "Wrong type argument: commandp".
+    ;;
+    ;; forge's own reader asks `forge-get-repository' for a *tracked* repository
+    ;; and errors when there is none, which is exactly where a global entry
+    ;; point is invoked from. So it is used only where it works: inside a
+    ;; tracked repository you get completion over the members, anywhere else a
+    ;; plain prompt. The answer is kept for the session, and a prefix argument
+    ;; asks again. It is never written down -- an account name, in a public
+    ;; repository.
 
-Outside ~with-eval-after-load~, unlike everything above it. The commands above
-act on the topic under point, so forge is loaded by the time any of them can be
-reached; this one is the way in, pressed from wherever you happen to be, and a
-command that does not exist until forge loads is not a command -- Emacs says so
-in as many words: /Wrong type argument: commandp/. It requires forge itself
-instead.
-
-forge's own reader asks ~forge-get-repository~ for a *tracked* repository and
-errors when there is none, which is exactly the situation a global entry point
-starts from. So it is used only when it can be: inside a tracked repository you
-get completion over the members, and anywhere else a plain prompt. The answer
-is kept for the session either way, and a prefix argument asks again.
-
-The username is never written down. It is an account name and this repository
-is public.
-
-#+begin_src nix
     (defvar my/gitlab-reviewer nil
       "GitLab username to treat as \"me\" when listing review requests.")
 
