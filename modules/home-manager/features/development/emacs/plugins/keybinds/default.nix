@@ -206,6 +206,7 @@
       "gC" '(forge-create-post :which-key "comment on MR/issue")
       "gM" '(my/forge-mr-diff :which-key "review MR diff")
       "gU" '(my/gitlab-unapprove-mr :which-key "unapprove MR (gitlab)")
+      "gR" '(my/gitlab-list-my-reviews :which-key "MRs awaiting my review")
       "gg" '(magit-status :which-key "status")
       "gh" '(my/git-toggle-blame :which-key "highlight hunks")
       "gH" '(diff-hl-show-hunk :which-key "preview hunk")

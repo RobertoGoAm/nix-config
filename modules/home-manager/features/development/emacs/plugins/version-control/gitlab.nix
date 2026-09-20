@@ -83,6 +83,30 @@
         "Say that NUMBER was VERB'd. The callback for the two commands below."
         (message "%s !%s" verb number))
 
+      (defvar my/gitlab-reviewer nil
+        "GitLab username to treat as \"me\" when listing review requests.
+    Asked for once per session rather than configured: it is an account name,
+    and this repository is public.")
+
+      (defun my/gitlab-list-my-reviews (&optional reread)
+        "List open merge requests across tracked repositories awaiting my review.
+    With a prefix argument REREAD, ask for the username again.
+
+    forge reads its own database rather than the API here, so a repository only
+    appears once it is tracked and has been pulled -- `forge-add-repository'
+    then `forge-pull'. That is the trade for the rest of it working: the topics
+    in this list open with `forge-topic-menu', which is where the diff and the
+    approval commands above already live."
+        (interactive "P")
+        (when (or reread (not my/gitlab-reviewer))
+          (setq my/gitlab-reviewer (forge--read-filter-by-user "Review requests for")))
+        (forge-topics-setup-buffer nil nil
+                                   :global t
+                                   :type 'pullreq
+                                   :active t
+                                   :reviewer my/gitlab-reviewer)
+        (transient-setup 'forge-topics-menu))
+
       (defun my/gitlab-approve-mr ()
         "Approve the GitLab merge request at point."
         (interactive)
