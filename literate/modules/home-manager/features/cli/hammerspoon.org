@@ -119,6 +119,19 @@ nothing is listening, so the key works before the agent is up. The profile path
 rather than the bare name, because by name LaunchServices has picked a stale
 Emacs out of an old generation before.
 
+=alt-g= gathers. Zen lives on Media and Obsidian on Productivity, which is
+right until the moment you want to read one of them beside what you are
+working on. =summon-right= brings a window to the current workspace from
+wherever it is -- =assignToWorkspace= is applied when a window opens, not
+continuously, so nothing drags it back -- and =rule apply= re-applies the
+rules to send it home again, which is why no workspace number appears below.
+
+The layout has to move with them. These workspaces are niri with
+=visibleContainerCount = 1=, so gathered windows become more full-width
+columns in the scroll and only one is ever on screen; dwindle tiles them
+instead. That is per-workspace and reversible, and =alt-shift-l= is the same
+toggle by hand.
+
 #+begin_src nix
   home.file.".hammerspoon/apps.lua".text = ''
     local EMACSCLIENT = "/etc/profiles/per-user/${config.home.username}/bin/emacsclient";
@@ -145,6 +158,53 @@ Emacs out of an old generation before.
         hs.application.launchOrFocusByBundleID("app.zen-browser.zen")
       end)
     end)
+
+    local OMNIWMCTL =
+      "${config.programs.omniwm.package}/Applications/OmniWM.app/Contents/MacOS/omniwmctl"
+
+    -- The apps alt-g fetches, by bundle id.
+    local GATHER = {
+      ["app.zen-browser.zen"] = true,
+      ["md.obsidian"] = true,
+    }
+
+    local function omni(args)
+      return hs.execute(OMNIWMCTL .. " " .. args)
+    end
+
+    local function query(what)
+      local ok, decoded = pcall(hs.json.decode, omni("query " .. what .. " --format json"))
+      if not ok or type(decoded) ~= "table" then return nil end
+      local result = decoded.result or {}
+      return result.payload
+    end
+
+    local function toggleGather()
+      local active = query("active-workspace")
+      local here = active and active.workspace and active.workspace.displayName
+      local windows = query("windows")
+      if not here or not windows or not windows.windows then return end
+
+      -- Away if any of them is somewhere else: the press that finds one out of
+      -- place is fetching, not sending back.
+      local targets, away = {}, false
+      for _, w in ipairs(windows.windows) do
+        if w.app and GATHER[w.app.bundleId] then
+          table.insert(targets, w.id)
+          if not (w.workspace and w.workspace.displayName == here) then
+            away = true
+          end
+        end
+      end
+      if #targets == 0 then return end
+
+      for _, id in ipairs(targets) do
+        omni(away and ("window summon-right " .. id) or ("rule apply --window " .. id))
+      end
+      omni("command set-workspace-layout " .. (away and "dwindle" or "niri"))
+    end
+
+    hs.hotkey.bind({ "alt" }, "g", toggleGather)
   '';
 }
 #+end_src
