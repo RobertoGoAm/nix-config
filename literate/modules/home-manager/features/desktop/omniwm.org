@@ -32,13 +32,13 @@ manager simply does not manage anything.
   };
 #+end_src
 
-* The settings file is OmniWM's own, with three edits
+* The settings file is OmniWM's own, with a few deliberate edits
 
 Not a file written from scratch. OmniWM's README documents its behaviour and
 its GUI rather than the key names, and a key invented against those does not
 fail -- it is ignored, and the setting silently does not apply. What is tracked
 here is the file OmniWM itself wrote on its first run, which is the schema
-exactly as it round-trips, with three deliberate changes on top. The path form
+exactly as it round-trips, with the deliberate changes below on top. The path form
 is what upstream recommends for this, and the module re-links it on every
 switch because OmniWM replaces the link with a regular file whenever its GUI
 saves.
@@ -61,6 +61,14 @@ aerospace ran ten inner and ten outer; OmniWM's own default is sixteen inner
 and none outer. This keeps the spacing that was there before rather than the
 one that came with the new manager.
 
+** Empty workspaces off the bar
+
+=hideEmptyWorkspaces= ships =false=, so the bar drew all five workspaces
+whether or not anything was on them, and "Main" sat there empty for most of a
+day. On, the bar lists only the workspaces that have windows. They all still
+exist -- =Option+1..9= still switches to any of them -- they are only left
+out of the bar until something lands there.
+
 ** The CLI needs the socket
 
 =ipcEnabled= ships =false=, and with it off =omniwmctl ping= answers "No such
@@ -82,7 +90,7 @@ that one value with "4" and re-applying the rule moved the window
 immediately, which is how the two were told apart.
 
 So the rules below read 1 to 5, and the mapping is the workspace list further
-down: 1 Main, 2 Code, 3 Work, 4 Media, 5 Misc.
+down: 1 Main, 2 Code, 3 Work, 4 Media, 5 Productivity.
 
 ** Copied, not linked
 
