@@ -374,6 +374,9 @@ mean the same thing in a magit buffer as in a source file.
       "os" '(my/sql-postgres :which-key "postgres")
       "oS" '(my/sonar-scan :which-key "sonar scan")
       "ot" '(telega :which-key "telegram")
+      ;; sLack and dIscord: s and d are taken by postgres and docker.
+      "ol" '(my/slack :which-key "slack")
+      "oi" '(my/discord :which-key "discord")
 
       ;; projects
       "p"  '(:ignore t :which-key "projects")

@@ -579,8 +579,67 @@ in
                              telega--on-updateUnreadMessageCount))
             (advice-add handler :after #'my/status-repaint)))
 
+        ;; Slack and Discord, on the Telegram pattern, with one difference: both are
+        ;; opened on purpose rather than started at login (see plugins/social), so
+        ;; each badge also says whether it is running at all. A dash means "not
+        ;; connected", which is a different thing from nothing to read.
+        ;;
+        ;; Slack's number is the one on Slack's own red badge -- mentions, DMs and
+        ;; thread replies -- not unread channels. On a workspace the size of
+        ;; OWASP's there is always an unread channel, and a badge that never reaches
+        ;; zero is one you stop reading.
+        ;;
+        ;; emacs-slack keeps these counts itself and sends every change through
+        ;; `slack-update-modeline', whatever it then does with its own string --
+        ;; which, like telega's, goes to a slot this modeline never draws. The
+        ;; number is taken there and cached, so the segment only reads a variable,
+        ;; as every segment in this file must.
+        ;;
+        ;; With slack-modeline-count-only-subscribed-channel on, the default, that
+        ;; total covers only the channels listed at registration -- which leaves
+        ;; out DMs and every mention elsewhere. Off, it counts them all.
+        (setq slack-modeline-count-only-subscribed-channel nil)
+
+        (defvar my/status-slack-count 0
+          "Slack mentions, DMs and thread replies. Written by `my/status-slack-update'.")
+
+        (defun my/status-slack-update (&rest _)
+          "Recount Slack's attention badge from emacs-slack's counts, then repaint."
+          (setq my/status-slack-count
+                (let ((n 0))
+                  (dolist (team (slack-team-connected-list) n)
+                    (let ((summary (slack-team-counts-summary team)))
+                      (setq n (+ n
+                                 (or (cddr (assq 'thread summary)) 0)
+                                 (or (cddr (assq 'channel summary)) 0)))))))
+          (my/status-repaint))
+
+        (with-eval-after-load 'slack
+          (advice-add 'slack-update-modeline :after #'my/status-slack-update)
+          (advice-add 'slack-stop :after #'my/status-slack-update))
+
+        (defun my/status--offline (glyph)
+          "GLYPH with a dash, dimmed: that client is not running."
+          (propertize (format "%s -" glyph) 'face 'shadow))
+
+        (defun my/status-slack ()
+          "Slack's attention count while a workspace is connected, a dash otherwise."
+          (let ((glyph (string #xF04B1)))   ; nf-md-slack
+            (if (and (featurep 'slack) (slack-team-connected-list))
+                (my/status-count glyph my/status-slack-count 'warning)
+              (my/status--offline glyph))))
+
+        (defun my/status-discord ()
+          "Discord mentions since you last looked, a dash when discordo is not running.
+        Counted in plugins/social, from the notifications discordo writes into its
+        terminal."
+          (let ((glyph (string #xF066F)))   ; nf-md-discord
+            (if (and (fboundp 'my/discord-running-p) (my/discord-running-p))
+                (my/status-count glyph (or (bound-and-true-p my/discord-pings) 0) 'warning)
+              (my/status--offline glyph))))
+
         (defun my/status-string ()
-          "The ambient status: unread mail, unread Telegram, then the track.
+          "The ambient status: unread mail, the chat apps, Claude, then the track.
 
         Counts first and always drawn, zero included. They are two glyphs and a
         small number, so they hold their position; the track is a variable-width
@@ -591,6 +650,8 @@ in
            (delq nil
                  (list (my/status-count "✉" my/status-mail-count 'success)
                        (my/status-telega)
+                       (my/status-slack)
+                       (my/status-discord)
                        (my/status-claude)
                        (unless (string-empty-p my/status-music)
                          (propertize my/status-music 'face 'shadow))))

@@ -324,6 +324,14 @@ state, so `vi{` and `di{` still work while `vn` and `dn` move.
   in the same file, or `$ANTHROPIC_API_KEY`. `claude-code.el` needs nothing; it drives
   the `claude` CLI, which already has its own auth.
 - **telega** (Telegram) — `M-x telega`, then phone number and login code once.
+- **slack** (emacs-slack) — `SPC o l`. Each workspace in `my/slack-teams` needs the
+  browser session's token and cookie in `~/.authinfo.gpg`:
+  `machine owasp.slack.com login token password xoxc-…` and
+  `machine owasp.slack.com login cookie password "xoxd-…; d-s=…; lc=…"`.
+  `M-x describe-variable RET slack-refresh-token-instructions` says where to find both.
+- **discord** (discordo, inside vterm) — `SPC o i`, then *Login with QR* and scan it with
+  the Discord phone app; the token is kept in the macOS Keychain. Third-party clients
+  break Discord's terms, so use an account you can afford to lose.
 - **sqls** (SQL completion against a live schema) — connections go in
   `~/.config/sqls/config.yaml`; `SPC o s` reads `$DATABASE_URL` or `~/.pgpass`.
 
