@@ -96,6 +96,23 @@ and writes the document.
         "ransomwhere"
 #+end_src
 
+* Web security testing
+
+Burp Suite Community, for the web-security roadmap. A cask rather than
+nixpkgs' burpsuite, which wraps the jar: this is PortSwigger's own app with its
+built-in browser, which is what the Web Security Academy labs assume. The
+command-line tools that go with it are in features/security/appsec.
+
+ZAP is not here, and not for want of trying. Homebrew disabled the =zap=
+cask on 2026-09-01 because the app does not pass the macOS Gatekeeper check,
+and a disabled cask fails =brew bundle= outright -- which aborts the rest of
+the activation with it, home-manager included. nixpkgs' zap does not build on
+darwin either. ZAP runs as a container instead; see features/security/appsec.
+
+#+begin_src nix
+        "burp-suite"
+#+end_src
+
 * Social
 
 Telegram for macOS, the AppKit client. nixpkgs has no package for it
