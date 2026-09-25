@@ -1,0 +1,82 @@
+#+TITLE: security appsec
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* The tools the web-security learning path asks for
+
+The command-line half of the web application security roadmap: what its
+Breaker phases (P2 onward) and its Builder phase (P4B) call for, installed
+once rather than one =nix shell= at a time.
+
+Imported by prometheus alone, not through features/security/default.nix:
+SecLists and CodeQL come to about three and a half gigabytes between them,
+which no other host has a use for.
+
+Three things the roadmap uses are deliberately not in this file:
+
+- Burp Suite Community is a Homebrew cask, in macos/prometheus/casks: the
+  official app with PortSwigger's built-in browser, which is what the Web
+  Security Academy labs assume.
+- ZAP runs from its official container image rather than as an app: Homebrew
+  disabled its cask in September 2026 because the app fails the macOS
+  Gatekeeper check, and nixpkgs' zap does not build on darwin. The image is
+  also how the Builder track uses ZAP in CI.
+- semgrep, trivy and gitleaks are already installed by features/development.
+- OWASP Juice Shop and the other vulnerable-by-design apps run as containers
+  under OrbStack and are pulled on first run, so there is nothing to install.
+
+Everything here is for your own labs, training platforms and targets you are
+authorised to test. The roadmap's notes on the legal line apply to each of them.
+
+#+begin_src nix
+{ pkgs, ... }:
+{
+  home.packages = with pkgs; [
+#+end_src
+
+* Breaker: discovery, scanning and injection (P2 to P3)
+
+ffuf for content discovery, nuclei for template-driven checks, and sqlmap for
+confirming an injection you have already understood by hand -- the roadmap's
+order is labs first, tools second. SecLists is the wordlist collection the
+first two read from.
+
+nuclei fetches its template collection into ~/nuclei-templates the first time
+it runs. That download is nuclei's own, not Nix's.
+
+#+begin_src nix
+    ffuf
+    nuclei
+    sqlmap
+    seclists
+#+end_src
+
+* Builder: dependencies, secrets and code analysis (P4B)
+
+osv-scanner checks dependencies against the OSV database. trufflehog and
+betterleaks look for secrets -- betterleaks being the successor gitleaks' own
+authors point to, now that gitleaks is feature-frozen. CodeQL runs queries over
+a whole codebase.
+
+CodeQL is unfree, which the flake's allowUnfree already covers. Its terms allow
+it on open-source code and for research, which is how the roadmap uses it;
+running it over an employer's private code needs a GitHub Advanced Security
+licence.
+
+#+begin_src nix
+    osv-scanner
+    trufflehog
+    betterleaks
+    codeql
+  ];
+#+end_src
+
+* SecLists at a stable path
+
+The wordlists live in the store, at a path that changes with every version.
+$SECLISTS always names the current one, so a wordlist is spelled the same way
+every time: =-w "$SECLISTS/Discovery/Web-Content/common.txt"=.
+
+#+begin_src nix
+  home.sessionVariables.SECLISTS = "${pkgs.seclists}/share/wordlists/seclists";
+}
+#+end_src

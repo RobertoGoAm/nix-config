@@ -50,6 +50,7 @@
     ./packages.nix
     ../../features/cli
     ../../features/security
+    ../../features/security/appsec.nix
     ../../features/cli/iterm2.nix
     ../../features/cli/k9s.nix
     ../../features/development
