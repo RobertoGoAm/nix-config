@@ -1,0 +1,32 @@
+#+TITLE: overlays semgrep
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* semgrep pins pyjwt tighter than nixpkgs carries it
+
+semgrep 1.172.0 asks for =pyjwt~=2.13.0=, which means < 2.14, and nixpkgs
+ships 2.14.0. Nothing is broken at runtime; the build stops at
+=pythonRuntimeDepsCheckHook=, which compares the wheel's declared metadata
+against what is actually in the closure:
+
+  - pyjwt~=2.13.0 not satisfied by version 2.14.0
+
+A failure there takes the whole profile down with it -- home-manager-path ->
+user-environment -> darwin-system -- so a version constraint one minor release
+out of date stops the machine from rebuilding at all.
+
+=pythonRelaxDeps= is the mechanism nixpkgs itself uses for this, and semgrep's
+derivation already lists ten packages under it. This appends an eleventh
+rather than relaxing every dependency or turning the check off, so every other
+constraint is still enforced; when upstream widens the pin, the only cost of
+leaving this here is an entry that no longer matches anything.
+
+#+begin_src nix
+final: prev: {
+  semgrep = prev.semgrep.overridePythonAttrs (old: {
+    pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [
+      "pyjwt"
+    ];
+  });
+}
+#+end_src
