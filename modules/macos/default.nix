@@ -207,6 +207,7 @@
         outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
         outputs.overlays.posthog
+        outputs.overlays.semgrep
         outputs.overlays.warpd
       ];
       config = {

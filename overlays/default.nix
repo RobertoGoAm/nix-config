@@ -19,6 +19,10 @@
 
   checkov = import ./checkov.nix;
 
+  # semgrep: relax a pyjwt pin one minor release behind nixpkgs
+
+  semgrep = import ./semgrep.nix;
+
   # lit-tangle: regenerates this repo's .nix from the literate org...
 
   # lit-tangle: regenerates this repo's .nix from the literate org sources.
