@@ -64,7 +64,18 @@ in
     # mkBefore because the cookie is only honoured on the very first line.
     # mkOrder 0, not mkBefore: another module already claims mkBefore (500),
     # and the cookie is only honoured on the very first line of the file.
-    extraConfig = lib.mkOrder 0 ";;; -*- lexical-binding: t; -*-\n";
+    extraConfig = lib.mkMerge [
+      (lib.mkOrder 0 ";;; -*- lexical-binding: t; -*-\n")
+      (lib.mkAfter ''
+        ;; Read private settings at runtime, keeping them out of the Nix store.
+        (let ((private-init (expand-file-name "~/.config/nix-secrets/emacs/init.el")))
+          (when (file-readable-p private-init)
+            (condition-case err
+                (load private-init nil :nomessage)
+              (error (display-warning 'private-init
+                                      (error-message-string err) :warning)))))
+      '')
+    ];
   };
 
   # A daemon under launchd (macOS) / systemd (Linux) is what makes...
