@@ -226,6 +226,31 @@ of stealing focus for the instant it is frontmost.
           telega-chat-fill-column 80
           telega-completing-read-function #'completing-read)
 
+    ;; Who was online when, appended a line at a time to a file per day.
+    ;;
+    ;; Not under telega-directory, which is where the contrib module puts it by
+    ;; default: ~/.telega is cache, thumbnails and a TDLib binlog, and restic
+    ;; covers none of it. This is the one thing telega produces that cannot be
+    ;; fetched again, so it goes under .config, which is backed up.
+    ;;
+    ;; Required inside the eval-after-load rather than at init: the module
+    ;; starts with (require 'telega), so asking for it any earlier would pull
+    ;; the whole client in before a frame exists -- which is the thing the
+    ;; autoload below is arranged to avoid.
+    ;;
+    ;; The directory is made here, with parents. The mode makes its own on
+    ;; activation, but with a bare `mkdir' wrapped in `ignore-errors', so a
+    ;; missing ~/.config/telega would leave it with nowhere to write and
+    ;; nothing said about it.
+    (with-eval-after-load 'telega
+      (require 'telega-status-history)
+      (setq telega-status-history-logs-dir
+            (expand-file-name "telega/online-history"
+                              (or (getenv "XDG_CONFIG_HOME")
+                                  (expand-file-name "~/.config"))))
+      (make-directory telega-status-history-logs-dir t)
+      (telega-status-history-mode 1))
+
     ;; Connected from the first frame, rather than when you remember to open it.
     ;;
     ;; The autoload above stays exactly as it is: nothing here loads telega at
