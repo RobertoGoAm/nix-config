@@ -371,6 +371,8 @@
       ;; sLack and dIscord: s and d are taken by postgres and docker.
       "ol" '(my/slack :which-key "slack")
       "oi" '(my/discord :which-key "discord")
+      ;; matRix: m is google meet, and oX next door stops a devcontainer.
+      "or" '(my/matrix :which-key "matrix")
 
       ;; projects
       "p"  '(:ignore t :which-key "projects")
