@@ -11,6 +11,7 @@
     epkgs: with epkgs; [
       telega
       slack
+      ement
     ];
 
   # telega renders the login QR code by shelling out to qrencode....
@@ -518,5 +519,53 @@
 
     (add-hook 'window-selection-change-functions #'my/discord--seen)
     (add-hook 'window-buffer-change-functions #'my/discord--seen)
+
+    ;;; Matrix -- ement.el, and the client half of the bridge plan. mautrix-discord
+    ;;; and mautrix-slack put both networks into one Matrix account, and this is
+    ;;; what would read it. Until a homeserver exists it is only a Matrix client,
+    ;;; which is the point: whether ement is pleasant to live in decides whether
+    ;;; the rest is worth building, and that is a cheap question to answer.
+
+    ;; Declared before they are assigned. ement is reached through its autoloads,
+    ;; so this file is byte-compiled long before the package is loaded, and
+    ;; setting a name the compiler has not seen is an assignment to a free
+    ;; variable.
+    (defvar ement-save-sessions)
+    (defvar ement-sessions-file)
+
+    ;; Connecting writes an access token to this file, which makes it a
+    ;; credential: it sits with the rest of the session state, and nothing about
+    ;; the account is declared here. The first connection is interactive and
+    ;; every one after it is not.
+    (setq ement-save-sessions t
+          ement-sessions-file (expand-file-name "ement-sessions.el" user-emacs-directory))
+
+    ;; ement notifies through `notifications-notify', which is D-Bus and so is
+    ;; simply absent here. Every other notification in this config goes through
+    ;; `my/notify'; this one joins them rather than being lost.
+    (defun my/ement-notify (event room &rest _)
+      "Post EVENT in ROOM through the notifier the rest of this config uses."
+      (require 'map)
+      (let ((body (map-elt (ement-event-content event) 'body))
+            (sender (ement--user-displayname-in room (ement-event-sender event)))
+            (room-name (or (ement-room-display-name room) "Matrix")))
+        (when (stringp body)
+          (my/notify (format "%s in %s" sender room-name) body))))
+
+    (with-eval-after-load 'ement-notify
+      (advice-add 'ement-notify--notifications-notify
+                  :override #'my/ement-notify))
+
+    ;; `ement-room-list' is not among ement's autoloads -- only an alias to it
+    ;; is, which resolves to nothing until the file is loaded -- so it is asked
+    ;; for by name. Requiring ement alone is enough for `ement-notify' above,
+    ;; which ement pulls in itself.
+    (defun my/matrix ()
+      "Open the Matrix room list, connecting first when there is no session."
+      (interactive)
+      (require 'ement-room-list)
+      (if ement-sessions
+          (ement-room-list)
+        (call-interactively #'ement-connect)))
   '';
 }
