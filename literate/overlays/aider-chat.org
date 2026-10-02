@@ -1,0 +1,39 @@
+#+TITLE: overlays aider-chat
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* aider's exception list is one litellm release behind
+
+=LiteLLMExceptions._load= walks =dir(litellm)=, and raises on the first name
+ending in =Error= that aider does not already know:
+
+  ValueError: VectorStoreSearchError is in litellm but not in aider's exceptions list
+
+Not cosmetic, which is why this is fixed rather than skipped. The signature
+reads =_load(self, strict=False)= and only the tests pass =strict=True=, so
+the 25 failures look test-shaped; but nothing in the body consults =strict=,
+the =raise= is unconditional, and =LiteLLMExceptions()= is constructed in
+=base_coder.py= and =models.py= on the path that sends a message. Skipping the
+tests would have shipped an aider that throws as soon as it is used.
+
+nixpkgs is already chasing this -- it carries
+=add-new-exceptions-to-LiteLLMExceptions.patch= and
+=add-permission-denied-error-to-litellm-exceptions.patch=, which between them
+cover BadGateway, ImageFetch and PermissionDenied, and skip =ErrorEventError=,
+a class litellm exports that is a model rather than an exception. Against
+litellm 1.102.1 that leaves exactly one name unaccounted for, so this adds one
+line and leaves the rest to them.
+
+Anchored on =EXCEPTIONS = [=, which those patches do not touch. Position in
+the list carries no meaning; the entries are read into a dict.
+
+#+begin_src nix
+final: prev: {
+  aider-chat = prev.aider-chat.overridePythonAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      substituteInPlace aider/exceptions.py --replace-fail 'EXCEPTIONS = [' 'EXCEPTIONS = [
+      ExInfo("VectorStoreSearchError", False, None),'
+    '';
+  });
+}
+#+end_src

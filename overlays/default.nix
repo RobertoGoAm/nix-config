@@ -23,6 +23,10 @@
 
   semgrep = import ./semgrep.nix;
 
+  # aider-chat: name the litellm errors its exception list is missing
+
+  aider-chat = import ./aider-chat.nix;
+
   # lit-tangle: regenerates this repo's .nix from the literate org...
 
   # lit-tangle: regenerates this repo's .nix from the literate org sources.
