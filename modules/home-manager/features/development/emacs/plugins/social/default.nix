@@ -562,8 +562,18 @@
     ;; credential: it sits with the rest of the session state, and nothing about
     ;; the account is declared here. The first connection is interactive and
     ;; every one after it is not.
-    (setq ement-save-sessions t
-          ement-sessions-file (expand-file-name "ement-sessions.el" user-emacs-directory))
+    ;;
+    ;; `customize-set-variable' after the load, rather than `setq' before it.
+    ;; `ement-save-sessions' carries a :set that installs
+    ;; `ement--kill-emacs-hook', and that hook is the whole mechanism: the file
+    ;; is written when Emacs is killed, not when you log in. Assigning the
+    ;; variable any other way raises the flag, skips the setter, and saves
+    ;; nothing -- with no error to say so, since logging in works either way and
+    ;; only the next start is different.
+    (with-eval-after-load 'ement
+      (setq ement-sessions-file
+            (expand-file-name "ement-sessions.el" user-emacs-directory))
+      (customize-set-variable 'ement-save-sessions t))
 
     ;; ement notifies through `notifications-notify', which is D-Bus and so is
     ;; simply absent here. Every other notification in this config goes through
