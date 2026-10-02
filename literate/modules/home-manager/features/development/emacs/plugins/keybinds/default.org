@@ -363,22 +363,14 @@ mean the same thing in a magit buffer as in a source file.
       "oe" '(my/devcontainer-shell :which-key "shell in container")
       "oX" '(my/devcontainer-down :which-key "stop container")
       "ob" '(my/browse-url-at-point :which-key "browser (in emacs)")
-      "og" '(my/open-gchat :which-key "google chat")
-      "oG" '(my/open-gmail :which-key "gmail (web)")
       "oh" '(restclient-mode :which-key "http scratchpad")
-      "oj" '(my/open-jira :which-key "jira (in emacs)")
-      "oJ" '(my/open-jira-external :which-key "jira (system browser, for SSO)")
-      "ow" '(my/open-confluence :which-key "confluence (in emacs)")
-      "om" '(my/open-meet :which-key "google meet")
-      "oM" '(my/open-meet-next :which-key "join next meeting")
       "os" '(my/sql-postgres :which-key "postgres")
       "oS" '(my/sonar-scan :which-key "sonar scan")
       "ot" '(telega :which-key "telegram")
       ;; sLack and dIscord: s and d are taken by postgres and docker.
       "ol" '(my/slack :which-key "slack")
       "oi" '(my/discord :which-key "discord")
-      ;; matRix: m is google meet, and oX next door stops a devcontainer.
-      "or" '(my/matrix :which-key "matrix")
+      "om" '(my/matrix :which-key "matrix")
 
       ;; projects
       "p"  '(:ignore t :which-key "projects")
