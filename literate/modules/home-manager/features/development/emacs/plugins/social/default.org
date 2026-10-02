@@ -566,13 +566,17 @@ of stealing focus for the instant it is frontmost.
       (advice-add 'ement-notify--notifications-notify
                   :override #'my/ement-notify))
 
-    ;; `ement-room-list' is not among ement's autoloads -- only an alias to it
-    ;; is, which resolves to nothing until the file is loaded -- so it is asked
-    ;; for by name. Requiring ement alone is enough for `ement-notify' above,
-    ;; which ement pulls in itself.
+    ;; Both, and neither is redundant. `ement-room-list' is not among ement's
+    ;; autoloads -- only an alias to it is, and that resolves to nothing until
+    ;; the file is loaded -- while `ement-sessions' is bound in ement.el and
+    ;; merely declared in ement-room-list.el, where a bodyless `defvar' marks
+    ;; the name special without giving it a value. Loading the room list alone
+    ;; leaves the variable void, which is an error on the branch below rather
+    ;; than a missing function.
     (defun my/matrix ()
       "Open the Matrix room list, connecting first when there is no session."
       (interactive)
+      (require 'ement)
       (require 'ement-room-list)
       (if ement-sessions
           (ement-room-list)
