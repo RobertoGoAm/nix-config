@@ -350,6 +350,37 @@
     ;; the name special without giving it a value. Loading the room list alone
     ;; leaves the variable void, which is an error on the branch below rather
     ;; than a missing function.
+    ;; Connected from startup, rather than when you remember to press the key.
+    ;;
+    ;; Without this ement is loaded by its autoloads, which means nothing syncs
+    ;; until SPC o m is pressed: no notifications, and a tab-bar count that is
+    ;; zero because nobody asked the server. telega has the same arrangement
+    ;; above and for the same reason.
+    ;;
+    ;; Gated on a session file, and the path is spelled out rather than read
+    ;; from `ement-sessions-file': asking ement for the variable means loading
+    ;; ement, which is the cost this avoids on a machine that has never logged
+    ;; in. The two must agree, and they are four lines apart.
+    ;;
+    ;; Never a login prompt. With no session on disk this does nothing at all,
+    ;; so a fresh machine opens a frame rather than a password prompt it did
+    ;; not ask for.
+    (defun my/ement--sessions-file ()
+      "Where the saved sessions live, without loading ement to find out."
+      (expand-file-name "ement-sessions.el" user-emacs-directory))
+
+    (defun my/ement-start-in-background ()
+      "Resume every saved Matrix session, showing nothing."
+      (when (file-exists-p (my/ement--sessions-file))
+        (require 'ement)
+        (unless ement-sessions
+          (condition-case err
+              (dolist (saved (ement--read-sessions))
+                (ement-connect :session (cdr saved)))
+            (error (display-warning 'ement (error-message-string err) :warning))))))
+
+    (add-hook 'my/startup-hook #'my/ement-start-in-background)
+
     (defun my/matrix ()
       "Open the Matrix room list, connecting first when there is no session."
       (interactive)
