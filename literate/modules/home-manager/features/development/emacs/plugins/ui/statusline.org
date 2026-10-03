@@ -585,64 +585,38 @@ the badge rather than showing an error in the modeline."
                          telega--on-updateUnreadMessageCount))
         (advice-add handler :after #'my/status-repaint)))
 
-    ;; Slack and Discord, on the Telegram pattern, with one difference: both are
-    ;; opened on purpose rather than started at login (see plugins/social), so
-    ;; each badge also says whether it is running at all. A dash means "not
-    ;; connected", which is a different thing from nothing to read.
+    ;; Matrix, on the Telegram pattern. One badge for every network behind the
+    ;; bridges rather than one per network: Slack and Discord arrive as Matrix
+    ;; rooms now, and a client that cannot tell you which bridge a room came
+    ;; from should not pretend to.
     ;;
-    ;; Slack's number is the one on Slack's own red badge -- mentions, DMs and
-    ;; thread replies -- not unread channels. On a workspace the size of
-    ;; OWASP's there is always an unread channel, and a badge that never reaches
-    ;; zero is one you stop reading.
+    ;; The count is Matrix's own. Every room carries an unread-notifications map
+    ;; the server maintains, and `notification_count' in it is what a Matrix
+    ;; client puts on its badge -- so this reads the figure rather than deriving
+    ;; one, which is what the discordo badge had to do by scraping pings out of
+    ;; terminal output.
     ;;
-    ;; emacs-slack keeps these counts itself and sends every change through
-    ;; `slack-update-modeline', whatever it then does with its own string --
-    ;; which, like telega's, goes to a slot this modeline never draws. The
-    ;; number is taken there and cached, so the segment only reads a variable,
-    ;; as every segment in this file must.
-    ;;
-    ;; With slack-modeline-count-only-subscribed-channel on, the default, that
-    ;; total covers only the channels listed at registration -- which leaves
-    ;; out DMs and every mention elsewhere. Off, it counts them all.
-    (setq slack-modeline-count-only-subscribed-channel nil)
+    ;; No offline dash. ement either has sessions or it does not, and with none
+    ;; the segment is simply a zero -- there is no equivalent of a client that
+    ;; is installed, configured and not currently running.
+    (defun my/status-matrix-count ()
+      "Unread Matrix notifications across every room of every session."
+      (if (not (bound-and-true-p ement-sessions))
+          0
+        (cl-loop for (_id . session) in ement-sessions
+                 sum (cl-loop for room in (ement-session-rooms session)
+                              sum (or (map-elt (ement-room-unread-notifications room)
+                                               'notification_count)
+                                      0)))))
 
-    (defvar my/status-slack-count 0
-      "Slack mentions, DMs and thread replies. Written by `my/status-slack-update'.")
+    (defun my/status-matrix ()
+      "Unread Matrix notifications, zero included."
+      (let ((glyph (string #xF0BA9)))   ; nf-md-matrix
+        (my/status-count glyph (my/status-matrix-count) 'warning)))
 
-    (defun my/status-slack-update (&rest _)
-      "Recount Slack's attention badge from emacs-slack's counts, then repaint."
-      (setq my/status-slack-count
-            (let ((n 0))
-              (dolist (team (slack-team-connected-list) n)
-                (let ((summary (slack-team-counts-summary team)))
-                  (setq n (+ n
-                             (or (cddr (assq 'thread summary)) 0)
-                             (or (cddr (assq 'channel summary)) 0)))))))
-      (my/status-repaint))
-
-    (with-eval-after-load 'slack
-      (advice-add 'slack-update-modeline :after #'my/status-slack-update)
-      (advice-add 'slack-stop :after #'my/status-slack-update))
-
-    (defun my/status--offline (glyph)
-      "GLYPH with a dash, dimmed: that client is not running."
-      (propertize (format "%s -" glyph) 'face 'shadow))
-
-    (defun my/status-slack ()
-      "Slack's attention count while a workspace is connected, a dash otherwise."
-      (let ((glyph (string #xF04B1)))   ; nf-md-slack
-        (if (and (featurep 'slack) (slack-team-connected-list))
-            (my/status-count glyph my/status-slack-count 'warning)
-          (my/status--offline glyph))))
-
-    (defun my/status-discord ()
-      "Discord mentions since you last looked, a dash when discordo is not running.
-    Counted in plugins/social, from the notifications discordo writes into its
-    terminal."
-      (let ((glyph (string #xF066F)))   ; nf-md-discord
-        (if (and (fboundp 'my/discord-running-p) (my/discord-running-p))
-            (my/status-count glyph (or (bound-and-true-p my/discord-pings) 0) 'warning)
-          (my/status--offline glyph))))
+    ;; Repainted when ement syncs, which is when the counts can have moved.
+    (with-eval-after-load 'ement
+      (advice-add 'ement--sync-callback :after #'my/status-repaint))
 
     (defun my/status-string ()
       "The ambient status: unread mail, the chat apps, Claude, then the track.
@@ -656,8 +630,7 @@ the badge rather than showing an error in the modeline."
        (delq nil
              (list (my/status-count "✉" my/status-mail-count 'success)
                    (my/status-telega)
-                   (my/status-slack)
-                   (my/status-discord)
+                   (my/status-matrix)
                    (my/status-claude)
                    (unless (string-empty-p my/status-music)
                      (propertize my/status-music 'face 'shadow))))
