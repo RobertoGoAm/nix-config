@@ -465,44 +465,24 @@ in
           icon = "🏠";
           container = 1;
 
-          # Chat and music as pinned tabs rather than as apps. Discord, Slack
-          # and Spotify all ship Electron desktop builds, and each one carries
-          # its own Chromium: measured here, the ones already running cost
-          # between 0.6 and 1.2 GB apiece. A pin in a browser that is open
-          # anyway is the same web app against an engine already paid for.
+          # Spotify as a pinned tab rather than as an app. It ships an Electron
+          # desktop build carrying its own Chromium, and measured here the ones
+          # already running cost between 0.6 and 1.2 GB apiece; a pin in a
+          # browser that is open anyway is the same web app against an engine
+          # already paid for.
           #
-          # Discord also has no third-party client worth running -- the native
-          # ones (Swiftcord, Accord) stopped in 2023, and a TUI in vterm never
-          # sees a notification, because discordo emits OSC 9 and vterm
-          # implements only OSC 51 and 52.
+          # Discord and Slack are not here. They are Matrix rooms now, read
+          # through ement in the frame that is open regardless -- about 50 MB
+          # on top of Emacs, against a tab each in a browser already past three
+          # gigabytes.
           routes = {
-            discord = {
-              reference = "discord.com";
-              matchType = "contains";
-            };
             spotify = {
               reference = "open.spotify.com";
-              matchType = "contains";
-            };
-
-            # The subdomain, never slack.com: the work identities are on Slack
-            # too, and a vendor-wide rule would pull them into this jar -- the
-            # same mistake atlassian.net would be, for the same reason.
-            slack-owasp = {
-              reference = "owasp.slack.com";
               matchType = "contains";
             };
           };
 
           pins = mkPins 1 [
-            {
-              title = "Discord";
-              url = "https://discord.com/channels/@me";
-            }
-            {
-              title = "Slack";
-              url = "https://owasp.slack.com";
-            }
             {
               title = "Spotify";
               url = "https://open.spotify.com";
