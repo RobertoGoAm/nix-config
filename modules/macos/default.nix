@@ -82,6 +82,9 @@
         npm_token = {
           owner = user;
         };
+        matrix_registration_token = {
+          owner = user;
+        };
         gitlab_access_token = {
           owner = user;
         };
