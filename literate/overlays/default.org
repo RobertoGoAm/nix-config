@@ -44,6 +44,12 @@
   aider-chat = import ./aider-chat.nix;
 #+end_src
 
+* python-ldap: skip one test darwin cannot fail the way it expects
+
+#+begin_src nix
+  python-ldap = import ./python-ldap.nix;
+#+end_src
+
 * lit-tangle: regenerates this repo's .nix from the literate org...
 
 lit-tangle: regenerates this repo's .nix from the literate org sources.
