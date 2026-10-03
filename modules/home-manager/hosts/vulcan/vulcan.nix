@@ -39,6 +39,7 @@
   # services being broken rather than never installed.
   targets.darwin.copyApps.enable = false;
 
+  features.services.matrix.enable = true;
   features.services.media.enable = true;
 
   features.services.reading = {
@@ -73,6 +74,7 @@
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
     ../../features/desktop/window-manager.nix
+    ../../features/services/matrix.nix
     ../../features/services/media.nix
     ../../features/services/reading.nix
   ];

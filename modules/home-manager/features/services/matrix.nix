@@ -1,0 +1,160 @@
+# Reached over the tailnet, with TLS that renews itself
+
+# =tailscale serve= terminates TLS with a real certificate for the node's
+# MagicDNS name and proxies to loopback, so the homeserver binds 127.0.0.1 and
+# Tailscale is the only route in. No Caddy, no certificate files, no renewal.
+
+# Port 8446 because this node already serves four things: 443, 8443, 8444 and
+# 8445 are taken.
+
+# The server name is =vulcan= and the client URL is
+# =https://vulcan.<tailnet>.ts.net:8446=. Those differ deliberately: the server
+# name is baked into every user ID and room ID and cannot be changed later,
+# while the URL is only how a client finds the server. Clients that cannot
+# auto-discover are told the URL; ement takes it as :uri-prefix.
+
+# Federation is off. Nothing here needs to talk to another homeserver -- the
+# bridges create their rooms locally -- and leaving it off keeps the server off
+# the public internet entirely.
+
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.features.services.matrix;
+
+  settings = pkgs.writeText "tuwunel.toml" ''
+    [global]
+    server_name = "${cfg.serverName}"
+    database_path = "/var/lib/tuwunel"
+    address = ["0.0.0.0"]
+    port = ${toString cfg.port}
+
+    # Registration is open only in the sense that it asks for a token, and the
+    # token is a sops secret mounted read-only. One account is ever created
+    # here; turning registration off afterwards costs a rebuild and is worth
+    # doing once the bridges have theirs.
+    allow_registration = true
+    registration_token_file = "/run/secrets/registration_token"
+
+    allow_federation = false
+
+    # The default is a heart emoji appended to every display name.
+    new_user_displayname_suffix = ""
+  '';
+
+  compose = pkgs.writeText "matrix-compose.yml" ''
+    services:
+      homeserver:
+        image: ghcr.io/matrix-construct/tuwunel:${cfg.imageTag}
+        restart: unless-stopped
+        # Loopback only: tailscale serve is the way in, and binding further
+        # would put a homeserver on the LAN with federation disabled and no
+        # TLS of its own.
+        ports:
+          - "127.0.0.1:${toString cfg.port}:${toString cfg.port}"
+        volumes:
+          - ${cfg.dataDir}/db:/var/lib/tuwunel
+          - ${settings}:/etc/tuwunel/tuwunel.toml:ro
+          - ${cfg.registrationTokenFile}:/run/secrets/registration_token:ro
+        environment:
+          TUWUNEL_CONFIG: /etc/tuwunel/tuwunel.toml
+  '';
+in
+{
+  options.features.services.matrix = {
+    enable = lib.mkEnableOption "the self-hosted Matrix homeserver";
+
+    serverName = lib.mkOption {
+      type = lib.types.str;
+      default = "vulcan";
+      description = ''
+        The half of every user ID after the colon. Permanent: it is written
+        into user IDs, room IDs and both bridge registrations, so changing it
+        later means a new account and re-bridging.
+      '';
+    };
+
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 6167;
+      description = "Homeserver port on loopback, behind tailscale serve.";
+    };
+
+    servePort = lib.mkOption {
+      type = lib.types.port;
+      default = 8446;
+      description = ''
+        The tailnet HTTPS port. Not 443: this node already serves something
+        there, and 8443 through 8445 are taken too.
+      '';
+    };
+
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/Library/Application Support/matrix";
+      description = "Where the homeserver database lives.";
+    };
+
+    registrationTokenFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/run/secrets/matrix_registration_token";
+      description = ''
+        A sops secret, mounted read-only into the container. Not written here:
+        this repo is public, and a registration token is a credential.
+
+        The path sops itself reports, rather than the /var/run spelling used
+        elsewhere in this config. /run is a symlink to private/var/run and
+        both resolve, but a bind mount wants the name the file is actually
+        published under.
+      '';
+    };
+
+    imageTag = lib.mkOption {
+      type = lib.types.str;
+      default = "v1.9.3";
+      description = ''
+        Pinned rather than latest. A homeserver that changes version because
+        the machine restarted is a homeserver that breaks on its own schedule.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    launchd.agents.matrix = {
+      enable = true;
+      config = {
+        ProgramArguments = [
+          "/bin/sh"
+          "-c"
+          ''
+            /bin/wait4path /nix/store &&
+            mkdir -p ${lib.escapeShellArg "${cfg.dataDir}/db"} &&
+            exec /etc/profiles/per-user/${config.home.username}/bin/docker compose \
+              --project-name matrix --file ${compose} up
+          ''
+        ];
+        RunAtLoad = true;
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/matrix.out.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/matrix.err.log";
+      };
+    };
+
+    # The serve mapping, declared rather than typed once and forgotten. It is
+    # idempotent, so re-running it on every activation costs nothing and means
+    # a machine rebuilt from this repo serves what the repo says it does.
+    home.activation.matrixServe = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      if ! run /usr/local/bin/tailscale serve --bg \
+             --https ${toString cfg.servePort} \
+             http://127.0.0.1:${toString cfg.port} 2>/dev/null; then
+        echo "matrix: could not publish the tailscale serve mapping" >&2
+      fi
+    '';
+  };
+}
