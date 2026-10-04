@@ -30,6 +30,11 @@ final: prev: {
       posthog = pyPrev.posthog.overrideAttrs (old: {
         disabledTests = (old.disabledTests or [ ]) ++ [
           "test_flush_interval"
+          # The same kind of assertion a release later, counting what a
+          # background consumer flushed rather than when: AssertionError:
+          # 5 != 2, with 3079 others passing. A builder doing several
+          # things at once is not the machine these numbers were chosen on.
+          "test_user_defined_flush_at"
         ];
       });
     })
