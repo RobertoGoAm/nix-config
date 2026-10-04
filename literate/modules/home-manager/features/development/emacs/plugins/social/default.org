@@ -351,6 +351,52 @@ of stealing focus for the instant it is frontmost.
       (advice-add 'ement-notify--notifications-notify
                   :override #'my/ement-notify))
 
+    ;; Unread counts, read the way tuwunel sends them.
+    ;;
+    ;; ement takes each sync's unread_notifications as the whole truth about a
+    ;; room: the map replaces what it had, and no map at all replaces it with
+    ;; nil. tuwunel sends less than that and means more. A count of zero is
+    ;; left out unless a receipt has just reset it, so a room arrives as
+    ;; ((notification_count . 71)) with no highlight_count; and on a round with
+    ;; nothing new for the room the map is left out altogether, since nothing
+    ;; in it changed.
+    ;;
+    ;; Taken literally, the first breaks the room list. Its Unread column calls
+    ;; `zerop' on the missing highlight count, so every refresh after a sync
+    ;; stops at that room, and the list goes on showing what it showed last --
+    ;; a room read an hour ago still listed with its unread count. The same
+    ;; error ends `ement--sync-callback' early, before the tab-bar repaint
+    ;; advised onto it in statusline.nix. The second makes rooms look read when
+    ;; they are not: a room with 101 unread on the server showed here as read.
+    ;;
+    ;; So a missing count is a zero, and a missing map is no news. Joined rooms
+    ;; only; a room left or invited to has no counts worth keeping.
+    (defun my/ement--settle-unread-counts (args)
+      "ARGS for `ement--push-joined-room-events', with counts as tuwunel means them."
+      (pcase-let* ((`(,session (,id . ,event-types) . ,rest) args)
+                   (counts
+                    (or (alist-get 'unread_notifications event-types)
+                        (and (memq (car rest) '(nil join))
+                             (when-let* ((room (cl-find (symbol-name id)
+                                                        (ement-session-rooms session)
+                                                        :key #'ement-room-id
+                                                        :test #'equal)))
+                               (ement-room-unread-notifications room))))))
+        (if counts
+            `(,session
+              (,id (unread_notifications
+                    (notification_count
+                     . ,(or (alist-get 'notification_count counts) 0))
+                    (highlight_count
+                     . ,(or (alist-get 'highlight_count counts) 0)))
+                   ,@event-types)
+              ,@rest)
+          args)))
+
+    (with-eval-after-load 'ement
+      (advice-add 'ement--push-joined-room-events
+                  :filter-args #'my/ement--settle-unread-counts))
+
     ;; Both, and neither is redundant. `ement-room-list' is not among ement's
     ;; autoloads -- only an alias to it is, and that resolves to nothing until
     ;; the file is loaded -- while `ement-sessions' is bound in ement.el and
