@@ -508,5 +508,54 @@
     (with-eval-after-load 'ement-room
       (advice-add 'ement-room-goto-fully-read-marker
                   :before-while #'my/ement--fully-read-marker-p))
+
+    ;; A room opens on what the last sync carried: ten events, and in a
+    ;; bridged room the last ten are the bridge adding members, so it opens on
+    ;; a column of joins and nothing anyone said. ement loads earlier messages
+    ;; only when asked, so here it is asked on opening, fifty events at a
+    ;; time, until the room has twenty messages to show. A page with no
+    ;; continuation, or one that adds nothing new, is the start of the room;
+    ;; ten pages is enough of a room that is all joins.
+    (defun my/ement-room-fill (room session &optional pages)
+      "Load earlier events into ROOM on SESSION until it has messages to read."
+      (let ((buffer (alist-get 'buffer (ement-room-local room)))
+            (pages (or pages 10)))
+        (when (and (buffer-live-p buffer)
+                   (> pages 0)
+                   (not (ement--space-p room))
+                   (< (cl-count "m.room.message" (ement-room-timeline room)
+                                :key #'ement-event-type :test #'equal)
+                      20))
+          (with-current-buffer buffer
+            (let ((before (length (ement-room-timeline room))))
+              (ement-room-retro room session 50
+                :buffer buffer
+                :then (lambda (data)
+                        (ement-room-retro-callback room session data)
+                        (when (and (alist-get 'end data)
+                                   (> (length (ement-room-timeline room)) before))
+                          (my/ement-room-fill room session (1- pages))))))))))
+
+    ;; Further back by moving up: reaching the first line of a room loads the
+    ;; messages before it, as scrolling up does in any other client.
+    ;; evil-collection has this behind `evil-collection-ement-want-auto-retro',
+    ;; but it answers only `previous-line' and `evil-scroll-up', and e here is
+    ;; `evil-previous-line'.
+    (defun my/ement-room-retro-at-top ()
+      "Load earlier messages once a move up has reached the first line."
+      (when (and (eq major-mode 'ement-room-mode)
+                 (memq this-command '(evil-previous-line evil-previous-visual-line
+                                      evil-scroll-up evil-scroll-page-up
+                                      evil-scroll-line-up))
+                 (= (line-beginning-position) (point-min)))
+        (call-interactively #'ement-room-retro)))
+
+    (defun my/ement-room-watch-top ()
+      "Check after every command in this room whether it reached the top."
+      (add-hook 'post-command-hook #'my/ement-room-retro-at-top nil t))
+
+    (with-eval-after-load 'ement-room
+      (add-hook 'ement-room-view-hook #'my/ement-room-fill)
+      (add-hook 'ement-room-mode-hook #'my/ement-room-watch-top))
   '';
 }
