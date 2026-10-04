@@ -94,17 +94,14 @@ machine-local sops-secrets.nix that's conditionally imported above.
         npm_token = {
           owner = user;
         };
-        # Given a path of its own, rather than the default under /run/secrets.
-        # That directory is reached through two symlinks -- /run is
-        # private/var/run, and secrets is secrets.d/<generation> -- and
-        # OrbStack's file sharing does not follow them, so a container asked to
-        # bind-mount a file there is handed a new empty directory instead and
-        # the homeserver dies on "Is a directory". The resolved path carries a
-        # generation number, so it cannot be named here either.
+        # Left at the default path, which is a symlink into the current
+        # generation's secret directory. A `path' of its own would be no
+        # different: sops-nix writes a symlink there too, which is the one
+        # thing the container consuming this cannot follow. The dereferenced
+        # copy is made by the vulcan stack at activation, beside the other
+        # config files it materialises.
         matrix_registration_token = {
           owner = user;
-          mode = "0400";
-          path = "/Users/${user}/.config/matrix-registration-token";
         };
         gitlab_access_token = {
           owner = user;
