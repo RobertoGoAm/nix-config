@@ -389,5 +389,21 @@
       (if ement-sessions
           (ement-room-list)
         (call-interactively #'ement-connect)))
+
+    ;; U for unread, the key telega already uses for it.
+    ;;
+    ;; ement puts `ement-room-list-next-unread' on SPC, which cannot work
+    ;; here: the leader lives in general's `override' keymap and that beats a
+    ;; major mode's own. The binding is not shadowed so much as unreachable,
+    ;; and nothing says so -- SPC simply opens the leader in a room list.
+    ;;
+    ;; telega's U filters the list down to unread where ement's walks to the
+    ;; next one. Different mechanics, same question being asked, so the same
+    ;; finger.
+    (with-eval-after-load 'ement-room-list
+      (define-key ement-room-list-mode-map (kbd "U") #'ement-room-list-next-unread)
+      (when (fboundp 'evil-define-key*)
+        (evil-define-key* 'normal ement-room-list-mode-map
+          (kbd "U") #'ement-room-list-next-unread)))
   '';
 }
