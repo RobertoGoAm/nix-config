@@ -311,12 +311,15 @@ of stealing focus for the instant it is frontmost.
     ;;; regardless, against 822 MB for the desktop app that reads the same
     ;;; account.
 
-    ;; Declared before they are assigned. ement is reached through its autoloads,
-    ;; so this file is byte-compiled long before the package is loaded, and
-    ;; setting a name the compiler has not seen is an assignment to a free
-    ;; variable.
+    ;; Declared before they are used. ement is reached through its autoloads,
+    ;; so this file is byte-compiled long before the package is loaded, and a
+    ;; name the compiler has not seen is a free variable whether it is set or
+    ;; read. The last three are a room buffer's own locals.
     (defvar ement-save-sessions)
     (defvar ement-sessions-file)
+    (defvar ement-room)
+    (defvar ement-session)
+    (defvar ement-room-fully-read-marker)
 
     ;; Connecting writes an access token to this file, which makes it a
     ;; credential: it sits with the rest of the session state, and nothing about
@@ -459,6 +462,60 @@ of stealing focus for the instant it is frontmost.
       (when (fboundp 'evil-define-key*)
         (evil-define-key* 'normal ement-room-list-mode-map
           (kbd "U") #'ement-room-list-next-unread)))
+
+    ;; U in a room marks it read and goes back to the list, where U walks on to
+    ;; the next unread room: one key for working through them, from either end.
+    ;;
+    ;; ement has this on SPC at the end of a room, which the leader takes here
+    ;; as it does in the list. Its plain mark-read, m, is `evil-set-marker' in
+    ;; normal state; evil-collection moves it to gm, which marks up to the event
+    ;; at point and stays in the room. Without a key, a room is marked read
+    ;; only once it has been on screen through three idle seconds -- read it
+    ;; quickly and leave, and nothing is sent.
+    ;;
+    ;; Through the newest event the room has, not the last one in the buffer:
+    ;; ement orders the buffer by timestamp, and bridged history keeps the
+    ;; timestamps it had on Slack, so the bottom of the buffer can be older
+    ;; than the last thing the server sent.
+    ;;
+    ;; With no thread, as every receipt ement sends, and that is what clears
+    ;; the room. Slack threads arrive as Matrix threads, and tuwunel counts
+    ;; their replies apart from the room's own timeline, adding them into the
+    ;; room's count for a client like this one that does not ask for them
+    ;; separately. Element's receipts name the main timeline, which leaves
+    ;; every thread reply counted; a receipt without a thread clears them all.
+    ;; So a room read in the browser can stay unread here, and one read here
+    ;; is cleared for every client.
+    (defun my/ement-room-done ()
+      "Mark this room read through its newest event and go back to the room list."
+      (interactive)
+      (when-let* ((newest (car (ement-room-timeline ement-room))))
+        (ement-room-mark-read ement-room ement-session
+          :read-event newest :fully-read-event newest))
+      (set-buffer-modified-p nil)
+      (quit-window)
+      (my/matrix))
+
+    (with-eval-after-load 'ement-room
+      (define-key ement-room-mode-map (kbd "U") #'my/ement-room-done)
+      (when (fboundp 'evil-define-key*)
+        (evil-define-key* 'normal ement-room-mode-map
+          (kbd "U") #'my/ement-room-done)))
+
+    ;; A room never read anywhere has no fully-read marker, and
+    ;; `ement-room-goto-fully-read-marker' signals for it. Walking to the next
+    ;; unread room ends with that call, so U into a bridged room nobody has
+    ;; opened yet shows the room and then an error. With no marker there is
+    ;; nowhere to go, so it stays put.
+    (defun my/ement--fully-read-marker-p ()
+      "Non-nil when this room has a fully-read marker to go to."
+      (or ement-room-fully-read-marker
+          (alist-get "m.fully_read" (ement-room-account-data ement-room)
+                     nil nil #'equal)))
+
+    (with-eval-after-load 'ement-room
+      (advice-add 'ement-room-goto-fully-read-marker
+                  :before-while #'my/ement--fully-read-marker-p))
   '';
 }
 #+end_src
