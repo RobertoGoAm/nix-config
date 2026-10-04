@@ -94,8 +94,17 @@ machine-local sops-secrets.nix that's conditionally imported above.
         npm_token = {
           owner = user;
         };
+        # Given a path of its own, rather than the default under /run/secrets.
+        # That directory is reached through two symlinks -- /run is
+        # private/var/run, and secrets is secrets.d/<generation> -- and
+        # OrbStack's file sharing does not follow them, so a container asked to
+        # bind-mount a file there is handed a new empty directory instead and
+        # the homeserver dies on "Is a directory". The resolved path carries a
+        # generation number, so it cannot be named here either.
         matrix_registration_token = {
           owner = user;
+          mode = "0400";
+          path = "/Users/${user}/.config/matrix-registration-token";
         };
         gitlab_access_token = {
           owner = user;
