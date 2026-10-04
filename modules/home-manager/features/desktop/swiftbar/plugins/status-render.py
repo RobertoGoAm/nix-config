@@ -5,11 +5,14 @@ current track share one slot. Everything else goes in the dropdown, grouped
 into submenus with `--`.
 """
 
+import atexit
 import datetime
+import io
 import json
 import os
 import re
 import shutil
+import sys
 import urllib.parse
 
 def parse_rfc3339(ts):
@@ -35,6 +38,48 @@ def quote_url(url):
     """SwiftBar splits a menu row on whitespace to find its parameters, so a
     href with a space in it loses everything after the space."""
     return urllib.parse.quote(url, safe="/:=?&%#+")
+
+
+# SwiftBar 2.1.1 greys out a submenu parent once its title changes. It updates
+# an open menu in place, and patching a row that has no action of its own also
+# clears the routing AppKit gave it for opening the submenu -- so "Wallapop 5"
+# goes dead the first time it becomes "Wallapop 6", and the nix-config row the
+# first time a commit moves its counts. Rows whose titles never change, like
+# System, are never patched and never notice. The 2.1.2 betas fix it
+# (swiftbar/SwiftBar#518); until a release does, every parent gets an action of
+# its own, and refresh is the one that does no harm.
+#
+# Applied to the finished menu rather than at each print, so a section added
+# later is covered without anyone remembering to.
+ACTIONS = ("href=", "bash=", "stdin=", "refresh=true")
+
+
+def keep_parents_enabled(lines):
+    """Give every submenu parent in LINES an action, so SwiftBar keeps it enabled."""
+    def depth(line):
+        return (len(line) - len(line.lstrip("-"))) // 2
+
+    def separator(line):
+        return not line.strip("-")
+
+    for i, line in enumerate(lines[:-1]):
+        child = lines[i + 1]
+        if separator(line) or separator(child) or depth(child) != depth(line) + 1:
+            continue
+        title, bar, params = line.partition(" | ")
+        if not any(action in params for action in ACTIONS):
+            lines[i] = f"{title} | {params} refresh=true" if bar else f"{line} | refresh=true"
+    return lines
+
+
+_menu = io.StringIO()
+sys.stdout = _menu
+
+
+@atexit.register
+def _emit_menu():
+    sys.stdout = sys.__stdout__
+    sys.stdout.write("\n".join(keep_parents_enabled(_menu.getvalue().split("\n"))))
 
 
 env = os.environ.get
@@ -377,9 +422,9 @@ if wallapop:
 
 if track:
     print("---")
-    # The controls sit at top level rather than in a submenu: SwiftBar renders a
-    # row with no action as disabled, so a submenu parent looks dead and buries
-    # the one thing here you actually want to click.
+    # The controls sit at top level rather than in a submenu: they are the one
+    # thing here you actually want to click, and a submenu would put them a
+    # hover further away.
     # Controls go through the Web API too. AppleScript would only reach a
     # running Spotify.app, and the point of librespot is not to have one.
     ctl = shutil.which("spotify-ctl") or "spotify-ctl"
