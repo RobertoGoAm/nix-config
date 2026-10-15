@@ -18,10 +18,10 @@ let
   # Pinned to a tag and run under node, which is the whole packaging: =dist/= is
   # committed built, and the package declares no runtime dependencies.
 
-  # The plugin marketplace is deliberately not used. =/claude-hud:setup= writes
-  # =statusLine= into =~/.claude/settings.json=, and that path is a symlink into
-  # the store here, so the write cannot land; the same entry is declared below
-  # instead. =~/.claude/claude-hud.json= holds the display config and is left
+  # The plugin marketplace is deliberately not used. The =statusLine= entry
+  # =/claude-hud:setup= would write is declared below instead, so the pinned tag
+  # is what runs: a declared key wins over the file on every activation.
+  # =~/.claude/claude-hud.json= holds the display config and is left
   # unmanaged, so it stays editable without a rebuild.
 
   rtk-shim = pkgs.writeShellScriptBin "rtk" ''
@@ -64,6 +64,9 @@ in
 {
   programs.claude-code = {
     enable = true;
+    # A writable settings.json, so /config, /model and plugin toggles land.
+    # Declared keys, permission arrays included, win again on every switch.
+    mutableSettings = true;
 
     # mcpServers is deliberately left undeclared. The module only emits...
 
