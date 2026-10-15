@@ -60,6 +60,148 @@ let
         >/dev/null 2>&1 || true
     '';
   };
+
+  # One Serena per project, shared by every session
+
+  # Started as a plain stdio server, Serena runs once per Claude Code session,
+  # and each copy brings up the project's language servers. In a Nuxt + Vuetify
+  # repository that is a TypeScript server holding about 1.6 GB of heap, around
+  # 1.9 GB per session with the rest of the stack, so a handful of sessions on
+  # one repository exhausts the machine.
+
+  # =serena-shared= is what the =claude mcp add= registration runs. It resolves the
+  # project root by the rule =--project-from-cwd= uses (the nearest
+  # =.serena/project.yml= anywhere above, else the nearest =.git=, else the
+  # directory itself), and keeps one Serena per root, listening on loopback over
+  # streamable HTTP. Each session gets a stdio bridge to it through =mcp-proxy=,
+  # so the client side is unchanged: same tools, one MCP session each, one set of
+  # language servers between them.
+
+  # The first session in a project starts the server under a lock and waits for
+  # its port before connecting; the rest find it running. Each bridge leaves its
+  # pid under the server's state directory, and a watchdog stops the server --
+  # its whole process group, language servers included -- once no bridge has been
+  # alive for two minutes, so a closed project stops costing memory without
+  # restarting between back-to-back sessions.
+
+  # Activating another project from one session switches it for every session on
+  # that server; the SessionStart hook only ever activates the project the server
+  # was started for.
+
+  serena-shared = pkgs.writeShellApplication {
+    name = "serena-shared";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.flock
+      pkgs.mcp-proxy
+      pkgs.python3
+    ];
+    text = ''
+      serena="''${SERENA_BIN:-$HOME/.local/bin/serena}"
+      state_root="''${XDG_STATE_HOME:-$HOME/.local/state}/serena-shared"
+
+      port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+
+      live_clients() {
+        local f found=1
+        for f in "$1"/clients/*; do
+          [ -e "$f" ] || continue
+          if kill -0 "''${f##*/}" 2>/dev/null; then found=0; else rm -f "$f"; fi
+        done
+        return "$found"
+      }
+
+      stop_server() {
+        if [ -f "$1/pid" ]; then
+          kill -TERM -- "-$(cat "$1/pid")" 2>/dev/null || true
+        fi
+        rm -f "$1/pid" "$1/port"
+      }
+
+      # The watchdog: re-entered detached, in a session of its own, by the
+      # first bridge of a server.
+      if [ "''${1:-}" = "--watchdog" ]; then
+        state="$2"
+        pid="$3"
+        idle=0
+        while kill -0 "$pid" 2>/dev/null; do
+          sleep 30
+          if live_clients "$state"; then idle=0; else idle=$((idle + 1)); fi
+          if [ "$idle" -ge 4 ]; then
+            exec 9>"$state/lock"
+            flock 9
+            if ! live_clients "$state" && [ "$(cat "$state/pid" 2>/dev/null)" = "$pid" ]; then
+              stop_server "$state"
+            fi
+            exit 0
+          fi
+        done
+        exit 0
+      fi
+
+      find_up() {
+        local d
+        d="$(pwd -P)"
+        while :; do
+          if [ -e "$d/$1" ]; then printf '%s\n' "$d"; return 0; fi
+          [ "$d" = / ] && return 1
+          d="$(dirname "$d")"
+        done
+      }
+
+      root="$(find_up .serena/project.yml || find_up .git || pwd -P)"
+      key="$(printf '%s' "$root" | sha256sum | cut -c1-16)"
+      state="$state_root/$key"
+      mkdir -p "$state/clients"
+      printf '%s\n' "$root" >"$state/root"
+
+      detach() {
+        exec python3 -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$@"
+      }
+
+      exec 9>"$state/lock"
+      flock 9
+
+      if ! { [ -f "$state/pid" ] && kill -0 "$(cat "$state/pid")" 2>/dev/null &&
+        [ -f "$state/port" ] && port_open "$(cat "$state/port")"; }; then
+        stop_server "$state"
+        port=$((20000 + 16#''${key:0:4} % 10000))
+        while port_open "$port"; do port=$((port + 1)); done
+
+        detach "$serena" start-mcp-server \
+          --context=claude-code \
+          --project "$root" \
+          --transport streamable-http \
+          --host 127.0.0.1 \
+          --port "$port" \
+          --open-web-dashboard false \
+          </dev/null >"$state/server.log" 2>&1 9>&- &
+        server=$!
+        printf '%s\n' "$server" >"$state/pid"
+        printf '%s\n' "$port" >"$state/port"
+
+        waited=0
+        until port_open "$port"; do
+          if ! kill -0 "$server" 2>/dev/null || [ "$waited" -ge 240 ]; then
+            echo "serena-shared: server for $root did not come up; see $state/server.log" >&2
+            stop_server "$state"
+            exit 1
+          fi
+          sleep 0.5
+          waited=$((waited + 1))
+        done
+
+        detach "$0" --watchdog "$state" "$server" </dev/null >/dev/null 2>&1 9>&- &
+      fi
+
+      port="$(cat "$state/port")"
+      : >"$state/clients/$$"
+      exec 9>&-
+
+      exec mcp-proxy --log-level WARNING --transport streamablehttp \
+        "http://127.0.0.1:$port/mcp"
+    '';
+  };
 in
 {
   programs.claude-code = {
@@ -1057,6 +1199,7 @@ in
   home.packages = [
     (pkgs.callPackage ../../../../pkgs/claude-stats.nix { })
     rtk-shim
+    serena-shared
   ];
 
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
