@@ -312,6 +312,33 @@ in
       (advice-add 'claude-code-ide-manager--build-default-layout
                   :override #'my/claude--manager-layout-in-pane))
 
+    ;; The sidebar asks git for every row's branch on every redraw: one
+    ;; synchronous `git branch --show-current' per session, and it redraws on
+    ;; each working/idle flip of any session. With several sessions streaming
+    ;; that is a fork per row several times a second, each one blocking the
+    ;; daemon until git exits. A branch moves far less often than that.
+    (defvar my/claude--branch-cache (make-hash-table :test 'equal)
+      "Directory to (TIME . BRANCH), as the sidebar last read it.")
+
+    (defvar my/claude--branch-cache-ttl 30
+      "Seconds a cached branch name is trusted before git is asked again.")
+
+    (defun my/claude--cached-branch-name (orig session-or-key)
+      "Call ORIG for SESSION-OR-KEY at most once per directory per TTL."
+      (let* ((dir (ignore-errors
+                    (claude-code-ide-manager--session-directory session-or-key)))
+             (hit (and dir (gethash dir my/claude--branch-cache))))
+        (if (and hit (< (- (float-time) (car hit)) my/claude--branch-cache-ttl))
+            (cdr hit)
+          (let ((branch (funcall orig session-or-key)))
+            (when dir
+              (puthash dir (cons (float-time) branch) my/claude--branch-cache))
+            branch))))
+
+    (with-eval-after-load 'claude-code-ide-manager
+      (advice-add 'claude-code-ide-manager--session-branch-name
+                  :around #'my/claude--cached-branch-name))
+
     (defun my/claude--live-session-p ()
       "Non-nil when at least one Claude session is running anywhere.
 
