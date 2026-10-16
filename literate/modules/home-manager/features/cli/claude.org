@@ -100,8 +100,15 @@ held where the agent works: =mr-size= measures what the branch's MR would
 contain, and two hooks put it in front of the agent.
 
 - Before a =git commit=, =git push=, or an MR/PR creation (=glab mr create=,
-  =gh pr create=, =df mr-generate=), the PreToolUse hook blocks the call when
-  the branch would exceed the limit, and says how to split it.
+  =gh pr create=, =df mr-generate=), the PreToolUse hook asks you when the
+  branch would exceed the limit. It asks rather than refuses because a line
+  count cannot tell a 500-line rename from 500 lines of new logic: the prompt
+  says how much of the diff is one-for-one replacement, and you judge. Deny,
+  and the agent splits the work.
+- The split has to keep CI green link by link, since each MR is pipelined and
+  merged on its own: foundations first, tests with the code they test, nothing
+  that only compiles once a later MR lands. When no split does that, the agent
+  says so and leaves the larger MR to your approval rather than forcing one.
 - After an edit or a commit, the PostToolUse hook tells the agent the moment
   its work in progress has outgrown one MR, so the split happens while it is
   still cheap, not after a thousand lines are committed.
