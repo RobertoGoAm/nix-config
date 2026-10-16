@@ -3,7 +3,7 @@
 #
 #   mr-size                  report the current branch against its base
 #   mr-size check [MODE]     exit 1 when over the limit (MODE: range, staged, worktree)
-#   mr-size claude-pre       PreToolUse hook: block git commit/push and MR creation
+#   mr-size claude-pre       PreToolUse hook: ask the user before an oversized commit/push/MR
 #   mr-size claude-post      PostToolUse hook: warn once the work in progress outgrows an MR
 #
 # The base is the branch this one is stacked on, not necessarily the default
@@ -17,8 +17,11 @@
 # Limits, all overridable per repository with git config:
 #   mrSize.maxLines   added + deleted lines   (default 400)
 #   mrSize.maxFiles   files touched           (default 20)
-# branch.<name>.mrSizeOverride=true lets one branch through; that is the
-# user's call, never the agent's.
+# Over the limit, the hook does not refuse: line counts cannot tell a
+# 500-line rename from 500 lines of new logic, so the user is asked, with
+# the figures and how mechanical the diff looks. Approving lets that one
+# call through; branch.<name>.mrSizeOverride=true stops the asking for a
+# branch. Both are the user's call, never the agent's.
 
 ignore_globs=(
   '**/*.lock' '**/*.lockb' '**/package-lock.json' '**/npm-shrinkwrap.json'
@@ -59,9 +62,9 @@ resolve_base() {
   while IFS= read -r cand; do
     [ "$cand" = "$branch" ] && continue
     mb="$(git merge-base "$cand" HEAD 2>/dev/null)" || continue
-    # A branch stacked on this one, or still sitting where this one started,
-    # shares HEAD or nothing new; it is not what this branch forked from.
-    [ "$mb" = "$(git rev-parse HEAD)" ] && continue
+    # A branch stacked on this one contains HEAD; it is not what this branch
+    # forked from. One still sitting at HEAD is: nothing committed yet.
+    [ "$mb" = "$(git rev-parse HEAD)" ] && [ "$(git rev-parse "$cand")" != "$mb" ] && continue
     n="$(git rev-list --count "$mb..HEAD")"
     if [ -z "$best_n" ] || [ "$n" -lt "$best_n" ]; then
       best="$cand" best_mb="$mb" best_n="$n"
@@ -138,21 +141,37 @@ summary() {
   echo "$branch vs $base: $lines lines in $files files (limit $max_lines lines / $max_files files; lockfiles and generated files not counted)"
 }
 
+# How much of the diff is line-for-line replacement (a rename, a reformat,
+# an import swap) rather than new or removed code: the part a reviewer
+# skims rather than reads.
+shape() {
+  awk -F'\t' 'NF && $1 != "-" { m += ($1 < $2 ? $1 : $2) * 2; t += $1 + $2 }
+    END {
+      p = t ? int(100 * m / t) : 0
+      printf "%d%% of changed lines are one-for-one replacements", p
+      if (p >= 70) printf " (looks mechanical: a rename, reformat or search-and-replace)"
+    }' <<<"$rows"
+}
+
 largest() {
   awk -F'\t' 'NF && $1 != "-" { printf "%6d  %s\n", $1 + $2, $3 }' <<<"$rows" | sort -rn | head -n "${1:-10}"
 }
 
 split_advice() {
   cat <<EOF
-Reviewers should get this as several MRs of at most $max_lines lines / $max_files files each, every one a coherent, reviewable step that builds and passes on its own.
-Split it before going further:
-  - independent pieces: one branch each off $base
-  - dependent pieces: a stack, each branch off the previous one, and record the parent so each link is measured alone:
-      git switch -c <next-branch> && git config branch.<next-branch>.mrBase <previous-branch>
-  - move already-made commits with: git switch -c <part> <base> && git cherry-pick <commits>, or git rebase --onto
+Shape: $(shape).
 Largest changes:
 $(largest 10)
-If this genuinely cannot be split (a mechanical rename, a vendored drop), stop and ask the user. Only they set: git config branch.$branch.mrSizeOverride true
+If the change is mechanical (a rename, a reformat, a search-and-replace, a vendored drop), it is reviewable as it stands: say so to the user and let them approve it. Never set branch.$branch.mrSizeOverride yourself.
+Otherwise reviewers should get it as several MRs of at most $max_lines lines / $max_files files each, and every one must pass CI on its own, because each is pipelined and merged separately:
+  - cut along dependencies, foundations first: types, schemas, migrations, helpers and their tests land before the code that uses them
+  - tests travel with the code they test, never in a later MR
+  - an unused-but-tested piece is fine; a piece that only compiles once the next MR lands is not; code that would be half-wired goes behind a flag or stays in the later MR
+  - independent pieces: one branch each off $base; dependent pieces: a stack, each branch off the previous one, with the parent recorded so each link is measured alone:
+      git switch -c <next> && git config branch.<next>.mrBase <previous>
+  - move commits already made with git switch -c <part> <base> && git cherry-pick <commits>, or git rebase --onto
+  - before pushing each branch, run what CI runs (see the project's CI config: lint, typecheck, tests, build) on that branch alone
+If no split keeps every MR green, do not force one: tell the user why and let them approve the larger MR.
 EOF
 }
 
@@ -194,11 +213,12 @@ claude_pre() {
   measure "$mode"
   exempt && exit 0
   over || exit 0
-  {
-    echo "MR size gate: blocked. $(summary)."
-    split_advice
-  } >&2
-  exit 2
+  # The user sees the reason in the permission prompt; the agent gets the
+  # advice, so a refusal leads to a split rather than a retry.
+  jq -n \
+    --arg reason "MR size gate: $(summary). $(shape). Approve if it is reviewable as one MR (to stop asking for this branch: git config branch.$branch.mrSizeOverride true); deny to have it split." \
+    --arg ctx "MR size gate: $(summary). The user is being asked whether to allow it. If they deny, split the work. $(split_advice)" \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason, additionalContext: $ctx}}'
 }
 
 # After an edit, or a commit, tell the agent the moment the work in progress
@@ -229,7 +249,7 @@ claude_post() {
   { grep -v "^$branch " "$state" 2>/dev/null || true; echo "$branch $band"; } >"$state.tmp" && mv "$state.tmp" "$state"
   over || exit 0
   [ "$band" -gt "${prev:-0}" ] || exit 0
-  jq -n --arg ctx "MR size gate: the work in progress is already more than one MR. $(summary). Commits and pushes on this branch will be blocked. $(split_advice)" \
+  jq -n --arg ctx "MR size gate: the work in progress is already more than one MR. $(summary). Commits, pushes and MR creation on this branch will need the user's approval. $(split_advice)" \
     --arg ev "PostToolUse" '{hookSpecificOutput: {hookEventName: $ev, additionalContext: $ctx}}'
 }
 
