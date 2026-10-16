@@ -15,6 +15,9 @@ reviewer actually has to read:
     comment-only, whitespace-only     free
     a rename or literal change        once per distinct old -> new mapping
     the same refactor at many sites   in full once, one line per repeat
+    a near-copy of a block already    the lines where it differs, plus one; a
+      priced (>= 70% alike)             name renamed consistently throughout
+                                        counts once, not on every line
     code moved unchanged              one line per move
     deleted code                      a fifth of its lines
     anything else                     its non-blank lines
@@ -39,6 +42,7 @@ Limits, per repository with git config:
                                                 by renames, repeats, imports or
                                                 comments are skimmed, not read)
     mrSize.maxRawLines   raw added + deleted    (default 2000)
+    mrSize.similarity    near-copy threshold    (default 0.7)
 
 Over a limit the hook asks the user rather than refusing, with the figures.
 branch.<name>.mrSizeOverride=true stops the asking for a branch. Both are
@@ -57,7 +61,9 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 
 IGNORE_GLOBS = [
     "**/*.lock", "**/*.lockb", "**/package-lock.json", "**/npm-shrinkwrap.json",
@@ -418,7 +424,7 @@ def matches(path, globs):
     return any(fnmatch.fnmatch(path, g) or fnmatch.fnmatch(path, g.removeprefix("**/")) for g in globs)
 
 
-def analyse(top, mb, mode):
+def analyse(top, mb, mode, similarity=0.7):
     files = collect(top, mb, mode)
     risk_globs = RISK_GLOBS + read_globs(top, ".mr-size-risk")
     records = []
@@ -451,6 +457,8 @@ def analyse(top, mb, mode):
             r["cat"] = "moved"
 
     seen_pairs, seen_shapes = set(), set()
+    near = NearCopies(similarity)
+    near_copies = []
     import_cost = {}
     cats = {}
     per_file = {}
@@ -471,13 +479,26 @@ def analyse(top, mb, mode):
             if r["shape"] in seen_shapes:
                 c, cost = "repeat", 1
             else:
-                seen_shapes.add(r["shape"])
                 cost = r["lines"]
+                m = near.match(r)
+                if m:
+                    ratio, prior, ops = m
+                    nc_cost, check = near_cost(prior["seq"], r["seq"], ops)
+                    if nc_cost < cost:
+                        c, cost = "near-copy", nc_cost
+                        near_copies.append({
+                            "block": f"{r['path']}:{r['range'][0]}-{r['range'][1]}",
+                            "of": f"{prior['path']}:{prior['range'][0]}-{prior['range'][1]}",
+                            "alike": round(100 * ratio), "check": ranges(check),
+                        })
+                if c != "near-copy":
+                    seen_shapes.add(r["shape"])
+            near.add(r)
         if r.get("imports") and c not in ("comment", "whitespace"):
             c = "imports"
             cost = min(cost, max(0, 2 - import_cost.get(r["path"], 0)))
             import_cost[r["path"]] = import_cost.get(r["path"], 0) + cost
-        if c in ("changed", "new", "moved", "deleted"):
+        if c in ("changed", "new", "near-copy", "moved", "deleted"):
             read_files.add(r["path"])
         r["cat"], r["cost"] = c, cost
         e = cats.setdefault(c, {"raw": 0, "cost": 0, "count": 0})
@@ -511,8 +532,10 @@ def analyse(top, mb, mode):
         "interface": interface,
         "test_cost": test_cost,
         "code_cost": code_cost,
+        "near_copies": near_copies,
         "largest": sorted(per_file.items(), key=lambda kv: -kv[1])[:10],
-        "difficulty": difficulty(effective, shapes, branch_delta, areas, interface, risk, test_cost, code_cost),
+        "difficulty": difficulty(effective, shapes, branch_delta, areas, interface, risk,
+                                 test_cost, code_cost, len(near_copies)),
     }
 
 
@@ -533,7 +556,8 @@ def classify_hunk(fd, h, o, n, syntax):
     if not h.old_lines and not imports:
         # New code dedupes only when it is a verbatim copy: the same structure
         # calling different things is still different code to read.
-        return {**base, "cat": "new", "concrete": key(nt), "shape": key("add", nt)}
+        return {**base, "cat": "new", "concrete": key(nt), "shape": key("add", nt),
+                "seq": seq(nnc, "n"), "range": (h.new_lo, h.new_lo + h.new_n - 1)}
     if syntax and oa == na:
         pairs = sorted({(a, b) for a, b in zip(ot, nt) if a != b})
         return {**base, "cat": "rename", "pairs": [tuple(p) for p in pairs]}
@@ -544,13 +568,110 @@ def classify_hunk(fd, h, o, n, syntax):
     old_names = {t.text for t in onc if t.kind == "ident"}
     ns = ["ID" if t.kind == "ident" and t.text in old_names else t.abstract if t.kind == "literal" else t.text for t in nnc]
     to, tn = trim(oa, ns)
-    return {**base, "cat": "changed", "shape": key("chg", to, tn), "concrete": key(ot, nt)}
+    return {**base, "cat": "changed", "shape": key("chg", to, tn), "concrete": key(ot, nt),
+            "seq": seq(onc, "o") + [("->", "->", "x", -1)] + seq(nnc, "n"),
+            "range": (h.new_lo, h.new_lo + max(h.new_n, 1) - 1)}
 
 
-def difficulty(effective, shapes, branches, areas, interface, risk, test_cost, code_cost):
+def seq(toks, side):
+    return [(t.abstract, t.text, side, t.lo + 1) for t in toks]
+
+
+# --- near-copies -------------------------------------------------------------
+#
+# A block that is mostly like one already priced is read as "like that one,
+# except here", so it costs the lines where it differs. Candidates are found
+# by shared 5-token shingles of the structure (names and literals as
+# placeholders), so blocks are not all compared pairwise; the best few are
+# then aligned token by token. Within the aligned stretches the real names
+# are compared: one renamed the same way at least twice and nowhere else is
+# a systematic rename and costs once; any other differing name or literal
+# (save() here, delete() there) charges its line, because that is exactly
+# where a copy-paste slip hides.
+
+SHINGLE = 5
+MIN_TOKENS = 15
+
+
+def shingles(sq):
+    a = [t[0] for t in sq]
+    return {tuple(a[i:i + SHINGLE]) for i in range(max(1, len(a) - SHINGLE + 1))}
+
+
+class NearCopies:
+    def __init__(self, threshold):
+        self.threshold = threshold
+        self.blocks = []
+        self.index = {}
+
+    def match(self, r):
+        sq = r.get("seq") or []
+        if len(sq) < MIN_TOKENS:
+            return None
+        votes = Counter(i for sh in shingles(sq) for i in self.index.get(sh, ()))
+        best = None
+        for i, _ in votes.most_common(3):
+            prior = self.blocks[i]
+            sm = SequenceMatcher(None, [t[0] for t in prior["seq"]], [t[0] for t in sq], autojunk=False)
+            ratio = sm.ratio()
+            if ratio >= self.threshold and (best is None or ratio > best[0]):
+                best = (ratio, prior, sm.get_opcodes())
+        return best
+
+    def add(self, r):
+        sq = r.get("seq") or []
+        if len(sq) < MIN_TOKENS:
+            return
+        self.blocks.append(r)
+        for sh in shingles(sq):
+            self.index.setdefault(sh, set()).add(len(self.blocks) - 1)
+
+
+def near_cost(prior, cur, opcodes):
+    """Lines of cur a reviewer must check against prior, and how many
+    systematic renames there are."""
+    charged = set()
+    pairs = []
+    for tag, i1, i2, j1, j2 in opcodes:
+        if tag == "equal":
+            pairs += [(a, b) for a, b in zip(prior[i1:i2], cur[j1:j2]) if a[1] != b[1]]
+        elif j1 < j2:
+            charged.update((t[2], t[3]) for t in cur[j1:j2])
+        elif cur:
+            t = cur[min(j1, len(cur) - 1)]
+            charged.add((t[2], t[3]))
+    counts = Counter((a[1], b[1]) for a, b in pairs)
+    targets = {}
+    for (a, b) in counts:
+        targets.setdefault(a, set()).add(b)
+    systematic = {(a, b) for (a, b), n in counts.items() if n >= 2 and len(targets[a]) == 1}
+    charged.update((b[2], b[3]) for a, b in pairs if (a[1], b[1]) not in systematic)
+    charged = {c for c in charged if c[0] != "x"}
+    check = sorted({line for side, line in charged if side == "n"})
+    return len(charged) + len(systematic) + 1, check
+
+
+def ranges(nums):
+    out, start, prev = [], None, None
+    for n in nums:
+        if start is None:
+            start = prev = n
+        elif n == prev + 1:
+            prev = n
+        else:
+            out.append(f"{start}" if start == prev else f"{start}-{prev}")
+            start = prev = n
+    if start is not None:
+        out.append(f"{start}" if start == prev else f"{start}-{prev}")
+    return ", ".join(out)
+
+
+def difficulty(effective, shapes, branches, areas, interface, risk, test_cost, code_cost, near):
+    # Many near-copies are cheap to read but are duplication a reviewer may
+    # want folded into a helper: a nudge, not a size.
     points = (effective / 50 + min(10, shapes) * 0.5 + min(5, branches / 10)
               + min(4, max(0, len(areas) - 1)) + (2 if interface else 0)
-              + min(6, 3 * len(risk)))
+              + min(6, 3 * len(risk)) + min(3, near * 0.5))
     untested = code_cost > 50 and test_cost < 0.2 * code_cost
     if untested:
         points += 2
@@ -632,7 +753,7 @@ def measure(mode):
     os.chdir(top)
     branch = git_ok("symbolic-ref", "--quiet", "--short", "HEAD") or "HEAD"
     base, mb = resolve_base(branch)
-    return Measure(branch, base, analyse(top, mb, mode),
+    return Measure(branch, base, analyse(top, mb, mode, float(config("mrSize.similarity", "0.7"))),
                    int_limit("MR_SIZE_MAX_LINES", "mrSize.maxLines", 400),
                    int_limit("MR_SIZE_MAX_FILES", "mrSize.maxFiles", 20),
                    int_limit("MR_SIZE_MAX_RAW_LINES", "mrSize.maxRawLines", 2000))
@@ -644,7 +765,7 @@ CAT_LABEL = {
     "changed": "new or rewritten logic", "new": "new code", "repeat": "repeated refactor",
     "rename": "renames / literal changes", "imports": "imports", "comment": "comments",
     "whitespace": "formatting", "moved": "moved code", "moved-away": "moved code (source)",
-    "deleted": "deleted code",
+    "deleted": "deleted code", "near-copy": "near-copies",
 }
 
 
@@ -670,7 +791,7 @@ def split_advice(x):
     largest = "\n".join(f"  {c:6d}  {p}" for p, c in x.m["largest"])
     return f"""Breakdown: {breakdown(x.m)}.
 Largest by review cost:
-{largest}
+{largest}{near_lines(x.m)}
 If the change is mechanical beyond what the breakdown already discounts (a vendored drop, a codemod), it is reviewable as it stands: say so to the user and let them approve it. Never set branch.{x.branch}.mrSizeOverride yourself.
 Otherwise reviewers should get it as several MRs of at most {x.max_lines} effective lines / {x.max_files} files each, and every one must pass CI on its own, because each is pipelined and merged separately:
   - cut along dependencies, foundations first: types, schemas, migrations, helpers and their tests land before the code that uses them
@@ -681,6 +802,13 @@ Otherwise reviewers should get it as several MRs of at most {x.max_lines} effect
   - move commits already made with git switch -c <part> <base> && git cherry-pick <commits>, or git rebase --onto
   - before pushing each branch, run what CI runs (see the project's CI config: lint, typecheck, tests, build) on that branch alone
 If no split keeps every MR green, do not force one: tell the user why and let them approve the larger MR."""
+
+
+def near_lines(m):
+    if not m["near_copies"]:
+        return ""
+    return "\nNear-copies (consider a shared helper before splitting):\n" + "\n".join(
+        f"  {n['block']} ~ {n['of']} ({n['alike']}%), differs at {n['check'] or 'a rename'}" for n in m["near_copies"][:10])
 
 
 MARKER = "<!-- mr-size -->"
@@ -698,6 +826,11 @@ def mr_body(x):
         ("Risk paths", ", ".join(f"`{p}`" for p in m["risk"]) or "none"),
         ("Tests", f"{m['test_cost']} of {m['effective']} effective lines" + (" (code looks under-tested)" if d["untested"] else "")),
     ]
+    if m["near_copies"]:
+        shown = [f"`{n['block']}` follows `{n['of']}` ({n['alike']}% alike), check {n['check'] or 'the rename'}"
+                 for n in m["near_copies"][:5]]
+        more = len(m["near_copies"]) - len(shown)
+        rows.append(("Near-copies (review the differences)", "<br>".join(shown) + (f"<br>and {more} more" if more > 0 else "")))
     table = "\n".join(f"| {k} | {v} |" for k, v in rows)
     return f"""{MARKER}
 ### Review difficulty: {d['band']} (about {d['minutes']} min)
