@@ -91,6 +91,47 @@ unmanaged, so it stays editable without a rebuild.
   };
 #+end_src
 
+* A merge request one person can review in a sitting
+
+An agent left to itself delivers a task as one branch, however large it
+grows, and the review it then needs is of a code dump rather than a change.
+Review quality falls off sharply past a few hundred lines, so the size is
+held where the agent works: =mr-size= measures what the branch's MR would
+contain, and two hooks put it in front of the agent.
+
+- Before a =git commit=, =git push=, or an MR/PR creation (=glab mr create=,
+  =gh pr create=, =df mr-generate=), the PreToolUse hook blocks the call when
+  the branch would exceed the limit, and says how to split it.
+- After an edit or a commit, the PostToolUse hook tells the agent the moment
+  its work in progress has outgrown one MR, so the split happens while it is
+  still cheap, not after a thousand lines are committed.
+
+The default is 400 changed lines or 20 files, lockfiles and generated output
+not counted. Each branch is measured against the one it is stacked on, so a
+stack of small branches passes link by link, the way each will be reviewed.
+A repository tunes the limits with =git config mrSize.maxLines= /
+=mrSize.maxFiles= and its own exclusions in =.mr-size-ignore=; the script
+itself (=mr-size.sh=, beside this module) documents the rest. Work committed
+straight to the default branch opens no MR and is never blocked.
+
+It is also on PATH, so =mr-size= in any repository reports the same figures,
+and a project's own pre-push hook can call =mr-size check=.
+
+#+begin_src nix
+  mr-size = pkgs.writeShellApplication {
+    name = "mr-size";
+    runtimeInputs = [
+      pkgs.git
+      pkgs.jq
+      pkgs.gawk
+      pkgs.gnused
+      pkgs.gnugrep
+      pkgs.coreutils
+    ];
+    text = builtins.readFile ./mr-size.sh;
+  };
+#+end_src
+
 * One Serena per project, shared by every session
 
 Started as a plain stdio server, Serena runs once per Claude Code session,
@@ -1273,6 +1314,12 @@ store's copies.
                 command = "bash $HOME/.claude/pipeline/scripts/hook-allow-safe-compound.sh 2>/dev/null || true";
                 description = "Pipeline (optional): auto-approve compound commands (A|B, A&&B, A;B) whose every segment is allow-listed or a vetted read-only command, and none matches a deny rule; default-deny, no-op when pipeline not installed";
               }
+              {
+                type = "command";
+                command = "${lib.getExe mr-size} claude-pre";
+                timeout = 20;
+                description = "MR size gate: block commit/push/MR creation when the branch's MR would exceed the reviewable size";
+              }
             ];
           }
           {
@@ -1332,6 +1379,17 @@ store's copies.
               }
             ];
           }
+          {
+            matcher = "Edit|MultiEdit|Write|NotebookEdit|Bash";
+            hooks = [
+              {
+                type = "command";
+                command = "${lib.getExe mr-size} claude-post";
+                timeout = 20;
+                description = "MR size gate: warn the agent once its work in progress outgrows one reviewable MR";
+              }
+            ];
+          }
         ];
       };
       agentPushNotifEnabled = true;
@@ -1361,6 +1419,7 @@ about this configuration.
     (pkgs.callPackage ../../../../pkgs/claude-stats.nix { })
     rtk-shim
     serena-shared
+    mr-size
   ];
 #+end_src
 
