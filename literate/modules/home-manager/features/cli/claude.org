@@ -97,14 +97,21 @@ An agent left to itself delivers a task as one branch, however large it
 grows, and the review it then needs is of a code dump rather than a change.
 Review quality falls off sharply past a few hundred lines, so the size is
 held where the agent works: =mr-size= measures what the branch's MR would
-contain, and two hooks put it in front of the agent.
+ask of a reviewer, and two hooks put it in front of the agent.
+
+Raw line counts are the wrong measure. A 500-line rename is a minute's
+work; 500 lines of new logic is an afternoon. So both sides of every
+changed region are parsed with tree-sitter and priced by what a reviewer
+actually reads: comment and formatting changes are free, a rename costs once
+per distinct mapping however many sites it touches, the same refactor
+repeated across files costs in full once and a line per repeat, moved code
+costs a line, imports are capped per file. The sum is the effective size,
+and the limit applies to it, with a raw-size ceiling kept as a backstop.
 
 - Before a =git commit=, =git push=, or an MR/PR creation (=glab mr create=,
   =gh pr create=, =df mr-generate=), the PreToolUse hook asks you when the
-  branch would exceed the limit. It asks rather than refuses because a line
-  count cannot tell a 500-line rename from 500 lines of new logic: the prompt
-  says how much of the diff is one-for-one replacement, and you judge. Deny,
-  and the agent splits the work.
+  branch would exceed the limit, with the breakdown in the prompt. Approve a
+  change the estimate under-discounts; deny, and the agent splits the work.
 - The split has to keep CI green link by link, since each MR is pipelined and
   merged on its own: foundations first, tests with the code they test, nothing
   that only compiles once a later MR lands. When no split does that, the agent
@@ -112,31 +119,56 @@ contain, and two hooks put it in front of the agent.
 - After an edit or a commit, the PostToolUse hook tells the agent the moment
   its work in progress has outgrown one MR, so the split happens while it is
   still cheap, not after a thousand lines are committed.
+- Every MR the agent opens carries a review-difficulty section: band and
+  minutes, the breakdown, branching logic added, areas, changed exports, risk
+  paths (migrations, auth, CI config...), and test share. =glab mr create= and
+  =gh pr create= are refused until the description includes it, with the
+  section handed to the agent ready to paste; =df mr-generate= writes its own
+  description, so the agent is told to append the section after. The score's
+  weights are hand-chosen, not fitted to how reviews went, and it says so.
 
-The default is 400 changed lines or 20 files, lockfiles and generated output
-not counted. Each branch is measured against the one it is stacked on, so a
-stack of small branches passes link by link, the way each will be reviewed.
-A repository tunes the limits with =git config mrSize.maxLines= /
-=mrSize.maxFiles= and its own exclusions in =.mr-size-ignore=; the script
-itself (=mr-size.sh=, beside this module) documents the rest. Work committed
+The default is 400 effective lines or 20 files that need reading, lockfiles
+and generated output not counted. Each branch is measured against the one it
+is stacked on, so a stack of small branches passes link by link, the way each
+will be reviewed. A repository tunes the limits with =git config
+mrSize.maxLines= / =mrSize.maxFiles= / =mrSize.maxRawLines=, its exclusions in
+=.mr-size-ignore= and its risky paths in =.mr-size-risk=; the program itself
+(=mr-size.py=, beside this module) documents the rest. Work committed
 straight to the default branch opens no MR and is never blocked.
 
-It is also on PATH, so =mr-size= in any repository reports the same figures,
-and a project's own pre-push hook can call =mr-size check=.
+It is also on PATH: =mr-size= in any repository reports the same figures,
+=mr-size mr-body= prints the section, and a project's own pre-push hook can
+call =mr-size check=.
+
+The grammars are loaded from their shared libraries directly rather than
+through nixpkgs' per-grammar Python packages: on darwin those all resolve
+their entry point against whichever grammar was loaded first, so only one
+language works per process.
 
 #+begin_src nix
-  mr-size = pkgs.writeShellApplication {
-    name = "mr-size";
-    runtimeInputs = [
-      pkgs.git
-      pkgs.jq
-      pkgs.gawk
-      pkgs.gnused
-      pkgs.gnugrep
-      pkgs.coreutils
-    ];
-    text = builtins.readFile ./mr-size.sh;
-  };
+  mr-size =
+    let
+      grammars = lib.genAttrs [
+        "typescript"
+        "tsx"
+        "javascript"
+        "python"
+        "nix"
+        "html"
+        "css"
+        "scss"
+        "vue"
+      ] (g: "${pkgs.tree-sitter-grammars."tree-sitter-${g}"}/parser");
+      python = pkgs.python3.withPackages (ps: [ ps.tree-sitter ]);
+    in
+    pkgs.writeShellApplication {
+      name = "mr-size";
+      runtimeInputs = [ pkgs.git ];
+      text = ''
+        export MR_SIZE_GRAMMARS=${lib.escapeShellArg (builtins.toJSON grammars)}
+        exec ${python}/bin/python3 -I ${./mr-size.py} "$@"
+      '';
+    };
 #+end_src
 
 * One Serena per project, shared by every session
@@ -1325,7 +1357,7 @@ store's copies.
                 type = "command";
                 command = "${lib.getExe mr-size} claude-pre";
                 timeout = 20;
-                description = "MR size gate: block commit/push/MR creation when the branch's MR would exceed the reviewable size";
+                description = "MR size gate: ask before commit/push/MR creation when the branch's MR would exceed the reviewable size; require the review-difficulty section in MR descriptions";
               }
             ];
           }
