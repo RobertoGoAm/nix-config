@@ -105,7 +105,10 @@ changed region are parsed with tree-sitter and priced by what a reviewer
 actually reads: comment and formatting changes are free, a rename costs once
 per distinct mapping however many sites it touches, the same refactor
 repeated across files costs in full once and a line per repeat, moved code
-costs a line, imports are capped per file. The sum is the effective size,
+costs a line, imports are capped per file. A block that is mostly like one
+already priced (70% alike by default) costs only the lines where it differs:
+a reviewer reads it against the first, and those lines are where a
+copy-paste slip hides, so the MR section lists them to check. The sum is the effective size,
 and the limit applies to it, with a raw-size ceiling kept as a backstop.
 
 - Before a =git commit=, =git push=, or an MR/PR creation (=glab mr create=,
