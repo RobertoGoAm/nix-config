@@ -78,6 +78,29 @@
     ;; variable-pitch has to be applied per-face rather than by turning on
     ;; variable-pitch-mode wholesale -- that would reflow code blocks, tables and
     ;; the list bullets above, where column alignment is the whole point.
+    ;; The faces variable-pitch-mode switches between. Left alone they resolve to
+    ;; the generic "Sans Serif" and "Monospace", which macOS fills with whatever
+    ;; it finds -- code in a note then is not even the editor's JetBrains Mono.
+    ;; Inter is the closest open match to the system UI face Obsidian uses for
+    ;; its text, and is installed with the other fonts in hosts/*/packages.nix.
+    (set-face-attribute 'variable-pitch nil :family "Inter" :height 1.0)
+    (set-face-attribute 'fixed-pitch nil :family "JetBrainsMono Nerd Font" :height 1.0)
+
+    ;; Obsidian's other two readability defaults: a line height of 1.5 rather
+    ;; than the editor's tight one, and a readable line length with the text
+    ;; centred instead of running the width of the window. olivetti is already
+    ;; here for SPC z (plugins/ui/twilight.nix); the body width is in columns of
+    ;; the default face, and proportional prose fits more words into each.
+    ;; Shared with the org reading view in plugins/notes/org.nix.
+    (defun my/reading-layout (enable)
+      "Use Obsidian's line height and centred line length when ENABLE is non-nil."
+      (setq-local line-spacing (and enable 0.35))
+      (when (fboundp 'olivetti-mode)
+        (if enable
+            (progn (setq-local olivetti-body-width 88)
+                   (olivetti-mode 1))
+          (olivetti-mode -1))))
+
     (defun my/markdown-code-faces ()
       "Keep code, tables and bullets monospaced under a proportional body face."
       (dolist (face '(markdown-code-face
@@ -116,6 +139,7 @@
       "Show the rendered look when ENABLE is non-nil, raw markdown otherwise."
       (setq-local markdown-hide-markup (and enable t))
       (variable-pitch-mode (if enable 1 -1))
+      (my/reading-layout enable)
       (my/markdown-images enable)
       (font-lock-flush))
 

@@ -173,6 +173,9 @@
             (unless (memq 'fixed-pitch parents)
               (set-face-attribute face nil
                                   :inherit (append parents '(fixed-pitch)))))))
-      (variable-pitch-mode 1))
+      (variable-pitch-mode 1)
+      ;; Line height and centred width, from plugins/notes/markview.nix.
+      (when (fboundp 'my/reading-layout)
+        (my/reading-layout t)))
   '';
 }
