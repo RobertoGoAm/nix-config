@@ -41,7 +41,16 @@
           ;; way until the cursor is on them.
           markdown-hide-markup t
           markdown-header-scaling t
+          ;; Obsidian's default heading scale, the same one the org headings use
+          ;; in plugins/notes/org.nix.
+          markdown-header-scaling-values '(1.802 1.602 1.424 1.266 1.125 1.0)
           markdown-list-item-bullets '("•" "◦" "▪" "▫"))
+
+    ;; markdown-header-scaling only resizes the header faces through its
+    ;; Customize setter, which a setq never runs -- the faces stay at 1.0 with
+    ;; the variable reading t. Applying the scale directly is what the setter does.
+    (markdown-update-header-faces markdown-header-scaling
+                                  markdown-header-scaling-values)
 
     ;; The third way to read a note, after the rendered look and the raw markup:
     ;; pandoc's HTML in a side window, which is where a table or a block of math
