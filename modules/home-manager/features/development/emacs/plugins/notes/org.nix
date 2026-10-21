@@ -6,6 +6,8 @@
     epkgs: with epkgs; [
       org
       evil-org
+      org-modern
+      org-appear
     ];
 
   # Org is here for the agenda, not for notes. Notes stay in Obsidian...
@@ -100,5 +102,77 @@
       "Open the global TODO list."
       (interactive)
       (org-todo-list))
+
+    ;;; The Obsidian look, in every org buffer: headings on Obsidian's default
+    ;;; scale, emphasis markers hidden until the cursor is on them, prose in a
+    ;;; proportional face and code monospaced -- the same reading view the
+    ;;; markdown buffers get in plugins/notes/markview.nix.
+    (setq org-hide-emphasis-markers t
+          org-pretty-entities t
+          ;; Show the hidden markers again while point is inside the element, the
+          ;; way Obsidian's live preview does.
+          org-appear-autolinks t
+          org-appear-autoentities t
+          ;; org-startup-indented stays on, and org-modern's star replacement
+          ;; misaligns under org-indent-mode, so the stars are left to org-indent
+          ;; (which already hides all but the last) and org-modern does the rest:
+          ;; tags, checkboxes, keywords, blocks, tables.
+          org-modern-star nil
+          org-modern-hide-stars nil
+          org-modern-table nil)
+
+    (with-eval-after-load 'org
+      ;; Obsidian's default theme sizes its headings on a 1.125 modular scale,
+      ;; from 1.802em for H1 down to body size at H6. Levels deeper than six
+      ;; inherit from org-level-1..6 cyclically, so these cover all of them.
+      (dolist (spec '((org-level-1 . 1.802)
+                      (org-level-2 . 1.602)
+                      (org-level-3 . 1.424)
+                      (org-level-4 . 1.266)
+                      (org-level-5 . 1.125)
+                      (org-level-6 . 1.0)))
+        (set-face-attribute (car spec) nil :height (cdr spec) :weight 'bold))
+      (set-face-attribute 'org-document-title nil :height 2.0 :weight 'bold)
+
+      (global-org-modern-mode)
+      (add-hook 'org-mode-hook #'org-appear-mode)
+      (add-hook 'org-mode-hook #'my/org-mixed-pitch))
+
+    ;; variable-pitch-mode for the prose, with every face whose columns matter
+    ;; put back on fixed-pitch: source blocks, tables, the indent prefix
+    ;; org-indent-mode draws, drawers and properties. Without these, tables and
+    ;; the code in the literate Nix sources lose their alignment.
+    (defun my/org-mixed-pitch ()
+      "Proportional prose with monospaced code, tables and metadata."
+      (dolist (face '(org-block
+                      org-block-begin-line
+                      org-block-end-line
+                      org-code
+                      org-verbatim
+                      org-table
+                      org-formula
+                      org-meta-line
+                      org-document-info-keyword
+                      org-special-keyword
+                      org-property-value
+                      org-drawer
+                      org-date
+                      org-checkbox
+                      org-indent
+                      org-hide
+                      line-number
+                      line-number-current-line))
+        ;; Added to whatever the face already inherits rather than replacing it:
+        ;; org-block-begin-line takes its colour from org-meta-line, and
+        ;; org-indent its invisibility from org-hide.
+        (when (facep face)
+          (let ((parents (face-attribute face :inherit nil)))
+            (setq parents (cond ((memq parents '(nil unspecified)) nil)
+                                ((listp parents) parents)
+                                (t (list parents))))
+            (unless (memq 'fixed-pitch parents)
+              (set-face-attribute face nil
+                                  :inherit (append parents '(fixed-pitch)))))))
+      (variable-pitch-mode 1))
   '';
 }
