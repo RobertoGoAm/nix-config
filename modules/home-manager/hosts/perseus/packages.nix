@@ -121,6 +121,7 @@ in
       coreutils
       gnutar
       graphviz
+      inter
       julia-mono
       mdfried
       mozjpeg

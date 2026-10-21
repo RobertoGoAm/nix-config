@@ -130,6 +130,7 @@ nothing is the point.
       coreutils
       cyberduck
       graphviz
+      inter
       julia-mono
       mdfried
       mozjpeg

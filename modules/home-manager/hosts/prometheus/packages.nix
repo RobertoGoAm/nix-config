@@ -112,6 +112,7 @@ in
       coreutils
       cyberduck
       graphviz
+      inter
       julia-mono
       mdfried
       mozjpeg
