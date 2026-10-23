@@ -32,6 +32,12 @@
   checkov = import ./checkov.nix;
 #+end_src
 
+* bc-detect-secrets: skip the diff tests unidiff 1.0 turns down
+
+#+begin_src nix
+  bc-detect-secrets = import ./bc-detect-secrets.nix;
+#+end_src
+
 * semgrep: relax a pyjwt pin one minor release behind nixpkgs
 
 #+begin_src nix
@@ -98,6 +104,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
 
 #+begin_src nix
   browser-gt-extension = import ./browser-gt-extension.nix;
+#+end_src
+
+* qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
+
+#+begin_src nix
+  qbittorrent = import ./qbittorrent.nix;
 #+end_src
 
 * When applied, the unstable nixpkgs set (declared in the flake...

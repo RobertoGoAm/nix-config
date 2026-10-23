@@ -205,12 +205,14 @@
 
     nixpkgs = {
       overlays = [
+        outputs.overlays.bc-detect-secrets
         outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins
         outputs.overlays.checkov
         outputs.overlays.lit-tangle
         outputs.overlays.neovim
         outputs.overlays.nix-preflight
+        outputs.overlays.qbittorrent
         outputs.overlays.sops-go
         outputs.overlays.spotify-ctl
         outputs.overlays.tab-suspender
