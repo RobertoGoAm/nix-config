@@ -19,6 +19,10 @@
 
   checkov = import ./checkov.nix;
 
+  # bc-detect-secrets: skip the diff tests unidiff 1.0 turns down
+
+  bc-detect-secrets = import ./bc-detect-secrets.nix;
+
   # semgrep: relax a pyjwt pin one minor release behind nixpkgs
 
   semgrep = import ./semgrep.nix;
@@ -64,6 +68,10 @@
   # browser-gt-extension: the browser half of the Emacs bridge
 
   browser-gt-extension = import ./browser-gt-extension.nix;
+
+  # qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
+
+  qbittorrent = import ./qbittorrent.nix;
 
   # When applied, the unstable nixpkgs set (declared in the flake...
 
