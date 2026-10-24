@@ -1,0 +1,34 @@
+#+TITLE: development emacs plugins notes text
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development emacs plugins notes text
+
+#+begin_src nix
+{ ... }:
+{
+  programs.emacs.extraConfig = ''
+    ;;; Plain text — the reading size, and nothing more.
+    ;;;
+    ;;; A .txt file is prose, and it opens in a face chosen for code. The body
+    ;;; scale markdown gets is the whole of what belongs here: the proportional
+    ;;; face, the centred column and the taller line height are parts of a
+    ;;; rendered view, and a text buffer has no markup to render.
+    ;;;
+    ;;; `text-mode-hook' runs for every mode derived from text-mode, markdown
+    ;;; and org among them, and both already size themselves. So the guard is
+    ;;; on the major mode itself rather than on `derived-mode-p': a mode
+    ;;; derived later does not then inherit this one's idea of a reading size
+    ;;; on top of its own.
+    ;;;
+    ;;; `my/reading-scale' is defined in plugins/notes/markview.nix, and the
+    ;;; fboundp guard is for the order the two land in default.el.
+    (defun my/text-reading-size ()
+      "Open a plain text buffer at the reading size markdown uses."
+      (when (and (eq major-mode 'text-mode)
+                 (fboundp 'my/reading-scale))
+        (my/reading-scale t)))
+
+    (add-hook 'text-mode-hook #'my/text-reading-size)
+  '';
+}
+#+end_src

@@ -5,6 +5,7 @@
     ./literate.nix
     ./markview.nix
     ./org.nix
+    ./text.nix
     ./obsidian.nix
   ];
 }
