@@ -76,10 +76,16 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   container-picker = import ./container-picker.nix;
 #+end_src
 
-* qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
+* posthog: nixpkgs marks it broken over a test dependency
 
 #+begin_src nix
-  qbittorrent = import ./qbittorrent.nix;
+  posthog = import ./posthog.nix;
+#+end_src
+
+* mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
+
+#+begin_src nix
+  mcp-v1 = import ./mcp-v1.nix;
 #+end_src
 
 * When applied, the unstable nixpkgs set (declared in the flake...

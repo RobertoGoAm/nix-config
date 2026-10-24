@@ -1,0 +1,64 @@
+#+TITLE: overlays posthog
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* posthog is marked broken over a test dependency
+
+nixpkgs moved =mcp= to 2.2.0 and marked posthog broken with it:
+
+  meta.broken = lib.versionAtLeast mcp.version "2";
+
+which stops evaluation of the whole generation, not merely posthog's build:
+aider-chat depends on it, and the failure surfaces at
+=home-manager.users.<user>.home.file."Library/Fonts/..."= with no mention of
+Python until the last line.
+
+=mcp= is a =nativeCheckInput=. posthog's =dependencies= are backoff, distro,
+requests and typing-extensions, and nothing else -- so what the bump breaks is
+the test suite, and the shipped library is untouched. Every test that reaches
+for =mcp= lives under =posthog/test/mcp/=, none outside it does, and
+=posthog/__init__.py= does not import it either, so =pythonImportsCheck= still
+passes. Ignoring that one directory is the whole of it.
+
+** Removed yesterday, and back for a different reason
+
+This overlay was dropped when stock posthog was substitutable: =overrideAttrs=
+changes a derivation's hash, so overriding it forced the local build whose
+timing tests then had to be silenced, where stock came from cache.nixos.org
+and never ran them at all.
+
+A package nixpkgs marks broken is not built by hydra and so is not
+substitutable by anyone. The trade that justified removing this is gone, and
+with the local build come back the two clock races that were the overlay's
+original reason -- so they are listed again alongside the new entry.
+
+#+begin_src nix
+final: prev: {
+  pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+    (_pyFinal: pyPrev: {
+      posthog = pyPrev.posthog.overrideAttrs (old: {
+        meta = old.meta // {
+          broken = false;
+        };
+
+        disabledTestPaths = (old.disabledTestPaths or [ ]) ++ [
+          "posthog/test/mcp"
+        ];
+
+        # Counting what a background consumer flushed, and when. A builder
+        # doing several things at once is not the machine those numbers were
+        # chosen on.
+        disabledTests = (old.disabledTests or [ ]) ++ [
+          "test_flush_interval"
+          "test_user_defined_flush_at"
+          # The third of the same kind, left standing once the mcp directory
+          # stopped failing first: a subprocess that must drain its queue
+          # before a deadline, and a loaded builder misses it.
+          # subprocess.TimeoutExpired, with 3727 others passing.
+          "test_atexit_subprocess_does_not_drain_queued_backlog"
+        ];
+      });
+    })
+  ];
+}
+#+end_src

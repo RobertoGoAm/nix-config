@@ -210,11 +210,12 @@
         outputs.overlays.check-pins
         outputs.overlays.container-picker
         outputs.overlays.lit-tangle
+        outputs.overlays.mcp-v1
         outputs.overlays.nix-preflight
-        outputs.overlays.qbittorrent
         outputs.overlays.spotify-ctl
         outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
+        outputs.overlays.posthog
         outputs.overlays.python-ldap
         outputs.overlays.warpd
       ];

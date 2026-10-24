@@ -49,9 +49,13 @@
 
   container-picker = import ./container-picker.nix;
 
-  # qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
+  # posthog: nixpkgs marks it broken over a test dependency
 
-  qbittorrent = import ./qbittorrent.nix;
+  posthog = import ./posthog.nix;
+
+  # mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
+
+  mcp-v1 = import ./mcp-v1.nix;
 
   # When applied, the unstable nixpkgs set (declared in the flake...
 
