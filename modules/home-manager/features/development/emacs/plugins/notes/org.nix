@@ -122,17 +122,21 @@
           org-modern-table nil)
 
     (with-eval-after-load 'org
-      ;; Obsidian's default theme sizes its headings on a 1.125 modular scale,
-      ;; from 1.802em for H1 down to body size at H6. Levels deeper than six
-      ;; inherit from org-level-1..6 cyclically, so these cover all of them.
-      (dolist (spec '((org-level-1 . 1.802)
-                      (org-level-2 . 1.602)
-                      (org-level-3 . 1.424)
-                      (org-level-4 . 1.266)
-                      (org-level-5 . 1.125)
-                      (org-level-6 . 1.0)))
+      ;; The Border theme's heading sizes, Border being the theme this vault
+      ;; reads with: a flat 0.075em step from 1.5em at H1 down to 1.125em at H6,
+      ;; so even H6 sits above body size. Stock Obsidian's scale is far steeper
+      ;; and is not what these notes look like. Levels deeper than six inherit
+      ;; from org-level-1..6 cyclically, so these cover all of them.
+      (dolist (spec '((org-level-1 . 1.5)
+                      (org-level-2 . 1.425)
+                      (org-level-3 . 1.35)
+                      (org-level-4 . 1.275)
+                      (org-level-5 . 1.2)
+                      (org-level-6 . 1.125)))
         (set-face-attribute (car spec) nil :height (cdr spec) :weight 'bold))
-      (set-face-attribute 'org-document-title nil :height 2.0 :weight 'bold)
+      ;; Border gives the inline title no size of its own and points it at
+      ;; --h1-size, so the document title is an H1 rather than twice the body.
+      (set-face-attribute 'org-document-title nil :height 1.5 :weight 'bold)
 
       (global-org-modern-mode)
       (add-hook 'org-mode-hook #'org-appear-mode)
@@ -174,8 +178,10 @@
               (set-face-attribute face nil
                                   :inherit (append parents '(fixed-pitch)))))))
       (variable-pitch-mode 1)
-      ;; Line height and centred width, from plugins/notes/markview.nix.
+      ;; Line height, centred width and body size, from plugins/notes/markview.nix.
       (when (fboundp 'my/reading-layout)
-        (my/reading-layout t)))
+        (my/reading-layout t))
+      (when (fboundp 'my/reading-scale)
+        (my/reading-scale t)))
   '';
 }

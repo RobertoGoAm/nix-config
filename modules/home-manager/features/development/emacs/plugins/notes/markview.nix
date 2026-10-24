@@ -41,9 +41,12 @@
           ;; way until the cursor is on them.
           markdown-hide-markup t
           markdown-header-scaling t
-          ;; Obsidian's default heading scale, the same one the org headings use
-          ;; in plugins/notes/org.nix.
-          markdown-header-scaling-values '(1.802 1.602 1.424 1.266 1.125 1.0)
+          ;; The Border theme's heading scale -- Border is the theme this vault
+          ;; is set to in obsidian/config/appearance.json, and it sizes headings
+          ;; far flatter than stock Obsidian: 1.5em at H1 rather than 1.802em,
+          ;; and H6 still above body size rather than level with it. The same
+          ;; values as the org headings in plugins/notes/org.nix.
+          markdown-header-scaling-values '(1.5 1.425 1.35 1.275 1.2 1.125)
           markdown-list-item-bullets '("•" "◦" "▪" "▫"))
 
     ;; markdown-header-scaling only resizes the header faces through its
@@ -87,15 +90,44 @@
     ;; centred instead of running the width of the window. olivetti is already
     ;; here for SPC z (plugins/ui/twilight.nix); the body width is in columns of
     ;; the default face, and proportional prose fits more words into each.
+    ;;
+    ;; A float `line-spacing' is the fraction of a line height added below each
+    ;; line, so Border's --line-height-normal of 1.5 is 0.5 here, not 1.5.
     ;; Shared with the org reading view in plugins/notes/org.nix.
     (defun my/reading-layout (enable)
       "Use Obsidian's line height and centred line length when ENABLE is non-nil."
-      (setq-local line-spacing (and enable 0.35))
+      (setq-local line-spacing (and enable 0.5))
       (when (fboundp 'olivetti-mode)
         (if enable
             (progn (setq-local olivetti-body-width 88)
                    (olivetti-mode 1))
           (olivetti-mode -1))))
+
+    ;; Obsidian draws body text at 16px: --font-text-size, which neither the
+    ;; Border theme nor appearance.json overrides, so it is Obsidian's own
+    ;; default. The frame font here is 12pt, a size picked for code, and on
+    ;; macOS a point and a CSS pixel are the same unit -- so the two differ by
+    ;; exactly 16/12 and nothing else.
+    ;;
+    ;; Read off the default face rather than written down as 1.333, so changing
+    ;; the frame font in emacs/default.nix carries this with it.
+    ;;
+    ;; text-scale rather than a taller `variable-pitch': the heading faces are
+    ;; relative heights resolved against the default face, so lifting the prose
+    ;; on its own would leave all six headings where they are and flatten the
+    ;; scale from the bottom. text-scale remaps the default face for this buffer
+    ;; alone, and the headings, the code blocks and the prose all move with it.
+    ;; Shared with org above and with plain text in plugins/notes/text.nix.
+    (defconst my/obsidian-body-size 16.0
+      "Obsidian's body text size in points, which on macOS is its size in px.")
+
+    (defun my/reading-scale (enable)
+      "Read at Obsidian's body size when ENABLE is non-nil, the frame's otherwise."
+      (require 'face-remap)
+      (setq-local text-scale-mode-step
+                  (/ my/obsidian-body-size
+                     (/ (face-attribute 'default :height nil t) 10.0)))
+      (text-scale-set (if enable 1 0)))
 
     (defun my/markdown-code-faces ()
       "Keep code, tables and bullets monospaced under a proportional body face."
@@ -136,6 +168,7 @@
       (setq-local markdown-hide-markup (and enable t))
       (variable-pitch-mode (if enable 1 -1))
       (my/reading-layout enable)
+      (my/reading-scale enable)
       (my/markdown-images enable)
       (font-lock-flush))
 
