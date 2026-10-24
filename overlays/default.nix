@@ -15,21 +15,9 @@
 
   warpd = import ./warpd.nix;
 
-  # checkov: skip one upstream-broken test that fails the build
-
-  checkov = import ./checkov.nix;
-
   # bc-detect-secrets: skip the diff tests unidiff 1.0 turns down
 
   bc-detect-secrets = import ./bc-detect-secrets.nix;
-
-  # semgrep: relax a pyjwt pin one minor release behind nixpkgs
-
-  semgrep = import ./semgrep.nix;
-
-  # aider-chat: name the litellm errors its exception list is missing
-
-  aider-chat = import ./aider-chat.nix;
 
   # python-ldap: skip one test darwin cannot fail the way it expects
 
@@ -41,21 +29,9 @@
 
   lit-tangle = import ./lit-tangle.nix;
 
-  # neovim: skip one darwin-flaky treesitter test that fails the build
-
-  neovim = import ./neovim.nix;
-
-  # posthog: skip one timing-dependent test that fails the build
-
-  posthog = import ./posthog.nix;
-
   # spotify-ctl: Web API now-playing and controls for the menu bar
 
   spotify-ctl = import ./spotify-ctl.nix;
-
-  # sops-go: sops-nix asks for a Go builder nixpkgs has retired
-
-  sops-go = import ./sops-go.nix;
 
   # nix-preflight: prices the next nix-update before it is run
 
