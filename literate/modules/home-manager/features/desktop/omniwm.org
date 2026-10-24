@@ -69,6 +69,17 @@ day. On, the bar lists only the workspaces that have windows. They all still
 exist -- =Option+1..9= still switches to any of them -- they are only left
 out of the bar until something lands there.
 
+** No icon in the menu bar
+
+=statusBar.showIcon= is the "Show Menu Bar Icon" switch in OmniWM's own
+settings, and it defaults on. The workspace bar already runs across the menu
+bar, so the icon beside it was a second place for the same information.
+
+Added by hand rather than edited, because the key is not in the file OmniWM
+wrote. It is the fourth field of =[statusBar]=; the other three are already
+here, and they describe what the item draws beside the icon -- with the icon
+off there is nothing left for them to apply to.
+
 ** The CLI needs the socket
 
 =ipcEnabled= ships =false=, and with it off =omniwmctl ping= answers "No such

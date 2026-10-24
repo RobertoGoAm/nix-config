@@ -144,6 +144,7 @@ mode = "macOS"
 
 [statusBar]
 showAppNames = false
+showIcon = false
 showWorkspaceName = false
 useWorkspaceId = false
 
