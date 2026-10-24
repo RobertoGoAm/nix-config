@@ -208,6 +208,7 @@
         outputs.overlays.bc-detect-secrets
         outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins
+        outputs.overlays.container-picker
         outputs.overlays.lit-tangle
         outputs.overlays.nix-preflight
         outputs.overlays.qbittorrent

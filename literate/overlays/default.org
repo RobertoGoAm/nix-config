@@ -70,6 +70,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   browser-gt-extension = import ./browser-gt-extension.nix;
 #+end_src
 
+* container-picker: asks which jar an external link opens in
+
+#+begin_src nix
+  container-picker = import ./container-picker.nix;
+#+end_src
+
 * qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
 
 #+begin_src nix

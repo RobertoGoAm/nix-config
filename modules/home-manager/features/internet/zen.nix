@@ -644,9 +644,9 @@ in
 
         # Preferences: locally built extensions
 
-        # Two of the extensions in this profile are built here rather than fetched from
-        # addons.mozilla.org -- the tab suspender and the browser-gt bridge -- and
-        # nothing signs them.
+        # Three of the extensions in this profile are built here rather than fetched
+        # from addons.mozilla.org -- the tab suspender, the browser-gt bridge and the
+        # container picker -- and nothing signs them.
 
         # Zen is compiled with ~MOZ_REQUIRE_SIGNING~ off, which is what makes that
         # possible at all, but the capability and the policy are separate: the build
@@ -657,7 +657,7 @@ in
 
         # This turns enforcement off for the whole profile, which is the real cost.
         # Everything else installed here still comes from the pinned =firefox-addons=
-        # set, so what it actually buys is the two local ones.
+        # set, so what it actually buys is the three local ones.
 
         "xpinstall.signatures.required" = false;
 
@@ -745,7 +745,7 @@ in
   # The locally built extensions are copied in, not linked
 
   # Every other extension here is a store symlink placed by home-manager, and for
-  # the two built in this repo that does not work. Gecko re-reads an extension in
+  # the three built in this repo that does not work. Gecko re-reads an extension in
   # the profile only when
 
   #   xpiState.getModTime(entry) || entry.path != xpiState.path
@@ -758,7 +758,7 @@ in
 
   # Copying gives the file a real mtime, which moves whenever the build does, and
   # that is the whole fix. They are left out of ~extensions.packages~ above so
-  # home-manager does not also try to own those two paths -- two managers of one
+  # home-manager does not also try to own those paths -- two managers of one
   # file is how the other extensions here ended up with =.backup= files beside
   # them.
 
@@ -779,7 +779,8 @@ in
         run mkdir -p "$_zen_ext"
         for _xpi in \
           ${pkgs.tab-suspender}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/tab-suspender@nix-config.xpi \
-          ${pkgs.browser-gt-extension}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/browser-gt@dmgerman.xpi
+          ${pkgs.browser-gt-extension}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/browser-gt@dmgerman.xpi \
+          ${pkgs.container-picker}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/container-picker@nix-config.xpi
         do
           _dest="$_zen_ext/$(basename "$_xpi")"
           run rm -f "$_dest"
