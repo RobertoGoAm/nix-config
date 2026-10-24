@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "Container Picker",
+  "version": "1.0.0",
+  "description": "Asks which container a link opened from outside the browser belongs in.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "container-picker@nix-config",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "contextualIdentities",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    "pick.html"
+  ],
+  "icons": {
+    "16": "icon.svg",
+    "48": "icon.svg",
+    "96": "icon.svg"
+  }
+}

@@ -45,6 +45,10 @@
 
   browser-gt-extension = import ./browser-gt-extension.nix;
 
+  # container-picker: asks which jar an external link opens in
+
+  container-picker = import ./container-picker.nix;
+
   # qbittorrent: rename the Q_OS_MAC Qt 6.12 will not compile
 
   qbittorrent = import ./qbittorrent.nix;

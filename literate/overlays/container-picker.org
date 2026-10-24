@@ -1,0 +1,11 @@
+#+TITLE: overlays container-picker
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* container-picker: asks which jar an external link opens in
+
+#+begin_src nix
+final: _prev: {
+  container-picker = final.callPackage ../pkgs/container-picker.nix { };
+}
+#+end_src
