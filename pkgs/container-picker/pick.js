@@ -11,13 +11,21 @@ const target = new URLSearchParams(location.search).get('url') || ''
  *
  * @param {string} cookieStoreId
  */
-function choose(cookieStoreId) {
-  browser.runtime.sendMessage({
-    type: 'open-in-container',
-    url: target,
-    cookieStoreId,
-    remember: document.getElementById('remember').checked
-  })
+async function choose(cookieStoreId) {
+  try {
+    await browser.runtime.sendMessage({
+      type: 'open-in-container',
+      url: target,
+      cookieStoreId,
+      remember: document.getElementById('remember').checked
+    })
+  } catch (error) {
+    if (/disconnect/i.test(error.message)) return
+
+    const hint = document.querySelector('.hint')
+    hint.textContent = `Could not open it: ${error.message}`
+    hint.style.color = '#d64550'
+  }
 }
 
 /**
