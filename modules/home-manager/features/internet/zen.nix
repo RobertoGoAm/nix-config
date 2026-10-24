@@ -642,6 +642,23 @@ in
 
         "privacy.userContext.enabled" = true;
 
+        # Preferences: a container tab belongs in its container's space
+
+        # Each space here is bound to a container, and that binding only ran one way:
+        # switching space switched identity, while a tab opened *into* a container
+        # stayed in whichever space the window was showing. The container picker made
+        # that visible. Choose Work for a link arriving from Telegram and the tab is in
+        # the work jar and sitting in the Personal strip, which reads as a failure even
+        # though the isolation is exactly right.
+
+        # =zen.workspaces.force-container-workspace= is Zen's own answer and ships off.
+        # Its label in the settings reads "Switch to workspace where container is set as
+        # default when opening container tabs", which is the missing half: the space
+        # follows the container, rather than the container following whatever space
+        # happened to be in front.
+
+        "zen.workspaces.force-container-workspace" = true;
+
         # Preferences: locally built extensions
 
         # Three of the extensions in this profile are built here rather than fetched
