@@ -4,6 +4,7 @@
   imports = [
     ./alacritty.nix
     ./claude.nix
+    ./codex.nix # keeps codex sessions reachable from the phone; no-op off darwin
     ./cli-tools.nix
     ./devforge.nix
     ./qa-env.nix
