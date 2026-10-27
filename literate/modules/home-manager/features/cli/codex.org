@@ -1,0 +1,109 @@
+#+TITLE: cli codex
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Codex sessions reachable from the phone without the desktop app
+
+The ChatGPT desktop app is itself the thing a phone connects to: it bundles its
+own =codex= and runs =app-server= inside =ChatGPT.app/Contents/Resources/codex-cli=.
+So reaching a session from the phone meant leaving a whole Electron app open on
+a machine that was otherwise idle.
+
+=codex remote-control start= is the same server without the application around
+it. It registers this machine under its hostname -- "This machine is available
+for remote control as prometheus" -- and the phone finds it through the account
+both ends are already signed into, with no code to read out and no QR to scan.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+#+end_src
+
+* The app wins where both are running, so the agent stands aside
+
+Only one app-server can hold the registration for a host. With the desktop app
+running, =start= gets as far as spawning its processes and then stops at
+
+  Error: Remote control is enabled on prometheus but the connection is errored.
+
+which is the daemon losing a race it was never going to win. The agent runs
+every quarter of an hour, so without a check that error would be the log, and
+the two would quietly fight over the same registration.
+
+Checking for the app and standing aside makes them complementary rather than
+rivals: the app serves while it is open, the daemon serves the rest of the
+time, and the phone sees one host either way.
+
+The =codex= here is the cask's binary at an absolute path, not a nix package,
+because that is what the cask installs and what the =codex()= function in
+=features/cli/zsh.nix= resolves to. The guard above it is for vulcan, which is
+darwin and has no codex cask: there the agent loads and exits without doing
+anything.
+
+#+begin_src nix
+  launchd.agents.codex-remote-control =
+    let
+      codex = "/opt/homebrew/bin/codex";
+
+      start = pkgs.writeShellScript "codex-remote-control-start" ''
+        [ -x ${codex} ] || exit 0
+        /usr/bin/pgrep -qf "ChatGPT.app/Contents/Resources/codex-cli" && exit 0
+        exec ${codex} remote-control start
+      '';
+    in
+    {
+      enable = true;
+      config = {
+        ProgramArguments = [ "${start}" ];
+#+end_src
+
+* Run once, then again on a timer, and never kept alive
+
+~start~ hands off to a managed daemon under =~/.codex/packages/app-server-daemon=
+and returns, which is the opposite of what ~KeepAlive~ expects: launchd would see
+a program that exits immediately and restart it forever.
+
+So it runs at load and then on an interval. ~start~ is idempotent -- run against a
+daemon that is already up it re-reports the same path and version and exits 0 --
+which turns the interval into the thing ~KeepAlive~ would have given: a daemon
+that died, or one that stood aside while the desktop app was open, is picked up
+again within fifteen minutes.
+
+There is deliberately no ~ProcessType = "Background"~ here, unlike the preflight
+agent next door. The daemon inherits the QoS of whatever spawned it, and
+throttling the process that answers the phone is not the economy it looks like.
+
+The PATH is spelled out because a launchd agent gets almost none, and the
+sessions the daemon runs are shell commands that expect the same tools a
+terminal would have.
+
+#+begin_src nix
+        RunAtLoad = true;
+        StartInterval = 900;
+
+        EnvironmentVariables = {
+          PATH = lib.concatStringsSep ":" [
+            "${config.home.homeDirectory}/.nix-profile/bin"
+            "/etc/profiles/per-user/${config.home.username}/bin"
+            "/run/current-system/sw/bin"
+            "/nix/var/nix/profiles/default/bin"
+            "/opt/homebrew/bin"
+            "/usr/local/bin"
+            "/usr/bin"
+            "/bin"
+            "/usr/sbin"
+            "/sbin"
+          ];
+        };
+
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/codex-remote-control.out.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/codex-remote-control.err.log";
+      };
+    };
+}
+#+end_src
