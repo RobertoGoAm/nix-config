@@ -21,6 +21,17 @@
     inputs.nix-homebrew.darwinModules.nix-homebrew
     inputs.sops-nix.darwinModules.sops
     ../homebrew/homebrew.nix
+#+end_src
+
+* The runner VM is offered to every Mac and enabled by none of them here
+
+`services.github-runner-vm` does nothing until it is enabled, and the machine
+that enables it does so in its machine-local module, along with the repository
+it serves. Importing it here rather than from a host keeps the public repo from
+saying which Mac runs CI, or for what.
+
+#+begin_src nix
+    ./services/github-runner-vm
   ]
   ++ (
 #+end_src
