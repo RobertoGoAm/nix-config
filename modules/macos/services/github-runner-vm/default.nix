@@ -1,0 +1,453 @@
+# macos services github-runner-vm
+
+# A self-hosted GitHub Actions runner for one repository, in a NixOS VM on this Mac.
+
+# It cannot run on macOS itself. A job that declares a `container:` or `services:`
+# needs a Linux runner: anywhere else the runner stops with "Container operations
+# are only supported on Linux runners", Docker installed or not. nix-darwin's own
+# `services.github-runners` is exactly that macOS runner, so it is not used here.
+
+# Nor does it share a Docker engine the Mac already runs for something else. The
+# runner mounts the Docker socket into every job container, which makes a job root
+# on whatever engine that socket belongs to: every other container on it, and
+# whatever of the Mac that engine can bind-mount, which with OrbStack or Docker
+# Desktop is the home directory. A VM with its own Docker and a single shared
+# folder keeps a job inside the VM.
+
+# So: a NixOS guest on Apple's Virtualization.framework (nixpkgs' `vz-vm` backend,
+# the one `linux-builder-vz` runs on), started by a launchd daemon, with NixOS's
+# `services.github-runners` and Docker inside it.
+
+{
+  config,
+  inputs,
+  lib,
+  pkgs,
+  user,
+  ...
+}:
+let
+  cfg = config.services.github-runner-vm;
+
+  # Where the VM lives on the Mac
+
+  # The daemon's working directory holds the guest's disks: the Nix store image,
+  # rebuilt whenever the guest's closure changes, and the data disk, created once.
+  # `token/` inside it is the one folder the guest can see.
+
+  stateDir = "/var/lib/github-runner-vm";
+  tokenDir = "${stateDir}/token";
+
+  # The guest is built on the Linux builder, which the first switch only starts
+
+  # Every derivation in the guest system is aarch64-linux, and the Mac cannot build
+  # one. `linux-builder-vz` can, and it comes from the binary cache, but it has to be
+  # running before a build can be sent to it, and on the first switch it is itself
+  # part of what is being switched to.
+
+  # Its key in /etc/nix appears once it has started. Until then the VM's daemons are
+  # left out of the system, so the first switch succeeds instead of failing on a
+  # build nothing can run yet, and the second one builds the guest and starts it.
+  # The same impure `pathExists` test as the sops default in ../../default.nix.
+
+  builderReady = builtins.pathExists "/etc/nix/builder_ed25519";
+
+  # The guest is handed a registration token, never the access token
+
+  # Registering a runner takes a token with the repository's Administration
+  # permission: the same permission that changes its visibility or deletes it. A job
+  # holding the Docker socket is root in the guest and can read anything the guest
+  # can, so that token never enters it.
+
+  # The Mac keeps it in sops and trades it every half hour for a registration token,
+  # which the guest reads from the shared folder. A registration token can only add
+  # runners to this one repository, and only for the hour it lives. The runner is
+  # ephemeral and registers again before every job, which is why a single token
+  # handed over at boot would not do.
+
+  # The access token reaches curl as a config file on stdin rather than as an
+  # argument, where any local user could read it with ps.
+
+  repo = lib.removePrefix "https://github.com/" cfg.url;
+
+  mintToken = pkgs.writeShellApplication {
+    name = "github-runner-vm-token";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.curl
+      pkgs.jq
+    ];
+    text = ''
+      pat=${config.sops.secrets.${cfg.tokenSecret}.path}
+      if [ ! -r "$pat" ]; then
+        echo "github-runner-vm: no access token at $pat yet" >&2
+        exit 1
+      fi
+
+      umask 077
+      mkdir -p ${tokenDir}
+      tmp=$(mktemp ${tokenDir}/.registration-token.XXXXXX)
+      trap 'rm -f "$tmp"' EXIT
+
+      printf 'header = "Authorization: Bearer %s"\n' "$(cat "$pat")" |
+        curl --fail --silent --show-error --config - \
+          --request POST \
+          --header 'Accept: application/vnd.github+json' \
+          --header 'X-GitHub-Api-Version: 2022-11-28' \
+          https://api.github.com/repos/${repo}/actions/runners/registration-token |
+        jq --raw-output --exit-status .token |
+        tr -d '\n' >"$tmp"
+
+      mv "$tmp" ${tokenDir}/registration-token
+      trap - EXIT
+      echo "github-runner-vm: registration token refreshed" >&2
+    '';
+  };
+
+  # The guest
+
+  hostPkgs = pkgs;
+
+  guest = inputs.nixpkgs.lib.nixosSystem {
+    modules = [
+      (
+        {
+          lib,
+          modulesPath,
+          pkgs,
+          ...
+        }:
+        let
+          tokenMount = "/run/runner-token";
+          workDir = "/var/lib/github-runner-work";
+
+          # Job containers see the Nix store
+
+          # The runner bind-mounts its own externals directory into every job container and
+          # runs JavaScript actions, `actions/checkout` among them, with the Node it finds
+          # there. In the nixpkgs runner that Node is a symlink into /nix/store, which a
+          # `node:26-bookworm` container does not have, so the action fails on a dangling
+          # link.
+
+          # The runner creates its containers with `docker create` and nothing else, so the
+          # `docker` on its PATH adds the store, read-only, to exactly those calls, and the
+          # workflows stay what they would be on a hosted runner. An image that brings its
+          # own /nix/store would have it shadowed; none in use does.
+
+          docker = pkgs.writeShellScriptBin "docker" ''
+            if [ "''${1-}" = create ]; then
+              shift
+              exec ${lib.getExe pkgs.docker-client} create --volume /nix/store:/nix/store:ro "$@"
+            fi
+            exec ${lib.getExe pkgs.docker-client} "$@"
+          '';
+
+          # Nothing a job started outlives it
+
+          # The runner removes the containers and the network it made for a job, but a job
+          # holding the Docker socket can start others, and a container or a volume left
+          # behind would be there for the next job to find. Before each registration
+          # everything but the image cache goes.
+
+          # One runner per VM is what makes that safe: with a second one, this would pull a
+          # running job out from under it.
+
+          resetDocker = pkgs.writeShellApplication {
+            name = "reset-docker";
+            runtimeInputs = [
+              pkgs.docker-client
+              pkgs.findutils
+            ];
+            text = ''
+              docker ps --all --quiet | xargs --no-run-if-empty docker rm --force
+              docker volume prune --all --force
+              docker network prune --force
+            '';
+          };
+        in
+        {
+          imports = [ "${modulesPath}/virtualisation/vz-vm.nix" ];
+
+          nixpkgs.hostPlatform = "aarch64-linux";
+          networking.hostName = cfg.name;
+          system.stateVersion = "26.11";
+
+          # A fixed share of the Mac, and a network that only goes out
+
+          # The guest gets fixed cores and memory, so a heavy job slows itself down rather
+          # than the services next to it. vz puts it behind NAT: it reaches out to GitHub
+          # and the registries, nothing beyond the Mac can reach in, and its firewall leaves
+          # nothing open to the Mac either. The one way in is the vsock forward for SSH,
+          # which listens on the Mac's loopback.
+
+          # Rosetta stays on, as the backend defaults: an x86_64 binary a job downloads,
+          # such as a linux_x64 gitleaks release, runs translated instead of failing on an
+          # arm64 machine, inside containers too.
+
+          virtualisation = {
+            host.pkgs = hostPkgs;
+            inherit (cfg) cores memorySize diskSize;
+            vz.console = "file";
+            vz.forwardPorts = [
+              {
+                host.port = cfg.sshPort;
+                guest.port = 22;
+              }
+            ];
+            sharedDirectories.runner-token = {
+              source = tokenDir;
+              target = tokenMount;
+            };
+          };
+
+          # Everything that outlives a boot is in /var/lib
+
+          # The root filesystem and the writable store are memory, so every boot starts
+          # clean. The data disk the backend attaches is mounted on /var/lib instead:
+          # Docker's images, pulled once rather than once per job, the runner's state and
+          # work directory, and the uid map that keeps the runner's uid stable across boots.
+          # A weekly prune keeps the image cache from growing without bound.
+
+          # It is mounted in the initrd because activation writes the uid map to
+          # /var/lib/nixos before systemd starts, and a mount that came later would hide it.
+
+          fileSystems."/var/lib" = {
+            device = "/dev/vdb";
+            fsType = "ext4";
+            autoFormat = true;
+            neededForBoot = true;
+          };
+
+          virtualisation.docker = {
+            enable = true;
+            autoPrune = {
+              enable = true;
+              flags = [ "--all" ];
+            };
+          };
+
+          # The runner
+
+          # Ephemeral: registered for one job, then removed, and registered afresh for the
+          # next. Its user is a static one rather than systemd's dynamic user, so that it can
+          # be in the docker group and own a work directory on the data disk; the module's
+          # default puts that directory in /run, which here is memory.
+
+          # `PrivateUsers` is the one part of the module's sandbox that has to go. It maps
+          # only root and the runner's own user and group into the service, and the Docker
+          # socket belongs to the docker group.
+
+          # The runner copies each job's diagnostics into /var/log/github-runner and never
+          # removes them, and /var/log is memory too, so they expire after a week.
+
+          users.users.github-runner = {
+            isSystemUser = true;
+            group = "github-runner";
+            extraGroups = [ "docker" ];
+          };
+          users.groups.github-runner = { };
+
+          systemd.tmpfiles.settings.github-runner = {
+            ${workDir}.d = {
+              user = "github-runner";
+              group = "github-runner";
+              mode = "0750";
+            };
+            "/var/log/github-runner".e.age = "7d";
+          };
+
+          services.github-runners.${cfg.name} = {
+            enable = true;
+            inherit (cfg) url;
+            tokenFile = "${tokenMount}/registration-token";
+            tokenType = "registration";
+            ephemeral = true;
+            replace = true;
+            extraLabels = cfg.labels;
+            user = "github-runner";
+            group = "github-runner";
+            inherit workDir;
+            extraPackages = [ docker ];
+            serviceOverrides.PrivateUsers = false;
+          };
+
+          # It keeps trying
+
+          # The module restarts the runner only after a clean exit, which is the end of a
+          # job. Anything that fails before that, such as no registration token yet on the
+          # first boot or the network not up, would leave it stopped for good. It retries
+          # every 30 seconds instead, for as long as it takes.
+
+          systemd.services."github-runner-${cfg.name}" = {
+            requires = [ "docker.service" ];
+            after = [ "docker.service" ];
+            unitConfig.RequiresMountsFor = [
+              tokenMount
+              workDir
+            ];
+            startLimitIntervalSec = 0;
+            serviceConfig = {
+              ExecStartPre = lib.mkBefore [ "+${lib.getExe resetDocker}" ];
+              Restart = lib.mkForce "always";
+              RestartSec = "30s";
+            };
+          };
+
+          # A way in for debugging
+
+          # Root over SSH with the keys that can already log into the Mac, through the vsock
+          # forward: `ssh -p 31023 root@localhost` on the Mac, for the default port. The host
+          # key lives on the data disk, so that ssh does not meet a new machine at every boot.
+
+          services.openssh = {
+            enable = true;
+            openFirewall = false;
+            settings.PasswordAuthentication = false;
+            hostKeys = [
+              {
+                path = "/var/lib/ssh/ssh_host_ed25519_key";
+                type = "ed25519";
+              }
+            ];
+          };
+          users.users.root.openssh.authorizedKeys.keys =
+            config.users.users.${user}.openssh.authorizedKeys.keys;
+        }
+      )
+    ];
+  };
+in
+
+# Options
+
+{
+  options.services.github-runner-vm = {
+    enable = lib.mkEnableOption "a GitHub Actions runner for one repository, in a NixOS VM";
+
+    url = lib.mkOption {
+      type = lib.types.strMatching "https://github\\.com/[^/]+/[^/]+";
+      example = "https://github.com/owner/repo";
+      description = "The repository the runner serves.";
+    };
+
+    name = lib.mkOption {
+      type = lib.types.strMatching "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
+      example = "mac-ci";
+      description = "The runner's name on GitHub, and the guest's hostname.";
+    };
+
+    labels = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        Labels on top of GitHub's defaults (self-hosted, Linux, ARM64), for a
+        workflow's `runs-on` to select the runner by.
+      '';
+    };
+
+    tokenSecret = lib.mkOption {
+      type = lib.types.str;
+      description = ''
+        The sops secret holding a fine-grained personal access token for the
+        repository, with Administration set to read and write. It stays on the
+        Mac: the guest only ever sees the registration tokens minted from it.
+      '';
+    };
+
+    cores = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 4;
+      description = "Virtual CPUs for the guest.";
+    };
+
+    memorySize = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 6 * 1024;
+      description = "The guest's memory, in MiB.";
+    };
+
+    diskSize = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 64 * 1024;
+      description = ''
+        The guest's data disk, in MiB: a sparse file on the Mac. Read only when
+        the disk is created, so changing it later needs the disk deleted.
+      '';
+    };
+
+    sshPort = lib.mkOption {
+      type = lib.types.port;
+      default = 31023;
+      description = "Port on the Mac's loopback that forwards to the guest's SSH.";
+    };
+  };
+
+  # On the Mac
+
+  # The builder, the access token, and the guest exposed as
+  # `system.build.github-runner-vm`, so that
+  # `nix build --impure .#darwinConfigurations.<host>.config.system.build.github-runner-vm.config.system.build.toplevel`
+  # builds the guest on its own.
+
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        assertions = [
+          {
+            assertion = config.features.security.sops.enable;
+            message = "services.github-runner-vm keeps its access token in sops, which is off on this machine.";
+          }
+        ];
+
+        warnings = lib.optional (!builderReady) ''
+          services.github-runner-vm: the Linux builder has not started yet, so the runner VM is left out of this build. Switch again once /etc/nix/builder_ed25519 exists.
+        '';
+
+        nix.linux-builder = {
+          enable = true;
+          package = pkgs.darwin.linux-builder-vz;
+        };
+
+        sops.secrets.${cfg.tokenSecret} = { };
+
+        system.build.github-runner-vm = guest;
+      }
+
+      # The daemons, once the guest can be built
+
+      # One runs the VM and brings it back if it stops. The other mints a registration
+      # token at load and every 30 minutes after, and retries every 5 minutes while it
+      # fails, so a boot that reaches it before sops has written the access token, or
+      # before the network is up, does not wait half an hour.
+
+      (lib.mkIf builderReady {
+        system.activationScripts.preActivation.text = ''
+          mkdir -p -m 0700 ${tokenDir}
+        '';
+
+        launchd.daemons.github-runner-vm = {
+          command = lib.getExe guest.config.system.build.vm;
+          serviceConfig = {
+            KeepAlive = true;
+            RunAtLoad = true;
+            WorkingDirectory = stateDir;
+            StandardOutPath = "/var/log/github-runner-vm.log";
+            StandardErrorPath = "/var/log/github-runner-vm.log";
+          };
+        };
+
+        launchd.daemons.github-runner-vm-token = {
+          command = lib.getExe mintToken;
+          serviceConfig = {
+            RunAtLoad = true;
+            StartInterval = 30 * 60;
+            KeepAlive.SuccessfulExit = false;
+            ThrottleInterval = 5 * 60;
+            StandardOutPath = "/var/log/github-runner-vm-token.log";
+            StandardErrorPath = "/var/log/github-runner-vm-token.log";
+          };
+        };
+      })
+    ]
+  );
+}
