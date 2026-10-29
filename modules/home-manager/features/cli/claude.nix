@@ -1181,6 +1181,54 @@ in
         # openssl and gettext among them, and none of those should be shadowing the
         # store's copies.
 
+        # That rule is what lets a second gate live here as one line. =mr-size= asks
+        # whether a change can be reviewed in a sitting; it says nothing about
+        # whether it should be. The guardrails that answer that -- mutation testing
+        # on the new tests, the linter's preview band, dead code and complexity,
+        # semgrep against GitLab's own SAST rules, the dependency audit -- are not
+        # enforced on the projects themselves yet, so until they are they run where
+        # the work is done and shape it there, rather than turning up months later
+        # as debt. They live outside this repository, in a local lab at
+        # =~/Development/sprinter/test-guardrails=, because nothing they need may
+        # ever land in a project: no Stryker, no fast-check, no fallow, no config
+        # and no report. The hook is the only part of them named here, and it is a
+        # path, not a copy.
+
+        # What the command about to run means decides how much is owed. A =git
+        # commit= is mid-work and happens constantly, so it gets only the checks
+        # that cost seconds: format, the linter at the enforced level, and dead code
+        # and complexity over the changed lines. That tier is under two seconds on a
+        # Nuxt app, which is what keeps it from becoming the thing you switch off,
+        # and a failure there is denied rather than asked about -- these are
+        # mechanical, and the agent fixes them and retries. A =git push= or an MR
+        # creation is the work leaving your hands, so everything is owed: typecheck,
+        # mutation on the new tests, semgrep on the changed lines, the dependency
+        # audit. That tier runs for minutes and cannot sit inside a hook, so the
+        # hook does not run it. It runs the fast tier anyway -- a lint error should
+        # still stop a push -- and then asks whether a full run already covers what
+        # is about to leave.
+
+        # It answers that from a receipt the gate leaves behind, keyed by the sha256
+        # of the whole merge-base-to-worktree diff. Comparing against the merge base
+        # rather than =HEAD= is what makes the receipt survive the commit: staging
+        # and committing the same content leaves that diff untouched, so a run done
+        # before committing still covers the push that follows, while one character
+        # changed afterwards invalidates it. A receipt counts only if it is the full
+        # tier, matches, was not blocked, and holds no check that could not run -- a
+        # scan that loaded no rules is not a scan, and a receipt claiming otherwise
+        # would be exactly the false pass these checks exist to catch. For the same
+        # reason a hook that crashes, or overruns its ninety seconds, asks rather
+        # than falling silent.
+
+        # Findings that do not block are said once and then only again when they
+        # change, since the fast tier measures the whole branch and would otherwise
+        # repeat itself on every commit of a long one; a failure is never quieted.
+        # Setting =GATE_SKIP= in front of the command passes once, =git config
+        # gate.enabled false= stops it for a repository and =git config
+        # branch.<name>.gateOverride true= for a branch. Repositories with neither
+        # a =package.json= nor a =composer.json= are left alone, and so is the lab
+        # itself.
+
         PreToolUse = [
           {
             matcher = "Bash";
@@ -1200,6 +1248,12 @@ in
                 command = "${lib.getExe mr-size} claude-pre";
                 timeout = 20;
                 description = "MR size gate: ask before commit/push/MR creation when the branch's MR would exceed the reviewable size; require the review-difficulty section in MR descriptions";
+              }
+              {
+                type = "command";
+                command = "${lib.getExe pkgs.nodejs} $HOME/Development/sprinter/test-guardrails/bin/gate-hook.mjs";
+                timeout = 120;
+                description = "Pre-delivery gate: the fast guardrails on the changed lines before a commit, and a full gate run before a push or an MR";
               }
             ];
           }
