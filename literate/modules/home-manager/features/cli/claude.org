@@ -130,8 +130,11 @@ and the limit applies to it, with a raw-size ceiling kept as a backstop.
   description, so the agent is told to append the section after. The score's
   weights are hand-chosen, not fitted to how reviews went, and it says so.
 
-The default is 400 effective lines or 20 files that need reading, lockfiles
-and generated output not counted. Each branch is measured against the one it
+The default is 400 effective lines or 20 files that need reading. Lockfiles
+and generated output are not counted, and neither are documentation, test
+data or mocks: they hold nothing a reviewer needs to read, while the tests
+and the logic they cover count in full.
+Each branch is measured against the one it
 is stacked on, so a stack of small branches passes link by link, the way each
 will be reviewed. A repository tunes the limits with =git config
 mrSize.maxLines= / =mrSize.maxFiles= / =mrSize.maxRawLines=, its exclusions in
