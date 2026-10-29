@@ -121,8 +121,21 @@ let
   # the same split as =codex remote-control= in =features/cli/codex.nix=.
 
   # It runs as the personal account because of =CLAUDE_CONFIG_DIR=, and it serves
-  # the home folder: every session it starts begins there, and the phone has no way
-  # to pick another folder at the point of starting one.
+  # one folder, set per host by =features.claudePersonal.remoteControl.directory=:
+  # every session it starts begins there, and the phone has no way to pick another
+  # folder at the point of starting one. A laptop serves the home folder and
+  # leaves the session to find its way; an always-on machine can serve the one
+  # project it is there for.
+
+  # The spawn mode is per host for the same reason. =same-dir= puts every session
+  # in that folder together, which suits a home folder nobody builds in.
+  # =worktree= gives each session started from the phone its own git worktree, so
+  # two of them working the same repository do not edit the same checkout.
+
+  # A missing folder -- a repository not cloned yet -- is a quiet exit like a
+  # missing login, and the next tick tries again.
+
+  cfg = config.features.claudePersonal.remoteControl;
 
   remoteControl =
     let
@@ -130,8 +143,8 @@ let
         export CLAUDE_CONFIG_DIR="${cliHome}"
         command -v claude >/dev/null || exit 0
         claude auth status >/dev/null 2>&1 || exit 0
-        cd "${config.home.homeDirectory}"
-        exec claude remote-control
+        cd ${lib.escapeShellArg cfg.directory} || exit 0
+        exec claude remote-control --spawn=${cfg.spawn}
       '';
     in
     {
@@ -153,9 +166,9 @@ let
         # kickstart gui/$UID/org.nix-community.home.claude-personal-remote-control= does
         # it now rather than at the next tick.
 
-        # The first time the server is asked to work in the home folder it wants that
-        # folder trusted, and with no terminal it cannot ask. Running =claude-personal=
-        # once from =~= answers it.
+        # The first time the server is asked to work in its folder it wants that folder
+        # trusted, and with no terminal it cannot ask. Running =claude-personal= once
+        # from that folder answers it.
 
         # No ~ProcessType = "Background"~ and the PATH spelled out, for the reasons given
         # beside the codex agent: the sessions it runs inherit both.
@@ -188,9 +201,36 @@ let
   # The app and the agent are darwin only: Linux has no Claude Desktop, and launchd
   # is macOS's. The CLI wrapper works anywhere.
 
+  # The agent is off unless a host turns it on, since an always-on server is a
+  # decision about that machine rather than something every import should get.
+
 in
 {
-  home.packages = [ cli ] ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin darwinApp;
+  options.features.claudePersonal.remoteControl = {
+    enable = lib.mkEnableOption "a Remote Control server signed into the personal account";
 
-  launchd.agents.claude-personal-remote-control = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin remoteControl;
+    directory = lib.mkOption {
+      type = lib.types.str;
+      default = config.home.homeDirectory;
+      description = "Folder the server serves; every session it starts begins here.";
+    };
+
+    spawn = lib.mkOption {
+      type = lib.types.enum [
+        "same-dir"
+        "worktree"
+        "session"
+      ];
+      default = "same-dir";
+      description = "How the server places sessions started from claude.ai/code or the phone.";
+    };
+  };
+
+  config = {
+    home.packages = [ cli ] ++ lib.optional pkgs.stdenv.hostPlatform.isDarwin darwinApp;
+
+    launchd.agents.claude-personal-remote-control = lib.mkIf (
+      cfg.enable && pkgs.stdenv.hostPlatform.isDarwin
+    ) remoteControl;
+  };
 }

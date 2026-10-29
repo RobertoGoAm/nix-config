@@ -39,6 +39,10 @@
 
   features.desktop.windowManager = "omniwm";
 
+  # The personal account answers the phone from here too, in the home folder,
+  # whenever the laptop is awake. vulcan is the one that is always on.
+  features.claudePersonal.remoteControl.enable = true;
+
   programs.home-manager = {
     enable = true;
   };
