@@ -47,6 +47,17 @@ is what the e-reader browses.
 
   features.services.media.enable = true;
 
+  # The personal account's Remote Control server, kept up on the machine that
+  # never sleeps, so singularity is reachable from the phone and claude.ai/code
+  # whether or not the laptop is open. Each session started from there gets
+  # its own worktree: two of them working on the repository at once do not
+  # edit the same checkout.
+  features.claudePersonal.remoteControl = {
+    enable = true;
+    directory = "${config.home.homeDirectory}/Development/personal/singularity";
+    spawn = "worktree";
+  };
+
   features.services.reading = {
     enable = true;
     # Calibre put the library at the top of $HOME here, not under books/. The
@@ -75,6 +86,7 @@ is what the e-reader browses.
     ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
     ../../features/productivity
+    ../../features/productivity/claude-personal.nix
     ../../features/productivity/keyboard
     ../../features/productivity/wallpaper
     ../../features/desktop/warpd
