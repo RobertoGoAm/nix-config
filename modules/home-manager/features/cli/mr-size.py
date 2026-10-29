@@ -615,11 +615,18 @@ class NearCopies:
             return None
         votes = Counter(i for sh in shingles(sq) for i in self.index.get(sh, ()))
         best = None
+
+        def wins(ratio):
+            return ratio >= self.threshold and (best is None or ratio > best[0])
+
         for i, _ in votes.most_common(3):
             prior = self.blocks[i]
             sm = SequenceMatcher(None, [t[0] for t in prior["seq"]], [t[0] for t in sq], autojunk=False)
+            # Both are upper bounds of ratio(), so a block they rule out could not have won.
+            if not (wins(sm.real_quick_ratio()) and wins(sm.quick_ratio())):
+                continue
             ratio = sm.ratio()
-            if ratio >= self.threshold and (best is None or ratio > best[0]):
+            if wins(ratio):
                 best = (ratio, prior, sm.get_opcodes())
         return best
 
@@ -705,28 +712,27 @@ def resolve_base(branch):
     d = default_branch()
     if branch == d.removeprefix("origin/") and git_ok("rev-parse", "--verify", "--quiet", "@{u}"):
         return git_ok("rev-parse", "--abbrev-ref", "@{u}"), git_ok("merge-base", "@{u}", "HEAD")
-    cands = git_ok("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
-    if d:
-        cands.append(d)
+    refs = ["refs/heads"] + ([f"refs/remotes/{d}"] if d.startswith("origin/") else [])
+    rows = git_ok("for-each-ref", "--format=%(refname:short) %(ahead-behind:HEAD)", *refs).splitlines()
+    total = int(git_ok("rev-list", "--count", "HEAD") or 0)
     best = None
-    for c in cands:
-        if c == branch:
-            continue
-        mb = git_ok("merge-base", c, "HEAD")
-        if not mb:
+    for row in rows:
+        c, ahead, behind = row.rsplit(" ", 2)
+        ahead, behind = int(ahead), int(behind)
+        # Behind by every commit of HEAD: the two share no history.
+        if c == branch or behind == total:
             continue
         # A branch stacked on this one contains HEAD; it is not what this
         # branch forked from. One still sitting at HEAD is: nothing committed yet.
-        if mb == head and git_ok("rev-parse", c) != mb:
+        if behind == 0 and ahead:
             continue
-        n = int(git_ok("rev-list", "--count", f"{mb}..HEAD") or 0)
         # On a tie, a branch whose tip is the fork point (what this one was
         # cut from) beats a sibling that has moved on, and the default branch
         # beats both.
-        rank = (n, git_ok("rev-parse", c) != mb, c != d)
+        rank = (behind, ahead > 0, c != d)
         if best is None or rank < best[0]:
-            best = (rank, c, mb)
-    return (best[1], best[2]) if best else ("HEAD", head)
+            best = (rank, c)
+    return (best[1], git_ok("merge-base", best[1], "HEAD")) if best else ("HEAD", head)
 
 
 @dataclass
