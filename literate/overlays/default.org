@@ -38,6 +38,12 @@
   python-ldap = import ./python-ldap.nix;
 #+end_src
 
+* jellyfin-ffmpeg: ffmpeg's VERSION file shadows libc++'s <version> on macOS
+
+#+begin_src nix
+  jellyfin-ffmpeg = import ./jellyfin-ffmpeg.nix;
+#+end_src
+
 * lit-tangle: regenerates this repo's .nix from the literate org...
 
 lit-tangle: regenerates this repo's .nix from the literate org sources.
