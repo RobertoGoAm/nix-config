@@ -182,6 +182,11 @@ let
         # No ~ProcessType = "Background"~ and the PATH spelled out, for the reasons given
         # beside the codex agent: the sessions it runs inherit both.
 
+        # Standard output goes nowhere. The server draws a status panel for a terminal,
+        # and with no terminal it redraws that panel into the file every few seconds --
+        # about forty megabytes a day of the same connected line. What goes wrong is
+        # written to standard error, which keeps its log.
+
         RunAtLoad = true;
         StartInterval = 900;
 
@@ -200,7 +205,7 @@ let
           ];
         };
 
-        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/claude-personal-remote-control.out.log";
+        StandardOutPath = "/dev/null";
         StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/claude-personal-remote-control.err.log";
       };
     };
