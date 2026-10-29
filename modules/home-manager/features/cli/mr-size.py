@@ -619,7 +619,11 @@ class NearCopies:
         def wins(ratio):
             return ratio >= self.threshold and (best is None or ratio > best[0])
 
-        for i, _ in votes.most_common(3):
+        # most_common() breaks ties by the Counter's insertion order, which here
+        # comes from iterating sets of shingles and of block indices: that order
+        # follows string hashing, so the same branch could pick different
+        # candidates on two runs and score differently. Rank by votes, then index.
+        for i, _ in sorted(votes.items(), key=lambda kv: (-kv[1], kv[0]))[:3]:
             prior = self.blocks[i]
             sm = SequenceMatcher(None, [t[0] for t in prior["seq"]], [t[0] for t in sq], autojunk=False)
             # Both are upper bounds of ratio(), so a block they rule out could not have won.
