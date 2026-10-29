@@ -64,6 +64,7 @@
     ../../features/internet/zen.nix
     ../../features/media/iina.nix
     ../../features/media/yt-dlp.nix
+    ../../features/productivity/claude-personal.nix
     ../../features/productivity/karabiner.nix
     ../../features/productivity/keyboard
     ../../features/productivity/obsidian
