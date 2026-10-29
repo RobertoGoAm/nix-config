@@ -116,11 +116,21 @@ than a shared one.
 takes the same arguments behind it -- =claude-personal auth login= to sign in,
 =claude-personal= to open a session.
 
+It also widens the certificates the CLI trusts. The nix package sets
+=CLAUDE_CODE_CERT_STORE=system= as its default, which drops the runtime's
+bundled roots and trusts only what macOS's own store hands over. On the laptop
+that store is full enough; on vulcan it yields six certificates, none of them
+the root behind =api.anthropic.com=, so sign-in works -- it goes through
+=platform.claude.com= -- and then every call fails with
+=UNABLE_TO_GET_ISSUER_CERT_LOCALLY=. =bundled,system= trusts both. An explicit
+value in the environment still wins.
+
 #+begin_src nix
   cliHome = "${config.home.homeDirectory}/.claude-personal";
 
   cli = pkgs.writeShellScriptBin "claude-personal" ''
     export CLAUDE_CONFIG_DIR="${cliHome}"
+    export CLAUDE_CODE_CERT_STORE="''${CLAUDE_CODE_CERT_STORE:-bundled,system}"
     exec claude "$@"
   '';
 #+end_src
@@ -154,11 +164,10 @@ missing login, and the next tick tries again.
   remoteControl =
     let
       start = pkgs.writeShellScript "claude-personal-remote-control-start" ''
-        export CLAUDE_CONFIG_DIR="${cliHome}"
         command -v claude >/dev/null || exit 0
-        claude auth status >/dev/null 2>&1 || exit 0
+        ${cli}/bin/claude-personal auth status >/dev/null 2>&1 || exit 0
         cd ${lib.escapeShellArg cfg.directory} || exit 0
-        exec claude remote-control --spawn=${cfg.spawn}
+        exec ${cli}/bin/claude-personal remote-control --spawn=${cfg.spawn}
       '';
     in
     {
