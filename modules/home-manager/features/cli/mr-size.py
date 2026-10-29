@@ -31,9 +31,10 @@ token comparison without the syntax-aware rules.
 
 The base is the branch this one is stacked on: branch.<name>.mrBase when
 set, else the nearest local branch the current one forked from, else
-origin's default branch. Lockfiles and generated output are not counted; a
-repository adds patterns, one glob per line, in .mr-size-ignore, and paths
-whose changes are riskier to review in .mr-size-risk.
+origin's default branch. Lockfiles, generated output, documentation, test
+data and mocks are not counted; tests are. A repository adds patterns, one
+glob per line, in .mr-size-ignore, and paths whose changes are riskier to
+review in .mr-size-risk.
 
 Limits, per repository with git config:
     mrSize.maxLines      effective lines        (default 400)
@@ -70,6 +71,10 @@ IGNORE_GLOBS = [
     "**/pnpm-lock.yaml", "**/go.sum", "**/*.snap", "**/__snapshots__/**",
     "**/*.min.js", "**/*.min.css", "**/*.map", "**/dist/**", "**/generated/**",
     "**/*.generated.*", "**/*.pb.go", "**/*_pb2.py",
+    "**/*.md", "**/*.mdx", "**/*.rst", "**/*.adoc", "**/docs/**",
+    "**/fixtures/**", "**/__fixtures__/**", "**/*.fixture.*", "**/*.fixtures.*",
+    "**/testdata/**", "**/test-data/**", "**/test_data/**",
+    "**/__mocks__/**", "**/mocks/**", "**/mock/**", "**/*.mock.*", "**/*.mocks.*",
 ]
 
 RISK_GLOBS = [
@@ -784,7 +789,8 @@ def summary(x):
     return (f"{x.branch} vs {x.base}: {m['effective']} effective lines, {m['files']} files to read "
             f"(+{m['skimmed_files']} to skim) "
             f"({m['raw_lines']} raw lines in {m['raw_files']} files; limits {x.max_lines} effective / "
-            f"{x.max_files} files / {x.max_raw} raw; lockfiles and generated files not counted)")
+            f"{x.max_files} files / {x.max_raw} raw; lockfiles, generated files, docs, test data "
+            f"and mocks not counted)")
 
 
 def split_advice(x):
