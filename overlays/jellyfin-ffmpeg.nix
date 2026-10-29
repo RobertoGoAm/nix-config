@@ -1,0 +1,26 @@
+# ffmpeg's VERSION file shadows libc++'s <version> on macOS
+
+# jellyfin-ffmpeg builds with OpenColorIO, whose =ocio_wrapper.cpp= is C++, and
+# ffmpeg compiles with the source root on the include path. That root holds a
+# file called =VERSION= containing the release number. macOS volumes are
+# case-insensitive, so when libc++'s =<string>= reaches for =#include <version>=
+# it finds ffmpeg's =VERSION= first and parses =8.1.3= as C++:
+
+#   ./version:1:1: error: expected unqualified-id
+
+# Linux never sees this, so the cache has no darwin build to fall back on, and
+# jellyfin is part of vulcan's media stack: the whole vulcan generation stops on
+# it.
+
+# The file is only read by =ffbuild/version.sh=, which falls back to =RELEASE=
+# -- the same =8.1.3= -- when =VERSION= is missing. Deleting it after the debian
+# patches are applied keeps the version string ffmpeg reports and takes the
+# file out of the include path.
+
+final: prev: {
+  jellyfin-ffmpeg = prev.jellyfin-ffmpeg.overrideAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      rm -f VERSION
+    '';
+  });
+}

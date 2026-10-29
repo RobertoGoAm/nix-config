@@ -209,6 +209,7 @@
         outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins
         outputs.overlays.container-picker
+        outputs.overlays.jellyfin-ffmpeg
         outputs.overlays.lit-tangle
         outputs.overlays.mcp-v1
         outputs.overlays.nix-preflight
