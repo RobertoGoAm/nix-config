@@ -1,0 +1,11 @@
+#+TITLE: overlays opengrep
+
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* opengrep: semgrep's rules without a Python to run them
+
+#+begin_src nix
+final: _prev: {
+  opengrep = final.callPackage ../pkgs/opengrep.nix { };
+}
+#+end_src

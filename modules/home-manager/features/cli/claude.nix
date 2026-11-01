@@ -1,6 +1,11 @@
 # cli claude
 
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
 
   # The status line under the prompt: where this session stands
@@ -92,13 +97,12 @@ let
   # - After an edit or a commit, the PostToolUse hook tells the agent the moment
   #   its work in progress has outgrown one MR, so the split happens while it is
   #   still cheap, not after a thousand lines are committed.
-  # - Every MR the agent opens carries a review-difficulty section: band and
-  #   minutes, the breakdown, branching logic added, areas, changed exports, risk
-  #   paths (migrations, auth, CI config...), and test share. =glab mr create= and
-  #   =gh pr create= are refused until the description includes it, with the
-  #   section handed to the agent ready to paste; =df mr-generate= writes its own
-  #   description, so the agent is told to append the section after. The score's
-  #   weights are hand-chosen, not fitted to how reviews went, and it says so.
+  # - MR descriptions carry no review-difficulty section, and opening an MR is
+  #   never refused for lacking one. =mr-size mr-body= still prints the section on
+  #   demand: band and minutes, the breakdown, branching logic added, areas,
+  #   changed exports, risk paths (migrations, auth, CI config...), and test
+  #   share. The score's weights are hand-chosen, not fitted to how reviews went,
+  #   and it says so.
 
   # The default is 400 effective lines or 20 files that need reading. Lockfiles
   # and generated output are not counted, and neither are documentation, test
@@ -286,6 +290,19 @@ let
         "http://127.0.0.1:$port/mcp"
     '';
   };
+
+  # Where the guardrails lab is comes from the private file
+
+  # The pre-delivery gate further down runs a script from a lab that lives
+  # outside this repository, and the lab's location names the work it was built
+  # for. So the path is read from the gitignored =work-extras.nix=, as
+  # =claude.guardrailsDir=, the same way the work browser spaces are. Where the
+  # file or the key is missing the gate is simply not installed: a machine with
+  # no lab has nothing for it to run.
+
+  privatePath = "${config.home.homeDirectory}/.config/nix-secrets/work-extras.nix";
+  private = if builtins.pathExists privatePath then import privatePath { inherit pkgs; } else { };
+  guardrailsDir = (private.claude or { }).guardrailsDir or null;
 in
 {
   programs.claude-code = {
@@ -1191,11 +1208,11 @@ in
         # semgrep against GitLab's own SAST rules, the dependency audit -- are not
         # enforced on the projects themselves yet, so until they are they run where
         # the work is done and shape it there, rather than turning up months later
-        # as debt. They live outside this repository, in a local lab at
-        # =~/Development/work/test-guardrails=, because nothing they need may
-        # ever land in a project: no Stryker, no fast-check, no fallow, no config
-        # and no report. The hook is the only part of them named here, and it is a
-        # path, not a copy.
+        # as debt. They live outside this repository, in a local lab whose path
+        # comes from =work-extras.nix=, because nothing they need may ever land in a
+        # project: no Stryker, no fast-check, no fallow, no config and no report.
+        # The hook is the only part of them named here, and it is a path, not a
+        # copy.
 
         # What the command about to run means decides how much is owed. A =git
         # commit= is mid-work and happens constantly, so it gets only the checks
@@ -1250,15 +1267,15 @@ in
                 type = "command";
                 command = "${lib.getExe mr-size} claude-pre";
                 timeout = 20;
-                description = "MR size gate: ask before commit/push/MR creation when the branch's MR would exceed the reviewable size; require the review-difficulty section in MR descriptions";
+                description = "MR size gate: ask before commit/push/MR creation when the branch's MR would exceed the reviewable size";
               }
-              {
-                type = "command";
-                command = "${lib.getExe pkgs.nodejs} $HOME/Development/work/test-guardrails/bin/gate-hook.mjs";
-                timeout = 120;
-                description = "Pre-delivery gate: the fast guardrails on the changed lines before a commit, and a full gate run before a push or an MR";
-              }
-            ];
+            ]
+            ++ lib.optional (guardrailsDir != null) {
+              type = "command";
+              command = "${lib.getExe pkgs.nodejs} ${guardrailsDir}/bin/gate-hook.mjs";
+              timeout = 120;
+              description = "Pre-delivery gate: the fast guardrails on the changed lines before a commit, and a full gate run before a push or an MR";
+            };
           }
           {
             matcher = "";
