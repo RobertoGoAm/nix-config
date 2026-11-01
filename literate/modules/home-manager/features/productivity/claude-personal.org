@@ -4,7 +4,7 @@
 * A second Claude Desktop, signed into a different account
 
 Claude Desktop holds one login per data folder, and the app is signed into
-the Mindden organisation. A personal account has to sit beside it -- both
+the work organisation. A personal account has to sit beside it -- both
 windows open at once -- rather than take turns behind a sign-out.
 
 The release build ignores =CLAUDE_USER_DATA_DIR=, but it honours Electron's
@@ -107,7 +107,7 @@ not only from a shell. It borrows Claude's icon.
 * The same account on the command line
 
 The CLI keeps its login, history and settings in one folder too, =~/.claude=,
-and that one is signed into the Mindden organisation. =CLAUDE_CONFIG_DIR= moves
+and that one is signed into the work organisation. =CLAUDE_CONFIG_DIR= moves
 the whole of it, credentials included: the keychain item the CLI stores its
 token in is named after the folder, so a second folder is a second login rather
 than a shared one.
