@@ -338,10 +338,35 @@ no lab has nothing for it to run.
   privatePath = "${config.home.homeDirectory}/.config/nix-secrets/work-extras.nix";
   private = if builtins.pathExists privatePath then import privatePath { inherit pkgs; } else { };
   guardrailsDir = (private.claude or { }).guardrailsDir or null;
+#+end_src
+
+* The nixpkgs wrapper trusts only macOS's certificate store unless...
+
+The nixpkgs wrapper trusts only macOS's certificate store unless the shell
+has exported =NIX_SSL_CERT_FILE=: it defaults =CLAUDE_CODE_CERT_STORE= to
+=system= and adds the nix CA bundle only when that variable is set. A terminal
+has it; an app opened from the Dock does not, so a GUI that spawns =claude=
+itself -- Orca, for one -- gets a client that fails sign-in with
+=UNABLE_TO_GET_ISSUER_CERT_LOCALLY=. Wrapping the package once more with
+=bundled,system= as the default makes every launcher behave like the terminal;
+a value already in the environment still wins.
+
+#+begin_src nix
+  claudeCode = pkgs.symlinkJoin {
+    name = "claude-code-${pkgs.claude-code.version}";
+    inherit (pkgs.claude-code) version meta;
+    paths = [ pkgs.claude-code ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/claude \
+        --set-default CLAUDE_CODE_CERT_STORE bundled,system
+    '';
+  };
 in
 {
   programs.claude-code = {
     enable = true;
+    package = claudeCode;
     # A writable settings.json, so /config, /model and plugin toggles land.
     # Declared keys, permission arrays included, win again on every switch.
     mutableSettings = true;
