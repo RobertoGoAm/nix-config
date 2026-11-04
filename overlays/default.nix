@@ -27,6 +27,10 @@
 
   jellyfin-ffmpeg = import ./jellyfin-ffmpeg.nix;
 
+  # opencode: the node_modules hash nixpkgs pins does not match on darwin
+
+  opencode = import ./opencode.nix;
+
   # lit-tangle: regenerates this repo's .nix from the literate org...
 
   # lit-tangle: regenerates this repo's .nix from the literate org sources.
