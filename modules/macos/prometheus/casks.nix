@@ -25,6 +25,7 @@ in
 {
   homebrew = {
     enable = true;
+    taps = [ "stablyai/orca" ];
     casks =
       greedy [
 
@@ -33,6 +34,17 @@ in
         "codex"
         "imageoptim"
         "orbstack"
+
+        # Orca: one window for several coding agents at once
+
+        # Orca runs the agent CLIs already installed here -- Claude Code, Codex -- side
+        # by side, each in its own worktree, rather than bringing models of its own.
+        # It is not in homebrew/cask: stablyai publish it from their own tap, so the
+        # cask is named through the tap and the tap is declared beside it. Without the
+        # tap in =homebrew.taps=, =brew bundle= cannot resolve the name and the whole
+        # bundle fails.
+
+        "stablyai/orca/orca"
 
         # Internet
 
