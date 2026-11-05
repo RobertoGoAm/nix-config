@@ -114,8 +114,19 @@ export interface Deps {
   switchTerminal: (terminalId: string) => Promise<boolean>
 }
 
-/** A closed pane sends no event, so `next-agent` drops an agent it can no longer show and tries the next. */
-export function start(orca: OrcaWorkerApi, deps: Deps): AgentQueue {
+export interface AgentKeys {
+  queue: AgentQueue
+  nextAgent: () => Promise<void>
+  focusMode: () => Promise<void>
+}
+
+/**
+ * `next-agent` stands in for Orca's Workspace Board action, whose key Orca catches even in the chat
+ * box; Orca runs the Board itself if a stand-in has not returned within 2 s, so the command returns
+ * at once and the jump finishes after. A closed pane sends no event, so an agent that can no longer
+ * be shown is dropped and the next one tried.
+ */
+export function start(orca: OrcaWorkerApi, deps: Deps): AgentKeys {
   const queue = new AgentQueue()
 
   const render = async (): Promise<void> => {
@@ -155,23 +166,28 @@ export function start(orca: OrcaWorkerApi, deps: Deps): AgentQueue {
     void render()
   })
 
-  orca.commands.register('next-agent', async () => {
+  const nextAgent = async (): Promise<void> => {
     for (let agent = queue.next(); agent; agent = queue.next()) {
       if (await show(agent)) {
         break
       }
       queue.drop(agent.paneKey)
     }
-    void render()
-  })
+    await render()
+  }
 
-  orca.commands.register('focus-mode', async () => {
+  const focusMode = async (): Promise<void> => {
     await orca.host.call('commands.run', { action: 'sidebar.left.toggle' })
     await orca.host.call('commands.run', { action: 'sidebar.right.toggle' })
+  }
+
+  orca.commands.register('next-agent', () => {
+    void nextAgent()
   })
+  orca.commands.register('focus-mode', focusMode)
 
   void render()
-  return queue
+  return { queue, nextAgent, focusMode }
 }
 
 export default function activate(orca: OrcaWorkerApi): void {

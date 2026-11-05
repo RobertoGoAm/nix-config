@@ -71,14 +71,21 @@ ends.
 * Agents: Cmd + the right-hand home row
 
 Cmd sits under the left thumb, so these are two-handed and need no stretch.
-Cmd+N (the next agent that needs you) and Cmd+I (hide both sidebars) come
-from the plugin below and are declared in its manifest. Cmd+E opens the
-Agent Dashboard and Cmd+O the Quick Commands menu.
+Cmd+N goes to the next agent that needs you and Cmd+I hides both sidebars,
+both from the plugin below. Cmd+E opens the Agent Dashboard and Cmd+O the
+Quick Commands menu.
+
+A plugin's own key only fires once Orca's interface has it, so the chat box
+keeps it to itself. Orca catches a few built-in actions' keys before that,
+so Cmd+N is bound to one of them -- the Workspace Board, which has no button
+of its own -- and the plugin runs in its place. Cmd+I stays the plugin's;
+from the chat box, Cmd+B and Cmd+L toggle each sidebar.
 
 Cmd+N was Orca's new-worktree key, which keeps Cmd+Shift+N; Cmd+E was voice
 dictation, which goes unbound.
 
 #+begin_src nix
+      "workspace.openBoard" = [ "Cmd+N" ];
       "workspace.create" = [ "Cmd+Shift+N" ];
       "voice.dictation" = [ ];
       "dashboard.toggle" = [ "Cmd+E" ];
@@ -94,7 +101,6 @@ claims.
 #+begin_src nix
       "sidebar.checks.toggle" = [ "Cmd+Shift+K" ];
       "view.tasks" = [ "Cmd+Shift+U" ];
-      "workspace.openBoard" = [ "Cmd+Shift+Y" ];
     };
   };
 #+end_src
@@ -102,7 +108,9 @@ claims.
 * The agent-keys plugin
 
 Cmd+N goes to the agent that needs you next: approval prompts and questions
-first, then agents idle at their prompt, oldest first. Cmd+I hides or shows
+first, then agents idle at their prompt, oldest first. Only agents in
+terminal panes report their status to plugins, so it never visits a chat
+session. Cmd+I hides or shows
 both sidebars together; if only one is open, Cmd+B or Cmd+L lines them up
 first. The status bar counts the agents waiting. The source sits beside this
 file, in agent-keys/, with its tests (`orca plugin test`).

@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "agent-keys",
   "name": "Agent keys",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One key to reach the agent that needs you next, one to hide both sidebars, and a status bar count of agents waiting on you.",
   "author": {
     "name": "Roberto Gomez Amores"
@@ -25,7 +25,8 @@
     "commands": [
       {
         "id": "next-agent",
-        "title": "Go to the next agent that needs you"
+        "title": "Go to the next agent that needs you",
+        "replaces": "workspace.openBoard"
       },
       {
         "id": "focus-mode",
@@ -33,10 +34,6 @@
       }
     ],
     "keybindings": [
-      {
-        "command": "next-agent",
-        "key": "Cmd+N"
-      },
       {
         "command": "focus-mode",
         "key": "Cmd+I"

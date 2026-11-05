@@ -1,5 +1,5 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
-import { AgentQueue, start, statusText, type AgentStatusEvent } from './worker'
+import { AgentQueue, start, statusText, type AgentKeys, type AgentStatusEvent } from './worker'
 
 const status = (paneKey: string, state: AgentStatusEvent['state'], receivedAt: number, extra: Partial<AgentStatusEvent> = {}) => ({
   workspaceId: `ws-${paneKey}`,
@@ -65,23 +65,37 @@ test('the status bar text names what is waiting', () => {
 test('next-agent switches to the terminal, falls back to the workspace, and drops what it cannot show', async () => {
   const host = newHost()
   const switched: string[] = []
+  let keys: AgentKeys | undefined
   const worker = await mountWorker(
-    { default: (orca) => void start(orca, { switchTerminal: async (id) => (switched.push(id), id !== 'term-gone') }) },
+    { default: (orca) => void (keys = start(orca, { switchTerminal: async (id) => (switched.push(id), id !== 'term-gone') })) },
     { host, events: ['agent.status.changed'], commands: ['next-agent', 'focus-mode'] }
   )
   await worker.emit('agent.status.changed', status('gone', 'blocked', 1, { workspaceId: null }))
   await worker.emit('agent.status.changed', status('nonterm', 'blocked', 2, { terminalId: undefined }))
   await worker.emit('agent.status.changed', status('here', 'waiting', 3))
 
-  await worker.command('next-agent')
+  await keys?.nextAgent()
   assert.deepEqual(switched, ['term-gone'])
   assert.deepEqual(host.callsOf('workspace.open'), [{ workspaceId: 'ws-nonterm' }])
 
-  await worker.command('next-agent')
+  await keys?.nextAgent()
   assert.deepEqual(switched, ['term-gone', 'term-here'])
 
   const updates = host.callsOf('statusBar.update')
   assert.deepEqual(updates.at(-1), { id: 'queue', visible: true, text: '1 asking · 1 ready', tone: 'warning' })
+  await worker.deactivate()
+})
+
+test('the next-agent command returns before a slow switch finishes, so Orca never falls back to its own action', async () => {
+  const host = newHost()
+  const switched: string[] = []
+  const worker = await mountWorker(
+    { default: (orca) => void start(orca, { switchTerminal: (id) => (switched.push(id), new Promise<boolean>(() => {})) }) },
+    { host, events: ['agent.status.changed'], commands: ['next-agent', 'focus-mode'] }
+  )
+  await worker.emit('agent.status.changed', status('slow', 'blocked', 1))
+  await worker.command('next-agent')
+  assert.deepEqual(switched, ['term-slow'])
   await worker.deactivate()
 })
 
