@@ -1,0 +1,141 @@
+#+TITLE: development orca
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* development orca
+
+Orca runs several coding agents side by side. Two pieces make it keyboard
+driven on a Colemak board: a keymap, and a small plugin for the two actions
+Orca has no built-in key for.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  home = config.home.homeDirectory;
+  orcaCli = "/Applications/Orca.app/Contents/Resources/bin/orca";
+  timeout = "${pkgs.coreutils}/bin/timeout";
+#+end_src
+
+* The keymap
+
+Orca reads ~/.orca/keybindings.json. A key listed for an action replaces
+that action's defaults, and an empty list unbinds it. Everything sits under
+the macOS section, the one platform Orca runs on here.
+
+Orca also writes this file when a shortcut is changed in its Settings, so it
+is installed as a plain file rather than a store link; a change made there
+lasts until the next rebuild.
+
+#+begin_src nix
+  keybindings = {
+    version = 1;
+    keybindings = { };
+    platforms.darwin = {
+#+end_src
+
+* Moving: Caps + Cmd + h/n/e/i
+
+The Caps layer turns h/n/e/i into arrows on both the Bridge75 and the
+built-in keyboard, and passes Cmd through, so Caps+Cmd+n arrives as
+Cmd+Down. Vertical moves between worktrees, the way the worktree list runs;
+horizontal between tabs, the way the tab bar runs. The Shift+arrow and
+Shift+bracket defaults stay as a second way in.
+
+Cmd+arrows therefore no longer reach the start or end of a line or file
+inside Orca; the Caps layer's Home (Caps+K) and End (Caps+.) cover line
+ends.
+
+#+begin_src nix
+      "worktree.navigateDown" = [
+        "Cmd+Shift+ArrowDown"
+        "Cmd+ArrowDown"
+      ];
+      "worktree.navigateUp" = [
+        "Cmd+Shift+ArrowUp"
+        "Cmd+ArrowUp"
+      ];
+      "tab.previousAllTypes" = [
+        "Cmd+Shift+BracketLeft"
+        "Cmd+ArrowLeft"
+      ];
+      "tab.nextAllTypes" = [
+        "Cmd+Shift+BracketRight"
+        "Cmd+ArrowRight"
+      ];
+#+end_src
+
+* Agents: Cmd + the right-hand home row
+
+Cmd sits under the left thumb, so these are two-handed and need no stretch.
+Cmd+N (the next agent that needs you) and Cmd+I (hide both sidebars) come
+from the plugin below and are declared in its manifest. Cmd+E opens the
+Agent Dashboard and Cmd+O the Quick Commands menu.
+
+Cmd+N was Orca's new-worktree key, which keeps Cmd+Shift+N; Cmd+E was voice
+dictation, which goes unbound.
+
+#+begin_src nix
+      "workspace.create" = [ "Cmd+Shift+N" ];
+      "voice.dictation" = [ ];
+      "dashboard.toggle" = [ "Cmd+E" ];
+      "tab.openQuickCommandsMenu" = [ "Cmd+O" ];
+#+end_src
+
+* Panels: Cmd + Shift + a letter
+
+The same family as Orca's own side panels (Explorer, Search, Source Control
+and Ports on Cmd+Shift+E/F/G/I), using right-hand letters nothing else
+claims.
+
+#+begin_src nix
+      "sidebar.checks.toggle" = [ "Cmd+Shift+K" ];
+      "view.tasks" = [ "Cmd+Shift+U" ];
+      "workspace.openBoard" = [ "Cmd+Shift+Y" ];
+    };
+  };
+#+end_src
+
+* The agent-keys plugin
+
+Cmd+N goes to the agent that needs you next: approval prompts and questions
+first, then agents idle at their prompt, oldest first. Cmd+I hides or shows
+both sidebars together; if only one is open, Cmd+B or Cmd+L lines them up
+first. The status bar counts the agents waiting. The source sits beside this
+file, in agent-keys/, with its tests (`orca plugin test`).
+
+Orca keeps a plugin loaded from a folder across restarts, so it is copied to
+a fixed folder; the store path would change with every edit. Orca re-reads
+neither file by itself: activation asks a running Orca to reload the plugin,
+and the keymap takes Settings → Shortcuts → Reload from disk, or a restart.
+
+The plugin runs its own code, so its first load is approved once by hand:
+
+  orca plugin dev load ~/.local/share/orca-plugins/agent-keys
+
+prints the fingerprint to pass back with --approve. Orca binds the approval
+to the plugin's exact files, so a rebuild that changes them leaves it off
+until it is approved again; activation says so when the reload is refused.
+
+#+begin_src nix
+  pluginDir = "${home}/.local/share/orca-plugins/agent-keys";
+in
+lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+  home.activation.orcaKeys = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    run mkdir -p "${home}/.orca"
+    run install -m 644 ${pkgs.writeText "orca-keybindings.json" (builtins.toJSON keybindings)} "${home}/.orca/keybindings.json"
+
+    run rm -rf "${pluginDir}"
+    run mkdir -p "${pluginDir}"
+    run cp -R ${./agent-keys}/. "${pluginDir}/"
+    run chmod -R u+w "${pluginDir}"
+    if [ -x ${orcaCli} ] && ${timeout} 10 ${orcaCli} status >/dev/null 2>&1; then
+      run ${timeout} 20 ${orcaCli} plugin dev reload "${pluginDir}" >/dev/null 2>&1 \
+        || echo "orca: agent-keys did not reload; 'orca plugin dev reload ${pluginDir}' shows why (changed files need approving again)"
+    fi
+  '';
+}
+#+end_src

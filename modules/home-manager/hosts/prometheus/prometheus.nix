@@ -60,6 +60,7 @@
     ../../features/development
     ../../features/development/cursor.nix
     ../../features/development/antigravity.nix
+    ../../features/development/orca
     ../../features/internet/chrome-dev.nix
     ../../features/internet/cyberduck.nix
     ../../features/desktop/omniwm.nix
