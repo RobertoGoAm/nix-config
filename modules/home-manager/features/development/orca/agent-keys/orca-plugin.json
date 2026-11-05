@@ -1,0 +1,59 @@
+{
+  "manifestVersion": 2,
+  "id": "agent-keys",
+  "name": "Agent keys",
+  "version": "0.1.0",
+  "description": "One key to reach the agent that needs you next, one to hide both sidebars, and a status bar count of agents waiting on you.",
+  "author": {
+    "name": "Roberto Gomez Amores"
+  },
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "capabilities": [
+    {
+      "kind": "agent:read"
+    },
+    {
+      "kind": "workspace:write"
+    }
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "next-agent",
+        "title": "Go to the next agent that needs you"
+      },
+      {
+        "id": "focus-mode",
+        "title": "Hide or show both sidebars"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "next-agent",
+        "key": "Cmd+N"
+      },
+      {
+        "command": "focus-mode",
+        "key": "Cmd+I"
+      }
+    ],
+    "events": [
+      {
+        "on": "agent.status.changed"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "queue",
+        "icon": "bell",
+        "tooltip": "Agents waiting on you. Cmd+N goes to the next one.",
+        "command": "next-agent"
+      }
+    ]
+  }
+}
