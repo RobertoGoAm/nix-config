@@ -150,16 +150,13 @@
             config = {
               allowUnfree = true;
 
-              # Linux Electron apps (obsidian/discord) + checkov's
+              # checkov pulls in python-ecdsa, which nixpkgs marks insecure
 
-              # python-ecdsa pull packages nixpkgs marks insecure; permit them by
-              # name so it survives version bumps. (The macs avoid electron — their
-              # obsidian is a prebuilt binary, not a from-source build.)
+              # Permitted by name, so the permission survives version bumps.
 
               allowInsecurePredicate =
                 pkg:
                 builtins.elem (lib.getName pkg) [
-                  "electron"
                   "ecdsa"
                 ];
             };

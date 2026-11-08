@@ -122,8 +122,10 @@ in
             esbenp.prettier-vscode
             formulahendry.auto-close-tag
             formulahendry.auto-rename-tag
+            hashicorp.terraform
             haskell.haskell
             hbenl.vscode-test-explorer
+            jacobdufault.fuzzy-search
             jnoortheen.nix-ide
             justusadam.language-haskell
             kahole.magit
@@ -136,6 +138,7 @@ in
             naumovs.color-highlight
             prisma.prisma
             sonarsource.sonarlint-vscode
+            vitest.explorer
             vscodevim.vim
             vspacecode.vspacecode
             vspacecode.whichkey
@@ -151,22 +154,10 @@ in
               sha256 = "sha256-z1QYlYn0RSy2FWCZBYYHbN5BTWp4cp/sOy19tRr1RiU=";
             }
             {
-              publisher = "vitest";
-              name = "explorer";
-              version = "1.52.2";
-              sha256 = "sha256-/K5BpvWEt7Cxm4TlIjUIL4rxKs/oWJkwaHFhczAD0zE=";
-            }
-            {
               name = "format-code-action";
               publisher = "rohit-gohri";
               version = "0.1.0";
               sha256 = "sha256-j60fZVJ83Ngpgaha9I3CVoIccwng2vlub7fiKnciP6w=";
-            }
-            {
-              name = "fuzzy-search";
-              publisher = "jacobdufault";
-              version = "0.0.3";
-              sha256 = "sha256-oN1SzXypjpKOTUzPbLCTC+H3I/40LMVdjbW3T5gib0M=";
             }
             {
               name = "postman-for-vscode";
@@ -185,21 +176,6 @@ in
               publisher = "albert";
               version = "0.2.4";
               sha256 = "sha256-6jSf+O+6pbAwTbo+Nt+DlLXG3k0m+MNzzkWDKuiaxIg=";
-            }
-            {
-              name = "terraform";
-              publisher = "hashicorp";
-              version = "2.40.0";
-
-              # Rehashed 2026-08-31, same version. The marketplace served different
-
-              # bytes for 2.40.0 than when this was pinned. Not a fetcher change:
-              # vscode-utils.nix is byte-identical across the nixpkgs bump that
-              # surfaced it. Not a release we were behind on either -- check-pins
-              # still reports 2.40.0 as current. A re-publish under an unchanged
-              # version number.
-
-              sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
             }
             {
               name = "ts-error-translator";

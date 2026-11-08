@@ -206,7 +206,6 @@
     nixpkgs = {
       overlays = [
         outputs.overlays.aider-chat
-        outputs.overlays.bc-detect-secrets
         outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins
         outputs.overlays.container-picker
@@ -214,12 +213,10 @@
         outputs.overlays.lit-tangle
         outputs.overlays.mcp-v1
         outputs.overlays.nix-preflight
-        outputs.overlays.opencode
         outputs.overlays.spotify-ctl
         outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
         outputs.overlays.posthog
-        outputs.overlays.python-ldap
         outputs.overlays.warpd
       ];
       config = {

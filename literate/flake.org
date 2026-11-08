@@ -163,17 +163,15 @@ package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
               allowUnfree = true;
 #+end_src
 
-* Linux Electron apps (obsidian/discord) + checkov's
 
-python-ecdsa pull packages nixpkgs marks insecure; permit them by
-name so it survives version bumps. (The macs avoid electron — their
-obsidian is a prebuilt binary, not a from-source build.)
+* checkov pulls in python-ecdsa, which nixpkgs marks insecure
+
+Permitted by name, so the permission survives version bumps.
 
 #+begin_src nix
               allowInsecurePredicate =
                 pkg:
                 builtins.elem (lib.getName pkg) [
-                  "electron"
                   "ecdsa"
                 ];
             };

@@ -15,21 +15,9 @@
 
   warpd = import ./warpd.nix;
 
-  # bc-detect-secrets: skip the diff tests unidiff 1.0 turns down
-
-  bc-detect-secrets = import ./bc-detect-secrets.nix;
-
-  # python-ldap: skip one test darwin cannot fail the way it expects
-
-  python-ldap = import ./python-ldap.nix;
-
   # jellyfin-ffmpeg: ffmpeg's VERSION file shadows libc++'s <version> on macOS
 
   jellyfin-ffmpeg = import ./jellyfin-ffmpeg.nix;
-
-  # opencode: the node_modules hash nixpkgs pins does not match on darwin
-
-  opencode = import ./opencode.nix;
 
   # lit-tangle: regenerates this repo's .nix from the literate org...
 
