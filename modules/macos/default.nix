@@ -205,6 +205,7 @@
 
     nixpkgs = {
       overlays = [
+        outputs.overlays.aider-chat
         outputs.overlays.bc-detect-secrets
         outputs.overlays.browser-gt-extension
         outputs.overlays.check-pins

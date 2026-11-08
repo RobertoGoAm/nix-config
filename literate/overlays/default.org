@@ -94,6 +94,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   posthog = import ./posthog.nix;
 #+end_src
 
+* aider-chat: four litellm exceptions nixpkgs' patch does not list yet
+
+#+begin_src nix
+  aider-chat = import ./aider-chat.nix;
+#+end_src
+
 * mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
 
 #+begin_src nix

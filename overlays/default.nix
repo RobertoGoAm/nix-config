@@ -61,6 +61,10 @@
 
   posthog = import ./posthog.nix;
 
+  # aider-chat: four litellm exceptions nixpkgs' patch does not list yet
+
+  aider-chat = import ./aider-chat.nix;
+
   # mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
 
   mcp-v1 = import ./mcp-v1.nix;

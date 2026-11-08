@@ -1,0 +1,53 @@
+#+TITLE: overlays aider-chat
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* aider refuses to start on an exception it has not heard of
+
+aider checks every name in litellm ending in "Error" against its own list of
+exceptions and raises on the first one missing. It does that at runtime, not
+only in its tests, so a litellm that grows a new exception leaves aider unable
+to start at all. nixpkgs keeps a patch of the names it adds as litellm grows;
+litellm 1.108 arrived with four that patch does not list yet:
+
+- CallerCredentialAuthenticationError, an AuthenticationError
+- CallerCredentialRateLimitError, a RateLimitError
+- MalformedRequestFieldError, a BadRequestError
+- ValidationError, pydantic's, now re-exported at litellm's top level
+
+Each takes its parent's retry and message, so aider treats it the way it
+already treats what it subclasses. The lines go in after nixpkgs' own patches,
+and the build fails if the line they hang from moves; that, or a build without
+this overlay going green, is the sign nixpkgs has caught up and it can go.
+
+Stock aider-chat is not substitutable while its tests fail, so this costs no
+download that was otherwise there to be had.
+
+#+begin_src nix
+final: prev:
+let
+  inherit (prev) lib;
+  anchor = "    ExInfo(\"UnsupportedParamsError\", True, None),";
+  added = lib.concatMapStrings (line: "\n    " + line) [
+    "ExInfo("
+    "    \"CallerCredentialAuthenticationError\","
+    "    False,"
+    "    \"The API provider is not able to authenticate you. Check your API key.\","
+    "),"
+    "ExInfo("
+    "    \"CallerCredentialRateLimitError\","
+    "    True,"
+    "    \"The API provider has rate limited you. Try again later or check your quotas.\","
+    "),"
+    "ExInfo(\"MalformedRequestFieldError\", False, None),"
+    "ExInfo(\"ValidationError\", False, None),"
+  ];
+in
+{
+  aider-chat = prev.aider-chat.overrideAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      substituteInPlace aider/exceptions.py --replace-fail \
+        ${lib.escapeShellArg anchor} ${lib.escapeShellArg (anchor + added)}
+    '';
+  });
+}
+#+end_src
