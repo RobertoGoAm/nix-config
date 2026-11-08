@@ -139,13 +139,18 @@
 
           # Instantiate nixpkgs with config (vs raw legacyPackages) so standalone
           # home-manager hosts (perseus) allow unfree and permit the same insecure
-          # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342).
+          # package the macs do — checkov pulls python-ecdsa (CVE-2024-23342) — and
+          # carry the macs' overlays for what perseus installs too: aider-chat and
+          # posthog for aider, mcp-v1 for semgrep.
 
           pkgs = import nixpkgs {
             inherit system;
             overlays = [
+              outputs.overlays.aider-chat
               outputs.overlays.check-pins
               outputs.overlays.lit-tangle
+              outputs.overlays.mcp-v1
+              outputs.overlays.posthog
             ];
             config = {
               allowUnfree = true;
@@ -159,6 +164,15 @@
                 builtins.elem (lib.getName pkg) [
                   "ecdsa"
                 ];
+
+              # gtk2 is marked broken as notice of its removal, not because it fails
+
+              # nixpkgs flags it ahead of dropping it before NixOS 27.05, and the Horizon
+              # client still bundles it in its FHS environment, so perseus stopped
+              # evaluating. "warn" lets it build and keeps the notice in front of every
+              # switch until Horizon moves off it.
+
+              problems.handlers."gtk+".broken = "warn";
             };
           };
           extraSpecialArgs = {
