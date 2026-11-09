@@ -25,6 +25,7 @@ in
 {
   homebrew = {
     enable = true;
+    taps = [ "stablyai/orca" ];
     casks =
       greedy [
 
@@ -32,6 +33,14 @@ in
 
         "imageoptim"
         "orbstack"
+
+        # Orca, the same agent workbench prometheus has
+
+        # It comes from stablyai's own tap rather than homebrew/cask, so the tap is
+        # declared beside the casks above; without it =brew bundle= cannot resolve the
+        # name and the whole bundle fails.
+
+        "stablyai/orca/orca"
 
         # Internet
 
