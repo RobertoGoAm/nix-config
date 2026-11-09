@@ -94,9 +94,6 @@
         gitlab_access_token = {
           owner = user;
         };
-        ntfy_topic_id = {
-          owner = user;
-        };
         openrouter_api_key = {
           owner = user;
         };
