@@ -34,14 +34,6 @@ in
         "imageoptim"
         "orbstack"
 
-        # Orca, the same agent workbench prometheus has
-
-        # It comes from stablyai's own tap rather than homebrew/cask, so the tap is
-        # declared beside the casks above; without it =brew bundle= cannot resolve the
-        # name and the whole bundle fails.
-
-        "stablyai/orca/orca"
-
         # Internet
 
         "google-chrome"
@@ -87,9 +79,24 @@ in
         "utm" # local Linux VMs (Apple Virtualization / QEMU); hosts the bridged Omada controller VM
         "via"
 
-        # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+        # Orca, installed once and left to update itself
+
+        # The same agent workbench prometheus has. It comes from stablyai's own tap
+        # rather than homebrew/cask, so the tap is declared above; without it =brew
+        # bundle= cannot resolve the name and the whole bundle fails.
+
+        # It stays out of the greedy list. A Homebrew upgrade downloads the app with a
+        # fresh quarantine flag, and on this headless machine Gatekeeper's first-launch
+        # prompt then waits for someone at the screen, holding every Orca command --
+        # =orca serve= included -- until it is answered. Orca's own updater replaces the
+        # app in place without raising that prompt, so Homebrew installs it once and
+        # leaves it.
 
       ]
+      ++ [ "stablyai/orca/orca" ]
+
+      # Machine-local extras (see ~/.config/nix-secrets/work-extras.nix)
+
       ++ private.macCasks;
 
     # These app IDs are from using the mas CLI app
