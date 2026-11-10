@@ -44,7 +44,6 @@ in
       nixfmt
       postman
       stack
-      tuicr
 
       # DevOps
 

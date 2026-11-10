@@ -82,6 +82,12 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   aider-chat = import ./aider-chat.nix;
 #+end_src
 
+* tuicr-colemak: tuicr's vim keys by physical position on a Colemak board
+
+#+begin_src nix
+  tuicr-colemak = import ./tuicr-colemak.nix;
+#+end_src
+
 * mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
 
 #+begin_src nix

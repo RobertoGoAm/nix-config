@@ -167,6 +167,7 @@
               outputs.overlays.lit-tangle
               outputs.overlays.mcp-v1
               outputs.overlays.posthog
+              outputs.overlays.tuicr-colemak
             ];
             config = {
               allowUnfree = true;

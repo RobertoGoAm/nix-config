@@ -19,6 +19,7 @@
     ./ssh.nix
     ./starship.nix
     ./tmux.nix
+    ./tuicr.nix
     ./wifi.nix
     ./zsh.nix
   ];

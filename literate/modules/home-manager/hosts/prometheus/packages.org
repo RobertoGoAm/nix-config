@@ -47,7 +47,6 @@ in
       nixfmt
       postman
       stack
-      tuicr
 #+end_src
 
 * DevOps

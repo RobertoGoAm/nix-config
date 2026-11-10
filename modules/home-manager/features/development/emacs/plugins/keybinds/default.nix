@@ -87,6 +87,28 @@
       (interactive)
       (my/term-toggle "extra"))
 
+    ;; tuicr in a vterm of its own, full window, for the project's changes.
+    ;; Emacs state hands every key to it, Esc included; `e' in tuicr opens
+    ;; the file in this Emacs. vterm-shell is let-bound before vterm loads,
+    ;; hence the defvar.
+    (defvar vterm-shell)
+    (defun my/tuicr ()
+      "Review the project's changes in tuicr, at the project root."
+      (interactive)
+      (let* ((default-directory (my/project-root))
+             (bufname (format "*tuicr:%s*"
+                              (file-name-nondirectory
+                               (directory-file-name default-directory))))
+             (buffer (get-buffer bufname)))
+        (if (and buffer (get-buffer-process buffer))
+            (switch-to-buffer buffer)
+          (when buffer (kill-buffer buffer))
+          (let ((vterm-shell "tuicr")
+                (process-environment
+                 (cons "EDITOR=emacsclient -n" process-environment)))
+            (vterm bufname)))
+        (evil-emacs-state)))
+
     ;; Popup discipline for everything else that appears at the bottom: compile
     ;; output, test runs, help. popper keeps them out of the window layout.
     (require 'popper)
@@ -145,6 +167,7 @@
       "am" '(claude-code-ide-menu :which-key "claude menu")
       "an" '(claude-code-ide-new-session :which-key "new session here")
       "ar" '(claude-code-ide-manager-toggle-repo-sidebar :which-key "this repo's sessions")
+      "aR" '(my/tuicr :which-key "review changes (tuicr)")
       "at" '(my/claude-pane-toggle :which-key "toggle right pane")
       "ax" '(my/ai-drawer-close :which-key "close drawer")
       "aq" '(claude-code-ide-stop :which-key "quit claude")

@@ -1,0 +1,20 @@
+# tuicr: review what an agent changed, the way a pull request is reviewed
+
+# Through home-manager's =programs.tuicr=, which installs it and writes
+# =~/.config/tuicr/config.toml= from =settings=; local themes would go under
+# =themes=. The package carries the Colemak key translation from
+# =overlays/tuicr-colemak.nix=.
+
+# Its colours follow the system appearance with the tokyonight the editors use:
+# storm when dark, day when light. Everything else keeps tuicr's defaults; the
+# options are listed in its docs/CONFIG.md.
+
+_: {
+  programs.tuicr = {
+    enable = true;
+    settings = {
+      theme_dark = "tokyo-night-storm";
+      theme_light = "tokyo-night-day";
+    };
+  };
+}

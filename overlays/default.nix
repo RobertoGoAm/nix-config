@@ -53,6 +53,10 @@
 
   aider-chat = import ./aider-chat.nix;
 
+  # tuicr-colemak: tuicr's vim keys by physical position on a Colemak board
+
+  tuicr-colemak = import ./tuicr-colemak.nix;
+
   # mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
 
   mcp-v1 = import ./mcp-v1.nix;
