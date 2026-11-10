@@ -95,9 +95,19 @@ mean the same thing in a magit buffer as in a source file.
 
     ;; tuicr in a vterm of its own, full window, for the project's changes.
     ;; Emacs state hands every key to it, Esc included; `e' in tuicr opens
-    ;; the file in this Emacs. vterm-shell is let-bound before vterm loads,
-    ;; hence the defvar.
+    ;; the file in this Emacs. glab reads the GitLab token from the
+    ;; environment, which an Emacs started before the login agent ran does
+    ;; not have, so it comes from the same sops file the shells read.
+    ;; vterm-shell is let-bound before vterm loads, hence the defvar.
     (defvar vterm-shell)
+    (defun my/tuicr--gitlab-token-env ()
+      "GITLAB_ACCESS_TOKEN for glab, when this Emacs has none of its own."
+      (let ((file "/var/run/secrets/gitlab_access_token"))
+        (when (and (not (getenv "GITLAB_ACCESS_TOKEN")) (file-readable-p file))
+          (list (concat "GITLAB_ACCESS_TOKEN="
+                        (string-trim (with-temp-buffer
+                                       (insert-file-contents file)
+                                       (buffer-string))))))))
     (defun my/tuicr ()
       "Review the project's changes in tuicr, at the project root."
       (interactive)
@@ -111,7 +121,9 @@ mean the same thing in a magit buffer as in a source file.
           (when buffer (kill-buffer buffer))
           (let ((vterm-shell "tuicr")
                 (process-environment
-                 (cons "EDITOR=emacsclient -n" process-environment)))
+                 (append (list "EDITOR=emacsclient -n")
+                         (my/tuicr--gitlab-token-env)
+                         process-environment)))
             (vterm bufname)))
         (evil-emacs-state)))
 
