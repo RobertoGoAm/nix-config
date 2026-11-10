@@ -8,7 +8,25 @@
   description = "Your new nix config";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+#+end_src
+
+* nixpkgs is held at 2026-11-05, the last revision darwin can build from cache
+
+Revisions after f9a75f41 bring a cargo setup hook that makes every Rust build
+use system libraries, which breaks codex and python's tree-sitter-language-pack
+until their fixes (nixpkgs 16b463698a and b99641c49d) are in a channel, and they
+have no darwin binaries for git-credential-manager and .NET 8, so a rebuild
+compiles .NET from source and its bootstrap hangs. Pinning the revision keeps
+=nix flake update= moving every other input while nixpkgs stays put.
+
+Release it to the branch, =nixpkgs-unstable= rather than =nixos-unstable=, once
+=nixpkgs-unstable= contains both fixes and a =nix build --dry-run= of a darwin
+system lists no dotnet. nixpkgs-unstable is the branch for systems that are not
+NixOS, which none of these hosts is; nixos-unstable only waits for the NixOS
+tests.
+
+#+begin_src nix
+    nixpkgs.url = "github:nixos/nixpkgs/f9a75f41be3a74eab55d3a7679d34ad6cc0da977";
 
     firefox-addons = {
       url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
