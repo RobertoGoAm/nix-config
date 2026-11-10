@@ -1,28 +1,27 @@
 #+TITLE: overlays tuicr-colemak
 #+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
 
-* tuicr's keys by physical position on a Colemak board
+* tuicr moves on hnei, as nvim does on this Colemak board
 
 tuicr's keys are vim's and cannot be remapped: its config takes a =leader=
 and nothing else, and every binding is a literal character in
-=src/input/keybindings.rs=. Like the other keyboard-driven tools here, it should
-answer on the physical keys its QWERTY defaults sit on, so Colemak =n=, =e=,
-=i= move down, up and right, Colemak =k= is search-next, and so on for every
-letter.
+=src/input/keybindings.rs=. So it gets the same three swaps as nvim here:
+=n=, =e= and =i= trade places with =j=, =k= and =l=, and their capitals with
+=J=, =K= and =L=. h/n/e/i move left, down, up and right; what tuicr had on
+=n=, =e= and =i= (next match, edit the file, edit the comment, and the file
+tree's include and exclude filters) moves to =j=, =k= and =l=. Every other key keeps its own
+letter, so =r= and =R= still mark files and hunks reviewed, and Ctrl chords are
+left alone.
 
-So the patch translates at the one place every key arrives: where the event
-loop in =src/main.rs= reads an event, before the release tracking, the pending
-leader, =z= and =d= prefixes and the per-mode key maps see it. A Colemak letter
-becomes the QWERTY letter on the same physical key, Ctrl chords included (so
-Ctrl+d and Ctrl+u stay put). Nothing is translated while text is being typed:
-in a comment, a =:= command, a =/= search, or a file-tree, pull-request or theme
-filter prompt. Punctuation is left alone, so =;= stays the leader and =:= still
-opens a command line, and the key at QWERTY's =;= position, Colemak =o=, gives
-=;= and, shifted, =:= as well.
+The swap happens at the one place every key arrives: where the event loop in
+=src/main.rs= reads an event, before the release tracking, the pending leader,
+=z= and =d= prefixes and the per-mode key maps see it. Nothing is swapped while
+text is being typed: in a comment, a =:= command, a =/= search, or a file-tree,
+pull-request or theme filter prompt.
 
-The translation itself lives beside this file in =tuicr-colemak.rs= and is
-appended to =main.rs=; the one substitution that calls it fails the build if the
-line it replaces changes, which is when this needs looking at again.
+The code lives beside this file in =tuicr-colemak.rs= and is appended to
+=main.rs=; the one substitution that calls it fails the build if the line it
+replaces changes, which is when this needs looking at again.
 
 #+begin_src nix
 final: prev: {
