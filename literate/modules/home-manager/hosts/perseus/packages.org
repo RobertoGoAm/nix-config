@@ -54,6 +54,7 @@ are dropped, and the GNOME/X11/linux-native bits below are perseus-specific.
       nixfmt
       postman
       stack
+      tuicr
 #+end_src
 
 * DevOps

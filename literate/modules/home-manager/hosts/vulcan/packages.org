@@ -53,6 +53,7 @@ vulcan-specific extra.
       nixfmt
       postman
       stack
+      tuicr
 #+end_src
 
 * DevOps
