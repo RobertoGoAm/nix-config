@@ -1560,5 +1560,36 @@ Claude Code hook subshells (/bin/sh -c …) and login shells.
 
 #+begin_src nix
   home.sessionPath = [ "$HOME/.local/bin" ];
+#+end_src
+
+* Orca's agents get these settings at the next switch, not the next account change
+
+Orca runs Claude from a profile directory per account, and that profile's
+settings.json is Orca's own merge of =~/.claude/settings.json= with Orca's
+hooks. The merge is redone when an account is selected and not when this
+file changes, so a switch that adds a hook or a permission would reach
+Orca's agents only after the next account change. Activation selects the
+active Claude account again, which redoes the merge; sessions already
+running keep the settings they started with. Without Orca installed, or
+with Orca not running, this does nothing.
+
+#+begin_src nix
+  home.activation.orcaClaudeSettings =
+    lib.hm.dag.entryAfter
+      [
+        "claudeCodeSettings"
+        "linkGeneration"
+      ]
+      ''
+        orca=/Applications/Orca.app/Contents/Resources/bin/orca
+        if [ -x "$orca" ]; then
+          account=$("$orca" account list --json 2>/dev/null \
+            | ${lib.getExe pkgs.jq} -r '.result.claude.activeAccountId // empty' 2>/dev/null || true)
+          if [ -n "$account" ]; then
+            run "$orca" account select --agent claude --account "$account" >/dev/null 2>&1 \
+              || verboseEcho "orca: could not refresh the Claude profile's settings"
+          fi
+        fi
+      '';
 }
 #+end_src
