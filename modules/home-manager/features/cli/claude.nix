@@ -1395,13 +1395,18 @@ in
   # Orca's agents get these settings at the next switch, not the next account change
 
   # Orca runs Claude from a profile directory per account, and that profile's
-  # settings.json is Orca's own merge of =~/.claude/settings.json= with Orca's
-  # hooks. The merge is redone when an account is selected and not when this
-  # file changes, so a switch that adds a hook or a permission would reach
-  # Orca's agents only after the next account change. Activation selects the
-  # active Claude account again, which redoes the merge; sessions already
-  # running keep the settings they started with. Without Orca installed, or
-  # with Orca not running, this does nothing.
+  # settings.json is Orca's own copy of =~/.claude/settings.json= with Orca's
+  # hooks added (every one of them talks to =ORCA_AGENT_HOOK_PORT=). The copy is
+  # made when Orca sees fit -- an account selection redoes it on one host and
+  # not on another -- and not when this file changes, so a switch that adds a
+  # hook or a permission, or moves a hook to a new store path, would reach
+  # Orca's agents late or never. Activation therefore rebuilds each profile's
+  # copy the way Orca builds it: these settings, plus the hook entries Orca
+  # added, plus any top-level key only the profile has. A profile already up to
+  # date is left alone, and sessions already running keep the settings they
+  # started with. macOS can refuse writes under =~/Library/Application Support=
+  # depending on which app ran the rebuild, so a refusal is reported rather
+  # than failing the switch.
 
   home.activation.orcaClaudeSettings =
     lib.hm.dag.entryAfter
@@ -1410,14 +1415,27 @@ in
         "linkGeneration"
       ]
       ''
-        orca=/Applications/Orca.app/Contents/Resources/bin/orca
-        if [ -x "$orca" ]; then
-          account=$("$orca" account list --json 2>/dev/null \
-            | ${lib.getExe pkgs.jq} -r '.result.claude.activeAccountId // empty' 2>/dev/null || true)
-          if [ -n "$account" ]; then
-            run "$orca" account select --agent claude --account "$account" >/dev/null 2>&1 \
-              || verboseEcho "orca: could not refresh the Claude profile's settings"
+        jq=${lib.getExe pkgs.jq}
+        for settings in "$HOME/Library/Application Support/orca/claude-profiles"/*/home/settings.json; do
+          [ -f "$settings" ] && [ ! -L "$settings" ] && [ -f "$HOME/.claude/settings.json" ] || continue
+          merged=$("$jq" --slurpfile home "$HOME/.claude/settings.json" '
+            . as $profile
+            | ($profile + $home[0])
+            | .hooks = reduce (($profile.hooks // {}) | to_entries[]) as $event
+                (($home[0].hooks // {});
+                 .[$event.key] = ((.[$event.key] // []) as $mine
+                   | $mine + [ $event.value[]
+                       | select(tostring | contains("ORCA_AGENT_HOOK_PORT"))
+                       | select(. as $entry | any($mine[]; . == $entry) | not) ]))
+          ' "$settings") || { warnEcho "orca: could not read $settings"; continue; }
+          if [ "$("$jq" -S . <<<"$merged")" != "$("$jq" -S . "$settings")" ]; then
+            if [ -z "''${DRY_RUN:-}" ]; then
+              (umask 077 && printf '%s\n' "$merged" > "$settings.nix-new") \
+                && mv "$settings.nix-new" "$settings" \
+                || warnEcho "orca: could not refresh $settings"
+            fi
+            verboseEcho "orca: refreshed $settings"
           fi
-        fi
+        done
       '';
 }
