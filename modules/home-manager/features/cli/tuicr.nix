@@ -1,17 +1,69 @@
-# tuicr: review what an agent changed, the way a pull request is reviewed
+# The agent side: tuicr's skill, taught to open tabs in Orca
 
-# Through home-manager's =programs.tuicr=, which installs it and writes
-# =~/.config/tuicr/config.toml= from =settings=; local themes would go under
-# =themes=. The package carries the Colemak key translation from
-# =overlays/tuicr-colemak.nix=, and =overlays/tuicr-chunks.nix= splits every hunk
-# at its unchanged lines, so =R= marks and folds one edit at a time, and =R= over
-# a =V= selection marks and folds just those lines.
+# tuicr ships a skill for coding agents in =skills/tuicr= of its source: the
+# =tuicr review= commands an agent uses to find a review session and read the
+# comments left in it, and wrappers that open tuicr in a split pane of cmux,
+# tmux, Zellij or Herdr. Orca is none of those, so this adds
+# =tuicr-wrapper-orca.sh= beside them (it lives next to this module): it opens
+# tuicr in a new terminal tab of the worktree with =orca terminal create= and,
+# like the cmux wrapper, returns at once with the tab's handle. The skill's
+# launcher table gets an Orca row and an Orca section (=tuicr-skill-orca.md=,
+# also beside this module). The skill comes from tuicr's own source, so nothing
+# private is declared here; the reason the Claude module leaves skills alone
+# does not apply. Shebangs are pinned to nix's bash, whose arrays behave under
+# =set -u= where macOS's bash 3.2 does not, and the wrapper finds =jq= without
+# relying on the shell's PATH.
 
-# Its colours follow the system appearance with the tokyonight the editors use:
-# storm when dark, day when light. Everything else keeps tuicr's defaults; the
-# options are listed in its docs/CONFIG.md.
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  skill = pkgs.runCommand "tuicr-skill" { } ''
+    cp -r ${config.programs.tuicr.package.src}/skills/tuicr $out
+    chmod -R u+w $out
+    install -m 755 ${./tuicr-wrapper-orca.sh} $out/tuicr-wrapper-orca.sh
+    substituteInPlace $out/tuicr-wrapper-orca.sh \
+      --subst-var-by runtimePath ${lib.makeBinPath [ pkgs.jq ]}
+    substituteInPlace $out/SKILL.md --replace-fail \
+      'launch tuicr in cmux, tmux, Zellij, or Herdr when' \
+      'launch tuicr in Orca, cmux, tmux, Zellij, or Herdr when'
+    awk -v row='| `$ORCA_AGENT_SESSION_ID` is set | Run `tuicr-wrapper-orca.sh /path/to/repo -- <scope>` (see **Orca** below) |' '
+      index($0, "| `$CMUX_WORKSPACE_ID` is set |") == 1 { print row; found = 1 }
+      { print }
+      END { exit !found }' $out/SKILL.md > SKILL.md
+    cat SKILL.md ${./tuicr-skill-orca.md} > $out/SKILL.md
+    patchShebangs $out
+  '';
 
-_: {
+  # Pull requests an agent opens land in tuicr by themselves
+
+  # A PostToolUse hook watches Bash calls inside Orca. When one created a pull or
+  # merge request (=gh pr create=, =glab mr create=, or =df mr-generate=, which
+  # wraps the latter) and its output carries the request's URL, the hook opens
+  # =tuicr pr <url>= through the Orca wrapper and hands the agent the URL, the
+  # tab's handle and how to read the review back, so it waits for the owner's
+  # comments instead of opening a second review. Anything else, and every call
+  # outside Orca, passes untouched. The script is =tuicr-orca-hook.sh= beside this
+  # module.
+
+  hook = pkgs.runCommand "tuicr-orca-hook" { } ''
+    install -m 755 ${./tuicr-orca-hook.sh} $out
+    substituteInPlace $out \
+      --subst-var-by runtimePath ${
+        lib.makeBinPath [
+          pkgs.jq
+          pkgs.gnugrep
+          pkgs.gnused
+        ]
+      } \
+      --subst-var-by wrapper ${skill}/tuicr-wrapper-orca.sh
+    patchShebangs $out
+  '';
+in
+{
   programs.tuicr = {
     enable = true;
     settings = {
@@ -19,4 +71,39 @@ _: {
       theme_light = "tokyo-night-day";
     };
   };
+
+  home.file.".claude/skills/tuicr".source = skill;
+
+  programs.claude-code.settings.hooks.PostToolUse = [
+    {
+      matcher = "Bash";
+      hooks = [
+        {
+          type = "command";
+          command = "${hook}";
+          timeout = 30;
+          description = "tuicr: open a pull or merge request the agent just created in a new Orca tab for review";
+        }
+      ];
+    }
+  ];
+
+  # Orca profiles that keep their own skills folder
+
+  # Orca runs Claude from a profile directory of its own, and links that
+  # profile's =skills= to =~/.claude/skills= only when the latter existed when the
+  # profile was made. A profile created before it (vulcan's personal one) has a
+  # real folder instead, so the skill is linked into each such folder too. Writing
+  # under =~/Library/Application Support= can be refused by macOS's privacy
+  # controls depending on which app ran the rebuild, so a refusal is reported
+  # rather than failing the switch.
+
+  home.activation.tuicrSkillInOrcaProfiles = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    for skills in "$HOME/Library/Application Support/orca/claude-profiles"/*/home/skills; do
+      if [ -d "$skills" ] && [ ! -L "$skills" ]; then
+        run ln -sfn "$HOME/.claude/skills/tuicr" "$skills/tuicr" \
+          || warnEcho "could not link the tuicr skill into $skills"
+      fi
+    done
+  '';
 }
