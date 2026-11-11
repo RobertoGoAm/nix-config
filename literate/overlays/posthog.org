@@ -56,6 +56,9 @@ final: prev: {
           # before a deadline, and a loaded builder misses it.
           # subprocess.TimeoutExpired, with 3727 others passing.
           "test_atexit_subprocess_does_not_drain_queued_backlog"
+          # The same deadline from the async client: a worker thread has to
+          # wake a loop-bound queue inside a subprocess timeout.
+          "test_capture_from_worker_thread_wakes_loop_bound_queue"
         ];
       });
     })
