@@ -45,9 +45,14 @@ Limits, per repository with git config:
     mrSize.maxRawLines   raw added + deleted    (default 2000)
     mrSize.similarity    near-copy threshold    (default 0.7)
 
-Over a limit the hook asks the user rather than refusing, with the figures.
-branch.<name>.mrSizeOverride=true stops the asking for a branch. Both are
-the user's call, never the agent's.
+Over a limit, a push or an MR creation is blocked and the agent has to ask
+the user to choose: reduce the complexity, split the work into stacked MRs
+that each pass CI on their own, or go ahead anyway. Going ahead is approved
+for one commit: the agent re-runs the command prefixed with
+MR_SIZE_APPROVED=<short HEAD sha>, and a later commit needs a new decision.
+Commits are not gated; claude-post warns while the work grows instead.
+branch.<name>.mrSizeOverride=true turns the gate off for one branch. Both
+are the user's call, never the agent's.
 
 The difficulty score next to the size is an uncalibrated estimate: weights
 chosen by hand, not fitted to how reviews actually went.
@@ -808,7 +813,7 @@ def split_advice(x):
     return f"""Breakdown: {breakdown(x.m)}.
 Largest by review cost:
 {largest}{near_lines(x.m)}
-If the change is mechanical beyond what the breakdown already discounts (a vendored drop, a codemod), it is reviewable as it stands: say so to the user and let them approve it. Never set branch.{x.branch}.mrSizeOverride yourself.
+If the change is mechanical beyond what the breakdown already discounts (a vendored drop, a codemod), it is reviewable as it stands: say so to the user, who can choose to go ahead. Never set branch.{x.branch}.mrSizeOverride yourself.
 Otherwise reviewers should get it as several MRs of at most {x.max_lines} effective lines / {x.max_files} files each, and every one must pass CI on its own, because each is pipelined and merged separately:
   - cut along dependencies, foundations first: types, schemas, migrations, helpers and their tests land before the code that uses them
   - tests travel with the code they test, never in a later MR
@@ -857,9 +862,20 @@ def mr_body(x):
 <sub>Measured by mr-size against `{x.base}`: changes are parsed and repeated, mechanical or moved edits discounted. The difficulty is an uncalibrated estimate.</sub>"""
 
 
+def decision_request(x, stale):
+    head = "The approval given was for an older commit; HEAD has moved since, so the user must decide again.\n" if stale else ""
+    return (f"{head}MR size gate: blocked. {summary(x)}.\n{split_advice(x)}\n\n"
+            "Ask the user to decide, with AskUserQuestion, between exactly these options, and never choose for them:\n"
+            "  1. Reduce complexity: iterate on the change with the agent to make it smaller or simpler, then retry.\n"
+            "  2. Split into stacked MRs: independent or stacked branches that each pass CI on their own, as advised above.\n"
+            "  3. Go ahead anyway.\n"
+            "Only if the user chooses 3, re-run the same command prefixed with MR_SIZE_APPROVED=<sha>, where <sha> is the "
+            "output of git rev-parse --short HEAD.")
+
+
 # --- hooks -------------------------------------------------------------------
 
-GIT_RE = r"(^|[;&|(]\s*|^\s*)(rtk\s+)?git(\s+-C\s+\S+)?\s+"
+GIT_RE = r"(^|[;&|(])\s*(\w+=\S*\s+)*(rtk\s+)?git(\s+-C\s+\S+)?\s+"
 MR_RES = {
     "glab": re.compile(r"glab\s+mr\s+create"),
     "gh": re.compile(r"gh\s+pr\s+create"),
@@ -883,6 +899,15 @@ def in_repo(d):
     return bool(git_ok("rev-parse", "--git-dir"))
 
 
+def approval(cmd):
+    """None when the command carries no approval, else whether it is for HEAD."""
+    m = re.search(r"\bMR_SIZE_APPROVED=([0-9a-fA-F]+)", cmd)
+    if not m:
+        return None
+    sha = m.group(1).lower()
+    return len(sha) >= 7 and git_ok("rev-parse", "HEAD").startswith(sha)
+
+
 def emit(**out):
     print(json.dumps({"hookSpecificOutput": out}))
 
@@ -892,30 +917,22 @@ def claude_pre():
     cmd = inp.get("tool_input", {}).get("command", "")
     cwd = inp.get("cwd", "")
     mr_tool = next((t for t, r in MR_RES.items() if r.search(cmd)), None)
-    if mr_tool or re.search(GIT_RE + r"push(\s|$)", cmd):
-        # Deleting a remote branch or pushing tags opens no MR.
-        if not mr_tool and re.search(r"--delete|--tags|\s:\S", cmd):
-            return
-        mode = "range"
-    elif re.search(GIT_RE + r"commit(\s|$)", cmd):
-        # commit -a carries every tracked edit, not just the index.
-        mode = "worktree" if re.search(GIT_RE + r"commit[^;&|]*\s(-[a-zA-Z]*a[a-zA-Z]*|--all)(\s|$)", cmd) else "staged"
-    else:
+    if not mr_tool and not re.search(GIT_RE + r"push(\s|$)", cmd):
+        return
+    # Deleting a remote branch or pushing tags opens no MR.
+    if not mr_tool and re.search(r"--delete|--tags|\s:\S", cmd):
         return
     d = hook_dir(cmd, cwd)
     if not in_repo(d):
         return
-    x = measure(mode)
-    if x.exempt or not x.over:
+    x = measure("range")
+    approved = approval(cmd)
+    if x.exempt or not x.over or approved:
         return
-    # The user sees the reason in the permission prompt; the agent gets the
-    # advice, so a refusal leads to a split rather than a retry.
-    ctx = f"MR size gate: {summary(x)}. The user is being asked whether to allow it. If they deny, split the work.\n{split_advice(x)}"
-    emit(hookEventName="PreToolUse", permissionDecision="ask",
-         permissionDecisionReason=(f"MR size gate: {summary(x)}. {breakdown(x.m)}. "
-                                   f"Approve if it is reviewable as one MR (to stop asking for this branch: "
-                                   f"git config branch.{x.branch}.mrSizeOverride true); deny to have it split."),
-         additionalContext=ctx)
+    # A deny reason reaches the agent, which is who has to put the choice to
+    # the user; the decision itself is never the agent's.
+    reason = decision_request(x, stale=approved is False)
+    emit(hookEventName="PreToolUse", permissionDecision="deny", permissionDecisionReason=reason, additionalContext=reason)
 
 
 def claude_post():
@@ -951,7 +968,7 @@ def claude_post():
         return
     emit(hookEventName="PostToolUse",
          additionalContext=(f"MR size gate: the work in progress is already more than one MR. {summary(x)}. "
-                            f"Commits, pushes and MR creation on this branch will need the user's approval.\n{split_advice(x)}"))
+                            f"Pushes and MR creation on this branch will be blocked until the user decides how to proceed.\n{split_advice(x)}"))
 
 
 def report():

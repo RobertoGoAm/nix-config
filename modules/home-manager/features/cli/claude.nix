@@ -86,10 +86,16 @@ let
   # copy-paste slip hides, so the MR section lists them to check. The sum is the effective size,
   # and the limit applies to it, with a raw-size ceiling kept as a backstop.
 
-  # - Before a =git commit=, =git push=, or an MR/PR creation (=glab mr create=,
-  #   =gh pr create=, =df mr-generate=), the PreToolUse hook asks you when the
-  #   branch would exceed the limit, with the breakdown in the prompt. Approve a
-  #   change the estimate under-discounts; deny, and the agent splits the work.
+  # - Before a =git push= or an MR/PR creation (=glab mr create=, =gh pr create=,
+  #   =df mr-generate=), the PreToolUse hook blocks a branch that would exceed the
+  #   limit, and the agent has to put the choice to you: reduce the complexity,
+  #   split into stacked MRs, or go ahead anyway. A permission prompt can only say
+  #   yes or no, so the block is a deny whose reason tells the agent to ask.
+  #   Going ahead is approved for one commit: the agent re-runs the command
+  #   prefixed with =MR_SIZE_APPROVED=<short HEAD sha>=, and the hook lets it
+  #   through only while that is still =HEAD=, so the next commit asks again.
+  #   Commits themselves are not gated; they are mid-work, and the warning below
+  #   covers them.
   # - The split has to keep CI green link by link, since each MR is pipelined and
   #   merged on its own: foundations first, tests with the code they test, nothing
   #   that only compiles once a later MR lands. When no split does that, the agent
@@ -1278,7 +1284,7 @@ in
                 type = "command";
                 command = "${lib.getExe mr-size} claude-pre";
                 timeout = 20;
-                description = "MR size gate: ask before commit/push/MR creation when the branch's MR would exceed the reviewable size";
+                description = "MR size gate: block push/MR creation when the branch's MR would exceed the reviewable size, until the user decides";
               }
             ]
             ++ lib.optional (guardrailsDir != null) {
