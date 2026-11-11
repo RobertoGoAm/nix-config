@@ -450,14 +450,15 @@
       "$c" '(my/hledger-check :which-key "check journal")
       "$x" '(my/hledger-command :which-key "run hledger command")
 
-      ;; reading -- books in a buffer, position shared with the e-reader.
+      ;; reading -- books in a buffer, position shared with the e-reader and
+      ;; Obsidian, notes in the book's note in the vault.
       "R"  '(:ignore t :which-key "reading")
       "Rb" '(my/book-open :which-key "open a book")
       "Rl" '(my/book-library :which-key "library")
-      "Rn" '(my/book-notes :which-key "notes for this book")
-      "Rc" '(my/book-note-capture :which-key "note this passage")
+      "Rn" '(my/book-notes :which-key "this book's note (vault)")
+      "Rc" '(my/book-note-capture :which-key "quote this passage into the note")
       "Rt" '(nov-goto-toc :which-key "table of contents")
-      "Rp" '(my/kosync-pull :which-key "pull position from the server")
+      "Rp" '(my/kosync-pull :which-key "go to the latest position (reader/Obsidian)")
       "Rs" '(my/kosync-push :which-key "push position to the server")
       "RA" '(my/kosync-setup :which-key "set up the sync account (once)")
 

@@ -23,7 +23,16 @@ on the right chapter and close to the right place in it, not on the line.
 
 Highlights are deliberately absent. The X4 Pro's reader does not do them at
 all, so a highlight made here would sync to nothing and come back from
-nothing -- the notes file below is the honest version of that feature.
+nothing -- a quote filed into the book's note is the honest version of that
+feature.
+
+The note lives in the Obsidian vault, not beside the library. It is the same
+note the Book Reader plugin writes to when the book is open in Obsidian, so a
+book can be read in either app -- Emacs is always open, the vault is where
+notes get worked on -- and both add to one note under one Quotes heading.
+Position is shared with Book Reader as well, through the progress file it
+keeps in the vault: when a book opens here, whichever of the e-reader and
+Obsidian was read last is the position offered.
 
 #+begin_src nix
 {
@@ -46,10 +55,6 @@ nothing -- the notes file below is the honest version of that feature.
 
     (defvar my/books-dir "${config.home.homeDirectory}/books"
       "Where the EPUBs live. The same tree calibre-web serves on vulcan.")
-
-    (defvar my/book-notes-dir "${config.home.homeDirectory}/books/notes"
-      "One org file per book, beside the library rather than inside it, so
-    calibre does not try to import them as documents.")
 
     (with-eval-after-load 'nov
       ;; Books are prose, not code: a fixed pitch and a full-width window are
@@ -290,7 +295,11 @@ nothing -- the notes file below is the honest version of that feature.
         (goto-char (+ (point-min)
                       (round (* (/ (- target accumulated) (aref sizes index))
                                 (- (point-max) (point-min))))))
-        (recenter)))
+        ;; Only when the book is on screen: the jump on opening runs from a
+        ;; timer, and `recenter' signals if the selected window shows anything
+        ;; else by then.
+        (when (eq (window-buffer) (current-buffer))
+          (recenter))))
 
     (defun my/nov--xpointer ()
       "A chapter-granular xpointer KOReader will accept."
@@ -334,14 +343,23 @@ nothing -- the notes file below is the honest version of that feature.
       "Percentage last sent for this buffer.
     An idle tick on a book nobody moved should not become a request.")
 
+    (defvar-local my/book--obsidian-saved nil
+      "Percentage last written to Book Reader's progress file for this buffer.
+    Kept apart from `my/kosync--last-synced': the two are saved on the same
+    occasions but either can fail without the other.")
+
     (defun my/kosync--document ()
       "The sync key for the book in the current buffer, or nil."
       (when (and (derived-mode-p 'nov-mode) nov-file-name)
         (my/kosync-document-id nov-file-name)))
 
     (defun my/kosync-push (&optional quietly)
-      "Send this book's position to the server."
+      "Send this book's position to the server.
+    Run by hand, it saves the position for Book Reader as well; the automatic
+    path does that itself, in `my/kosync--push-if-moved'."
       (interactive)
+      (when (called-interactively-p 'interactive)
+        (my/book--obsidian-save))
       (let ((document (my/kosync--document)))
         (cond
          ((not document) (unless quietly (message "Not reading a book.")))
@@ -373,51 +391,53 @@ nothing -- the notes file below is the honest version of that feature.
                    (not (equal chapter nov-documents-index)))
           (nov-goto-document chapter))
         ;; Record where we landed, not where the server said, or the next idle
-        ;; tick pushes the rounding error straight back.
-        (setq my/kosync--last-synced (my/nov-percentage))
+        ;; tick pushes the rounding error straight back -- to both places.
+        (setq my/kosync--last-synced (my/nov-percentage)
+              my/book--obsidian-saved my/kosync--last-synced)
         percentage))
 
     (defun my/kosync-pull ()
-      "Jump to the position the server has for this book."
+      "Jump to the newest position recorded for this book.
+    That is the newer of the kosync server's, which the e-reader writes, and
+    Book Reader's, which Obsidian writes."
       (interactive)
-      (let* ((document (my/kosync--document))
-             (state (and document
-                         (my/kosync--request
-                          "GET" (concat "/syncs/progress/" document)))))
+      (let ((state (and (derived-mode-p 'nov-mode) (my/book--latest-state))))
         (cond
-         ((not document) (message "Not reading a book."))
-         ((not (alist-get 'percentage state)) (message "kosync: nothing recorded yet."))
-         (t (message "kosync: %.1f%% from %s"
+         ((not (derived-mode-p 'nov-mode)) (message "Not reading a book."))
+         ((not (alist-get 'percentage state)) (message "Nothing recorded yet for this book."))
+         (t (message "%.1f%% from %s"
                      (* 100 (my/kosync--apply state))
                      (or (alist-get 'device state) "elsewhere"))))))
 
     (defun my/kosync--on-open ()
-      "Reconcile with the server just after a book finishes opening.
+      "Reconcile with the newest known position just after a book finishes opening.
 
     Deferred rather than run straight from the mode hook: nov is still building
     the buffer at that point, so jumping would land in a document about to be
-    replaced -- and a prompt would appear before the book had drawn."
+    replaced -- and a prompt would appear before the book had drawn.
+
+    Newest of two places: the kosync server, which the e-reader writes, and
+    Book Reader's progress file, which Obsidian writes."
       (let ((buffer (current-buffer)))
         (run-at-time
          0.5 nil
          (lambda ()
            (when (buffer-live-p buffer)
              (with-current-buffer buffer
-               (when-let* ((document (my/kosync--document))
-                           (state (my/kosync--request
-                                   "GET" (concat "/syncs/progress/" document)))
+               (when-let* ((state (my/book--latest-state))
                            (remote (alist-get 'percentage state)))
                  (let ((local (my/nov-percentage))
                        (device (or (alist-get 'device state) "another device")))
-                   (setq my/kosync--last-synced local)
+                   (setq my/kosync--last-synced local
+                         my/book--obsidian-saved local)
                    (cond
                     ((< (abs (- remote local)) 0.001) nil)
                     ((eq my/kosync-auto-pull 'never)
-                     (message "kosync: %s left off at %.1f%% -- SPC R p to go there"
+                     (message "%s left off at %.1f%% -- SPC R p to go there"
                               device (* 100 remote)))
                     ;; Nothing to lose at the very start of the book.
                     ((or (eq my/kosync-auto-pull 'always) (< local 0.001))
-                     (message "kosync: %.1f%% from %s"
+                     (message "%.1f%% from %s"
                               (* 100 (my/kosync--apply state)) device))
                     ((y-or-n-p
                       (format "%s left off at %.1f%%, you are at %.1f%%. Go there? "
@@ -425,8 +445,12 @@ nothing -- the notes file below is the honest version of that feature.
                      (my/kosync--apply state)))))))))))
 
     (defun my/kosync--push-if-moved ()
-      "Push the current buffer, but only if the position actually changed."
+      "Push the current buffer, but only if the position actually changed.
+    Book Reader's copy is saved on the same occasions -- idle, focus lost,
+    buffer killed, Emacs quit -- and judged separately, since it needs no kosync
+    account and a push that failed should not hold it back."
       (when (derived-mode-p 'nov-mode)
+        (my/book--obsidian-save-if-moved)
         (let ((percentage (my/nov-percentage)))
           (unless (and my/kosync--last-synced
                        (< (abs (- percentage my/kosync--last-synced)) 0.0005))
@@ -458,63 +482,453 @@ nothing -- the notes file below is the honest version of that feature.
     (add-function :after after-focus-change-function #'my/kosync--on-focus-change)
 
     ;;; ------------------------------------------------------------------
-    ;;; The notes window
+    ;;; The book's note, in the vault
     ;;;
-    ;;; One org file per book, opened in a split to the right, with the book's title
-    ;;; as the heading. ~SPC R n~ from inside a book opens it; from anywhere else it
-    ;;; asks which book.
+    ;;; One markdown note per book, in the Obsidian vault rather than beside the
+    ;;; library, because that is where the reading pipeline is: a book's note
+    ;;; starts in Inbox from the Book template, like every other source, and is
+    ;;; worked on from there. It is the same note the Book Reader plugin uses when
+    ;;; the book is open in Obsidian, found the way the plugin finds it:
     ;;;
-    ;;; The capture command is the one that gets used: it takes the region -- or the
-    ;;; line point is on -- and files it under the notes heading with the percentage
-    ;;; it came from, so a quote can be found again in the reader as well as here.
+    ;;; 1. the note Book Reader has linked to the book, when the book is in the
+    ;;;    vault;
+    ;;; 2. any note whose `book' property -- or Annotator's `annotation-target' --
+    ;;;    names the book;
+    ;;; 3. otherwise a new one in Inbox, named the way Book Reader names one, so
+    ;;;    whichever app gets there first, the other finds it.
+    ;;;
+    ;;; ~SPC R n~ opens it in a split to the right. ~SPC R c~ quotes the region --
+    ;;; or the line point is on -- into it, with the percentage it came from; with
+    ;;; a prefix argument it asks for a comment to go under the quote.
+    ;;;
+    ;;; Quotes go where Book Reader puts its own: appended to the very end of the
+    ;;; note, under a "## Quotes" heading added the first time. The plugin
+    ;;; appends at the end whether or not that heading is the last one, so it has
+    ;;; to stay the last section -- which is why the Book template ends with it.
 
-    (defun my/book-notes-file (&optional book)
-      "Path to the notes for BOOK, defaulting to the one being read."
-      (let ((name (file-name-base (or book nov-file-name "notes"))))
-        (expand-file-name (concat name ".org") my/book-notes-dir)))
+    (require 'dom)
+    (defvar obsidian-directory)
+
+    (defgroup my/books nil
+      "Reading books in Emacs alongside the Obsidian vault."
+      :group 'applications)
+
+    (defcustom my/book-notes-folder "Inbox"
+      "Vault folder new book notes are created in.
+    The vault's pipeline sends every source to Inbox first, and so does Book
+    Reader while its own book-notes folder is left empty."
+      :type 'string
+      :group 'my/books)
+
+    (defcustom my/book-note-template "000 Meta/Templates/Book.md"
+      "Vault-relative template for a new book note -- the one Book Reader uses."
+      :type 'string
+      :group 'my/books)
+
+    (defconst my/book--reader-data ".obsidian/plugins/elton-reader-books/data.json"
+      "Book Reader's saved settings, relative to the vault.")
+
+    (defun my/book--vault ()
+      "The vault directory, with a trailing slash."
+      (file-name-as-directory
+       (expand-file-name (or (bound-and-true-p obsidian-directory)
+                             "~/Documents/robertogoam"))))
+
+    (defun my/book--vault-path (file)
+      "FILE relative to the vault, or nil when it lives outside it."
+      (let ((vault (my/book--vault))
+            (path (expand-file-name file)))
+        (when (string-prefix-p vault path)
+          (substring path (length vault)))))
+
+    (defun my/book--hidden-p (directory)
+      "Non-nil for dot-directories: .obsidian, .trash, .git."
+      (string-prefix-p "." (file-name-nondirectory (directory-file-name directory))))
+
+    (defun my/book--vault-files (regexp)
+      "Every file in the vault matching REGEXP, outside hidden directories."
+      (directory-files-recursively
+       (my/book--vault) regexp nil
+       (lambda (directory) (not (my/book--hidden-p directory)))))
+
+    (defun my/book--read-json (file)
+      "FILE parsed as JSON with objects as hash tables.
+    nil when FILE is missing; the symbol `unreadable' when it is there but does
+    not parse, so a caller about to rewrite it can tell the two apart."
+      (when (file-exists-p file)
+        (condition-case nil
+            (with-temp-buffer
+              (insert-file-contents file)
+              (json-parse-buffer :object-type 'hash-table))
+          (error 'unreadable))))
+
+    (defun my/book--reader-setting (key)
+      "Book Reader's setting KEY, or nil when blank or the plugin is absent."
+      (let* ((data (my/book--read-json
+                    (expand-file-name my/book--reader-data (my/book--vault))))
+             (settings (and (hash-table-p data) (gethash "settings" data)))
+             (value (and (hash-table-p settings) (gethash key settings))))
+        (unless (or (memq value '(nil :null :false)) (equal value ""))
+          value)))
+
+    (defun my/book--note-target (note)
+      "The book NOTE points at, from its `book' or `annotation-target' property."
+      (with-temp-buffer
+        (insert-file-contents note nil 0 4096)
+        (goto-char (point-min))
+        (when (looking-at "---[ \t]*$")
+          (forward-line 1)
+          (let ((start (point))
+                (end (and (re-search-forward "^---[ \t]*$" nil t) (point))))
+            (goto-char start)
+            (when (and end (re-search-forward
+                            "^\\(?:book\\|annotation-target\\):[ \t]*\\(.+\\)$" end t))
+              (let* ((value (string-trim (match-string 1)))
+                     (value (string-trim value "[\"']+" "[\"']+"))
+                     (value (string-trim value "\\[\\[" "\\]\\]")))
+                (car (split-string value "|"))))))))
+
+    (defun my/book--names (book)
+      "The ways a note's `book' property may name BOOK.
+    Book Reader writes the vault path and also accepts the bare file name;
+    a book outside the vault can only be named by where it is."
+      (let ((relative (my/book--vault-path book))
+            (absolute (expand-file-name book)))
+        (delq nil (list relative
+                        (and relative (file-name-sans-extension
+                                       (file-name-nondirectory book)))
+                        (file-name-nondirectory book)
+                        (abbreviate-file-name absolute)
+                        absolute))))
+
+    (defun my/book--note-title (book)
+      "What a new note for BOOK is called.
+    A book in the vault is named after its file, as Book Reader names it, so
+    both apps land on one note. A book from ~/books usually carries a long
+    catalogue filename, so its own metadata title is used instead."
+      (let ((title (or (and (not (my/book--vault-path book))
+                            (derived-mode-p 'nov-mode)
+                            (equal (expand-file-name book)
+                                   (expand-file-name nov-file-name))
+                            (alist-get 'title nov-metadata))
+                       (car (split-string (file-name-base book) " -- ")))))
+        (string-trim
+         (replace-regexp-in-string
+          " +" " " (replace-regexp-in-string "[]\\/:*?\"<>|#^[]" " " title)))))
+
+    (defun my/book--linked-note (book)
+      "The note Book Reader has linked to BOOK, if there is one."
+      (when-let* ((relative (my/book--vault-path book))
+                  (links (my/book--reader-setting "bookNoteLinks"))
+                  ((hash-table-p links))
+                  (name (gethash relative links))
+                  ((stringp name)))
+        (let* ((name (string-trim name "\\[\\[" "\\]\\]"))
+               (preferred (expand-file-name
+                           (concat my/book-notes-folder "/" name ".md")
+                           (my/book--vault))))
+          (if (file-exists-p preferred)
+              preferred
+            (seq-find (lambda (note) (equal (file-name-base note) name))
+                      (my/book--vault-files "\\.md\\'"))))))
+
+    (defun my/book-note-file (&optional book)
+      "The vault note for BOOK, defaulting to the one being read.
+    It may not exist yet; `my/book--ensure-note' creates it."
+      (let* ((book (or book
+                       (and (derived-mode-p 'nov-mode) nov-file-name)
+                       (user-error "Not reading a book")))
+             (names (my/book--names book)))
+        (or (my/book--linked-note book)
+            (seq-find (lambda (note) (member (my/book--note-target note) names))
+                      (my/book--vault-files "\\.md\\'"))
+            (expand-file-name
+             (concat my/book-notes-folder "/" (my/book--note-title book) ".md")
+             (my/book--vault)))))
+
+    (defun my/book--template (title)
+      "The Book template filled in for TITLE.
+    Only the Templater calls the template uses are evaluated -- the title and
+    today's date -- and any other <% %> is dropped. That is exactly what Book
+    Reader does when it creates a book note, so the two produce the same note."
+      (let ((file (expand-file-name my/book-note-template (my/book--vault)))
+            (today (format-time-string "%Y-%m-%d")))
+        (if (not (file-readable-p file))
+            (format "# %s\n" title)
+          (let ((text (with-temp-buffer
+                        (insert-file-contents file)
+                        (buffer-string))))
+            (setq text (replace-regexp-in-string
+                        "<%[-_]?[ \t]*tp\\.file\\.title[ \t]*[-_]?%>" title text t t))
+            (setq text (replace-regexp-in-string
+                        "<%[-_]?[ \t]*tp\\.date\\.now([^)]*)[ \t]*[-_]?%>" today text t t))
+            (replace-regexp-in-string "<%\\(?:.\\|\n\\)*?%>" "" text t t)))))
+
+    (defun my/book--set-property (key value)
+      "Set KEY to VALUE in this buffer's frontmatter, adding one if there is none."
+      (save-excursion
+        (goto-char (point-min))
+        (let ((line (format "%s: \"%s\"" key
+                            (replace-regexp-in-string "\"" "\\\\\"" value))))
+          (if (not (looking-at "---[ \t]*$"))
+              (insert "---\n" line "\n---\n\n")
+            (forward-line 1)
+            (let ((end (save-excursion
+                         (and (re-search-forward "^---[ \t]*$" nil t)
+                              (match-beginning 0)))))
+              (cond
+               ((not end) (insert line "\n"))
+               ((re-search-forward (format "^%s:.*$" (regexp-quote key)) end t)
+                (replace-match line t t))
+               (t (goto-char end)
+                  (insert line "\n"))))))))
+
+    (defun my/book--ensure-note (book)
+      "The note for BOOK, created from the Book template if it is new.
+    The `book' property it gets is the one Book Reader writes -- a link to the
+    vault path -- or, for a book outside the vault, where the file is."
+      (let ((file (my/book-note-file book)))
+        (unless (file-exists-p file)
+          (make-directory (file-name-directory file) t)
+          (let ((relative (my/book--vault-path book))
+                (coding-system-for-write 'utf-8-unix))
+            (with-temp-file file
+              (insert (my/book--template (file-name-base file)))
+              (my/book--set-property
+               "book" (if relative
+                          (format "[[%s]]" relative)
+                        (abbreviate-file-name (expand-file-name book)))))))
+        file))
+
+    (defun my/book--note-buffer (note)
+      "A buffer visiting NOTE, re-read first if Obsidian changed it meanwhile."
+      (let ((buffer (find-file-noselect note)))
+        (with-current-buffer buffer
+          (unless (or (buffer-modified-p) (verify-visited-file-modtime buffer))
+            (revert-buffer t t t)))
+        buffer))
 
     (defun my/book-notes ()
-      "Open this book's notes in a window to the right."
+      "Open this book's note from the vault in a window to the right."
       (interactive)
       (unless (derived-mode-p 'nov-mode)
         (user-error "Not reading a book"))
-      (let ((file (my/book-notes-file))
-            (title (or (alist-get 'title nov-metadata) (file-name-base nov-file-name))))
-        (make-directory my/book-notes-dir t)
-        (let ((buffer (find-file-noselect file)))
-          (with-current-buffer buffer
-            (when (zerop (buffer-size))
-              (insert (format "#+TITLE: %s\n\n* Notes\n" title))
-              (save-buffer)))
-          (display-buffer buffer '(display-buffer-in-side-window
-                                   (side . right) (window-width . 0.4))))))
+      (let ((buffer (my/book--note-buffer (my/book--ensure-note nov-file-name))))
+        (display-buffer buffer '(display-buffer-in-side-window
+                                 (side . right) (window-width . 0.4)))
+        buffer))
 
-    (defun my/book-note-capture (beginning end)
-      "File the region -- or this line -- into the book's notes."
-      (interactive "r")
+    (defun my/book--label-p (text book-title)
+      "Non-nil when TEXT says something a reader would recognise.
+    Not blank, not the book's own title, and not a generated name: plenty of
+    EPUBs title their documents \"part0004\" or \"Page 76\", or head a chapter
+    with its number alone."
+      (and text
+           (not (string-empty-p text))
+           (not (and book-title (string-equal-ignore-case text book-title)))
+           (not (let ((case-fold-search t))
+                  (string-match-p
+                   "\\`\\(?:part\\|page\\|split\\|section\\|text\\|index\\|ch\\)?[-_ ]*[0-9]+\\'"
+                   text)))))
+
+    (defun my/book--chapter ()
+      "A label for the part of the book point is in, or nil.
+    The current spine document's <title>, else its first h1-h3, whichever
+    passes `my/book--label-p'. Books are not consistent about any of these, so
+    this is a label, not an address -- the percentage beside the quote is what
+    finds the place again."
+      ;; Both are read before the temporary buffer is entered: they are local
+      ;; to the book's buffer.
+      (let ((document (ignore-errors (cdr (aref nov-documents nov-documents-index))))
+            (book-title (alist-get 'title nov-metadata)))
+        (when document
+          (ignore-errors
+            (with-temp-buffer
+              (insert-file-contents document)
+              (let ((dom (libxml-parse-html-region (point-min) (point-max))))
+                (seq-some
+                 (lambda (tag)
+                   (when-let* ((node (car (dom-by-tag dom tag)))
+                               (text (string-trim
+                                      (replace-regexp-in-string
+                                       "[ \t\n]+" " " (dom-inner-text node))))
+                               ((my/book--label-p text book-title)))
+                     text))
+                 '(title h1 h2 h3))))))))
+
+    (defun my/book--append-quote (note text where &optional chapter comment)
+      "Append TEXT to NOTE under its Quotes heading, the way Book Reader does.
+    WHERE follows the quote on its line; CHAPTER, when given, goes above it in
+    bold, and COMMENT below it, inside the same blockquote."
+      (with-current-buffer (my/book--note-buffer note)
+        (save-excursion
+          (save-restriction
+            (widen)
+            (let ((has-heading (save-excursion
+                                 (goto-char (point-min))
+                                 (re-search-forward "^## Quotes[ \t]*$" nil t))))
+              (goto-char (point-max))
+              (skip-chars-backward " \t\n")
+              (delete-region (point) (point-max))
+              (insert "\n\n")
+              (unless has-heading
+                (insert "## Quotes\n\n"))
+              (when chapter
+                (insert "**" chapter "**\n\n"))
+              (insert "> " text where)
+              (when comment
+                (insert "\n>\n> — " (replace-regexp-in-string "\n" "\n> " comment)))
+              (insert "\n"))))
+        (save-buffer)))
+
+    (defun my/book-note-capture (beginning end &optional comment)
+      "Quote the region -- or this line -- into the book's note in the vault.
+    With a prefix argument, ask for a COMMENT to file under the quote."
+      (interactive
+       (list (if (use-region-p) (region-beginning) (line-beginning-position))
+             (if (use-region-p) (region-end) (line-end-position))
+             (and current-prefix-arg (read-string "Comment: "))))
       (unless (derived-mode-p 'nov-mode)
         (user-error "Not reading a book"))
-      (let* ((text (string-trim
-                    (if (use-region-p)
-                        (buffer-substring-no-properties beginning end)
-                      (thing-at-point 'line t))))
-             (percentage (* 100 (my/nov-percentage)))
-             (file (my/book-notes-file)))
+      (let ((text (string-trim
+                   (replace-regexp-in-string
+                    "[ \t\n]+" " " (buffer-substring-no-properties beginning end))))
+            (percentage (* 100 (my/nov-percentage))))
+        (when (string-empty-p text)
+          (user-error "Nothing to note on this line"))
+        (my/book--append-quote (my/book--ensure-note nov-file-name)
+                               text
+                               (format " *(%.1f%%)*" percentage)
+                               (my/book--chapter)
+                               (and comment (not (string-empty-p comment)) comment))
         (my/book-notes)
-        (with-current-buffer (find-file-noselect file)
-          (goto-char (point-max))
-          (insert (format "\n** %.1f%%\n#+begin_quote\n%s\n#+end_quote\n\n"
-                          percentage text))
-          (save-buffer))
         (deactivate-mark)
         (message "Noted at %.1f%%" percentage)))
 
+    ;;; ------------------------------------------------------------------
+    ;;; Position, shared with Book Reader
+    ;;;
+    ;;; Book Reader keeps every book's position in reading-progress.json, in the
+    ;;; vault, keyed by the book's vault path: a fraction through the book, the
+    ;;; time it was saved in milliseconds, and the index of the paragraph it was
+    ;;; on. Emacs has no way to name that paragraph, so it writes the fraction and
+    ;;; the time and leaves the index out -- the case the plugin already handles,
+    ;;; by opening at the fraction instead. Same granularity as kosync: the right
+    ;;; neighbourhood, not the line.
+    ;;;
+    ;;; Only books inside the vault take part; Obsidian cannot open the others.
+    ;;; The file holds every book's position, so it is replaced whole through a
+    ;;; temporary file and left alone entirely if it does not parse.
+    ;;;
+    ;;; One race is out of reach from here: Book Reader holds the file in memory
+    ;;; while a book is open and writes all of it back, so a position saved in
+    ;;; Emacs while Obsidian has another book open can be overwritten with the
+    ;;; older one. kosync keeps its own copy, and opening the book takes whichever
+    ;;; of the two is newer.
+
+    (defun my/book--progress-file ()
+      "Book Reader's reading-progress.json, or nil when the plugin is absent.
+    It sits in the plugin's data folder, else its books folder, else the vault
+    root -- the order the plugin itself uses."
+      (let ((vault (my/book--vault)))
+        (when (file-exists-p (expand-file-name my/book--reader-data vault))
+          (let ((folder (seq-find #'stringp
+                                  (list (my/book--reader-setting "dataFolder")
+                                        (my/book--reader-setting "booksFolder")))))
+            (expand-file-name "reading-progress.json"
+                              (if folder (expand-file-name folder vault) vault))))))
+
+    (defun my/book--obsidian-state (book)
+      "Where Book Reader left BOOK, shaped like a kosync reply, or nil."
+      (when-let* ((relative (my/book--vault-path book))
+                  (file (my/book--progress-file))
+                  (data (my/book--read-json file))
+                  ((hash-table-p data))
+                  (entry (gethash relative data))
+                  ((hash-table-p entry))
+                  (fraction (gethash "pct" entry))
+                  ((numberp fraction)))
+        (let ((saved (gethash "lastRead" entry)))
+          (list (cons 'percentage (float fraction))
+                (cons 'timestamp (if (numberp saved) (/ saved 1000.0) 0))
+                (cons 'device "Obsidian")))))
+
+    (defun my/book--obsidian-save (&optional book fraction)
+      "Record FRACTION through BOOK in Book Reader's progress file.
+    Both default to the book being read and where point is in it."
+      (when-let* ((book (or book (and (derived-mode-p 'nov-mode) nov-file-name)))
+                  (relative (my/book--vault-path book))
+                  (file (my/book--progress-file)))
+        (let ((fraction (or fraction (my/nov-percentage)))
+              (data (my/book--read-json file))
+              (entry (make-hash-table :test 'equal)))
+          (if (eq data 'unreadable)
+              (message "Book Reader's progress file does not parse; position not saved")
+            (unless (hash-table-p data)
+              (setq data (make-hash-table :test 'equal)))
+            (puthash "pct" fraction entry)
+            (puthash "percent" (round (* 100 fraction)) entry)
+            (puthash "lastRead" (truncate (* 1000 (float-time))) entry)
+            (puthash relative entry data)
+            (make-directory (file-name-directory file) t)
+            (let ((temporary (make-temp-file
+                              (expand-file-name ".reading-progress"
+                                                (file-name-directory file))
+                              nil ".json"))
+                  (coding-system-for-write 'utf-8-unix))
+              (with-temp-file temporary
+                (insert (json-serialize data)))
+              (rename-file temporary file t))
+            (setq my/book--obsidian-saved fraction)))))
+
+    (defun my/book--obsidian-save-if-moved ()
+      "Save this buffer's position for Book Reader if it moved since last time."
+      (when (and (derived-mode-p 'nov-mode)
+                 nov-file-name
+                 (my/book--vault-path nov-file-name))
+        (let ((fraction (my/nov-percentage)))
+          (unless (and my/book--obsidian-saved
+                       (< (abs (- fraction my/book--obsidian-saved)) 0.0005))
+            (my/book--obsidian-save nov-file-name fraction)))))
+
+    (defun my/book--newest-state (&rest states)
+      "Whichever of STATES was recorded last.
+    A state with no time, which a kosync server may send, counts as oldest."
+      (car (sort (seq-filter (lambda (state) (alist-get 'percentage state)) states)
+                 (lambda (a b) (> (or (alist-get 'timestamp a) 0)
+                                  (or (alist-get 'timestamp b) 0))))))
+
+    (defun my/book--latest-state ()
+      "The newest position recorded elsewhere for the book being read, or nil."
+      (let ((document (my/kosync--document)))
+        (my/book--newest-state
+         (and document (my/kosync--request "GET" (concat "/syncs/progress/" document)))
+         (and nov-file-name (my/book--obsidian-state nov-file-name)))))
+
+    ;;; ------------------------------------------------------------------
+    ;;; Opening a book
+
+    (defun my/book--library ()
+      "Every EPUB in ~/books and in the vault, as (LABEL . PATH)."
+      (append
+       (mapcar (lambda (file) (cons (concat "vault/" (my/book--vault-path file)) file))
+               (my/book--vault-files "\\.epub\\'"))
+       (when (file-directory-p my/books-dir)
+         (mapcar (lambda (file)
+                   (cons (concat "books/" (file-relative-name file my/books-dir)) file))
+                 (directory-files-recursively
+                  my/books-dir "\\.epub\\'" nil
+                  (lambda (directory) (not (my/book--hidden-p directory))))))))
+
     (defun my/book-open ()
-      "Open a book from the library."
+      "Open a book from ~/books or from the vault.
+    Books in the vault can be read in Obsidian too; the rest only here and on
+    the e-reader."
       (interactive)
-      (make-directory my/books-dir t)
-      (let ((default-directory my/books-dir))
-        (call-interactively #'find-file)))
+      (let ((books (my/book--library)))
+        (unless books
+          (user-error "No books in %s or the vault" my/books-dir))
+        (find-file (cdr (assoc (completing-read "Book: " books nil t) books)))))
 
     (defun my/book-library ()
       "Browse the library the reader and calibre-web both serve."

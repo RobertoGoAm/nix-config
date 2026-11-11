@@ -35,3 +35,6 @@ created: <% tp.date.now("YYYY-MM-DD") %>
 
 ## Connections
 - [[]]
+
+## Quotes
+<!-- Book Reader appends highlights here. Keep this as the last section. -->
