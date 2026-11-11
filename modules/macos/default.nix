@@ -215,6 +215,7 @@
         outputs.overlays.pin-prefs
         outputs.overlays.posthog
         outputs.overlays.tuicr-colemak
+        outputs.overlays.tuicr-chunks
         outputs.overlays.warpd
       ];
       config = {

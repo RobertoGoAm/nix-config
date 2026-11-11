@@ -82,10 +82,16 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   aider-chat = import ./aider-chat.nix;
 #+end_src
 
-* tuicr-colemak: tuicr's vim keys by physical position on a Colemak board
+* tuicr-colemak: tuicr moves on hnei, as nvim does on a Colemak board
 
 #+begin_src nix
   tuicr-colemak = import ./tuicr-colemak.nix;
+#+end_src
+
+* tuicr-chunks: tuicr splits hunks at unchanged lines, so =R= marks one edit
+
+#+begin_src nix
+  tuicr-chunks = import ./tuicr-chunks.nix;
 #+end_src
 
 * mcp-v1: the consumers nixpkgs has not ported to mcp 2.x

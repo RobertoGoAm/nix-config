@@ -1,0 +1,43 @@
+# tuicr reviews a hunk one chunk at a time
+
+# tuicr remembers review progress per file (=r=) and per hunk (=R=), and a hunk
+# is whatever git's three lines of context glued together: two edits up to six
+# unchanged lines apart arrive as one hunk, and a function rewritten in several
+# places can be one long hunk that is all or nothing. So every hunk is split at
+# its unchanged lines: each run of changed lines becomes a hunk of its own, with
+# its own header, its own =R= that folds it to that header, and its own stop for
+# =[= and =]=. The unchanged lines between two runs are shared out, the earlier
+# run taking the first half and the later the rest, so nothing shows twice and
+# the pieces sit flush, with no hidden-context expander between them.
+
+# Lines and their numbers are untouched, so comments, forge anchors and
+# the file's change fingerprint are unaffected. Only the per-hunk reviewed marks
+# change shape: a hunk marked before this existed comes back unmarked once it is
+# split.
+
+# The split runs where both diff backends finish a file, the libgit2 one in
+# =src/vcs/git/diff.rs= and the text one in =src/vcs/diff_parser.rs= (git CLI, jj,
+# Mercurial and the forges' pull requests): right before each takes the file's
+# content hash. The code lives beside this file in =tuicr-chunks.rs= and is
+# appended to =src/model/diff_types.rs=, where its tests run with tuicr's own; the
+# substitutions fail the build if either anchor line changes.
+
+# Two of tuicr's parser tests read their lines from the first hunk, and one of
+# those hunks now arrives as two pieces. They check how lines are parsed, not
+# where hunks end, so they read the lines across all the file's pieces instead.
+
+final: prev: {
+  tuicr = prev.tuicr.overrideAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      for backend in src/vcs/git/diff.rs src/vcs/diff_parser.rs; do
+        substituteInPlace "$backend" --replace-fail \
+          'let content_hash = DiffFile::compute_content_hash(&hunks);' \
+          'let hunks = crate::model::diff_types::split_into_chunks(hunks); let content_hash = DiffFile::compute_content_hash(&hunks);'
+      done
+      substituteInPlace src/vcs/diff_parser.rs --replace-fail \
+        'let lines = &files[0].hunks[0].lines;' \
+        'let lines: Vec<_> = files[0].hunks.iter().flat_map(|hunk| &hunk.lines).collect();'
+      cat ${./tuicr-chunks.rs} >> src/model/diff_types.rs
+    '';
+  });
+}

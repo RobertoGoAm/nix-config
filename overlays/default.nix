@@ -53,9 +53,13 @@
 
   aider-chat = import ./aider-chat.nix;
 
-  # tuicr-colemak: tuicr's vim keys by physical position on a Colemak board
+  # tuicr-colemak: tuicr moves on hnei, as nvim does on a Colemak board
 
   tuicr-colemak = import ./tuicr-colemak.nix;
+
+  # tuicr-chunks: tuicr splits hunks at unchanged lines, so =R= marks one edit
+
+  tuicr-chunks = import ./tuicr-chunks.nix;
 
   # mcp-v1: the consumers nixpkgs has not ported to mcp 2.x
 

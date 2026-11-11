@@ -168,6 +168,7 @@
               outputs.overlays.mcp-v1
               outputs.overlays.posthog
               outputs.overlays.tuicr-colemak
+              outputs.overlays.tuicr-chunks
             ];
             config = {
               allowUnfree = true;
