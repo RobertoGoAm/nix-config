@@ -62,7 +62,6 @@ import os
 import re
 import subprocess
 import sys
-import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
@@ -830,39 +829,6 @@ def near_lines(m):
 
 MARKER = "<!-- mr-size -->"
 
-# The section is recognised by its heading as well as by its marker, because
-# people retype it rather than paste it. The house merge-request template is
-# written in Spanish, so its headings count too: a colleague writing the
-# description by hand was refused for the language they wrote it in, and an
-# agent only got through because the refusal told it the English words to use.
-#
-# "Complejidad de la MR" is the template's own complexity section rather than a
-# translation of this one, so accepting it widens what satisfies the gate from
-# "this measurement is present" to "a difficulty estimate is present". That is
-# deliberate: the template already asks for a review-time estimate, and a gate
-# people cannot satisfy in their own language is one they route around.
-HEADINGS = (
-    "review difficulty",
-    "dificultad de revision",
-    "complejidad de la mr",
-)
-
-
-def unaccented(text):
-    """Casefolded and stripped of accents, so a hand-typed heading still matches."""
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text.casefold())
-        if unicodedata.category(c) != "Mn"
-    )
-
-
-def has_section(text):
-    if MARKER in text:
-        return True
-    folded = unaccented(text)
-    return any(h in folded for h in HEADINGS)
-
-
 def mr_body(x):
     m, d = x.m, x.m["difficulty"]
     rows = [
@@ -891,18 +857,6 @@ def mr_body(x):
 <sub>Measured by mr-size against `{x.base}`: changes are parsed and repeated, mechanical or moved edits discounted. The difficulty is an uncalibrated estimate.</sub>"""
 
 
-def mr_instructions(x, tool):
-    d = x.m["difficulty"]
-    body = mr_body(x)
-    label = f"difficulty::{d['band']}"
-    how = {
-        "glab": f'Put the section at the end of --description, and add --label "{label}".',
-        "gh": "Put the section at the end of --body (or the --body-file).",
-        "df": f"df mr-generate writes the description itself: once the MR exists, append the section with glab mr update <iid> --description \"<existing description>\n\n<section>\" and add the label with glab mr update <iid> --label \"{label}\".",
-    }[tool]
-    return f"Review-difficulty section for this MR (difficulty {d['band']}, about {d['minutes']} min). {how}\n\n{body}"
-
-
 # --- hooks -------------------------------------------------------------------
 
 GIT_RE = r"(^|[;&|(]\s*|^\s*)(rtk\s+)?git(\s+-C\s+\S+)?\s+"
@@ -929,23 +883,6 @@ def in_repo(d):
     return bool(git_ok("rev-parse", "--git-dir"))
 
 
-def body_has_marker(cmd, cwd):
-    if has_section(cmd):
-        return True
-    m = re.search(r"(?:--body-file|--description-file|-F)\s+(\"[^\"]+\"|\S+)", cmd)
-    if m:
-        p = os.path.join(cwd, os.path.expanduser(m.group(1).strip('"')))
-        try:
-            with open(p) as f:
-                # The same test as for an inline body: a file holding the
-                # section without the marker used to be refused while the very
-                # same text passed when written on the command line.
-                return has_section(f.read())
-        except OSError:
-            pass
-    return False
-
-
 def emit(**out):
     print(json.dumps({"hookSpecificOutput": out}))
 
@@ -969,19 +906,11 @@ def claude_pre():
     if not in_repo(d):
         return
     x = measure(mode)
-    if mr_tool in ("glab", "gh") and not body_has_marker(cmd, d) and x.branch != "HEAD":
-        emit(hookEventName="PreToolUse", permissionDecision="deny",
-             permissionDecisionReason="MR size: include the review-difficulty section in the MR description, then retry.\n" + mr_instructions(x, mr_tool))
-        return
     if x.exempt or not x.over:
-        if mr_tool == "df":
-            emit(hookEventName="PreToolUse", additionalContext=mr_instructions(x, "df"))
         return
     # The user sees the reason in the permission prompt; the agent gets the
     # advice, so a refusal leads to a split rather than a retry.
     ctx = f"MR size gate: {summary(x)}. The user is being asked whether to allow it. If they deny, split the work.\n{split_advice(x)}"
-    if mr_tool == "df":
-        ctx += "\n\n" + mr_instructions(x, "df")
     emit(hookEventName="PreToolUse", permissionDecision="ask",
          permissionDecisionReason=(f"MR size gate: {summary(x)}. {breakdown(x.m)}. "
                                    f"Approve if it is reviewable as one MR (to stop asking for this branch: "
