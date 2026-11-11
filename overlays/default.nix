@@ -57,7 +57,7 @@
 
   tuicr-colemak = import ./tuicr-colemak.nix;
 
-  # tuicr-chunks: tuicr splits hunks at unchanged lines, so =R= marks one edit
+  # tuicr-chunks: tuicr marks one edit, or one =V= selection, reviewed
 
   tuicr-chunks = import ./tuicr-chunks.nix;
 

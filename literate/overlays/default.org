@@ -88,7 +88,7 @@ lit-tangle: regenerates this repo's .nix from the literate org sources.
   tuicr-colemak = import ./tuicr-colemak.nix;
 #+end_src
 
-* tuicr-chunks: tuicr splits hunks at unchanged lines, so =R= marks one edit
+* tuicr-chunks: tuicr marks one edit, or one =V= selection, reviewed
 
 #+begin_src nix
   tuicr-chunks = import ./tuicr-chunks.nix;

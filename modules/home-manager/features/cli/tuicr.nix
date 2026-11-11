@@ -4,7 +4,8 @@
 # =~/.config/tuicr/config.toml= from =settings=; local themes would go under
 # =themes=. The package carries the Colemak key translation from
 # =overlays/tuicr-colemak.nix=, and =overlays/tuicr-chunks.nix= splits every hunk
-# at its unchanged lines, so =R= marks and folds one edit at a time.
+# at its unchanged lines, so =R= marks and folds one edit at a time, and =R= over
+# a =V= selection marks and folds just those lines.
 
 # Its colours follow the system appearance with the tokyonight the editors use:
 # storm when dark, day when light. Everything else keeps tuicr's defaults; the
