@@ -68,6 +68,7 @@ in
       kubectx
       kubernetes-helm
       kustomize
+      opengrep
       pre-commit
       semgrep
       sops

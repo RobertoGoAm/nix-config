@@ -85,6 +85,7 @@ are dropped, and the GNOME/X11/linux-native bits below are perseus-specific.
       kubectx
       kubernetes-helm
       kustomize
+      opengrep
       pre-commit
       semgrep
       sops

@@ -166,6 +166,7 @@
               outputs.overlays.check-pins
               outputs.overlays.lit-tangle
               outputs.overlays.mcp-v1
+              outputs.overlays.opengrep
               outputs.overlays.posthog
               outputs.overlays.tuicr-colemak
               outputs.overlays.tuicr-chunks

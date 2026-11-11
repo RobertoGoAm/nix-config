@@ -65,6 +65,10 @@
 
   mcp-v1 = import ./mcp-v1.nix;
 
+  # opengrep: semgrep's rules without a Python to run them
+
+  opengrep = import ./opengrep.nix;
+
   # When applied, the unstable nixpkgs set (declared in the flake...
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will

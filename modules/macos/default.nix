@@ -210,6 +210,7 @@
         outputs.overlays.lit-tangle
         outputs.overlays.mcp-v1
         outputs.overlays.nix-preflight
+        outputs.overlays.opengrep
         outputs.overlays.spotify-ctl
         outputs.overlays.tab-suspender
         outputs.overlays.pin-prefs
