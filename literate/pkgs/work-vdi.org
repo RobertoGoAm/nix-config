@@ -1,0 +1,65 @@
+#+TITLE: pkgs work-vdi
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* pkgs work-vdi
+
+Build the complete, sanitized editor export from the same source and lock as
+the system. No Nix subprocess, network access or user-home writes in the build.
+
+#+begin_src nix
+{
+  lib,
+  runCommand,
+  python3,
+  writeText,
+  path,
+}:
+let
+  source = lib.fileset.toSource {
+    root = ../.;
+    fileset = lib.fileset.unions [
+      ../modules/home-manager/features/development/emacs
+      ../modules/home-manager/features/development/nvim
+      ../portable/work-vdi/export/evaluate.nix
+      ../portable/work-vdi/export/manifest.nix
+      ../portable/work-vdi/export/render.py
+      ../portable/work-vdi/export/bundle.py
+      ../portable/work-vdi/export/language-stack.json
+      ../portable/work-vdi/export/work-format.py
+      ../portable/work-vdi/export/install-editors.py
+    ../portable/work-vdi/export/install-native-tools.py
+      ../portable/work-vdi/export/emacs-portability.el
+      ../portable/work-vdi/early-init.el
+      ../portable/work-vdi/banner.txt
+      ../portable/work-vdi/vimrc
+      ../portable/work-vdi/README.md
+      ../portable/work-vdi/FEATURES.md
+    ];
+  };
+  evaluated = import ../portable/work-vdi/export/evaluate.nix {
+    nixpkgsSource = toString path;
+    root = source;
+  };
+  data = writeText "work-vdi-evaluated.json" (builtins.toJSON evaluated);
+in
+runCommand "work-vdi" {
+  nativeBuildInputs = [ python3 ];
+  WORK_VDI_NIXPKGS_SOURCE = path;
+  meta = {
+    description = "Full work editor configurations and a standalone VDI installer";
+    platforms = lib.platforms.unix;
+  };
+} ''
+  cp -R ${source}/portable/work-vdi work
+  chmod -R u+w work
+  cp ${data} work/export/evaluated.json
+  python work/export/render.py
+  python work/export/bundle.py
+  sh -n work/install.sh
+  sh -n work/install-qwerty.sh
+
+  mkdir -p "$out/helpers"
+  cp work/{init.lua,init.el,early-init.el,banner.txt,vimrc,install.sh,install-qwerty.sh,README.md,FEATURES.md} "$out/"
+  cp work/helpers/* "$out/helpers/"
+''
+#+end_src

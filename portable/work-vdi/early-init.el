@@ -1,0 +1,15 @@
+;;; early-init.el --- Work editor frame setup -*- lexical-binding: t; -*-
+(push '(background-color . "#24283b") default-frame-alist)
+(push '(foreground-color . "#c0caf5") default-frame-alist)
+(push '(tool-bar-lines . 0) default-frame-alist)
+(push '(vertical-scroll-bars . nil) default-frame-alist)
+(defun work/frame-fonts (&optional frame)
+  "Use source fonts when installed, falling back to the VDI's default font."
+  (when (display-graphic-p frame)
+    (with-selected-frame (or frame (selected-frame))
+      (when (find-font (font-spec :family "JetBrainsMono Nerd Font Mono"))
+        (set-frame-font "JetBrainsMono Nerd Font Mono-12" nil))
+      (when (find-font (font-spec :family "JuliaMono"))
+        (set-fontset-font t '(#x2190 . #x2bff) "JuliaMono" nil 'append)))))
+(add-hook 'after-make-frame-functions #'work/frame-fonts)
+(add-hook 'window-setup-hook #'work/frame-fonts)

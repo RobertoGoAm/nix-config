@@ -1,0 +1,58 @@
+" Work VDI: Vim 8+ or Neovim. No plugins or network access required.
+" Set to 0 for a QWERTY keyboard; this changes editor keys, not OS layout.
+let g:work_colemak = get(g:, 'work_colemak', 1)
+let mapleader = ' '
+let maplocalleader = ','
+set nocompatible
+filetype plugin indent on
+syntax enable
+set encoding=utf-8 hidden number relativenumber showcmd cursorline
+set backspace=indent,eol,start
+set incsearch hlsearch ignorecase smartcase wildmenu
+set splitbelow splitright expandtab tabstop=2 softtabstop=2 shiftwidth=2
+set nowrap confirm updatetime=300 timeoutlen=500 background=dark
+if exists('+signcolumn') | set signcolumn=yes | endif
+if exists('+termguicolors') | set termguicolors | endif
+let s:state = expand('~/.vim/work-state')
+for s:dir in ['undo', 'backup', 'swap']
+  call mkdir(s:state . '/' . s:dir, 'p', 0700)
+endfor
+let &directory = s:state . '/swap//'
+let &backupdir = s:state . '/backup//'
+if has('persistent_undo')
+  set undofile
+  let &undodir = s:state . '/undo//'
+endif
+if has('clipboard') | set clipboard^=unnamedplus | endif
+nnoremap x "_x
+nnoremap X "_X
+nnoremap <Del> "_x
+nnoremap + <C-x>
+nnoremap - <C-a>
+if g:work_colemak
+  for [s:from, s:to] in [['n','j'],['N','J'],['e','k'],['E','K'],['i','l'],['I','L'],['j','n'],['J','N'],['k','e'],['K','E'],['l','i'],['L','I']]
+    execute 'noremap ' . s:from . ' ' . s:to
+  endfor
+endif
+nnoremap <leader>ff :find<Space>
+nnoremap <leader>fe :Explore<CR>
+nnoremap <leader>bb :ls<CR>:buffer<Space>
+nnoremap <leader>fs :write<CR>
+nnoremap <leader>ss /
+nnoremap <leader>sp :vimgrep /
+nnoremap <leader>lq :copen<CR>
+nnoremap <leader>ln :cnext<CR>
+nnoremap <leader>le :cprevious<CR>
+nnoremap <leader>ws :split<CR>
+nnoremap <leader>wv :vsplit<CR>
+nnoremap <leader>wo <C-w>o
+nnoremap <leader>wd <C-w>c
+nnoremap <leader>w= <C-w>=
+nnoremap <leader>Ts :nohlsearch<CR>
+nnoremap <leader>Tw :set wrap!<CR>
+nnoremap <leader>xd :%s/\s\+$//e<CR>
+nnoremap <leader>xf gg=G``
+set path+=**
+set wildignore+=*/.git/*,*/node_modules/*,*/.venv/*,*/dist/*,*/build/*
+" Completion: C-x C-o (language omnifunc), C-x C-f (paths), C-n/C-p (words).
+" Project search: :vimgrep /pattern/gj **/* then :copen.

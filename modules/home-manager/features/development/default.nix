@@ -15,6 +15,7 @@
     ./trivy.nix
     ./uv.nix
     ./vscode
+    ./work-vdi.nix
   ];
 
   # Ensure the dev workspace root exists so the dock's Development...

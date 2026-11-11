@@ -2,6 +2,18 @@
 
 Multiplatform nix configuration to handle installing applications, configuring them and setting up the system for MacOS and Linux-based systems.
 
+## Work VDI editor installer
+
+Rebuilds automatically generate standalone work versions of Neovim and Emacs,
+keeping the coding features and excluding personal integrations. After each
+successful activation, copy `portable/work-vdi/install.sh` into Horizon and run
+`sh install.sh --tools` there. The same current file is available at
+`~/.local/share/work-vdi/export/install.sh` even without a checkout.
+
+See [VDI installation](portable/work-vdi/README.md) and
+[retained/removed features](portable/work-vdi/FEATURES.md). To generate only this
+bundle without switching your system, run `nix build .#work-vdi`.
+
 ## Quick start (automated)
 
 `bootstrap.sh` does the whole install — clone → secrets → dependencies → Nix → build → Wi-Fi + SSH public keys. It pulls your secrets from **Bitwarden by default**.

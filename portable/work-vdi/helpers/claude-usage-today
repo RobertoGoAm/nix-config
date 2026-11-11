@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Sum today's Claude Code token usage across every session transcript."""
+
+import datetime
+import json
+import os
+import pathlib
+import sys
+
+ROOT = pathlib.Path.home() / ".claude" / "projects"
+CACHE = pathlib.Path(
+    os.environ.get("XDG_CACHE_HOME", pathlib.Path.home() / ".cache")
+) / "claude-usage"
+STATE = CACHE / "state.json"
+
+FIELDS = {
+    "input": "input_tokens",
+    "output": "output_tokens",
+    "cache_write": "cache_creation_input_tokens",
+    "cache_read": "cache_read_input_tokens",
+}
+
+
+def local_date(stamp):
+    """The local calendar date of an ISO-8601 UTC timestamp, or None."""
+    try:
+        when = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    return when.astimezone().date()
+
+
+def load_state():
+    try:
+        with STATE.open() as handle:
+            state = json.load(handle)
+    except (OSError, ValueError):
+        state = {}
+    state.setdefault("date", "")
+    state.setdefault("files", {})
+    return state
+
+
+def main():
+    today = datetime.date.today()
+    midnight = datetime.datetime.combine(
+        today, datetime.time.min
+    ).timestamp()
+
+    state = load_state()
+    fresh_day = state["date"] != today.isoformat()
+    totals = {key: 0 for key in FIELDS}
+    totals["messages"] = 0
+    if not fresh_day:
+        for key in totals:
+            totals[key] = state.get("totals", {}).get(key, 0)
+
+    # The substring gate. A UTC day straddles two local ones and the other
+    # way round, so both UTC dates that can carry a local-today message are
+    # let through and the real check happens after parsing.
+    day = datetime.timedelta(days=1)
+    stamps = tuple(
+        '"timestamp":"%s' % d.isoformat()
+        for d in (today - day, today, today + day)
+    )
+
+    files = {}
+    paths = sorted(ROOT.rglob("*.jsonl")) if ROOT.is_dir() else []
+    for path in paths:
+        name = str(path)
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        offset = state["files"].get(name, 0)
+        # Untouched today: nothing of today's can be in it, and its offset
+        # is worth keeping so tomorrow does not re-read it either.
+        if stat.st_mtime < midnight:
+            files[name] = min(offset, stat.st_size)
+            continue
+        # Truncated or replaced since the last run: start over.
+        if offset > stat.st_size:
+            offset = 0
+        try:
+            with path.open("rb") as handle:
+                handle.seek(offset)
+                data = handle.read()
+        except OSError:
+            files[name] = offset
+            continue
+        # Only whole lines: the file may be mid-write.
+        cut = data.rfind(b"\n")
+        if cut == -1:
+            files[name] = offset
+            continue
+        files[name] = offset + cut + 1
+        for raw in data[:cut].split(b"\n"):
+            line = raw.decode("utf-8", "replace")
+            if not any(stamp in line for stamp in stamps):
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            message = record.get("message")
+            if not isinstance(message, dict):
+                continue
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                continue
+            if local_date(record.get("timestamp")) != today:
+                continue
+            totals["messages"] += 1
+            for key, field in FIELDS.items():
+                value = usage.get(field)
+                if isinstance(value, int):
+                    totals[key] += value
+
+    totals["billable"] = (
+        totals["input"] + totals["output"] + totals["cache_write"]
+    )
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        with STATE.open("w") as handle:
+            json.dump(
+                {
+                    "date": today.isoformat(),
+                    "totals": totals,
+                    "files": files,
+                },
+                handle,
+            )
+    except OSError:
+        pass
+
+    json.dump(dict(totals, date=today.isoformat()), sys.stdout)
+    sys.stdout.write("\n")
+
+
+main()

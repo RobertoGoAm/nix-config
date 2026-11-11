@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+import json
+import sys
+
+for line in open(sys.argv[1], errors="replace"):
+    try:
+        d = json.loads(line)
+    except ValueError:
+        continue
+    if d.get("type") not in ("user", "assistant"):
+        continue
+    msg = d.get("message") or {}
+    content = msg.get("content")
+    parts = []
+    if isinstance(content, str):
+        parts.append(content)
+    elif isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                parts.append(part.get("text") or "")
+    body = "\n".join(p for p in parts if p.strip())
+    if body.strip():
+        who = "##" if d.get("type") == "user" else "###"
+        sys.stdout.write("%s %s\n\n%s\n\n" % (who, d.get("type"), body))

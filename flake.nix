@@ -227,6 +227,7 @@
         clippings-import = (import nixpkgs { inherit system; }).callPackage ./pkgs/clippings-import.nix { };
         lit-tangle = (import nixpkgs { inherit system; }).callPackage ./pkgs/lit-tangle.nix { };
         claude-stats = (import nixpkgs { inherit system; }).callPackage ./pkgs/claude-stats.nix { };
+        work-vdi = (import nixpkgs { inherit system; }).callPackage ./pkgs/work-vdi.nix { };
       });
 
       # MacOS configuration entrypoint

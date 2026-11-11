@@ -19,6 +19,7 @@
     ./trivy.nix
     ./uv.nix
     ./vscode
+    ./work-vdi.nix
   ];
 #+end_src
 
