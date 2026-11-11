@@ -162,8 +162,8 @@ in
             {
               name = "postman-for-vscode";
               publisher = "postman";
-              version = "1.19.1";
-              sha256 = "sha256-WkPUa+2xgL0yf6vKadojypXgJwoLFIZdKNxBIE9J4Ds=";
+              version = "1.19.3";
+              sha256 = "sha256-qtI30U6wKnr46YZA5dlCWrzc82ifBZZWyBPAvrrM1CA=";
             }
             {
               name = "snippet-creator";
