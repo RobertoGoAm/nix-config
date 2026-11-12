@@ -55,11 +55,21 @@ same arrangement =alt-1..6= and =alt-shift-1..6= had.
 Checked for collisions rather than assumed: with these eight applied, no two
 of the 67 bound hotkeys claim the same chord.
 
-** Gaps of ten
+** Gaps of ten between windows, none at the sides and bottom
 
 aerospace ran ten inner and ten outer; OmniWM's own default is sixteen inner
-and none outer. This keeps the spacing that was there before rather than the
-one that came with the new manager.
+and none outer. Ten stays between windows and at the top, but the outer
+margins at the sides and the bottom are zero: the niri layout shows one
+full-width column at a time (=visibleContainerCount = 1=), so the window on
+screen is usually alone in the view whatever else the workspace holds, and it
+runs edge to edge below the workspace bar. OmniWM cannot tie its outer margins
+to how many windows are in view, so two half-width columns also meet the
+screen edges, with the inner ten between them. =[niri] singleWindowFit= does
+not help here: it sizes a window that is the only one on its workspace, not
+the only one in view.
+
+The file was last refreshed from what OmniWM 0.7.6 writes (schema 4), so its
+migration does not rewrite it on every launch.
 
 ** Empty workspaces off the bar
 

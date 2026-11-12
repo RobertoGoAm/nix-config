@@ -3,10 +3,11 @@ monitorDwindleOverrides = []
 monitorGapOverrides = []
 monitorNiriOverrides = []
 monitorOrientationOverrides = []
-schemaVersion = 3
+schemaVersion = 4
 
 [appearance]
 mode = "dark"
+tabRailAppIcons = false
 
 [borders]
 enabled = false
@@ -20,6 +21,7 @@ red = 0.08458520228437894
 
 [clipboard]
 historyEnabled = false
+ignoredTypes = []
 maxItemBytes = 8388608
 maxItems = 200
 maxTotalBytes = 67108864
@@ -46,12 +48,13 @@ fullscreenUsesOuterGaps = false
 size = 10.0
 
 [gaps.outer]
-bottom = 10.0
-left = 10.0
-right = 10.0
+bottom = 0.0
+left = 0.0
+right = 0.0
 top = 10.0
 
 [general]
+animationSpeed = 1.0
 animationsEnabled = true
 defaultLayoutType = "niri"
 hotkeysEnabled = true
@@ -66,10 +69,17 @@ fingerCount = 3
 invertDirection = true
 mouseMoveModifierKey = "option"
 mouseResizeModifierKey = "option"
+overviewGestureEnabled = false
+overviewGestureFingerCount = 4
 scrollEnabled = true
 scrollModifierKey = "optionShift"
 scrollSensitivity = 5.0
 trackpadScrollStyle = "snap"
+windowGestureSensitivity = 1.0
+windowMoveEnabled = false
+windowMoveFingerCount = 4
+windowResizeEnabled = false
+windowResizeFingerCount = 3
 workspaceSwipeAxis = "vertical"
 workspaceSwipeEnabled = false
 workspaceSwipeFingerCount = 3
@@ -89,11 +99,17 @@ alwaysCenterSingleColumn = false
 centerFocusedColumn = "never"
 containerPrimarySpanPresets = [1.0, 0.6666666666666666, 0.5, 0.3333333333333333]
 defaultContainerPrimarySpan = 1.0
+edgeGaps = false
 infiniteLoop = true
+resizeStepPercent = 5
 singleWindowFit = "container_primary_span"
 visibleContainerCount = 1
 
 [overview]
+enabled = true
+invertScrollDirection = false
+matchFocusBorder = true
+mouseScrollSpeed = 1.0
 zoom = 1.0
 
 [overview.backdrop]
@@ -149,6 +165,9 @@ showWorkspaceName = false
 useWorkspaceId = false
 
 [workspaceBar]
+autoHide = false
+autoHideHideDelayMilliseconds = 0.0
+autoHideRevealDelayMilliseconds = 0.0
 backgroundOpacity = 0.1
 deduplicateAppIcons = false
 enabled = true
@@ -156,15 +175,22 @@ excludedBundleIDs = []
 height = 24.0
 hideEmptyWorkspaces = true
 hideInNativeFullscreen = false
+hoverPreviewsEnabled = true
 notchActiveZoneWidth = 180.0
 notchMode = "moveBelowMenuBar"
+notificationBadgeRefreshIntervalSeconds = 5.0
+notificationBadges = "off"
 position = "overlappingMenuBar"
 reserveLayoutSpace = true
 revealHoldMilliseconds = 200.0
 revealModifier = "off"
+showAccentHighlights = true
 showFloatingWindows = false
+showItemBackgrounds = true
 showLabels = true
+solidBlackBackground = false
 systemStatsButton = false
+transparentBackground = false
 windowLevel = "popup"
 xOffset = 0.0
 yOffset = -3.0
@@ -1208,6 +1234,10 @@ id = "raiseAllFloatingWindows"
 
 [[hotkeys]]
 binding = "Unassigned"
+id = "toggleFloatingFocus"
+
+[[hotkeys]]
+binding = "Unassigned"
 id = "rescueOffscreenWindows"
 
 [[hotkeys]]
@@ -1221,6 +1251,14 @@ id = "closeFocusedWindow"
 [[hotkeys]]
 binding = "Control+Option+M"
 id = "openMenuAnywhere"
+
+[[hotkeys]]
+binding = "Unassigned"
+id = "setWindowMark"
+
+[[hotkeys]]
+binding = "Unassigned"
+id = "removeWindowMark"
 
 [[hotkeys]]
 binding = "Unassigned"
@@ -1248,7 +1286,7 @@ id = "toggleSystemStats"
 
 [[workspaces]]
 displayName = "Main"
-id = "da7543e7-2cfc-5b86-89b2-dab6b5e6cbdd"
+id = "DA7543E7-2CFC-5B86-89B2-DAB6B5E6CBDD"
 layoutType = "niri"
 name = "1"
 
@@ -1257,7 +1295,7 @@ type = "main"
 
 [[workspaces]]
 displayName = "Code"
-id = "0c4f1aa2-e89d-5571-bb78-b3c4b0d02e70"
+id = "0C4F1AA2-E89D-5571-BB78-B3C4B0D02E70"
 layoutType = "niri"
 name = "2"
 
@@ -1266,7 +1304,7 @@ type = "main"
 
 [[workspaces]]
 displayName = "Work"
-id = "927f5eb4-e7a6-5618-a23d-f0f9007a19a9"
+id = "927F5EB4-E7A6-5618-A23D-F0F9007A19A9"
 layoutType = "niri"
 name = "3"
 
@@ -1275,7 +1313,7 @@ type = "main"
 
 [[workspaces]]
 displayName = "Media"
-id = "29631734-062e-5b64-a740-8df13af1a7c1"
+id = "29631734-062E-5B64-A740-8DF13AF1A7C1"
 layoutType = "niri"
 name = "4"
 
