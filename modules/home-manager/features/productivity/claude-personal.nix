@@ -96,14 +96,13 @@ let
   # The same account on the command line
 
   # The CLI keeps its login, history and settings in one folder too, =~/.claude=,
-  # and that one is signed into the work organisation. =CLAUDE_CONFIG_DIR= moves
-  # the whole of it, credentials included: the keychain item the CLI stores its
-  # token in is named after the folder, so a second folder is a second login rather
-  # than a shared one.
+  # and that one is signed into the personal account. The work account has its
+  # own folder, picked by the folder a session starts in (=cli/claude.org=).
 
-  # =claude-personal= is =claude= pointed at its own folder. Anything the CLI does
-  # takes the same arguments behind it -- =claude-personal auth login= to sign in,
-  # =claude-personal= to open a session.
+  # =claude-personal= is =claude= forced onto the personal account wherever it
+  # runs, a work folder included. Anything the CLI does takes the same arguments
+  # behind it -- =claude-personal auth login= to sign in, =claude-personal= to open
+  # a session.
 
   # It also widens the certificates the CLI trusts. The nix package sets
   # =CLAUDE_CODE_CERT_STORE=system= as its default, which drops the runtime's
@@ -114,10 +113,8 @@ let
   # =UNABLE_TO_GET_ISSUER_CERT_LOCALLY=. =bundled,system= trusts both. An explicit
   # value in the environment still wins.
 
-  cliHome = "${config.home.homeDirectory}/.claude-personal";
-
   cli = pkgs.writeShellScriptBin "claude-personal" ''
-    export CLAUDE_CONFIG_DIR="${cliHome}"
+    export CLAUDE_ACCOUNT=personal
     export CLAUDE_CODE_CERT_STORE="''${CLAUDE_CODE_CERT_STORE:-bundled,system}"
     exec claude "$@"
   '';
@@ -130,7 +127,7 @@ let
   # Remote Control does for one of its own sessions, without the window around it --
   # the same split as =codex remote-control= in =features/cli/codex.nix=.
 
-  # It runs as the personal account because of =CLAUDE_CONFIG_DIR=, and it serves
+  # It runs as the personal account because of =CLAUDE_ACCOUNT=, and it serves
   # one folder, set per host by =features.claudePersonal.remoteControl.directory=:
   # every session it starts begins there, and the phone has no way to pick another
   # folder at the point of starting one. A laptop serves the home folder and

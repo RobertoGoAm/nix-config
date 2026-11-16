@@ -310,7 +310,42 @@ let
   private = if builtins.pathExists privatePath then import privatePath { inherit pkgs; } else { };
   guardrailsDir = (private.claude or { }).guardrailsDir or null;
 
-  # The nixpkgs wrapper trusts only macOS's certificate store unless...
+  # Which account a session runs as is decided by its folder
+
+  # Two Claude accounts share this machine: the personal one, signed into
+  # =~/.claude=, and the work one, which is the same login in the employer's team
+  # organisation. The work folders are listed in the private file
+  # (=claude.workDirs=, relative to the home folder), so no client name lands in
+  # this public repo; a session started under one of them runs as the work account
+  # and every other session as the personal one.
+
+  # The CLI keeps its login in its config folder, and =CLAUDE_CONFIG_DIR= moves
+  # it: the keychain item that holds the token is named after the folder, so a
+  # second folder is a second login. The wrapper below picks =~/.claude-work=
+  # when the folder it starts in is a work folder, before the real binary runs,
+  # so every launcher gets it -- a terminal, Herdr, Orca, a hook -- and a session
+  # resumed after a restart lands on the same account because it resumes in the
+  # same folder. =CLAUDE_ACCOUNT= (=personal= or =work=) overrides the folder, and
+  # a =CLAUDE_CONFIG_DIR= already set (Orca's profiles set their own) is left
+  # alone.
+
+  workDirs = (private.claude or { }).workDirs or [ ];
+
+  accountSwitch = pkgs.writeText "claude-account-switch.sh" ''
+    if [ -z "''${CLAUDE_CONFIG_DIR:-}" ]; then
+      case "''${CLAUDE_ACCOUNT:-}" in
+        personal) ;;
+        work) export CLAUDE_CONFIG_DIR="$HOME/.claude-work" ;;
+        *)
+          case "$PWD/" in
+            ${lib.concatMapStrings (d: ''
+              "$HOME/"${lib.escapeShellArg (lib.removeSuffix "/" d)}/*) export CLAUDE_CONFIG_DIR="$HOME/.claude-work" ;;
+            '') workDirs}
+          esac
+          ;;
+      esac
+    fi
+  '';
 
   # The nixpkgs wrapper trusts only macOS's certificate store unless the shell
   # has exported =NIX_SSL_CERT_FILE=: it defaults =CLAUDE_CODE_CERT_STORE= to
@@ -328,9 +363,48 @@ let
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       wrapProgram $out/bin/claude \
-        --set-default CLAUDE_CODE_CERT_STORE bundled,system
+        --set-default CLAUDE_CODE_CERT_STORE bundled,system \
+        --run ". ${accountSwitch}"
     '';
   };
+
+  claudeWork = pkgs.writeShellScriptBin "claude-work" ''
+    export CLAUDE_ACCOUNT=work
+    exec ${claudeCode}/bin/claude "$@"
+  '';
+
+  # The work folder shares everything but the login
+
+  # =~/.claude-work= holds its own login (=.claude.json= and the keychain item)
+  # and the organisation's managed policy, which differs between the two accounts.
+  # Everything else is the personal folder's, linked in: settings, memory files,
+  # skills, commands, agents, hooks, plugins, keybindings, and the session history,
+  # so a work session finds the same setup, and =--resume= finds a session whatever
+  # account started it. Signing in once with =claude-work auth login= (choosing
+  # the team organisation) is all the folder needs.
+
+  # An entry that already exists as a real file or folder is left alone, so
+  # nothing written by a session is ever replaced; one missing from =~/.claude= is
+  # linked anyway and fills in when it appears.
+
+  sharedEntries = [
+    "settings.json"
+    "CLAUDE.md"
+    "RTK.md"
+    "skills"
+    "commands"
+    "agents"
+    "hooks"
+    "plugins"
+    "keybindings.json"
+    "output-styles"
+    "claude-hud.json"
+    "projects"
+    "plans"
+    "todos"
+    "file-history"
+    "history.jsonl"
+  ];
 in
 {
   programs.claude-code = {
@@ -1390,6 +1464,7 @@ in
     rtk-shim
     serena-shared
     mr-size
+    claudeWork
   ];
 
   # Ensure uv-installed tools (serena-hooks, etc.) are on PATH for
@@ -1441,6 +1516,25 @@ in
                 || warnEcho "orca: could not refresh $settings"
             fi
             verboseEcho "orca: refreshed $settings"
+          fi
+        done
+      '';
+
+  # The work account's command and folder
+
+  # =claude-work= (in =home.packages= above) is =claude= forced onto the work
+  # account wherever it runs: the way to sign in (=claude-work auth login=) and to start a work session outside
+  # the work folders. The folder's links are made on every switch, after the
+  # personal folder's own files are in place.
+
+  home.activation.claudeWorkFolder =
+    lib.hm.dag.entryAfter [ "claudeCodeSettings" "linkGeneration" ]
+      ''
+        work="$HOME/.claude-work"
+        run mkdir -p "$work"
+        for entry in ${lib.escapeShellArgs sharedEntries}; do
+          if [ ! -e "$work/$entry" ] && [ ! -L "$work/$entry" ]; then
+            run ln -s "$HOME/.claude/$entry" "$work/$entry"
           fi
         done
       '';
