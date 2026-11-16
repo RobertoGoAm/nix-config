@@ -122,7 +122,8 @@ mods, small JavaScript panels in =mods/<name>/=. Its shipped =agents= mod is
 replaced on every start, so the changes live in a copy, =agents-plus=, beside
 this module in =herdr-app/agents-plus=:
 
-- Filters above the list: All; Active (working, needing you, or changed state
+- Filters above the list, each with a count of the agents it would show:
+  All; Active (working, needing you, or changed state
   in the last hour, so recently finished and recently failed turns stay in
   view); Needs you (blocked, or finished unseen); Review (agents with a pull
   or merge request open).
@@ -148,6 +149,21 @@ type files into every mod folder, so the folder itself has to stay writable.
   };
 #+end_src
 
+* A picker that names sessions, not programs
+
+The shipped picker (=cmd-p=) labels a tab nobody named with its agent's
+program, so every Claude tab reads "Claude Code". =picker-plus= is a copy that
+labels it with the agents' own terminal titles -- Claude's session title --
+falling back to the tab's name, and matches what is typed against those titles
+too. A tab someone named keeps its name.
+
+#+begin_src nix
+  home.file.".config/herdr-app/mods/picker-plus" = {
+    source = ./herdr-app/picker-plus;
+    recursive = true;
+  };
+#+end_src
+
 * A layout that shows it
 
 Layouts name their mods, and the shipped =main= layout is also rewritten on
@@ -155,17 +171,23 @@ every start, so a layout of its own, =herdr-plus=, is derived from it on
 every switch: the same tree with =agents-plus= in place of =agents=. Deriving
 it each time keeps it in step with Herdr's updates to =main=; edits made to
 =herdr-plus= from inside the app last until the next switch. Herdr picks the
-file up live; =ctrl-shift-l= cycles to it once and the app remembers the
-choice. Nothing happens on a machine where the app has never run.
+file up live. The keys that drive =agents-plus= reach it only while a layout
+showing it is up, so the first time the file is made, a running app is
+switched to it; after that the app remembers the choice, and =cmd-shift-l=
+cycles layouts. Nothing happens on a machine where the app has never run.
 
 #+begin_src nix
   home.activation.herdrAppLayout = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     app="$HOME/.config/herdr-app"
     if [ -f "$app/layouts/main.json" ]; then
+      first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
       if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
+        if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
+          run herdr-app do layout.switch --name herdr-plus >/dev/null 2>&1 || true
+        fi
       else
         warnEcho "could not derive the herdr-plus layout from $app/layouts/main.json"
       fi
@@ -177,13 +199,12 @@ choice. Nothing happens on a machine where the app has never run.
 * Keys for the agents that need you
 
 =cmd-]= and =cmd-[= already step through the agents list in the order it
-shows, and =cmd-p= opens the fuzzy picker over every tab, space and agent.
-Added on top of them:
+shows. Added on top of them, and =cmd-p= moved to =picker-plus=:
 
 | Key           | Does                                                  |
 |---------------+-------------------------------------------------------|
 | =cmd-j=       | jump to the next agent that needs you                 |
-| =cmd-k=       | fuzzy-find an agent, tab or space (as =cmd-p=)        |
+| =cmd-p=, =cmd-k= | fuzzy-find an agent by its session title, a tab or a space |
 | =cmd-shift-j= | cycle the agents list's filter                        |
 | =cmd-shift-r= | bring up the focused agent's pull request in tuicr    |
 
@@ -200,7 +221,8 @@ file to merge into, and nothing is written.
         builtins.toJSON {
           global = {
             "cmd-j" = "agents-plus.attention";
-            "cmd-k" = "mod.open:picker";
+            "cmd-p" = "mod.open:picker-plus";
+            "cmd-k" = "mod.open:picker-plus";
             "cmd-shift-j" = "agents-plus.filter";
             "cmd-shift-r" = "agents-plus.review";
           };

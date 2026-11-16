@@ -249,13 +249,33 @@ export default class Agents extends View {
         .rounded(6)
         .flex()
         .items_center()
+        .gap(4)
         .text_size(11)
         .cursor_pointer()
         .text_color(f.id === on ? t.foreground : t.dim)
         .when(f.id === on, (el) => el.bg(t.selected))
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => setShared("agents-plus.filter", f.id))
-        .child(f.label)));
+        .child(f.label)
+        .when(f.id !== "all", (el) => el.child(this.countBadge(t, f.id)))));
+  }
+
+  countBadge(t, id) {
+    const n = this.counts?.[id] ?? 0;
+    const color = n === 0 ? t.dim : { active: t.working, attention: t.blocked, review: t.accent }[id] ?? t.dim;
+    return div()
+      .min_w(15)
+      .h(15)
+      .px(4)
+      .rounded(8)
+      .flex()
+      .items_center()
+      .justify_center()
+      .bg(color + (n === 0 ? "1a" : "2e"))
+      .text_size(10)
+      .font_semibold()
+      .text_color(color)
+      .child(String(n));
   }
 
   // Stamps agents whose state changed. Done and idle count as one: looking at a
@@ -398,6 +418,7 @@ export default class Agents extends View {
     const waiting = list.filter((a) => a.status === "blocked").length;
     const badge = waiting ? String(waiting) : null;
     if (badge !== this.badge && !checking()) { this.badge = badge; setBadge(badge); }
+    this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, list.filter((a) => this.matches({ ...a, pinned: false }, f.id, now)).length]));
     const filter = collapsed ? "all" : filterOf().id;
     list = list.filter((a) => this.matches(a, filter, now));
     // A kept sub-agent (one with a pane) is in agents() too: where a tree shows
