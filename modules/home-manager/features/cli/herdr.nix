@@ -185,8 +185,11 @@ in
   # - Spotify: previous, play or pause, next, and what is playing, over the same
   #   AppleScript the Emacs music commands use; nothing while Spotify is closed.
   # - Unread mail in the inboxes, counted by =mu= every minute; clicking opens
-  #   mu4e.
-  # - Telegram's Dock badge, read with =lsappinfo=; clicking opens it.
+  #   the default mail app, whichever handles =mailto:= in Launch Services
+  #   (Mail when none is set). The leader's =i i= still opens mu4e.
+  # - Telegram, whenever it is installed: its unread count from the Dock badge
+  #   (read with =lsappinfo=) while it runs, a bare icon while it is closed;
+  #   clicking opens it.
   # - The leader key, as a hint and a button.
 
   home.file.".config/herdr-app/mods/toolbar" = {

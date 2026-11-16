@@ -6,6 +6,14 @@ const SPOTIFY = 'if application "Spotify" is running then tell application "Spot
 const UNREAD = "flag:unread AND NOT flag:trashed AND maildir:/Inbox$/";
 const STATUSLINE = /\[([A-Za-z][\w .-]*?) [◔◑◕●○◐◒◓] (\w+)\]/;
 
+const MAIL_APP = [
+  "-c",
+  "b=$(/usr/bin/plutil -convert json -o - \"$HOME/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist\" 2>/dev/null" +
+    " | jq -r '[.LSHandlers[]? | select(.LSHandlerURLScheme == \"mailto\") | .LSHandlerRoleAll][0] // empty');" +
+    " exec /usr/bin/open -b \"${b:-com.apple.mail}\"",
+];
+const TELEGRAM = "/Applications/Telegram.app";
+
 const osa = (script) => exec("osascript", ["-e", script]).catch(() => null);
 
 export default class Toolbar extends View {
@@ -44,9 +52,11 @@ export default class Toolbar extends View {
 
   pollTelegram(cx) {
     cx.spawn(async (cx) => {
+      const installed = await exec("/bin/test", ["-d", TELEGRAM]).then((x) => x.code === 0).catch(() => false);
+      if (!installed) { this.telegram = null; return cx.notify(); }
       const r = await exec("lsappinfo", ["info", "-only", "StatusLabel", "Telegram"]).catch(() => null);
-      const n = r?.stdout.match(/"label"="([^"]*)"/)?.[1];
-      this.telegram = r && r.stdout.trim() ? (n || "0") : null;
+      const running = Boolean(r?.stdout.trim());
+      this.telegram = { running, count: running ? Number(r.stdout.match(/"label"="(\d+)"/)?.[1] ?? 0) : null };
       cx.notify();
     });
   }
@@ -113,9 +123,12 @@ export default class Toolbar extends View {
         .child(this.chip(t, "tb-track", h_flex().max_w(260).child(div().truncate().child(`${music.track} — ${music.artist}`)), music.playing ? t.done : t.dim, () => osa('tell application "Spotify" to activate'), "Open Spotify"))
         .child(sep()))
       .when(this.mail != null, (el) => el.child(this.chip(t, "tb-mail", `✉ ${this.mail}`, this.mail ? t.accent : t.dim,
-        () => exec("emacsclient", ["-c", "-n", "-a", "", "-e", "(mu4e)"]).catch(() => {}), "Unread in your inboxes (mu4e)")))
-      .when(this.telegram != null, (el) => el.child(this.chip(t, "tb-telegram", `✈ ${this.telegram}`, this.telegram !== "0" ? t.accent : t.dim,
-        () => osa('tell application "Telegram" to activate'), "Telegram")))
+        () => exec("/bin/sh", MAIL_APP).catch(() => {}), "Unread in your inboxes (mu). Click: your default mail app")))
+      .when(this.telegram != null, (el) => el.child(this.chip(t, "tb-telegram",
+        this.telegram.running ? `✈ ${this.telegram.count}` : "✈",
+        this.telegram.count ? t.accent : t.dim,
+        () => exec("/usr/bin/open", ["-a", TELEGRAM]).catch(() => {}),
+        this.telegram.running ? "Telegram: unread chats" : "Telegram is closed: click to open")))
       .child(sep())
       .child(div().id("tb-leader").text_color(t.dim).cursor_pointer().on_click(leader(null)).child(this.hint()));
   }
