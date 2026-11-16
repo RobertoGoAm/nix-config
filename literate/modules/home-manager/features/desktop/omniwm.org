@@ -108,7 +108,8 @@ that one value with "4" and re-applying the rule moved the window
 immediately, which is how the two were told apart.
 
 So the rules below read 1 to 5, and the mapping is the workspace list further
-down: 1 Main, 2 Code, 3 Work, 4 Media, 5 Productivity.
+down: 1 Main, 2 Code, 3 Work, 4 Media, 5 Productivity. Orca and Herdr, where the coding agents
+run, go to Code with the editors and terminals.
 
 ** Copied, not linked
 

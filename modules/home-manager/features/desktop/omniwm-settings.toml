@@ -376,6 +376,16 @@ id = "E341DF89-4519-5E0F-AD18-B4C86F688B57"
 
 [[appRules]]
 assignToWorkspace = "2"
+bundleId = "com.stablyai.orca"
+id = "D1BC8BB7-A447-534B-A210-9E6DE04350E9"
+
+[[appRules]]
+assignToWorkspace = "2"
+bundleId = "dev.herdr.app"
+id = "A7201A84-4309-5F63-B6D1-2F7A3C73D117"
+
+[[appRules]]
+assignToWorkspace = "2"
 bundleId = "ch.sudo.cyberduck"
 id = "330A0355-1EEB-510F-8F86-D8C265DC23C4"
 

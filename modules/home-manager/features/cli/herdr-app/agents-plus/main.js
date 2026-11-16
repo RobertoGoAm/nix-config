@@ -162,10 +162,10 @@ export default class Agents extends View {
   reviews() {
     const out = new Map();
     for (const t of terminals()) {
-      const url = t.labels?.["review.url"];
-      if (t.state !== "live" || !url) continue;
-      const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
+      const url = t.labels?.["review.url"] || null;
       const review = t.labels?.["review.terminal"];
+      if (t.state !== "live" || (!url && !review)) continue;
+      const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
       out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null });
     }
     return out;
@@ -173,7 +173,7 @@ export default class Agents extends View {
 
   pollCi(cx) {
     const seen = new Map();
-    for (const [address, r] of this.reviews()) if (!seen.has(r.url)) seen.set(r.url, address);
+    for (const [address, r] of this.reviews()) if (r.url && !seen.has(r.url)) seen.set(r.url, address);
     cx.spawn(async (cx) => {
       for (const [url, address] of seen) {
         const q = ciQuery(url);
@@ -206,11 +206,14 @@ export default class Agents extends View {
 
   review() {
     const agent = focused()?.agent ?? focused()?.terminal;
-    const r = agent && this.reviews().get(agent);
+    const all = this.reviews();
+    const owner = [...all].find(([, x]) => x.terminal === agent)?.[0];
+    if (owner) return run("pane.focus", { terminal: owner });
+    const r = agent && all.get(agent);
     if (!r) return;
     const live = r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
     if (live) run("pane.focus", { terminal: r.terminal });
-    else run("terminal.open", { argv: ["tuicr", "pr", r.url], folder: r.cwd ?? undefined, place: "right" });
+    else run("terminal.open", { argv: r.url ? ["tuicr", "pr", r.url] : ["tuicr", "-w"], folder: r.cwd ?? undefined, place: "right" });
   }
 
   notifyChanges(list) {
@@ -258,7 +261,7 @@ export default class Agents extends View {
 
   prPill(t, a) {
     const r = this.reviewOf.get(a.address);
-    if (!r) return null;
+    if (!r?.url) return null;
     const c = this.ci[r.url];
     const state = c?.state === "merged" ? "merged" : c?.state === "closed" ? "closed" : (c?.ci ?? "none");
     const color = { pass: t.done, fail: t.blocked, running: t.working, merged: t.accent, closed: t.dim, none: t.muted }[state] ?? t.muted;
@@ -603,6 +606,7 @@ export default class Agents extends View {
           cx.notify();
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
+        .when(Boolean(shared("leader.jump")?.[a.address]), el => el.child(div().flex_none().px(4).h(18).rounded(4).bg(t.accent).text_size(11).font_bold().text_color(t.accent_foreground).flex().items_center().child(shared("leader.jump")[a.address])))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();
