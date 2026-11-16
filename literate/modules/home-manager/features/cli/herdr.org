@@ -182,11 +182,59 @@ terminal instead: the title the program set, else the program and its folder
   };
 #+end_src
 
+* A leader key, as in Emacs
+
+=cmd-;= opens =leader=, a which-key panel that takes the keyboard the way
+normal mode does: every key is a command or a group, Backspace goes up a
+level, Escape or =cmd-;= again leaves. Esc alone stays with the terminal,
+where Claude and vim need it. The tree follows the Emacs leader in
+=development/emacs/plugins/keybinds=, so the same letters mean the same
+things: =a= ai and agents (next needing you, filter, search, =R= review, =m=
+model and =E= effort of the focused Claude, sent to it as =/model= and
+=/effort=), =b b= find, =j= jump, =m= music (Spotify, as =m m=, =m n=, =m p=,
+=m o= are in Emacs), =i= inbox (mu4e through =emacsclient=), =o t=
+Telegram, and Space for the command palette; =t= tabs, =s= spaces and =w=
+panes add Herdr's own, moving on =h n e i= like nvim on this Colemak board.
+
+=j= jumps: every agent, tab and pane of the shown tab gets a two-letter code
+from the Colemak home row (=ar=, =as=, …); typing it goes there. Herdr does
+not tell mods where panes sit on screen, so the codes are listed in the
+panel and drawn on the agents list's rows rather than over each pane.
+
+#+begin_src nix
+  home.file.".config/herdr-app/mods/leader" = {
+    source = ./herdr-app/leader;
+    recursive = true;
+  };
+#+end_src
+
+* A bottom bar with the model, the music and the inboxes
+
+=toolbar= takes the place of Herdr's status bar and keeps what it showed on
+the left (machine, branch, how many agents, how many need you). On the right:
+
+- The focused Claude's model and effort, read from its status line on the
+  terminal's screen; clicking either opens the leader on that group.
+- Spotify: previous, play or pause, next, and what is playing, over the same
+  AppleScript the Emacs music commands use; nothing while Spotify is closed.
+- Unread mail in the inboxes, counted by =mu= every minute; clicking opens
+  mu4e.
+- Telegram's Dock badge, read with =lsappinfo=; clicking opens it.
+- The leader key, as a hint and a button.
+
+#+begin_src nix
+  home.file.".config/herdr-app/mods/toolbar" = {
+    source = ./herdr-app/toolbar;
+    recursive = true;
+  };
+#+end_src
+
 * A layout that shows it
 
 Layouts name their mods, and the shipped =main= layout is also rewritten on
 every start, so a layout of its own, =herdr-plus=, is derived from it on
-every switch: the same tree with =agents-plus= in place of =agents=. Deriving
+every switch: the same tree with =agents-plus= in place of =agents= and
+=toolbar= in place of =workspace-status=. Deriving
 it each time keeps it in step with Herdr's updates to =main=; edits made to
 =herdr-plus= from inside the app last until the next switch. Herdr picks the
 file up live. The keys that drive =agents-plus= reach it only while a layout
@@ -200,7 +248,7 @@ cycles layouts. Nothing happens on a machine where the app has never run.
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
@@ -224,7 +272,8 @@ shows. Added on top of them, and =cmd-p= moved to =picker-plus=:
 | =cmd-j=       | jump to the next agent that needs you                 |
 | =cmd-p=, =cmd-k= | fuzzy-find an agent by its session title, a tab or a space |
 | =cmd-shift-j= | cycle the agents list's filter                        |
-| =cmd-shift-r= | bring up the focused agent's pull request in tuicr    |
+| =cmd-;=       | leader: which-key panel, jump, model and effort, music |
+| =cmd-shift-r= | the focused agent's review in tuicr, and back again   |
 | =cmd-shift-f= | search the agents list (within the current filter)    |
 
 =keys.json= is the app's and stays writable: any edit marks it as the
@@ -244,6 +293,7 @@ file to merge into, and nothing is written.
             "cmd-k" = "mod.open:picker-plus";
             "cmd-shift-j" = "agents-plus.filter";
             "cmd-shift-r" = "agents-plus.review";
+            "cmd-;" = "mod.open:leader";
             "cmd-shift-f" = "agents-plus.search";
           };
         }

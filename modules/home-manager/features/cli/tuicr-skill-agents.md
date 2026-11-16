@@ -17,24 +17,31 @@ exits cleanly, and stays open showing the error when tuicr fails.
 ## Herdr desktop
 
 When `$HC_TERMINAL_ID` is set (and `$HERDR_ENV` is not) the agent runs in a
-Herdr desktop pane, a herdr-core terminal. Open tuicr as a new pane in the
-agent's own tab by giving it the same `herdr.space` and `herdr.tab` labels, then
-focus it so the user sees it at once:
+Herdr desktop pane, a herdr-core terminal. Open tuicr as a split to the right
+of your own pane, which also gives it the keyboard so the user can review
+there at once (`-w` for the working tree, `pr <url>` for a pull request):
+
+```bash
+herdr-app do pane.focus --terminal "$HC_TERMINAL_ID"
+t="$(herdr-app do terminal.open --argv '["tuicr","-w"]' --folder /path/to/repo --place right | jq -r .terminal)"
+```
+
+If `herdr-app` is missing or fails (the agent runs on another machine than the
+window), start it in your own tab through herdr-core instead:
 
 ```bash
 info="$(hc get "$HC_TERMINAL_ID" --json)"
 space="$(jq -r '.labels["herdr.space"]' <<<"$info")"
 tab="$(jq -r '.labels["herdr.tab"]' <<<"$info")"
 t="$(hc run --bg --json --no-parent --no-notify --rm --cwd /path/to/repo \
-  --label "herdr.space=$space" --label "herdr.tab=$tab" -- tuicr pr <url> | jq -r .address)"
-herdr-app do pane.focus --terminal "$t"
+  --label "herdr.space=$space" --label "herdr.tab=$tab" -- tuicr -w | jq -r .address)"
 ```
 
-For a pull or merge request, also label your own terminal so the agents list
-shows a PR pill with its CI state (passing, running, failing) beside your row:
-`hc label "$HC_TERMINAL_ID" review.url=<url> review.terminal=$t`. Bring the
-review back to the front with `herdr-app do pane.focus --terminal $t`; close it
-with `hc kill $t`.
+Label your own terminal so the agents list links the review to you, with a PR
+pill and its CI state for a pull request:
+`hc label "$HC_TERMINAL_ID" review.terminal=$t` (and `review.url=<url>` for a
+pull request). The user reaches it again with Cmd+Shift+R or `herdr-app do
+pane.focus --terminal $t`; close it with `hc kill $t`.
 
 ## Pull requests open by themselves
 

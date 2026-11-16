@@ -57,13 +57,24 @@ open_in_herdr() {
   printf '%s' "$pane"
 }
 
-# Herdr desktop: a herdr-core terminal labelled with the agent's own space and
-# tab shows up as a new pane in that tab, on whichever machine the agent runs.
+# Herdr desktop: where the app runs on the agent's own machine, tuicr opens as a
+# split to the right of the agent's pane. Elsewhere (an agent on another
+# machine) a herdr-core terminal labelled with the agent's own space and tab
+# shows up as a new pane in that tab.
 # The agent's terminal is labelled with the request's URL and that pane, which
 # the agents-plus mod reads to draw the PR pill with its CI state. Focusing the
 # pane goes through the local app and quietly does nothing on another machine.
 open_in_herdr_app() {
-  local me="$HC_TERMINAL_ID" info space tab run addr
+  local me="$HC_TERMINAL_ID" info space tab run addr argv
+  argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
+  if command -v herdr-app >/dev/null \
+    && herdr-app do pane.focus --terminal "$me" >/dev/null 2>&1 \
+    && run="$(herdr-app do terminal.open --argv "$argv" --folder "$cwd" --place right 2>/dev/null)" \
+    && addr="$(jq -er '.terminal' <<<"$run")"; then
+    hc label "$me" "review.url=$url" "review.terminal=$addr" >/dev/null || true
+    printf '%s' "$addr"
+    return 0
+  fi
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
   tab="$(jq -er '.labels["herdr.tab"]' <<<"$info")" || return 1
