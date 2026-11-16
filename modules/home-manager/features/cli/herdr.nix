@@ -106,6 +106,11 @@ in
   #   pr view= or =glab mr view= on the agent's own machine: green passing,
   #   spinning while running, red failing, then merged or closed. Clicking it
   #   focuses the request's tuicr pane, or opens a new one beside the agent.
+  # - A search box under the filters, narrowing whichever filter is on (and its
+  #   counts) to the agents whose space, tab, session title, program, pull
+  #   request (=#123=, =!45=, its URL) or CI state (=ci:fail=) match every word
+  #   typed; a word also matches its letters in order, so =fxlg= finds "fix
+  #   login". Enter focuses the first agent left, Escape clears it.
   # - The Dock badge counts the agents waiting on you.
   # - A macOS notification when an agent starts needing you, or finishes while
   #   you aren't looking at it. Herdr itself only draws a note inside its window
@@ -116,7 +121,8 @@ in
   # - Three commands for keys: =agents-plus.attention= focuses the next agent
   #   that needs you (blocked before finished, longest waiting first, cycling on
   #   each press), =agents-plus.filter= cycles the filters, and
-  #   =agents-plus.review= brings up the focused agent's review.
+  #   =agents-plus.review= brings up the focused agent's review, and
+  #   =agents-plus.search= puts the cursor in the search box.
 
   # Linked file by file, not as one store path: Herdr writes =jsconfig.json= and
   # type files into every mod folder, so the folder itself has to stay writable.
@@ -134,7 +140,7 @@ in
   # program, so every Claude tab reads "Claude Code". =picker-plus= is a copy that
   # labels it with the agents' own terminal titles -- Claude's session title --
   # falling back to the tab's name, and matches what is typed against those titles
-  # too. A tab someone named keeps its name.
+  # and the agents' pull request numbers too. A tab someone named keeps its name.
 
   home.file.".config/herdr-app/mods/picker-plus" = {
     source = ./herdr-app/picker-plus;
@@ -182,6 +188,7 @@ in
   # | =cmd-p=, =cmd-k= | fuzzy-find an agent by its session title, a tab or a space |
   # | =cmd-shift-j= | cycle the agents list's filter                        |
   # | =cmd-shift-r= | bring up the focused agent's pull request in tuicr    |
+  # | =cmd-shift-f= | search the agents list (within the current filter)    |
 
   # =keys.json= is the app's and stays writable: any edit marks it as the
   # person's, after which Herdr stops adding its new default keys to it, so
@@ -199,6 +206,7 @@ in
             "cmd-k" = "mod.open:picker-plus";
             "cmd-shift-j" = "agents-plus.filter";
             "cmd-shift-r" = "agents-plus.review";
+            "cmd-shift-f" = "agents-plus.search";
           };
         }
       );

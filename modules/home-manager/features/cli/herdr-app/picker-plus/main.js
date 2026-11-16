@@ -77,6 +77,11 @@ export default class Picker extends View {
     const f = this.filter.toLowerCase();
     const all = agents();
     const live = terminals().filter((x) => x.state === "live");
+    const prOf = (address) => {
+      const url = live.find((x) => x.address === address)?.labels?.["review.url"];
+      const n = url?.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
+      return n ? `${url} #${n} !${n}` : "";
+    };
     const teamOf = (addrs) => {
       let n = 0;
       const walk = (a) => live.filter((x) => x.parent === a).forEach((k) => (n++, walk(k.address)));
@@ -89,7 +94,7 @@ export default class Picker extends View {
           const mine = all.filter((a) => a.tab === ctx.id);
           return { w, ctx, mine, title: tabTitle(ctx, mine), team: teamOf(mine.map((a) => a.address)) };
         })
-        .filter((c) => !f || [w.name, c.ctx.name, c.title, ...c.mine.map((a) => `${a.program?.name ?? ""} ${a.title ?? ""}`)].join(" ").toLowerCase().includes(f));
+        .filter((c) => !f || [w.name, c.ctx.name, c.title, ...c.mine.map((a) => `${a.program?.name ?? ""} ${a.title ?? ""} ${prOf(a.address)}`)].join(" ").toLowerCase().includes(f));
       return { w, ctxs };
     });
     const busy = groups.filter((p) => p.w.status && p.ctxs.length);

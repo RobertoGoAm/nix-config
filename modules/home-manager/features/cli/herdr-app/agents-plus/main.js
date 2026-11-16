@@ -1,7 +1,7 @@
 // Agents in grouped or priority views; parents take their most urgent sub-agent's place.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, checking, nextCommand, setBadge } from "herdr";
 
 const SELF = "agents-plus";
@@ -15,6 +15,13 @@ const FILTERS = [
 const RECENT_MS = 60 * 60000;
 const CI_POLL_MS = 60000;
 const filterOf = () => FILTERS.find((f) => f.id === shared("agents-plus.filter")) ?? FILTERS[1];
+
+function fuzzy(token, text) {
+  if (text.includes(token)) return true;
+  let i = 0;
+  for (const ch of text) if (ch === token[i] && ++i === token.length) return true;
+  return false;
+}
 
 function ghCi(checks) {
   if (!checks?.length) return "none";
@@ -127,6 +134,15 @@ export default class Agents extends View {
     this.ci = {};
     this.jumped = null;
     this.badge = null;
+    this.query = "";
+    this.input = InputState.new({ placeholder: "Search: title, space, PR #…" });
+    this.input.on("change", (_e, cx) => {
+      this.query = this.input.value().trim().toLowerCase();
+      cx.notify();
+    });
+    this.input.on("submit", () => {
+      if (this.first) run("pane.focus", { pane: this.first.pane });
+    });
     cx.timer.every(30000, (cx) => cx.notify());
     if (checking()) return;
     cx.timer.every(CI_POLL_MS, (cx) => this.pollCi(cx));
@@ -137,6 +153,7 @@ export default class Agents extends View {
         if (c === "attention") this.attention();
         else if (c === "filter") this.cycleFilter();
         else if (c === "review") this.review();
+        else if (c === "search") this.input.focus();
         cx.notify();
       }
     });
@@ -215,6 +232,20 @@ export default class Agents extends View {
         "-execute", `${APP} do agent.focus --terminal ${a.address}`,
       ]).catch(() => {});
     }
+  }
+
+  haystack(a) {
+    const r = this.reviewOf.get(a.address);
+    const n = r?.url.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
+    const c = r && this.ci[r.url];
+    return [a.space_name, a.tab_name, clean(a.title), a.program?.name, a.address, r?.url, n && `#${n} !${n} pr${n} mr${n}`, c && `ci:${c.ci} ${c.state}`]
+      .filter(Boolean).join(" ").toLowerCase();
+  }
+
+  searched(a) {
+    if (!this.query) return true;
+    const text = this.haystack(a);
+    return this.query.split(/\s+/).every((tok) => fuzzy(tok, text));
   }
 
   matches(a, filter, now) {
@@ -441,9 +472,11 @@ export default class Agents extends View {
     const waiting = list.filter((a) => a.status === "blocked").length;
     const badge = waiting ? String(waiting) : null;
     if (badge !== this.badge && !checking()) { this.badge = badge; setBadge(badge); }
-    this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, list.filter((a) => this.matches({ ...a, pinned: false }, f.id, now)).length]));
+    const found = collapsed ? list : list.filter((a) => this.searched(a));
+    this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, found.filter((a) => this.matches({ ...a, pinned: false }, f.id, now)).length]));
     const filter = collapsed ? "all" : filterOf().id;
-    list = list.filter((a) => this.matches(a, filter, now));
+    list = found.filter((a) => this.matches(a, filter, now));
+    this.first = list[0] ?? null;
     // A kept sub-agent (one with a pane) is in agents() too: where a tree shows
     // it, it gets no row of its own, unless it's pinned.
     const nested = new Set(collapsed ? [] : list.flatMap((a) => this.tree(all, a.address).map((s) => s.t.address)));
@@ -659,6 +692,17 @@ export default class Agents extends View {
         ),
       )
       .when(!collapsed, (el) => el.child(this.filterBar(t)))
+      .when(!collapsed, (el) => el.child(
+        h_flex().mx(14).mb(6).h(26).px(8).gap(6).flex_none().items_center().rounded(7).border_1().border_color(t.border).bg(t.background)
+          .on_key_down((e, cx) => {
+            if (e.key !== "escape") return;
+            this.input.set_value("");
+            this.query = "";
+            cx.stop_propagation();
+            cx.notify();
+          })
+          .child(svg("mods/workspace-chrome/search.svg").size(12).flex_none().text_color(t.dim))
+          .child(Input.new(this.input).flex_1().h_full().text_size(12).text_color(t.foreground))))
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child(filter === "all"
           ? "No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not."
