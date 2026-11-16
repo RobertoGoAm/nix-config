@@ -37,8 +37,8 @@ function spaceColor(t, p) {
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").replace(/^\[ [!.] \] /, "").trim();
 
 function tabTitle(ctx, mine) {
-  if (ctx.named) return ctx.name;
   const generic = new Set(mine.flatMap((a) => [a.program?.name, a.program?.key, a.address]).filter(Boolean).map((x) => x.toLowerCase()));
+  if (ctx.named && !generic.has(ctx.name.toLowerCase())) return ctx.name;
   const titles = mine.map((a) => clean(a.title)).filter((x) => x && !generic.has(x.toLowerCase()) && !/^[~/]/.test(x) && !x.includes("@"));
   return titles.length ? [...new Set(titles)].join(" · ") : ctx.name;
 }
@@ -46,7 +46,7 @@ function tabTitle(ctx, mine) {
 export default class Picker extends View {
   init(_props, cx) {
     this.filter = "";
-    this.input = InputState.new({ placeholder: "Go to a tab, space or agent…" });
+    this.input = InputState.new({ placeholder: "Go to an agent by title or PR #, a tab or a space…" });
     this.input.on("change", (_e, cx) => {
       this.filter = this.input.value();
       this.at = this.filter ? Math.max(0, this.rows().filter(r => r.kind !== "head").findIndex(r => r.kind === "ctx")) : 0;
