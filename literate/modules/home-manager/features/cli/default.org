@@ -15,6 +15,7 @@
     ./gh.nix
     ./nix-preflight.nix # reports what the next nix-update would build; no-op off darwin
     ./gpg.nix
+    ./herdr.nix # agent-aware terminal multiplexer, on trial beside Orca
     ./hammerspoon.nix # macOS quake terminal (Alacritty drop-down); no-op off darwin
     ./aider.nix
     ./devcontainer.nix

@@ -7,8 +7,9 @@
 # =tuicr-wrapper-orca.sh= beside them (it lives next to this module): it opens
 # tuicr in a new terminal tab of the worktree with =orca terminal create= and,
 # like the cmux wrapper, returns at once with the tab's handle. The skill's
-# launcher table gets an Orca row and an Orca section (=tuicr-skill-orca.md=,
-# also beside this module). The skill comes from tuicr's own source, so nothing
+# launcher table gets an Orca row, and sections on Orca and on the pull
+# requests that open by themselves (=tuicr-skill-agents.md=, also beside this
+# module). The skill comes from tuicr's own source, so nothing
 # private is declared here; the reason the Claude module leaves skills alone
 # does not apply. Shebangs are pinned to nix's bash, whose arrays behave under
 # =set -u= where macOS's bash 3.2 does not, and the wrapper finds =jq= without
@@ -34,23 +35,27 @@ let
       index($0, "| `$CMUX_WORKSPACE_ID` is set |") == 1 { print row; found = 1 }
       { print }
       END { exit !found }' $out/SKILL.md > SKILL.md
-    cat SKILL.md ${./tuicr-skill-orca.md} > $out/SKILL.md
+    cat SKILL.md ${./tuicr-skill-agents.md} > $out/SKILL.md
     patchShebangs $out
   '';
 
   # Pull requests an agent opens land in tuicr by themselves
 
-  # A PostToolUse hook watches Bash calls inside Orca. When one created a pull or
-  # merge request (=gh pr create=, =glab mr create=, or =df mr-generate=, which
-  # wraps the latter) and its output carries the request's URL, the hook opens
-  # =tuicr pr <url>= through the Orca wrapper and hands the agent the URL, the
-  # tab's handle and how to read the review back, so it waits for the owner's
-  # comments instead of opening a second review. Anything else, and every call
-  # outside Orca, passes untouched. The script is =tuicr-orca-hook.sh= beside this
-  # module.
+  # A PostToolUse hook watches Bash calls made inside Herdr or Orca. When one
+  # created a pull or merge request (=gh pr create=, =glab mr create=, or
+  # =df mr-generate=, which wraps the latter) and its output carries the
+  # request's URL, the hook opens =tuicr pr <url>= beside the agent and hands it
+  # the URL, where the review is and how to read it back, so it waits for the
+  # owner's comments instead of opening a second review. Inside a Herdr pane
+  # (=HERDR_ENV=1=, checked first, since Herdr can itself run in an Orca tab) the
+  # agent's pane is split and tuicr runs in the new half; tuicr's own Herdr
+  # wrapper waits for the review to end, which would hold the agent up, so the
+  # hook splits and runs without waiting. Inside Orca it opens a tab through the
+  # Orca wrapper. Anything else, and every call outside both, passes untouched.
+  # The script is =tuicr-review-hook.sh= beside this module.
 
-  hook = pkgs.runCommand "tuicr-orca-hook" { } ''
-    install -m 755 ${./tuicr-orca-hook.sh} $out
+  hook = pkgs.runCommand "tuicr-review-hook" { } ''
+    install -m 755 ${./tuicr-review-hook.sh} $out
     substituteInPlace $out \
       --subst-var-by runtimePath ${
         lib.makeBinPath [
@@ -59,7 +64,7 @@ let
           pkgs.gnused
         ]
       } \
-      --subst-var-by wrapper ${skill}/tuicr-wrapper-orca.sh
+      --subst-var-by orcaWrapper ${skill}/tuicr-wrapper-orca.sh
     patchShebangs $out
   '';
 in
@@ -82,7 +87,7 @@ in
           type = "command";
           command = "${hook}";
           timeout = 30;
-          description = "tuicr: open a pull or merge request the agent just created in a new Orca tab for review";
+          description = "tuicr: open a pull or merge request the agent just created beside it for review (Herdr split or Orca tab)";
         }
       ];
     }

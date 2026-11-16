@@ -14,9 +14,12 @@ Like the cmux wrapper it returns at once and prints the tab's handle between
 `orca terminal close --terminal <handle>`; it also closes itself when tuicr
 exits cleanly, and stays open showing the error when tuicr fails.
 
+## Pull requests open by themselves
+
 Pull and merge requests opened with `gh pr create`, `glab mr create` or
-`df mr-generate` are opened in tuicr automatically by a hook, which reports the
-URL and the tab's handle back as context. Do not launch a second tuicr for
-them. Wait for the user, then read the PR session's comments as described in
-**Read User Comments**; its slug (such as `gh:owner/repo/pr/N`) comes from
-`tuicr review list --repo /path/to/repo`.
+`df mr-generate` are opened in tuicr automatically by a hook: in a split of
+the agent's own pane inside Herdr (`$HERDR_ENV` is `1`), in a new tab inside
+Orca. The hook reports the URL and the pane id or tab handle back as context.
+Do not launch a second tuicr for them. Wait for the user, then read the PR
+session's comments as described in **Read User Comments**; its slug (such as
+`gh:owner/repo/pr/N`) comes from `tuicr review list --repo /path/to/repo`.
