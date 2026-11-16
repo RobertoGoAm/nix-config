@@ -659,6 +659,26 @@ in
 
         "zen.workspaces.force-container-workspace" = true;
 
+        # Preferences: content processes
+
+        # Site isolation gives every site its own content process, and Gecko's default
+        # allows up to four of them per site -- =dom.ipc.processCount.webIsolated= -- so
+        # that several tabs of one heavy site do not all queue behind each other. Three
+        # identities on the same Google and the same Atlassian is the workload that
+        # default prices worst: mail, calendar, chat and meet are each a site, each
+        # multiplied by its container, each allowed to fan out again. On 16 GiB a single
+        # chat tab already holds the better part of a gigabyte.
+
+        # One process per site keeps the isolation -- sites still never share a process,
+        # and a container is still a separate origin, so the identities stay apart -- and
+        # gives up only the parallelism between two tabs of the same site in the same
+        # jar, which is the case nobody notices. =dom.ipc.processCount= is the same
+        # ceiling for the content that is not isolated by site, at half its default of
+        # eight.
+
+        "dom.ipc.processCount.webIsolated" = 1;
+        "dom.ipc.processCount" = 4;
+
         # Preferences: locally built extensions
 
         # Three of the extensions in this profile are built here rather than fetched
