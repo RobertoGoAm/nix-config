@@ -107,6 +107,12 @@ in
   #   spinning while running, red failing, then merged or closed. Clicking it
   #   focuses the request's tuicr pane, or opens a new one beside the agent.
   # - The Dock badge counts the agents waiting on you.
+  # - A macOS notification when an agent starts needing you, or finishes while
+  #   you aren't looking at it. Herdr itself only draws a note inside its window
+  #   and plays a sound, which a hidden window or another space never shows. The
+  #   mod runs on this Mac, so agents on vulcan notify here too. Clicking the
+  #   notification brings Herdr forward on that agent. They go through
+  #   =terminal-notifier=, the first time after macOS asks to allow it.
   # - Three commands for keys: =agents-plus.attention= focuses the next agent
   #   that needs you (blocked before finished, longest waiting first, cycling on
   #   each press), =agents-plus.filter= cycles the filters, and
@@ -119,6 +125,8 @@ in
     source = ./herdr-app/agents-plus;
     recursive = true;
   };
+
+  home.packages = lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.terminal-notifier;
 
   # A picker that names sessions, not programs
 

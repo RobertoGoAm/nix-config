@@ -5,6 +5,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, checking, nextCommand, setBadge } from "herdr";
 
 const SELF = "agents-plus";
+const APP = "/opt/homebrew/bin/herdr-app";
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
@@ -193,6 +194,27 @@ export default class Agents extends View {
     const live = r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
     if (live) run("pane.focus", { terminal: r.terminal });
     else run("terminal.open", { argv: ["tuicr", "pr", r.url], folder: r.cwd ?? undefined, place: "right" });
+  }
+
+  notifyChanges(list) {
+    const before = this.lastStatus;
+    this.lastStatus = new Map(list.map((a) => [a.address, a.status]));
+    if (!before || checking()) return;
+    const looking = window()?.active;
+    for (const a of list) {
+      if (before.get(a.address) === a.status) continue;
+      if (a.status !== "blocked" && a.status !== "done") continue;
+      if (looking && a.focused) continue;
+      const what = clean(a.title);
+      exec("terminal-notifier", [
+        "-title", a.space_name || a.program?.name || "Herdr",
+        "-subtitle", a.status === "blocked" ? "Needs you" : "Finished",
+        "-message", what && what !== a.program?.name ? what : a.program?.name ?? a.address,
+        "-group", `herdr-${a.address}`,
+        "-activate", "dev.herdr.app",
+        "-execute", `${APP} do agent.focus --terminal ${a.address}`,
+      ]).catch(() => {});
+    }
   }
 
   matches(a, filter, now) {
@@ -408,6 +430,7 @@ export default class Agents extends View {
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();
+    this.notifyChanges(list);
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
     this.migratePins(all);
