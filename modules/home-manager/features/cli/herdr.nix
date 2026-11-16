@@ -230,6 +230,34 @@ in
     fi
   '';
 
+  # Tokyo Night, storm when dark and day when light
+
+  # The same pairing tuicr and the editors use. Herdr ships no Tokyo Night, so
+  # the two palettes are theme files beside this module (=herdr-app/themes=):
+  # the terminal colors are tokyonight's, and a few panel colors (chrome, border,
+  # accent and the agent states) are set from the same palette rather than left
+  # to Herdr's derivation. They are copied in rather than linked, since Herdr
+  # reads =themes/= as its own folder, and =settings.json= gets a =theme= that
+  # follows the system appearance, merged the same way as the keys below.
+
+  home.activation.herdrAppTheme = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    app="$HOME/.config/herdr-app"
+    if [ -d "$app" ]; then
+      run mkdir -p "$app/themes"
+      run install -m 644 ${./herdr-app/themes/tokyonight-storm.json} "$app/themes/tokyonight-storm.json"
+      run install -m 644 ${./herdr-app/themes/tokyonight-day.json} "$app/themes/tokyonight-day.json"
+      if [ -f "$app/settings.json" ]; then
+        tmp="$(mktemp)"
+        if ${lib.getExe pkgs.jq} '.theme = {"light": "tokyonight-day", "dark": "tokyonight-storm"}' "$app/settings.json" > "$tmp"; then
+          if ! cmp -s "$tmp" "$app/settings.json"; then run install -m 644 "$tmp" "$app/settings.json"; fi
+        else
+          warnEcho "could not set Herdr's theme in $app/settings.json"
+        fi
+        rm -f "$tmp"
+      fi
+    fi
+  '';
+
   # Keys for the agents that need you
 
   # =cmd-]= and =cmd-[= already step through the agents list in the order it
