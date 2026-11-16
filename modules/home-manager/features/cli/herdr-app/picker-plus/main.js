@@ -6,7 +6,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, spaces, terminals, run, hc, theme, settings, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
+import { agents, spaces, terminals, panes, home, run, hc, theme, settings, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
 
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 
@@ -36,11 +36,19 @@ function spaceColor(t, p) {
 
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").replace(/^\[ [!.] \] /, "").trim();
 
-function tabTitle(ctx, mine) {
+function tabTitle(ctx, mine, tabPanes) {
   const generic = new Set(mine.flatMap((a) => [a.program?.name, a.program?.key, a.address]).filter(Boolean).map((x) => x.toLowerCase()));
   if (ctx.named && !generic.has(ctx.name.toLowerCase())) return ctx.name;
   const titles = mine.map((a) => clean(a.title)).filter((x) => x && !generic.has(x.toLowerCase()) && !/^[~/]/.test(x) && !x.includes("@"));
-  return titles.length ? [...new Set(titles)].join(" · ") : ctx.name;
+  if (titles.length) return [...new Set(titles)].join(" · ");
+  if (ctx.named) return ctx.name;
+  const lead = tabPanes.find((p) => p.terminal && p.focused) ?? tabPanes.find((p) => p.terminal);
+  if (!lead) return ctx.name;
+  const prog = lead.program?.name ?? "";
+  const live = clean(lead.title);
+  if (live && !/^[~/]/.test(live) && !live.includes("@") && live.toLowerCase() !== prog.toLowerCase()) return live;
+  const folder = !lead.cwd ? null : lead.cwd === home() ? "~" : lead.cwd.split("/").filter(Boolean).pop() ?? "/";
+  return [prog, folder].filter(Boolean).join(" · ") || ctx.name;
 }
 
 export default class Picker extends View {
@@ -77,6 +85,7 @@ export default class Picker extends View {
     const f = this.filter.toLowerCase();
     const all = agents();
     const live = terminals().filter((x) => x.state === "live");
+    const allPanes = panes();
     const prOf = (address) => {
       const url = live.find((x) => x.address === address)?.labels?.["review.url"];
       const n = url?.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
@@ -92,7 +101,7 @@ export default class Picker extends View {
       const ctxs = w.tabs
         .map((ctx) => {
           const mine = all.filter((a) => a.tab === ctx.id);
-          return { w, ctx, mine, title: tabTitle(ctx, mine), team: teamOf(mine.map((a) => a.address)) };
+          return { w, ctx, mine, title: tabTitle(ctx, mine, allPanes.filter((p) => p.tab === ctx.id)), team: teamOf(mine.map((a) => a.address)) };
         })
         .filter((c) => !f || [w.name, c.ctx.name, c.title, ...c.mine.map((a) => `${a.program?.name ?? ""} ${a.title ?? ""} ${prOf(a.address)}`)].join(" ").toLowerCase().includes(f));
       return { w, ctxs };

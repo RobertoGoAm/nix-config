@@ -170,7 +170,10 @@ program, so every Claude tab reads "Claude Code". =picker-plus= is a copy that
 labels it with the agents' own terminal titles -- Claude's session title --
 falling back to the tab's name, and matches what is typed against those titles
 and the agents' pull request numbers too. A tab someone named keeps its name; one named after its own program,
-which is what Herdr's agent menu does when it starts one, counts as unnamed.
+which is what Herdr's agent menu does when it starts one, counts as unnamed. A
+tab with no agent, which Herdr calls by its number, is labelled from its
+terminal instead: the title the program set, else the program and its folder
+(=zsh · nix-config=).
 
 #+begin_src nix
   home.file.".config/herdr-app/mods/picker-plus" = {
