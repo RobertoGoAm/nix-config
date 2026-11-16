@@ -727,6 +727,15 @@ in
           "extensions.autoUpdate" = false;
           "extensions.autoCheckUpdates" = false;
 
+          # Built-in AI — off
+
+          # Current VS Code bundles Copilot Chat and starts its runtime, a separate
+          # =copilot-runtime= process, whenever a window opens, signed in or not. Nothing
+          # here uses it -- the agents run in their own terminals -- so the whole feature
+          # set is disabled and hidden, which also keeps that process from starting.
+
+          "chat.disableAIFeatures" = true;
+
           # Vim
 
           "vim.easymotion" = true;
