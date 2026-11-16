@@ -53,10 +53,9 @@
         fi
       }
 
-      # Resuming a conversation is the same idea in both CLIs, but spelled
-      # differently: `claude --resume' / `-c', against `codex resume' with
-      # `--last'. Both open a picker with no argument.
-      claude() { _agent_in_tmux claude "$@" }
+      # Only codex goes through the wrapper. claude runs bare so Herdr can
+      # recognise it in the pane it was launched from; inside tmux it would be
+      # hidden behind the multiplexer and never detected as an agent.
       codex()  { _agent_in_tmux codex "$@" }
 
       # The rebuild's copyApps step rsyncs into ~/Applications/Home Manager Apps,
