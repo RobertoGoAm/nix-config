@@ -7,7 +7,9 @@
 # =tuicr-wrapper-orca.sh= beside them (it lives next to this module): it opens
 # tuicr in a new terminal tab of the worktree with =orca terminal create= and,
 # like the cmux wrapper, returns at once with the tab's handle. The skill's
-# launcher table gets an Orca row, and sections on Orca and on the pull
+# launcher table gets an Orca row and a Herdr desktop row (a herdr-core
+# terminal, =$HC_TERMINAL_ID=, where =$HERDR_ENV= is unset), and sections on
+# both and on the pull
 # requests that open by themselves (=tuicr-skill-agents.md=, also beside this
 # module). The skill comes from tuicr's own source, so nothing
 # private is declared here; the reason the Claude module leaves skills alone
@@ -31,8 +33,9 @@ let
     substituteInPlace $out/SKILL.md --replace-fail \
       'launch tuicr in cmux, tmux, Zellij, or Herdr when' \
       'launch tuicr in Orca, cmux, tmux, Zellij, or Herdr when'
-    awk -v row='| `$ORCA_AGENT_SESSION_ID` is set | Run `tuicr-wrapper-orca.sh /path/to/repo -- <scope>` (see **Orca** below) |' '
-      index($0, "| `$CMUX_WORKSPACE_ID` is set |") == 1 { print row; found = 1 }
+    awk -v row='| `$ORCA_AGENT_SESSION_ID` is set | Run `tuicr-wrapper-orca.sh /path/to/repo -- <scope>` (see **Orca** below) |' \
+      -v app='| `$HC_TERMINAL_ID` is set and `$HERDR_ENV` is not | Open a pane with `hc run` in your own tab (see **Herdr desktop** below) |' '
+      index($0, "| `$CMUX_WORKSPACE_ID` is set |") == 1 { print row; print app; found = 1 }
       { print }
       END { exit !found }' $out/SKILL.md > SKILL.md
     cat SKILL.md ${./tuicr-skill-agents.md} > $out/SKILL.md
@@ -50,8 +53,14 @@ let
   # (=HERDR_ENV=1=, checked first, since Herdr can itself run in an Orca tab) the
   # agent's pane is split and tuicr runs in the new half; tuicr's own Herdr
   # wrapper waits for the review to end, which would hold the agent up, so the
-  # hook splits and runs without waiting. Inside Orca it opens a tab through the
-  # Orca wrapper. Anything else, and every call outside both, passes untouched.
+  # hook splits and runs without waiting. Inside Herdr desktop (=HC_TERMINAL_ID=
+  # set, checked next) the review starts as a herdr-core terminal carrying the
+  # agent's own =herdr.space= and =herdr.tab= labels, which makes it a pane of the
+  # agent's tab on whichever machine the agent runs, and is focused. The agent's
+  # terminal gets =review.url= and =review.terminal= labels, which the agents-plus
+  # mod in =herdr.org= reads to show the request and its CI beside the agent's row.
+  # Inside Orca it opens a tab through the Orca wrapper. Anything else, and every
+  # call outside all three, passes untouched.
   # The script is =tuicr-review-hook.sh= beside this module.
 
   hook = pkgs.runCommand "tuicr-review-hook" { } ''
@@ -87,7 +96,7 @@ in
           type = "command";
           command = "${hook}";
           timeout = 30;
-          description = "tuicr: open a pull or merge request the agent just created beside it for review (Herdr split or Orca tab)";
+          description = "tuicr: open a pull or merge request the agent just created beside it for review (Herdr split or pane, or Orca tab)";
         }
       ];
     }

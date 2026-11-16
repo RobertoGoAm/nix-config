@@ -46,6 +46,18 @@ in
 
         "stablyai/orca/orca"
 
+        # Herdr: the desktop window onto herdr-core
+
+        # Herdr's desktop app, a client of herdr-core (=hc=), which runs every terminal
+        # and agent and keeps them alive while the window is closed. The app keeps
+        # herdr-core current itself, under =~/.local/share/herdr-core=, and links =hc=,
+        # =herdr-core= and =herdr-app= into =~/.local/bin=. vulcan does not need the app:
+        # the phone and this window reach its agents through the herdr-core already
+        # there. Its settings, keys and agents list are in
+        # =home-manager/features/cli/herdr.org=.
+
+        "herdr-app"
+
         # Internet
 
         "google-chrome"

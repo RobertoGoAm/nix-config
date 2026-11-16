@@ -12,6 +12,8 @@ HERDR_BIN="${HERDR_BIN:-herdr}"
 
 if [[ "${HERDR_ENV:-}" == "1" ]]; then
   host=herdr
+elif [[ -n "${HC_TERMINAL_ID:-}" ]] && command -v hc >/dev/null; then
+  host=herdr-app
 elif [[ -n "${ORCA_AGENT_SESSION_ID:-}" ]]; then
   host=orca
 else
@@ -55,7 +57,32 @@ open_in_herdr() {
   printf '%s' "$pane"
 }
 
+# Herdr desktop: a herdr-core terminal labelled with the agent's own space and
+# tab shows up as a new pane in that tab, on whichever machine the agent runs.
+# The agent's terminal is labelled with the request's URL and that pane, which
+# the agents-plus mod reads to draw the PR pill with its CI state. Focusing the
+# pane goes through the local app and quietly does nothing on another machine.
+open_in_herdr_app() {
+  local me="$HC_TERMINAL_ID" info space tab run addr
+  info="$(hc get "$me" --json)" || return 1
+  space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
+  tab="$(jq -er '.labels["herdr.tab"]' <<<"$info")" || return 1
+  run="$(hc run --bg --json --no-parent --no-notify --rm --cwd "$cwd" \
+    --label "herdr.space=$space" --label "herdr.tab=$tab" -- tuicr pr "$url")" || return 1
+  addr="$(jq -er '.address' <<<"$run")" || return 1
+  hc label "$me" "review.url=$url" "review.terminal=$addr" >/dev/null || true
+  command -v herdr-app >/dev/null && herdr-app do pane.focus --terminal "$addr" >/dev/null 2>&1 || true
+  printf '%s' "$addr"
+}
+
 case "$host" in
+  herdr-app)
+    if term="$(open_in_herdr_app 2>&1)"; then
+      context "tuicr is now open on $url in Herdr terminal $term, a pane beside this one in the same tab, focused for the user to review; do not open another. The agents list shows this request's CI state beside your row. $read_back To bring the review back to the front later run \`herdr-app do pane.focus --terminal $term\`; if it was closed, \`herdr-app do terminal.open --argv '[\"tuicr\",\"pr\",\"$url\"]' --folder $cwd --place right\`. Close it with \`hc kill $term\` once it is no longer needed."
+    else
+      context "Opening tuicr on $url in a Herdr pane failed: $term. Tell the user they can run \`tuicr pr $url\` themselves."
+    fi
+    ;;
   herdr)
     if pane="$(open_in_herdr 2>&1)"; then
       context "tuicr is now open on $url in Herdr pane $pane, beside this one, for the user to review; do not open another. $read_back Close the pane with \`herdr pane close $pane\` once it is no longer needed."
