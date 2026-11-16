@@ -489,6 +489,11 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDdHwSIjtrWvblappuu12T8lavKLPrhbLRMbNiHTCWuq mobile-ssh-1"
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOwqeO12WNRNFxGNZKBG+VHJKLkc6JvOvRUdQkius4S mobile-ssh-2"
 
+        # The Herdr phone app reaches herdr-core on each Mac over SSH with a key of
+        # its own.
+
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP3gY/JfYf55BepKaG3vlgUi5cJcw4kkA1yQAnwyoRok herdr-mobile"
+
         # Personal machine keys (laptop/perseus). SSH *public* keys are safe...
 
         # Personal machine keys (laptop/perseus). SSH *public* keys are safe to

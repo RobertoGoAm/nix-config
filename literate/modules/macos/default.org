@@ -542,6 +542,13 @@ System Settings → Accessibility.
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOwqeO12WNRNFxGNZKBG+VHJKLkc6JvOvRUdQkius4S mobile-ssh-2"
 #+end_src
 
+The Herdr phone app reaches herdr-core on each Mac over SSH with a key of
+its own.
+
+#+begin_src nix
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP3gY/JfYf55BepKaG3vlgUi5cJcw4kkA1yQAnwyoRok herdr-mobile"
+#+end_src
+
 * Personal machine keys (laptop/perseus). SSH *public* keys are safe...
 
 Personal machine keys (laptop/perseus). SSH *public* keys are safe to
