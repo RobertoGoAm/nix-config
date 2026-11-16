@@ -193,7 +193,7 @@ things: =a= ai and agents (next needing you, filter, search, =R= review, =m=
 model and =E= effort of the focused Claude, sent to it as =/model= and
 =/effort=), =b b= find, =j= jump, =m= music (Spotify, as =m m=, =m n=, =m p=,
 =m o= are in Emacs), =i= inbox (mu4e through =emacsclient=), =o t=
-Telegram, and Space for the command palette; =t= tabs, =s= spaces and =w=
+telega (in its Herdr tab, as above; =o T= the app), and Space for the command palette; =t= tabs, =s= spaces and =w=
 panes add Herdr's own, moving on =h n e i= like nvim on this Colemak board.
 
 =j= jumps: every agent, tab and pane of the shown tab gets a two-letter code
@@ -217,12 +217,14 @@ the left (machine, branch, how many agents, how many need you). On the right:
   terminal's screen; clicking either opens the leader on that group.
 - Spotify: previous, play or pause, next, and what is playing, over the same
   AppleScript the Emacs music commands use; nothing while Spotify is closed.
-- Unread mail in the inboxes, counted by =mu= every minute; clicking opens
-  the default mail app, whichever handles =mailto:= in Launch Services
-  (Mail when none is set). The leader's =i i= still opens mu4e.
-- Telegram, whenever it is installed: its unread count from the Dock badge
-  (read with =lsappinfo=) while it runs, a bare icon while it is closed;
-  clicking opens it.
+- Unread mail, counted by =mu= every minute with the query the Emacs mode
+  line uses (=flag:unread=), so the two agree; clicking opens Mail. The
+  leader's =i i= still opens mu4e.
+- Telegram's unread unmuted chats, read from telega in the Emacs daemon (the
+  number the Emacs mode line shows); clicking opens telega in a Herdr tab, a
+  terminal frame of the same daemon (=emacsclient -t=), or brings that tab back
+  if it is open. With no telega running it falls back to Telegram.app: its
+  Dock badge while it runs, a bare icon while closed, and a click opens it.
 - The leader key, as a hint and a button.
 
 #+begin_src nix

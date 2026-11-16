@@ -2,6 +2,19 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { agents, spaces, panes, terminals, focused, run, exec, hc, theme, props, closeOverlay, setShared, checking } from "herdr";
 
+
+function openTelega() {
+  for (const s of spaces()) {
+    const tab = s.machine == null && s.tabs.find((x) => x.name === "telega");
+    if (tab) {
+      run("space.select", { id: s.id });
+      run("tab.select", { id: tab.id });
+      return;
+    }
+  }
+  run("tab.new", { name: "telega", argv: ["emacsclient", "-t", "-a", "", "-e", "(telega)"] });
+}
+
 const HINTS = "arstneio";
 
 const send = (text) => (target) => {
@@ -130,8 +143,8 @@ const TREE = {
     o: {
       label: "open",
       keys: {
-        t: { label: "telegram", act: osa('tell application "Telegram" to activate') },
-        T: { label: "telegram (telega)", act: emacs("(telega)") },
+        t: { label: "telega", act: () => openTelega() },
+        T: { label: "Telegram app", act: osa('tell application "Telegram" to activate') },
       },
     },
     l: { label: "next layout", act: () => run("layout.switch") },
