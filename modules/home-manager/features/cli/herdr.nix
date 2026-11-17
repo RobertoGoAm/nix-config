@@ -246,8 +246,9 @@ in
   # names the session, and =projects/*/<id>.jsonl= holds it -- on whichever machine
   # the agent runs, and types what is sent into the terminal with =hc send=.
 
-  # Your messages sit on the right in accent-tinted bubbles and Claude's on the
-  # left in neutral ones, as rendered Markdown. Images you pasted show as thumbnails that open
+  # Your messages sit on the right in blue (accent) bubbles and Claude's on the
+  # left in amber ones, as rendered Markdown, each with its time under it (the
+  # date too for older days). Images you pasted show as thumbnails that open
   # full size in Preview: they live in the transcript as base64, so each is
   # decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
   # an agent on another machine), since Herdr only draws images from there. each tool call is one
@@ -255,11 +256,19 @@ in
   # and output; slash commands show as chips. File edits (=Edit=, =MultiEdit=,
   # =Write=, =NotebookEdit=) show as a diff instead: the line with =+added −removed=
   # counts, then the changed lines in the terminal's font, green and red against
-  # their context, the first 24 inline and the rest a click away. While Claude is working a line above
-  # the box says so, with a Stop button that presses Esc; when it needs you, the last lines of its screen (the
+  # their context, the first 24 inline and the rest a click away. While Claude is working the list ends
+  # in a working line and a Stop button beside Send presses Esc; the list keeps to
+  # its bottom as messages come in; when it needs you, the last lines of its screen (the
   # permission prompt or question) show with buttons for 1, 2, 3, Enter and Esc,
   # and Answer in terminal goes back. Only the last 160 messages are drawn, with
   # the earlier ones a click away.
+
+  # Herdr counts a finished agent as read only once its terminal has been looked
+  # at, which the chat hides; so while a chat is on screen (its tab shown, the
+  # window in front) it records that its agent was seen, and the agents list
+  # treats a finished agent seen in its chat as read: out of Needs you, off the
+  # Dock badge, and no notification. Herdr's own status dots still wait for the
+  # terminal.
 
   # =⌘⇧C=, the leader's =a c=, the chat button on a Claude agent's row, or the
   # Chat | Terminal switch in the pane's header opens it, and the same again goes

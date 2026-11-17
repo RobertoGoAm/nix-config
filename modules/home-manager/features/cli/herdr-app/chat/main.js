@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle } from "gpui-base";
-import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome } from "herdr";
+import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome, spaces, window } from "herdr";
 
 const FIND = `t="$1"
 pid=$(hc get "$t" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
@@ -36,6 +36,19 @@ sips -g pixelWidth -g pixelHeight "$out" 2>/dev/null | awk '/pixelWidth/{w=$2}/p
 const THUMB_W = 260;
 const THUMB_H = 320;
 const IMAGE_REF = /\[Image(?: #\d+)?(?:: source: [^\]]*)?\]/g;
+
+const SEEN_EVERY = 4000;
+
+function stamp(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return hm;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[d.getMonth()]} ${d.getDate()} ${hm}`;
+}
 
 const FIRST_BYTES = 1500000;
 const KEEP = 400;
@@ -125,6 +138,7 @@ export default class Chat extends View {
     this.locate(cx);
     cx.timer.every(1500, (cx) => this.poll(cx));
     cx.timer.every(2000, (cx) => this.pollScreen(cx));
+    cx.timer.every(SEEN_EVERY, () => this.markSeen());
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -171,7 +185,7 @@ export default class Chat extends View {
             if (first && from > 0) body = body.slice(body.indexOf("\n") + 1);
             this.ingest(this.partial + body);
             this.offset = size;
-            if (this.items.length) this.scroll.scroll_to_item(Math.max(0, this.visible().length - 1) + 1);
+            this.stick = true;
           }
         }
       } catch {}
@@ -189,6 +203,20 @@ export default class Chat extends View {
       this.screen = lines.slice(-16).join("\n");
       cx.notify();
     });
+  }
+
+  onScreen() {
+    if (!window()?.active) return false;
+    const mine = Object.entries(shared("chat.panes") ?? {}).find(([, t]) => t === this.address)?.[0];
+    const pane = mine && panes().find((p) => p.pane === mine);
+    if (!pane) return false;
+    const space = spaces().find((s) => s.active);
+    return Boolean(space?.tabs.some((tab) => tab.id === pane.tab && tab.active));
+  }
+
+  markSeen() {
+    if (!this.onScreen()) return;
+    setShared("chat.seen", { ...(shared("chat.seen") ?? {}), [this.address]: Date.now() });
   }
 
   reset() {
@@ -220,7 +248,7 @@ export default class Chat extends View {
         const last = this.byMessage.get(id);
         if (last && this.items.at(-1) === last) last.text += "\n\n" + c.text;
         else {
-          const item = { kind: "assistant", text: c.text, key: `${id}-${this.items.length}` };
+          const item = { kind: "assistant", text: c.text, ts: e.timestamp, key: `${id}-${this.items.length}` };
           this.items.push(item);
           this.byMessage.set(id, item);
         }
@@ -244,7 +272,7 @@ export default class Chat extends View {
       else if (c.type === "image") {
         const idx = content.indexOf(c);
         const ext = (c.source?.media_type ?? "image/png").split("/")[1]?.replace("jpeg", "jpg") ?? "png";
-        this.items.push({ kind: "image", uuid: e.uuid, idx, ext, key: `${e.uuid}-img-${idx}` });
+        this.items.push({ kind: "image", uuid: e.uuid, idx, ext, ts: e.timestamp, key: `${e.uuid}-img-${idx}` });
       }
     }
   }
@@ -252,12 +280,12 @@ export default class Chat extends View {
   userText(text, e) {
     if (!text?.trim() || e.isMeta) return;
     const cmd = commandLine(text);
-    if (cmd) return this.items.push({ kind: "command", text: cmd, key: `${e.uuid}-cmd` });
+    if (cmd) return this.items.push({ kind: "command", text: cmd, ts: e.timestamp, key: `${e.uuid}-cmd` });
     if (SYSTEM_TAG.test(text.trim())) return;
     const clean = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").replace(IMAGE_REF, "").trim();
     if (!clean) return;
     this.pending = this.pending.filter((p) => p.trim() !== clean.trim());
-    this.items.push({ kind: "user", text: clean, key: `${e.uuid}-${this.items.length}` });
+    this.items.push({ kind: "user", text: clean, ts: e.timestamp, key: `${e.uuid}-${this.items.length}` });
   }
 
   loadImage(item, cx) {
@@ -297,6 +325,7 @@ export default class Chat extends View {
     if (!text.trim() || !this.address) return;
     this.input.set_value("");
     this.pending.push(text);
+    this.stick = true;
     hc(["send", this.address, text]).catch(() => {});
   }
 
@@ -321,6 +350,17 @@ export default class Chat extends View {
   }
 
   bubble(t, item, cx) {
+    const body = this.bubbleBody(t, item, cx);
+    const when = item.kind === "tool" ? "" : stamp(item.ts);
+    if (!when) return body;
+    const right = item.kind !== "assistant";
+    return v_flex().w_full().gap(3)
+      .child(body)
+      .child(h_flex().w_full().when(right, (el) => el.justify_end()).px(4)
+        .child(div().text_size(10.5).text_color(t.dim).child(when)));
+  }
+
+  bubbleBody(t, item, cx) {
     if (item.kind === "image") return h_flex().w_full().justify_end().child(this.thumb(t, item, cx));
     if (item.kind === "user") {
       return h_flex().w_full().justify_end().child(
@@ -332,7 +372,7 @@ export default class Chat extends View {
     }
     if (item.kind === "assistant") {
       return h_flex().w_full().justify_start().child(
-        div().max_w_full().mr(48).px(14).py(10).rounded(12).bg(t.raised).text_color(t.foreground)
+        div().max_w_full().mr(48).px(14).py(10).rounded(12).bg(t.ansi3 + "17").border_1().border_color(t.ansi3 + "45").text_color(t.foreground)
           .child(TextView.markdown(`a-${item.key}`, item.text).selectable(true)));
     }
     const open = this.open.has(item.key);
@@ -403,27 +443,35 @@ export default class Chat extends View {
         .child(btn("kesc", "Esc", () => this.keys("esc")))
         .child(btn("kterm", "Answer in terminal", () => this.back()))) : null;
 
-    const list = v_flex().id("chat-list").flex_1().min_h(0).px(18).py(12).gap(12).overflow_y_scroll().track_scroll(this.scroll)
-      .when(hidden > 0, (el) => el.child(div().id("chat-more").text_size(11.5).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
-        .on_click((_e, cx) => { this.showAll = true; cx.notify(); }).child(`${hidden} earlier messages`)))
-      .when(Boolean(this.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(this.error)))
-      .when(!this.error && !this.file, (el) => el.child(div().text_size(12).text_color(t.dim).child("Finding the session…")))
-      .children(items.map((it) => this.bubble(t, it, cx)))
-      .children(this.pending.map((p, i) => h_flex().w_full().justify_end().child(
-        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "2e").border_1().border_color(t.accent + "66").opacity(0.6).text_color(t.foreground).child(p))));
-
-    const working = status === "working" ? h_flex().mx(14).mb(6).gap(8).flex_none().items_center().text_size(11.5).text_color(t.working)
+    const rows = [];
+    if (hidden > 0) rows.push(div().id("chat-more").text_size(11.5).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
+      .on_click((_e, cx) => { this.showAll = true; cx.notify(); }).child(`${hidden} earlier messages`));
+    if (this.error) rows.push(div().text_size(12).text_color(t.blocked).child(this.error));
+    if (!this.error && !this.file) rows.push(div().text_size(12).text_color(t.dim).child("Finding the session…"));
+    for (const it of items) rows.push(this.bubble(t, it, cx));
+    for (const p of this.pending) rows.push(h_flex().w_full().justify_end().child(
+      div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "2e").border_1().border_color(t.accent + "66").opacity(0.6).text_color(t.foreground).child(p)));
+    if (status === "working") rows.push(h_flex().gap(8).items_center().text_size(11.5).text_color(t.working)
       .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
-      .child(div().flex_1().child("Claude is working…"))
-      .child(btn("chat-stop", "Stop (Esc)", () => this.keys("esc"), t.blocked)) : null;
+      .child(div().child("Claude is working…")));
+    if (this.stick && rows.length) {
+      this.scroll.scroll_to_item(rows.length - 1);
+      this.stick = false;
+    }
+    if (status !== this.lastStatus) { this.lastStatus = status; this.scroll.scroll_to_item(rows.length - 1); }
+
+    const list = v_flex().id("chat-list").flex_1().min_h(0).px(18).py(12).gap(12).overflow_y_scroll().track_scroll(this.scroll).children(rows);
 
     return v_flex().id("chat").size_full().bg(t.background).text_size(13)
       .child(list)
-      .when(Boolean(working), (el) => el.child(working))
       .when(Boolean(needs), (el) => el.child(needs))
       .child(h_flex().px(14).pb(12).pt(4).gap(8).flex_none().items_end()
         .child(div().flex_1().min_w(0).rounded(10).border_1().border_color(t.border).bg(t.input ?? t.raised).px(10).py(6)
           .child(Textarea.new(this.input).w_full().text_size(13).text_color(t.foreground)))
+        .when(status === "working", (el) => el.child(div().id("chat-stop").h(32).px(12).rounded(9).flex().items_center().cursor_pointer()
+          .border_1().border_color(t.blocked).text_color(t.blocked).text_size(12.5).font_semibold().hover((s) => s.bg(t.blocked + "1f"))
+          .tooltip("Stop Claude (Esc)")
+          .on_click((_e, cx) => { this.keys("esc"); cx.notify(); }).child("Stop")))
         .child(div().id("chat-send").h(32).px(12).rounded(9).flex().items_center().cursor_pointer().bg(t.accent).text_color(t.accent_foreground)
           .text_size(12.5).font_semibold().hover((s) => s.opacity(0.9))
           .on_click((_e, cx) => { this.send(); cx.notify(); }).child("Send")));

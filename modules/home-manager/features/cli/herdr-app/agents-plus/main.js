@@ -287,8 +287,16 @@ export default class Agents extends View {
     for (const k of Object.keys(this.branchUrl)) if (this.branchUrl[k]?.url === url) this.branchUrl[k].url = null;
   }
 
+  chatSeenAt(a) {
+    return (shared("chat.seen") ?? {})[a.address] ?? 0;
+  }
+
+  read(a) {
+    return a.status === "done" && this.chatSeenAt(a) >= this.since(a) ? { ...a, status: "idle" } : a;
+  }
+
   attention() {
-    const queue = agents()
+    const queue = agents().map((a) => this.read(a))
       .filter((a) => a.status === "blocked" || a.status === "done")
       .sort((x, y) => (RANK[y.status] - RANK[x.status]) || this.since(x) - this.since(y));
     if (!queue.length) return;
@@ -330,6 +338,7 @@ export default class Agents extends View {
       if (before.get(a.address) === a.status) continue;
       if (a.status !== "blocked" && a.status !== "done") continue;
       if (looking && a.focused) continue;
+      if (Date.now() - this.chatSeenAt(a) < 10000) continue;
       const what = clean(a.title);
       exec("terminal-notifier", [
         "-title", a.space_name || a.program?.name || "Herdr",
@@ -590,6 +599,7 @@ export default class Agents extends View {
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
+    list = list.map((a) => this.read(a));
     this.reviewOf = this.reviews();
     const waiting = list.filter((a) => a.status === "blocked").length;
     const badge = waiting ? String(waiting) : null;
