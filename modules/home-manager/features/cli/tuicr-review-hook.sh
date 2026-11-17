@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Claude Code PostToolUse hook: after a Bash call that opened a pull or merge
-# request, open it in tuicr beside the agent so the owner can review it, and
-# tell the agent where the review lives. Inside a Herdr pane the review opens
-# in a split of the agent's pane; inside Orca, in a new tab. Anywhere else, or
-# when the command did not open a request, it does nothing.
+# request, open it in tuicr for the owner to review, and tell the agent where
+# the review lives. In the Herdr TUI it splits the agent's pane; in Herdr
+# desktop it opens a background tab in the agent's space; in Orca, a new tab.
+# Anywhere else, or when the command did not open a request, it does nothing.
 set -u -o pipefail
 
 PATH="@runtimePath@:$PATH"
@@ -59,11 +59,12 @@ open_in_herdr() {
 
 # Herdr desktop: the review opens as a new tab in the agent's own space, named
 # after the request ("#123 Fix login" or "!45 Fix login") so the picker finds
-# it, and takes the focus. Where the app does not run on the agent's machine
-# (an agent on another Mac), herdr-core starts it as a new tab of that space,
-# which Herdr names on its own. The agent's terminal is labelled with the
-# request's URL and the review's terminal, which the agents-plus mod reads to
-# draw the PR pill with its CI state and to bring the review back.
+# it, in the background: the owner's view never moves. Where the app does not
+# run on the agent's machine (an agent on another Mac), herdr-core starts it as
+# a new tab of that space, which Herdr names on its own. The agent's terminal
+# is labelled with the request's URL and the review's terminal, which the
+# agents-plus mod reads to draw the PR pill with its CI state and to bring the
+# review back.
 review_title() {
   local t
   case "$url" in
@@ -89,7 +90,7 @@ open_in_herdr_app() {
   title="$(review_title)"
   argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
   if command -v herdr-app >/dev/null \
-    && run="$(herdr-app do tab.new --space "$space" --name "$title" --folder "$cwd" --argv "$argv" 2>/dev/null)" \
+    && run="$(herdr-app do tab.new --space "$space" --name "$title" --folder "$cwd" --argv "$argv" --focus false 2>/dev/null)" \
     && addr="$(jq -er '.terminal' <<<"$run")"; then
     :
   else
@@ -106,7 +107,7 @@ case "$host" in
     if opened="$(open_in_herdr_app 2>&1)"; then
       term="${opened%%$'\t'*}"
       title="${opened#*$'\t'}"
-      context "tuicr is now open on $url in a new Herdr tab named \"$title\" (terminal $term), focused for the user to review; do not open another. The agents list shows this request's CI state beside your row, and the user can reach the review with Cmd+P by that title or Cmd+Shift+R from your row. $read_back To bring it back to the front later run \`herdr-app do pane.focus --terminal $term\`. Close it with \`hc kill $term\` once it is no longer needed."
+      context "tuicr is now open on $url in a new Herdr tab named \"$title\" in this space (terminal $term), opened in the background so the user's view did not move; do not open another, and do not focus it. Tell the user it is ready: they reach it with Cmd+P by that title, Cmd+Shift+R from your row, or the PR pill, which also shows its CI state. $read_back The tab holds only that terminal, so \`hc kill $term\` closes it once it is no longer needed."
     else
       context "Opening tuicr on $url in a Herdr tab failed: $opened. Tell the user they can run \`tuicr pr $url\` themselves."
     fi

@@ -42,32 +42,7 @@ let
     patchShebangs $out
   '';
 
-  # Pull requests an agent opens land in tuicr by themselves
-
-  # A PostToolUse hook watches Bash calls made inside Herdr or Orca. When one
-  # created a pull or merge request (=gh pr create=, =glab mr create=, or
-  # =df mr-generate=, which wraps the latter) and its output carries the
-  # request's URL, the hook opens =tuicr pr <url>= beside the agent and hands it
-  # the URL, where the review is and how to read it back, so it waits for the
-  # owner's comments instead of opening a second review. Inside a Herdr pane
-  # (=HERDR_ENV=1=, checked first, since Herdr can itself run in an Orca tab) the
-  # agent's pane is split and tuicr runs in the new half; tuicr's own Herdr
-  # wrapper waits for the review to end, which would hold the agent up, so the
-  # hook splits and runs without waiting. Inside Herdr desktop (=HC_TERMINAL_ID=
-  # set, checked next) the review opens as a new tab in the agent's own space,
-  # named after the request (=#123 Fix login=, or =!45 Fix login= for a GitLab
-  # merge request, from =gh= or =glab=) so the picker finds it, and takes the
-  # focus, through the app's own =tab.new=. For an agent on another machine than
-  # the window it starts instead as a herdr-core terminal labelled with the
-  # agent's space and a new tab id, which makes it a new tab there that Herdr
-  # names on its own. The agent's
-  # terminal gets =review.url=, =review.terminal= and =review.title= labels, which the agents-plus
-  # mod in =herdr.org= reads to show the request and its CI beside the agent's row.
-  # Inside Orca it opens a tab through the Orca wrapper. Anything else, and every
-  # call outside all three, passes untouched.
-  # The script is =tuicr-review-hook.sh= beside this module.
-
-  hook = pkgs.runCommand "tuicr-review-hook" { } ''
+  hook = pkgs.runCommand "tuicr-review-hook" { nativeBuildInputs = [ pkgs.jq ]; } ''
     install -m 755 ${./tuicr-review-hook.sh} $out
     substituteInPlace $out \
       --subst-var-by runtimePath ${
@@ -79,6 +54,7 @@ let
       } \
       --subst-var-by orcaWrapper ${skill}/tuicr-wrapper-orca.sh
     patchShebangs $out
+    bash ${./tuicr-review-hook-test.sh} $out
   '';
 in
 {
