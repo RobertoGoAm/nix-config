@@ -54,6 +54,8 @@ const FIRST_BYTES = 1500000;
 const KEEP = 400;
 const SHOWN = 160;
 
+const STOPPED = /^\[Request interrupted by user( for tool use)?\]/;
+const REJECTED = /^The user doesn't want to proceed with this tool use/;
 const SYSTEM_TAG = /^<(system-reminder|local-command-caveat|local-command-stdout|command-message|task-notification|user-prompt-submit-hook)/;
 
 function commandLine(text) {
@@ -333,7 +335,11 @@ export default class Chat extends View {
     for (const c of content ?? []) {
       if (c.type === "tool_result") {
         const t = this.tools.get(c.tool_use_id);
-        if (t) { t.result = resultText(c.content); t.error = Boolean(c.is_error); }
+        if (t) {
+          t.result = resultText(c.content);
+          t.stopped = Boolean(c.is_error) && REJECTED.test(t.result.trim());
+          t.error = Boolean(c.is_error) && !t.stopped;
+        }
       } else if (c.type === "text") this.userText(c.text, e);
       else if (c.type === "image") {
         const idx = content.indexOf(c);
@@ -345,6 +351,8 @@ export default class Chat extends View {
 
   userText(text, e) {
     if (!text?.trim() || e.isMeta) return;
+    const stop = text.trim().match(STOPPED);
+    if (stop) return this.items.push({ kind: "stopped", forTool: Boolean(stop[1]), ts: e.timestamp, key: `${e.uuid}-stop` });
     const cmd = commandLine(text);
     if (cmd) return this.items.push({ kind: "command", text: cmd, ts: e.timestamp, key: `${e.uuid}-cmd` });
     if (SYSTEM_TAG.test(text.trim())) return;
@@ -461,6 +469,14 @@ export default class Chat extends View {
   }
 
   bubble(t, item, cx) {
+    if (item.kind === "stopped") {
+      const when = stamp(item.ts);
+      return h_flex().w_full().gap(10).items_center().py(2)
+        .child(div().flex_1().h(1).bg(t.blocked + "55"))
+        .child(div().flex_none().text_size(11.5).text_color(t.blocked)
+          .child(`⏹ You stopped Claude${item.forTool ? " during a tool" : ""}${when ? " · " + when : ""}`))
+        .child(div().flex_1().h(1).bg(t.blocked + "55"));
+    }
     const body = this.bubbleBody(t, item, cx);
     const when = item.kind === "tool" ? "" : stamp(item.ts);
     if (!when) return body;
@@ -487,7 +503,7 @@ export default class Chat extends View {
           .child(this.assistantBody(t, item)));
     }
     const open = this.open.has(item.key);
-    const color = item.error ? t.blocked : item.result == null ? t.working : t.dim;
+    const color = item.error ? t.blocked : item.stopped ? t.ansi3 : item.result == null ? t.working : t.dim;
     if (item.diff) return this.diffBlock(t, item, open, color);
     return v_flex().w_full()
       .child(h_flex().id(`tool-${item.key}`).gap(6).items_center().cursor_pointer().text_size(12).text_color(color)
@@ -495,7 +511,8 @@ export default class Chat extends View {
         .on_click((_e, cx) => { open ? this.open.delete(item.key) : this.open.add(item.key); cx.notify(); })
         .child(svg(`mods/workspace-chrome/chevron-${open ? "down" : "right"}.svg`).size(10).flex_none())
         .when(item.result == null, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
-        .child(div().flex_1().min_w(0).truncate().child(item.summary)))
+        .child(div().flex_1().min_w(0).truncate().child(item.summary))
+        .when(Boolean(item.stopped), (el) => el.child(div().flex_none().text_size(11).child("stopped"))))
       .when(open, (el) => el.child(v_flex().ml(16).mt(4).p(8).gap(6).rounded(6).bg(t.raised).text_size(11.5)
         .child(TextView.markdown(`ti-${item.key}`, "```json\n" + JSON.stringify(item.input ?? {}, null, 2).slice(0, 4000) + "\n```").selectable(true))
         .when(item.result != null, (el) => el.child(TextView.markdown(`tr-${item.key}`, "```\n" + String(item.result).slice(0, 6000) + "\n```").selectable(true)))));

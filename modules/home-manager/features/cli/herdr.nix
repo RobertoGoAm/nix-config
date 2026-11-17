@@ -255,7 +255,9 @@ in
   # decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
   # an agent on another machine), since Herdr only draws images from there. each tool call is one
   # line, with a spinner until its result comes back, that opens to show its input
-  # and output; slash commands show as chips. Code blocks in Claude's replies are drawn
+  # and output; slash commands show as chips. Stopping Claude shows where it happened: a
+  # red divider, =⏹ You stopped Claude= with the time (and "during a tool" when
+  # it was), and a tool call cut short marked stopped rather than failed. Code blocks in Claude's replies are drawn
   # with the toolkit's own code editor, read-only and highlighted for their
   # language in the theme's colours, under a label naming it; inline code stays
   # with the Markdown view, which has no styling of its own to change. File edits
