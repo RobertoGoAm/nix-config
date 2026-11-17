@@ -56,37 +56,11 @@ export default class Pane extends View {
       .child(svg(`mods/pane/${icon}.svg`).size(14));
   }
 
-  toggle(t, pane, chatOn) {
-    const seg = (id, label, on) => div()
-      .id(id)
-      .px(8)
-      .h(20)
-      .flex()
-      .items_center()
-      .rounded(5)
-      .text_size(11)
-      .cursor_pointer()
-      .text_color(on ? t.foreground : t.dim)
-      .when(on, (el) => el.bg(t.selected))
-      .hover((s) => s.text_color(t.foreground))
-      .on_click((_e, cx) => {
-        cx.stop_propagation();
-        if (on) return;
-        run("pane.focus", { pane });
-        run("agents-plus.chat");
-      })
-      .child(label);
-    return h_flex().flex_none().p(2).gap(2).rounded(7).border_1().border_color(t.border)
-      .child(seg(`ph-chat-${pane}`, "Chat", chatOn))
-      .child(seg(`ph-term-${pane}`, "Terminal", !chatOn));
-  }
-
   render(cx) {
     const t = theme();
     const p = this.me();
     if (!p) return div();
     const chatOf = p.mod === "chat" ? (shared("chat.panes") ?? {})[p.pane] : null;
-    const claude = p.app === "claude-code" || Boolean(chatOf);
     const chatAgent = chatOf ? agents().find((a) => a.address === chatOf) : null;
     const name = chatAgent ? (chatAgent.title || "Claude").replace(/^[^\p{L}\p{N}]+/u, "") : ((p.program?.agent || p.program?.shell) && p.program.name) || p.title || p.program?.name || "shell";
     const pic = icon(p.program, 14, t.dim);
@@ -112,7 +86,6 @@ export default class Pane extends View {
       .when(st === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
       .when(st === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child("Needs you")))
       .when(st === "done", el => el.child(div().size(7).flex_none().rounded(4).bg(t.done)))
-      .when(claude, el => el.child(this.toggle(t, pane, Boolean(chatOf))))
       .when(this.hovered, el => el
         .child(this.button(t, `ph-r-${pane}`, "split-right", "pane.split", { direction: "right", pane }))
         .child(this.button(t, `ph-d-${pane}`, "split-down", "pane.split", { direction: "down", pane }))

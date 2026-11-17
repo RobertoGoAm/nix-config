@@ -291,8 +291,8 @@ in
   # =⇄ Chat= / =⇄ Terminal= chip in the bottom bar opens it, and the same again
   # goes back. The bottom bar is where the switch has to live: a tab with a single
   # pane has no frame, and Herdr draws pane headers only inside a frame, so a
-  # terminal on its own has no header to hold one. That header is =pane-plus=, a copy of Herdr's =pane= header with the
-  # switch on every Claude pane and the chat pane named after its agent. Model and effort stay
+  # terminal on its own has no header to hold one. A chat pane's header is =pane-plus=, a copy of Herdr's =pane= header that names
+  # it after its agent. Model and effort stay
   # in the bottom bar.
 
   home.file.".config/herdr-app/mods/chat" = {
