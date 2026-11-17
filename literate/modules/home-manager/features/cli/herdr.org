@@ -283,8 +283,8 @@ session's own transcript -- =sessions/<pid>.json= in the account's config folder
 names the session, and =projects/*/<id>.jsonl= holds it -- on whichever machine
 the agent runs, and types what is sent into the terminal with =hc send=.
 
-Your messages sit on the right and Claude's on the left, each in its own
-bubble, as rendered Markdown. Images you pasted show as thumbnails that open
+Your messages sit on the right in accent-tinted bubbles and Claude's on the
+left in neutral ones, as rendered Markdown. Images you pasted show as thumbnails that open
 full size in Preview: they live in the transcript as base64, so each is
 decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
 an agent on another machine), since Herdr only draws images from there. each tool call is one

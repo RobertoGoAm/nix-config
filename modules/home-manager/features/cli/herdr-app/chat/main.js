@@ -324,7 +324,7 @@ export default class Chat extends View {
     if (item.kind === "image") return h_flex().w_full().justify_end().child(this.thumb(t, item, cx));
     if (item.kind === "user") {
       return h_flex().w_full().justify_end().child(
-        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).text_color(t.foreground)
+        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "2e").border_1().border_color(t.accent + "66").text_color(t.foreground)
           .child(TextView.markdown(`u-${item.key}`, item.text).selectable(true)));
     }
     if (item.kind === "command") {
@@ -410,7 +410,7 @@ export default class Chat extends View {
       .when(!this.error && !this.file, (el) => el.child(div().text_size(12).text_color(t.dim).child("Finding the session…")))
       .children(items.map((it) => this.bubble(t, it, cx)))
       .children(this.pending.map((p, i) => h_flex().w_full().justify_end().child(
-        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).opacity(0.6).text_color(t.foreground).child(p))));
+        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "2e").border_1().border_color(t.accent + "66").opacity(0.6).text_color(t.foreground).child(p))));
 
     const working = status === "working" ? h_flex().mx(14).mb(6).gap(8).flex_none().items_center().text_size(11.5).text_color(t.working)
       .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
