@@ -40,6 +40,25 @@ let
     hash = "sha256-2Oo5cI8Xq0MgRkDshJ9Ls56n6++975R4+fqNJpF0ZCQ=";
   };
 
+  # The status line's stdin is also the only place Claude Code states how much of
+  # the subscription's limits are used: =rate_limits.five_hour= and =.seven_day=,
+  # each a =used_percentage= and a =resets_at=. The command keeps the latest of
+  # them in =usage.json= of the config folder the session runs under
+  # (=~/.claude= for the personal account, =~/.claude-work= for the company one),
+  # written to a temporary file and moved into place so a reader never sees half
+  # of it, and the Herdr desktop toolbar (=herdr.org=) shows them beside the
+  # account. A session without the field (an API key, an old version) leaves the
+  # file as it was.
+
+  statusLine = pkgs.writeShellScript "claude-statusline" ''
+    input="$(cat)"
+    dir="''${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+    if limits="$(printf '%s' "$input" | ${lib.getExe pkgs.jq} -ce 'select(.rate_limits != null) | {rate_limits, at: (now | floor)}' 2>/dev/null)"; then
+      printf '%s\n' "$limits" > "$dir/usage.json.$$" && mv -f "$dir/usage.json.$$" "$dir/usage.json"
+    fi
+    printf '%s' "$input" | exec ${lib.getExe pkgs.nodejs} ${hud}/dist/index.js
+  '';
+
   emacs-state = pkgs.writeShellApplication {
     name = "claude-emacs-state";
     runtimeInputs = [ pkgs.jq ];
@@ -1441,7 +1460,7 @@ in
       agentPushNotifEnabled = true;
       statusLine = {
         type = "command";
-        command = "${lib.getExe pkgs.nodejs} ${hud}/dist/index.js";
+        command = "${statusLine}";
       };
     };
   };

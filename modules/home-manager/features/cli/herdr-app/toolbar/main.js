@@ -51,6 +51,20 @@ function accountLabel(text) {
   return { label: `${personal ? "Personal" : org}${plan ? " · " + plan : ""}`, personal };
 }
 
+function usageOf(json) {
+  const r = JSON.parse(json)?.rate_limits;
+  if (!r) return null;
+  const when = (v) => (v == null ? null : typeof v === "number" ? (v < 1e12 ? v * 1000 : v) : Date.parse(v) || null);
+  const pct = (v) => (v == null || Number.isNaN(Number(v)) ? null : Math.round(Number(v)));
+  return { five: pct(r.five_hour?.used_percentage), fiveAt: when(r.five_hour?.resets_at), week: pct(r.seven_day?.used_percentage), weekAt: when(r.seven_day?.resets_at) };
+}
+
+function untilText(at) {
+  if (!at) return "?";
+  const m = Math.max(0, Math.round((at - Date.now()) / 60000));
+  return m >= 1440 ? `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h` : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+}
+
 const TELEGRAM = "/Applications/Telegram.app";
 const TELEGA_UNREAD = "(if (and (fboundp 'telega-server-live-p) (telega-server-live-p)) (or (plist-get (bound-and-true-p telega--unread-chat-count) :unread_unmuted_count) 0) -1)";
 
@@ -62,6 +76,7 @@ export default class Toolbar extends View {
     this.telegram = null;
     this.model = {};
     this.account = {};
+    this.usage = {};
     if (checking()) return;
     cx.timer.every(3000, (cx) => this.pollMusic(cx));
     cx.timer.every(5000, (cx) => this.pollModel(cx));
@@ -156,6 +171,12 @@ export default class Toolbar extends View {
         const m = l.match(STATUSLINE);
         if (m) { this.model[address] = { model: m[1], effort: m[2] ?? "default" }; break; }
       }
+      const dir = this.account[address]?.dir;
+      if (dir) {
+        const on = address.includes("/") ? address.split("/")[0] : null;
+        const u = await exec("cat", [`${dir}/usage.json`], { on, timeout: 10000 }).catch(() => null);
+        try { if (u?.code === 0) this.usage[dir + "|" + (on ?? "")] = usageOf(u.stdout); } catch {}
+      }
       cx.notify();
     });
   }
@@ -180,6 +201,8 @@ export default class Toolbar extends View {
     if (claude && claude.address !== this.agent && !checking()) { this.agent = claude.address; }
     const m = this.agent && this.model[this.agent];
     const acct = this.agent && this.account[this.agent];
+    const machineOf = this.agent?.includes("/") ? this.agent.split("/")[0] : "";
+    const use = acct?.dir ? this.usage[acct.dir + "|" + machineOf] : null;
     const music = this.music;
     const sep = () => div().w(1).h(14).bg(t.border);
 
@@ -197,6 +220,13 @@ export default class Toolbar extends View {
           const wrong = acct.personal === false && wantsPersonal;
           return el.child(this.chip(t, "tb-account", `◉ ${acct.label}${wrong ? " !" : ""}`, wrong ? t.blocked : acct.personal ? t.done : t.accent, () => {},
             wrong ? `${acct.dir} should be your personal login but is signed into ${acct.label}. Run \`claude auth login\` outside the work folders and pick your personal account.` : `Account of the focused Claude, from ${acct.dir ?? "?"}`));
+        })
+        .when(Boolean(use && (use.five != null || use.week != null)), (el) => {
+          const top = Math.max(use.five ?? 0, use.week ?? 0);
+          const parts = [use.five != null ? `5h ${use.five}%` : null, use.week != null ? `wk ${use.week}%` : null].filter(Boolean);
+          return el.child(this.chip(t, "tb-usage", `◷ ${parts.join(" · ")}`, top >= 90 ? t.blocked : top >= 70 ? t.ansi3 : t.muted,
+            () => exec("/usr/bin/open", ["https://claude.ai/settings/usage"]).catch(() => {}),
+            `Limits used on this account: 5-hour window resets in ${untilText(use.fiveAt)}, weekly in ${untilText(use.weekAt)}. Click: usage page`));
         })
         .child(this.chip(t, "tb-model", `◆ ${m.model}`, t.foreground, leader(["a", "m"]), "Model of the focused Claude (⌘; a m)"))
         .child(this.chip(t, "tb-effort", `◔ ${m.effort}`, t.foreground, leader(["a", "E"]), "Effort of the focused Claude (⌘; a E)"))

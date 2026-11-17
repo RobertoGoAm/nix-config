@@ -301,13 +301,20 @@ export default class Spaces extends View {
 
   // Spaces in order, each worktree space moved under its main checkout's.
   ordered() {
-    const sp = spaces(), ps = panes();
+    const actual = spaces(), ps = panes();
+    const global = shared("requests.global");
+    const sp = [...actual].sort((a, b) => Number(b.id === global) - Number(a.id === global));
     const ready = (w) => this.shown.has(w.id) || where(w, ps) in this.git || Date.now() - (this.born[w.id] ??= Date.now()) > 1500;
     for (const w of sp) if (!this.shown.has(w.id) && ready(w)) this.shown.add(w.id);
     const list = sp.map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null }));
     const project = (r) => r.g?.repo ?? null;
     const names = Object.fromEntries(list.filter((r) => r.g?.name).map((r) => [r.w.id, r.g.name]));
     if (JSON.stringify(names) !== JSON.stringify(shared("space.projects") ?? {})) setShared("space.projects", names);
+    const repos = Object.fromEntries(list.filter((r) => r.g?.repo).map((r) => {
+      const [machine, dir] = JSON.parse(r.g.repo);
+      return [r.w.id, { name: r.g.name, machine, path: dir.replace(/\/\.git$/, "") }];
+    }));
+    if (JSON.stringify(repos) !== JSON.stringify(shared("space.repos") ?? {})) setShared("space.repos", repos);
     const size = new Map();
     for (const r of list) if (project(r)) size.set(project(r), (size.get(project(r)) ?? 0) + 1);
     const out = [];
@@ -323,7 +330,7 @@ export default class Spaces extends View {
     }
     // Simulate the batch so later indexes include earlier moves. An attempted
     // write can lose a sync conflict: allow the echo to settle before retrying.
-    const order = sp.map(w => w.id);
+    const order = actual.map(w => w.id);
     const flat = out.filter(r => !r.header);
     const target = flat.map(r => r.w.id);
     const key = JSON.stringify([order, target, machines()]);
