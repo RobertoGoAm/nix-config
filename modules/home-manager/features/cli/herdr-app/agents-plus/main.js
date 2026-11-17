@@ -252,6 +252,8 @@ export default class Agents extends View {
 
   restoreChat() {
     const f = focused();
+    const here = f?.pane && panes().find((p) => p.pane === f.pane);
+    if (here?.mod === "chat" && !here.zoomed && this.chatRegistry()[here.pane]) run("pane.zoom", { pane: here.pane });
     const term = f?.pane ? f.terminal : null;
     if (term === this.lastFocusedTerm) return;
     this.lastFocusedTerm = term;

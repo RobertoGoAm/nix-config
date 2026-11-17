@@ -278,6 +278,8 @@ in
   # Dock badge, and no notification. Herdr's own status dots still wait for the
   # terminal.
 
+  # Zoom is part of Herdr's per-screen view, which a layout reload or a restart
+  # can drop, so a chat pane that has the focus but is not zoomed is zoomed again.
   # The view is remembered per agent: an agent last left in chat opens in chat
   # again when it is focused (from its row, the picker or the attention jump),
   # and one switched back to its terminal stays there.
