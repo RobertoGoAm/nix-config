@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, spaces, panes, terminals, focused, run, exec, hc, theme, props, closeOverlay, setShared, checking } from "herdr";
+import { openOverlay, agents, spaces, panes, terminals, focused, run, exec, hc, theme, props, closeOverlay, setShared, checking } from "herdr";
 
 
 function openTelega() {
@@ -111,8 +111,8 @@ const TREE = {
     s: {
       label: "spaces",
       keys: {
-        c: { label: "new here", act: () => run("space.new", { machine: "" }) },
-        v: { label: "new on vulcan", act: () => run("space.new", { machine: "vulcan" }) },
+        c: { label: "new session…", act: () => openOverlay({ mod: "launcher", kind: "dialog", width: 680, height: 0.72, props: { machine: "" } }) },
+        v: { label: "new on vulcan…", act: () => openOverlay({ mod: "launcher", kind: "dialog", width: 680, height: 0.72, props: { machine: "vulcan" } }) },
         n: { label: "next", act: () => run("space.next") },
         e: { label: "previous", act: () => run("space.prev") },
         r: { label: "rename", act: () => run("space.rename") },

@@ -137,7 +137,7 @@ export default class Picker extends View {
     this.close();
     if (r.kind === "ctx") run("tab.select", { id: r.ctx.id });
     else if (r.kind === "new") run("tab.new");
-    else if (r.kind === "space") run("space.new", { machine: r.machine ?? "" });
+    else if (r.kind === "space") openOverlay({ mod: "launcher", kind: "dialog", width: 680, height: 0.72, props: { machine: r.machine ?? "" } });
   }
 
   glyph(t, st) {

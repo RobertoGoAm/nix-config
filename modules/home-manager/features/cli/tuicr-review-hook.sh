@@ -57,41 +57,58 @@ open_in_herdr() {
   printf '%s' "$pane"
 }
 
-# Herdr desktop: where the app runs on the agent's own machine, tuicr opens as a
-# split to the right of the agent's pane. Elsewhere (an agent on another
-# machine) a herdr-core terminal labelled with the agent's own space and tab
-# shows up as a new pane in that tab.
-# The agent's terminal is labelled with the request's URL and that pane, which
-# the agents-plus mod reads to draw the PR pill with its CI state. Focusing the
-# pane goes through the local app and quietly does nothing on another machine.
-open_in_herdr_app() {
-  local me="$HC_TERMINAL_ID" info space tab run addr argv
-  argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
-  if command -v herdr-app >/dev/null \
-    && herdr-app do pane.focus --terminal "$me" >/dev/null 2>&1 \
-    && run="$(herdr-app do terminal.open --argv "$argv" --folder "$cwd" --place right 2>/dev/null)" \
-    && addr="$(jq -er '.terminal' <<<"$run")"; then
-    hc label "$me" "review.url=$url" "review.terminal=$addr" >/dev/null || true
-    printf '%s' "$addr"
-    return 0
+# Herdr desktop: the review opens as a new tab in the agent's own space, named
+# after the request ("#123 Fix login" or "!45 Fix login") so the picker finds
+# it, and takes the focus. Where the app does not run on the agent's machine
+# (an agent on another Mac), herdr-core starts it as a new tab of that space,
+# which Herdr names on its own. The agent's terminal is labelled with the
+# request's URL and the review's terminal, which the agents-plus mod reads to
+# draw the PR pill with its CI state and to bring the review back.
+review_title() {
+  local t
+  case "$url" in
+    */pull/*)
+      t="$(gh pr view "$url" --json number,title --jq 'select(.number != null) | "#\(.number) \(.title)"' 2>/dev/null)" ;;
+    */-/merge_requests/*)
+      t="$(glab mr view "${url##*/}" -R "${url%%/-/merge_requests/*}" -F json 2>/dev/null \
+        | jq -r 'select(.iid != null) | "!\(.iid) \(.title)"' 2>/dev/null)" ;;
+  esac
+  if [[ -z "$t" ]]; then
+    case "$url" in
+      */pull/*) t="#${url##*/}" ;;
+      *) t="!${url##*/}" ;;
+    esac
   fi
+  printf '%s' "${t:0:60}"
+}
+
+open_in_herdr_app() {
+  local me="$HC_TERMINAL_ID" info space run addr argv title
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
-  tab="$(jq -er '.labels["herdr.tab"]' <<<"$info")" || return 1
-  run="$(hc run --bg --json --no-parent --no-notify --rm --cwd "$cwd" \
-    --label "herdr.space=$space" --label "herdr.tab=$tab" -- tuicr pr "$url")" || return 1
-  addr="$(jq -er '.address' <<<"$run")" || return 1
-  hc label "$me" "review.url=$url" "review.terminal=$addr" >/dev/null || true
-  command -v herdr-app >/dev/null && herdr-app do pane.focus --terminal "$addr" >/dev/null 2>&1 || true
-  printf '%s' "$addr"
+  title="$(review_title)"
+  argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
+  if command -v herdr-app >/dev/null \
+    && run="$(herdr-app do tab.new --space "$space" --name "$title" --folder "$cwd" --argv "$argv" 2>/dev/null)" \
+    && addr="$(jq -er '.terminal' <<<"$run")"; then
+    :
+  else
+    run="$(hc run --bg --json --no-parent --no-notify --rm --cwd "$cwd" \
+      --label "herdr.space=$space" --label "herdr.tab=tbreview$(date +%s)$RANDOM" -- tuicr pr "$url")" || return 1
+    addr="$(jq -er '.address' <<<"$run")" || return 1
+  fi
+  hc label "$me" "review.url=$url" "review.terminal=$addr" "review.title=$title" >/dev/null || true
+  printf '%s\t%s' "$addr" "$title"
 }
 
 case "$host" in
   herdr-app)
-    if term="$(open_in_herdr_app 2>&1)"; then
-      context "tuicr is now open on $url in Herdr terminal $term, a pane beside this one in the same tab, focused for the user to review; do not open another. The agents list shows this request's CI state beside your row. $read_back To bring the review back to the front later run \`herdr-app do pane.focus --terminal $term\`; if it was closed, \`herdr-app do terminal.open --argv '[\"tuicr\",\"pr\",\"$url\"]' --folder $cwd --place right\`. Close it with \`hc kill $term\` once it is no longer needed."
+    if opened="$(open_in_herdr_app 2>&1)"; then
+      term="${opened%%$'\t'*}"
+      title="${opened#*$'\t'}"
+      context "tuicr is now open on $url in a new Herdr tab named \"$title\" (terminal $term), focused for the user to review; do not open another. The agents list shows this request's CI state beside your row, and the user can reach the review with Cmd+P by that title or Cmd+Shift+R from your row. $read_back To bring it back to the front later run \`herdr-app do pane.focus --terminal $term\`. Close it with \`hc kill $term\` once it is no longer needed."
     else
-      context "Opening tuicr on $url in a Herdr pane failed: $term. Tell the user they can run \`tuicr pr $url\` themselves."
+      context "Opening tuicr on $url in a Herdr tab failed: $opened. Tell the user they can run \`tuicr pr $url\` themselves."
     fi
     ;;
   herdr)

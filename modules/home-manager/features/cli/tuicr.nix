@@ -54,12 +54,14 @@ let
   # agent's pane is split and tuicr runs in the new half; tuicr's own Herdr
   # wrapper waits for the review to end, which would hold the agent up, so the
   # hook splits and runs without waiting. Inside Herdr desktop (=HC_TERMINAL_ID=
-  # set, checked next) the review opens as a split to the right of the agent's
-  # pane and takes the keyboard, through the app's own =terminal.open=. For an
-  # agent on another machine than the window it starts instead as a herdr-core
-  # terminal carrying the agent's own =herdr.space= and =herdr.tab= labels, which
-  # makes it a pane of the agent's tab there. The agent's
-  # terminal gets =review.url= and =review.terminal= labels, which the agents-plus
+  # set, checked next) the review opens as a new tab in the agent's own space,
+  # named after the request (=#123 Fix login=, or =!45 Fix login= for a GitLab
+  # merge request, from =gh= or =glab=) so the picker finds it, and takes the
+  # focus, through the app's own =tab.new=. For an agent on another machine than
+  # the window it starts instead as a herdr-core terminal labelled with the
+  # agent's space and a new tab id, which makes it a new tab there that Herdr
+  # names on its own. The agent's
+  # terminal gets =review.url=, =review.terminal= and =review.title= labels, which the agents-plus
   # mod in =herdr.org= reads to show the request and its CI beside the agent's row.
   # Inside Orca it opens a tab through the Orca wrapper. Anything else, and every
   # call outside all three, passes untouched.

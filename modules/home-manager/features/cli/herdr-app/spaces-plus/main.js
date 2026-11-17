@@ -5,7 +5,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, agents, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -31,6 +31,8 @@ const RAIL_CELL = 32;
 // stays readable instead of turning into an ellipsis next to a long branch.
 const SIDE_MIN = 48;
 const NAME_MAX = 170;
+const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
+const cleanTitle = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").replace(/^\[ [!.] \] /, "").trim();
 const railCell = (el) => h_flex().flex_none().justify_center().child(el);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
@@ -88,6 +90,7 @@ export default class Spaces extends View {
       for (const state of Object.values(this.reconnecting)) state.busy = false;
     } catch { this.reconnecting = {}; }
     try { this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]")); } catch { this.folded = new Set(); }
+    try { this.foldedProjects = new Set(JSON.parse(localStorage.getItem("projects.folded") ?? "[]")); } catch { this.foldedProjects = new Set(); }
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
     // Refresh only when the refs could have changed (see `due`).
@@ -302,44 +305,49 @@ export default class Spaces extends View {
     const ready = (w) => this.shown.has(w.id) || where(w, ps) in this.git || Date.now() - (this.born[w.id] ??= Date.now()) > 1500;
     for (const w of sp) if (!this.shown.has(w.id) && ready(w)) this.shown.add(w.id);
     const list = sp.map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null }));
-    const mains = new Set(list.filter((r) => r.g && !r.g.linked).map((r) => r.g.repo));
-    const nested = (r) => r.g?.linked && mains.has(r.g.repo);
+    const project = (r) => r.g?.repo ?? null;
+    const size = new Map();
+    for (const r of list) if (project(r)) size.set(project(r), (size.get(project(r)) ?? 0) + 1);
     const out = [];
-    const placed = new Set(); // repos whose worktrees are listed (under the first of its spaces)
+    const placed = new Set();
     for (const r of list) {
-      if (nested(r)) continue;
-      out.push({ ...r, tree: null });
-      if (!r.g || r.g.linked || placed.has(r.g.repo)) continue;
-      placed.add(r.g.repo);
-      const kids = list.filter((k) => nested(k) && k.g.repo === r.g.repo);
-      kids.forEach((k, n) => out.push({ ...k, tree: n === kids.length - 1 ? "└─" : "├─" }));
+      const k = project(r);
+      if (!k || size.get(k) < 2) { out.push({ ...r, tree: null }); continue; }
+      if (placed.has(k)) continue;
+      placed.add(k);
+      const members = list.filter((x) => project(x) === k).sort((a, b) => Number(a.g.linked) - Number(b.g.linked));
+      out.push({ header: true, project: k, name: members[0].g.name, members, w: members[0].w, i: members[0].i, g: members[0].g });
+      members.forEach((m, n) => out.push({ ...m, project: k, tree: n === members.length - 1 ? "└─" : "├─" }));
     }
     // Simulate the batch so later indexes include earlier moves. An attempted
     // write can lose a sync conflict: allow the echo to settle before retrying.
     const order = sp.map(w => w.id);
-    const target = out.map(r => r.w.id);
+    const flat = out.filter(r => !r.header);
+    const target = flat.map(r => r.w.id);
     const key = JSON.stringify([order, target, machines()]);
     if (order.every((id, i) => id === target[i])) {
       this.ordering = null;
     } else if (this.ordering?.key !== key || this.orderingDue(Date.now())) {
       const moved = new Set();
       this.ordering = { key, at: Date.now(), machines: [] };
-      for (let i = 0; i < out.length; i++) {
-        const from = order.indexOf(out[i].w.id);
+      for (let i = 0; i < flat.length; i++) {
+        const from = order.indexOf(flat[i].w.id);
         if (from === i) continue;
-        run("space.move", { id: out[i].w.id, index: i + 1 });
-        moved.add(out[i].w.machine ?? null);
+        run("space.move", { id: flat[i].w.id, index: i + 1 });
+        moved.add(flat[i].w.machine ?? null);
         order.splice(i, 0, order.splice(from, 1)[0]);
       }
       this.ordering.machines = [...moved];
     }
-    return out.filter(r => this.shown.has(r.w.id));
+    return out
+      .filter(r => (r.header ? r.members.some(m => this.shown.has(m.w.id)) : this.shown.has(r.w.id)))
+      .filter(r => r.header || !r.project || !this.foldedProjects.has(r.project));
   }
 
   // The rows, under a header per machine once one isn't this computer.
   grouped(t, collapsed) {
-    const rows = this.ordered();
-    const draw = (r) => (collapsed ? this.compact(r, t) : this.row(r, t));
+    const rows = collapsed ? this.ordered().filter(r => !r.header) : this.ordered();
+    const draw = (r) => (collapsed ? this.compact(r, t) : r.header ? this.projectRow(r, t) : this.row(r, t));
     // Where the active space's row lands among the children this returns: the list scrolls by its direct
     // children, and machine headers, login notes and loading rows count too.
     this.activeAt = -1;
@@ -391,12 +399,12 @@ export default class Spaces extends View {
               .on_click((_e, cx) => { cx.stop_propagation(); this.reconnect(machine, cx); })
               .child(repair?.busy ? "Connecting…" : "Connect"))))
           .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
-            .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); }).child("+")))
+            .on_click((_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "launcher", kind: "dialog", width: 680, height: 0.72, props: { machine: m ?? "" } }); }).child("+")))
           .child(div().size(6).rounded(3).flex_none().bg(connected ? t.ansi2 : t.dim))
           .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none()));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(collapsed ? 0 : 8).gap(7).items_center().rounded(7)
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
-        .on_click(() => run("space.new", { machine: m ?? "" }))
+        .on_click(() => openOverlay({ mod: "launcher", kind: "dialog", width: 680, height: 0.72, props: { machine: m ?? "" } }))
         .when(collapsed, el => el.w(RAIL_CELL).rounded(6).justify_center().tooltip(`New space on ${m ?? "this computer"}`)
           .child(h_flex().size(18).rounded(5).border_1().border_color(t.dim).items_center().justify_center()
             .child(svg("mods/workspace-chrome/plus.svg").size(10))))
@@ -442,7 +450,49 @@ export default class Spaces extends View {
       .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.ansi1).child(`\u2193${g.behind}`)));
   }
 
-  row({ w, i, g, tree }, t) {
+  // A project with more than one space: its name, how many, the most urgent
+  // state among them, and a fold. Clicking folds; the spaces under it go there.
+  projectRow(r, t) {
+    const colors = shared("space.colors") ?? {};
+    const color = colors[r.w.id] ?? "ansi6";
+    const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
+    const folded = this.foldedProjects.has(r.project);
+    const top = r.members.map(m => m.w.status).reduce((a, b) => ((RANK[b] ?? 0) > (RANK[a] ?? 0) ? b : a), null);
+    const active = r.members.some(m => m.w.active);
+    return h_flex()
+      .id(`project-${r.project}`)
+      .px(8)
+      .h(30)
+      .flex_none()
+      .gap(9)
+      .items_center()
+      .rounded(8)
+      .cursor_pointer()
+      .when(active && folded, el => el.bg(t.selected))
+      .hover(s => s.bg(t.hover))
+      .on_click((_e, cx) => {
+        folded ? this.foldedProjects.delete(r.project) : this.foldedProjects.add(r.project);
+        localStorage.setItem("projects.folded", JSON.stringify([...this.foldedProjects]));
+        cx.notify();
+      })
+      .child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...r.name][0]?.toUpperCase() ?? "?"))
+      .child(div().flex_none().max_w(NAME_MAX).truncate().text_color(t.foreground).child(r.name))
+      .child(div().flex_none().text_size(11).text_color(t.dim).child(String(r.members.length)))
+      .child(div().flex_1())
+      .when(Boolean(top) && top !== "idle", el => el.child(div().size(7).flex_none().rounded(4).bg(t[top] ?? t.dim)))
+      .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none().text_color(t.dim));
+  }
+
+  // Under a project, a space reads as its session: a name someone gave it, else
+  // its agent's title, else its branch.
+  label(w, g, underProject) {
+    if (!underProject || w.named) return w.name;
+    const a = agents().find(x => x.space === w.id && cleanTitle(x.title) && cleanTitle(x.title) !== x.program?.name);
+    return (a && cleanTitle(a.title)) || g?.branch || w.name;
+  }
+
+  row({ w, i, g, tree, project }, t) {
+    const name = this.label(w, g, Boolean(project));
     const on = w.active;
     const fromIndex = this.pressed === null ? -1 : spaces().findIndex(s => s.id === this.pressed);
     const colors = shared("space.colors") ?? {};
@@ -494,8 +544,8 @@ export default class Spaces extends View {
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).flex_none().text_color(t.dim)))
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
-          .child(div().flex_none().max_w(NAME_MAX).truncate().text_color(t.foreground).child(w.name))
-          .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()),
+          .child(div().flex_none().max_w(NAME_MAX).truncate().text_color(t.foreground).child(name))
+          .child(g ? this.gitTail(g, tree, name, t) : div().flex_1()),
       );
   }
 
@@ -543,7 +593,7 @@ export default class Spaces extends View {
         .when(collapsed, el => el.pl(0).pr(0).justify_center())
         .when(!collapsed, el => el.child("Spaces"))
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
-          .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
+          .on_click(() => run("mod.open", { name: "launcher" })).child(svg("mods/workspace-chrome/plus.svg").size(14))))
       .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always").track_scroll(this.scroll)
         // A block above (another mod's) growing, or the window resizing, shrinks this list and can push the active space out.
         .on_size_change((_size, cx) => { if (this.activeAt >= 0) { this.scroll.scroll_to_item(this.activeAt); cx.notify(); } })

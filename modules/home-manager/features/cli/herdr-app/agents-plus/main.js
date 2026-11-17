@@ -166,7 +166,7 @@ export default class Agents extends View {
       const review = t.labels?.["review.terminal"];
       if (t.state !== "live" || (!url && !review)) continue;
       const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
-      out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null });
+      out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null, title: t.labels?.["review.title"] ?? null, space: t.labels?.["herdr.space"] ? machine + t.labels["herdr.space"] : null });
     }
     return out;
   }
@@ -213,7 +213,13 @@ export default class Agents extends View {
     if (!r) return;
     const live = r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
     if (live) run("pane.focus", { terminal: r.terminal });
-    else run("terminal.open", { argv: r.url ? ["tuicr", "pr", r.url] : ["tuicr", "-w"], folder: r.cwd ?? undefined, place: "right" });
+    else this.openReview(r);
+  }
+
+  openReview(r) {
+    const n = r.url?.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
+    const name = r.title || (n ? `${r.url.includes("/pull/") ? "#" : "!"}${n}` : "review");
+    run("tab.new", { name, space: r.space ?? undefined, folder: r.cwd ?? undefined, argv: r.url ? ["tuicr", "pr", r.url] : ["tuicr", "-w"] });
   }
 
   notifyChanges(list) {
@@ -241,7 +247,7 @@ export default class Agents extends View {
     const r = this.reviewOf.get(a.address);
     const n = r?.url.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
     const c = r && this.ci[r.url];
-    return [a.space_name, a.tab_name, clean(a.title), a.program?.name, a.address, r?.url, n && `#${n} !${n} pr${n} mr${n}`, c && `ci:${c.ci} ${c.state}`]
+    return [a.space_name, a.tab_name, clean(a.title), a.program?.name, a.address, r?.url, r?.title, n && `#${n} !${n} pr${n} mr${n}`, c && `ci:${c.ci} ${c.state}`]
       .filter(Boolean).join(" ").toLowerCase();
   }
 
@@ -285,7 +291,7 @@ export default class Agents extends View {
         run("pane.focus", { pane: a.pane });
         const live = r.terminal && terminals().some((x) => x.address === r.terminal && x.state === "live");
         if (live) run("pane.focus", { terminal: r.terminal });
-        else run("terminal.open", { argv: ["tuicr", "pr", r.url], folder: r.cwd ?? undefined, place: "right" });
+        else this.openReview(r);
       })
       .when(state === "running", (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
       .child(text);

@@ -204,16 +204,49 @@ in
     recursive = true;
   };
 
-  # Space rows that keep the name and give up the branch
+  # Spaces grouped by project, with the name kept and the branch given up
 
-  # Herdr's =spaces= list puts the space's name and its git tail (repo, branch,
-  # ahead and behind) on one row, and when the row is too narrow both shrink in
-  # proportion, so a long branch takes the name down with it. =spaces-plus= is a
-  # copy where the name keeps its width, up to 170 points, and the branch is what
-  # truncates, down to nothing if it must.
+  # =spaces-plus= is a copy of Herdr's =spaces= list with three changes:
+
+  # - Spaces of the same git repository nest under one project row: its name, how
+  #   many spaces it has, the most urgent agent state among them, and a fold.
+  #   Herdr only nested worktrees under their main checkout; this takes in every
+  #   space of the repo, a second session in the same checkout included. Under a
+  #   project each space reads as its session: the name someone gave it, else its
+  #   agent's title, else its branch.
+  # - Herdr puts a space's name and its git tail (repo, branch, ahead and behind)
+  #   on one row and shrinks both in proportion when it is too narrow, so a long
+  #   branch takes the name down with it. Here the name keeps its width, up to 170
+  #   points, and the branch is what truncates.
+  # - Its =+= buttons open the launcher below instead of an empty space.
 
   home.file.".config/herdr-app/mods/spaces-plus" = {
     source = ./herdr-app/spaces-plus;
+    recursive = true;
+  };
+
+  # A launcher for new sessions
+
+  # =launcher= is a dialog for starting work: pick the machine, the agent
+  # (Claude, Codex or a plain shell), its model and effort, and whether it opens
+  # as a new space or a tab of this one, then a project. Projects are the ones
+  # opened from it before, then zoxide's list on that machine, filtered as you
+  # type; a typed path opens that folder, and Browse… (this Mac only) opens the
+  # system folder picker. The choices are remembered for next time, and so are
+  # the projects, per machine.
+
+  # Claude's models are its aliases (default, Opus, Sonnet, Haiku) and Fable by
+  # id, with =--effort= from low to max; Codex's are the default and the
+  # =gpt-6-astra= its config names, with =model_reasoning_effort= from low to
+  # ultra. The agent starts through the login shell as any Herdr agent does, so
+  # =claude= still picks the account by folder.
+
+  # The sidebar's =+= buttons, the picker's new-space rows, the leader's =s c= and
+  # =s v=, and =cmd-n= all open it. Tab cycles the agent, =ctrl-m= the model,
+  # =ctrl-e= the effort, =ctrl-o= browses.
+
+  home.file.".config/herdr-app/mods/launcher" = {
+    source = ./herdr-app/launcher;
     recursive = true;
   };
 
@@ -288,6 +321,7 @@ in
   # | =cmd-p=, =cmd-k= | fuzzy-find an agent by its session title, a tab or a space |
   # | =cmd-shift-j= | cycle the agents list's filter                        |
   # | =cmd-;=       | leader: which-key panel, jump, model and effort, music |
+  # | =cmd-n=       | launcher: new session with machine, agent, model, effort |
   # | =cmd-shift-r= | the focused agent's review in tuicr, and back again   |
   # | =cmd-shift-f= | search the agents list (within the current filter)    |
 
@@ -308,6 +342,7 @@ in
             "cmd-shift-j" = "agents-plus.filter";
             "cmd-shift-r" = "agents-plus.review";
             "cmd-;" = "mod.open:leader";
+            "cmd-n" = "mod.open:launcher";
             "cmd-shift-f" = "agents-plus.search";
           };
         }
