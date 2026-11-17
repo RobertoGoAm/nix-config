@@ -240,7 +240,8 @@ export default class Agents extends View {
 
   showChat(pane) {
     run("pane.focus", { pane });
-    if (!panes().find((p) => p.pane === pane)?.zoomed) run("pane.zoom", { pane });
+    if (panes().find((p) => p.pane === pane)?.zoomed) run("pane.zoom", { pane });
+    run("pane.zoom", { pane });
   }
 
   prefer(address, view) {

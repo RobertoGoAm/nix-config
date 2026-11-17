@@ -261,9 +261,10 @@ in
   # with =+added −removed= counts, then the changed lines in the terminal's font,
   # highlighted for the file's language, each added line with a green =+=, edge and
   # tint, each removed one the same in red, the first 24 inline and the rest a
-  # click away. While Claude is working the list ends
-  # in a working line and a Stop button beside Send presses Esc; the list keeps to
-  # its bottom as messages come in; a message sent while it works stays at the end
+  # click away. While Claude is working a line above
+  # the box says so, and a Stop button beside Send presses Esc; the list keeps to
+  # its bottom as messages come in and when that line appears, so it never covers
+  # the last message; a message sent while it works stays at the end
   # marked Queued until the transcript shows Claude took it (it reads queued
   # messages at its next step), and when Claude's screen offers a key to send it
   # now, a Send now button presses that key; when it needs you, the last lines of its screen (the
@@ -332,9 +333,10 @@ in
   # every switch: the same tree with =agents-plus= in place of =agents=,
   # =spaces-plus= in place of =spaces=, =pane-plus= in place of
   # the =pane= header and =toolbar= in place of =workspace-status=, and quieter
-  # pane frames: a tab's only pane has none, and in a split tab the focused pane's
-  # outline is the theme's dim colour, one step from the plain border, instead of
-  # the accent. Deriving
+  # pane frames: no border on panes without the focus, and on the focused one
+  # only an outline in the theme's dim colour, so a tab's only pane has none and a
+  # split shows which pane is active. A chat is a second pane over its terminal,
+  # and Herdr frames that like a split: it gets the dim outline too. Deriving
   # it each time keeps it in step with Herdr's updates to =main=; edits made to
   # =herdr-plus= from inside the app last until the next switch. Herdr picks the
   # file up live. The keys that drive =agents-plus= reach it only while a layout
@@ -347,7 +349,7 @@ in
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .focus = { width: 1, color: "dim" } else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then

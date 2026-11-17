@@ -573,19 +573,20 @@ export default class Chat extends View {
           .tooltip(`Interrupts Claude's current step to read it now (${this.sendNowKey})`)
           .on_click((_e, cx) => { this.keys(this.sendNowKey); cx.notify(); })
           .child("Send now"))))));
-    if (status === "working") rows.push(h_flex().gap(8).items_center().text_size(11.5).text_color(t.working)
-      .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
-      .child(div().child("Claude is working…")));
     if (this.stick && rows.length) {
       this.scroll.scroll_to_item(rows.length - 1);
       this.stick = false;
     }
-    if (status !== this.lastStatus) { this.lastStatus = status; this.scroll.scroll_to_item(rows.length - 1); }
+    if (status !== this.lastStatus) { this.lastStatus = status; if (rows.length) this.scroll.scroll_to_item(rows.length - 1); }
+    const working = status === "working" ? h_flex().mx(18).mb(4).gap(8).flex_none().items_center().text_size(11.5).text_color(t.working)
+      .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
+      .child(div().child("Claude is working…")) : null;
 
     const list = v_flex().id("chat-list").flex_1().min_h(0).px(18).py(12).gap(12).overflow_y_scroll().track_scroll(this.scroll).children(rows);
 
     return v_flex().id("chat").size_full().bg(t.background).text_size(13)
       .child(list)
+      .when(Boolean(working), (el) => el.child(working))
       .when(Boolean(needs), (el) => el.child(needs))
       .child(h_flex().px(14).pb(12).pt(4).gap(8).flex_none().items_end()
         .child(div().flex_1().min_w(0).rounded(10).border_1().border_color(t.border).bg(t.input ?? t.raised).px(10).py(6)
