@@ -2,7 +2,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, hc, checking, nextCommand, setBadge } from "herdr";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, hc, checking, nextCommand, setBadge, home } from "herdr";
 
 const SELF = "agents-plus";
 const APP = "/opt/homebrew/bin/herdr-app";
@@ -13,6 +13,7 @@ const FILTERS = [
   { id: "review", label: "Review" },
 ];
 const RECENT_MS = 60 * 60000;
+const EDITORS = new Set(["nvim", "vim", "hx", "emacs"]);
 const BRANCH_MS = 5 * 60000;
 const BRANCH_PR = `cd "$1" 2>/dev/null || exit 3
 b=$(git branch --show-current 2>/dev/null); [ -n "$b" ] || exit 3
@@ -242,6 +243,21 @@ export default class Agents extends View {
     run("pane.focus", { pane });
     if (panes().find((p) => p.pane === pane)?.zoomed) run("pane.zoom", { pane });
     run("pane.zoom", { pane });
+  }
+
+  nameEditorTabs() {
+    this.named ??= new Set();
+    const tabs = new Map(spaces().flatMap((s) => s.tabs).map((tab) => [tab.id, tab]));
+    for (const p of panes()) {
+      if (!p.terminal || !EDITORS.has(p.program?.key) || !p.cwd || this.named.has(p.tab)) continue;
+      if (!p.tab.includes("/") && p.cwd.replace(/\/+$/, "") === home()) continue;
+      const tab = tabs.get(p.tab);
+      if (!tab || tab.named) continue;
+      const project = p.cwd.replace(/\/+$/, "").split("/").pop();
+      if (!project) continue;
+      this.named.add(p.tab);
+      run("tab.rename", { id: p.tab, name: project });
+    }
   }
 
   prefer(address, view) {
@@ -617,6 +633,7 @@ export default class Agents extends View {
     const sort = sortOf();
     let list = agents();
     this.notifyChanges(list);
+    if (!checking()) this.nameEditorTabs();
     if (this.pendingChat && !checking()) this.claimChat();
     else if (!checking()) this.restoreChat();
     this.listed = new Map(list.map((a) => [a.address, a.status]));

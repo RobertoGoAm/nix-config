@@ -554,6 +554,10 @@ export default class Chat extends View {
 
   render(cx) {
     const t = theme();
+    const mine = Object.entries(shared("chat.panes") ?? {}).find(([, x]) => x === this.address)?.[0];
+    const focusedNow = Boolean(mine && panes().find((p) => p.pane === mine)?.focused);
+    if (focusedNow && !this.hadFocus && !checking()) cx.timer.after(30, () => this.input.focus());
+    this.hadFocus = focusedNow;
     const agent = agents().find((a) => a.address === this.address);
     const status = agent?.status ?? "idle";
     const title = (agent?.title ?? "").replace(/^[^\p{L}\p{N}]+/u, "") || "Claude";

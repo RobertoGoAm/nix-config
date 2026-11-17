@@ -143,6 +143,10 @@ this module in =herdr-app/agents-plus=:
   typed; a word also matches its letters in order, so =fxlg= finds "fix
   login". Enter focuses the first agent left, Escape clears it.
 - The Dock badge counts the agents waiting on you.
+- A tab nobody named whose terminal runs an editor (Neovim, Vim, Helix or
+  Emacs) is named after the project it is open in, the folder's name, so
+  =nvim .= in a checkout reads as that project in the tab bar and the picker.
+  The home folder is left alone, and so is a tab once named.
 - A macOS notification when an agent starts needing you, or finishes while
   you aren't looking at it. Herdr itself only draws a note inside its window
   and plays a sound, which a hidden window or another space never shows. The
@@ -320,7 +324,8 @@ treats a finished agent seen in its chat as read: out of Needs you, off the
 Dock badge, and no notification. Herdr's own status dots still wait for the
 terminal.
 
-Zoom is part of Herdr's per-screen view, which a layout reload or a restart
+A chat whose pane takes the focus, from switching to its tab or any other way,
+puts the cursor in its message box. Zoom is part of Herdr's per-screen view, which a layout reload or a restart
 can drop, so a chat pane that has the focus but is not zoomed is zoomed again.
 The view is remembered per agent: an agent last left in chat opens in chat
 again when it is focused (from its row, the picker or the attention jump),
