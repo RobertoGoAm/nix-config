@@ -1,6 +1,6 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle } from "gpui-base";
-import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking } from "herdr";
+import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome } from "herdr";
 
 const FIND = `t="$1"
 pid=$(hc get "$t" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
@@ -21,6 +21,21 @@ const READ = `size=$(wc -c < "$1" 2>/dev/null | tr -d ' ') || exit 3
 echo "$size"
 [ "$size" -gt "$2" ] && tail -c +$(($2 + 1)) "$1"
 exit 0`;
+
+const IMAGE = `out="$1"; file="$2"; uuid="$3"; idx="$4"; on="$5"
+mkdir -p "$(dirname "$out")"
+if [ ! -s "$out" ]; then
+  if [ -n "$on" ]; then
+    hc exec --on "$on" -- sh -c 'grep -F "\"uuid\":\"$2\"" "$1" | head -1 | jq -r ".message.content[$3].source.data // empty"' x "$file" "$uuid" "$idx"
+  else
+    grep -F "\"uuid\":\"$uuid\"" "$file" | head -1 | jq -r ".message.content[$idx].source.data // empty"
+  fi | base64 -d > "$out" 2>/dev/null
+  [ -s "$out" ] || { rm -f "$out"; exit 3; }
+fi
+sips -g pixelWidth -g pixelHeight "$out" 2>/dev/null | awk '/pixelWidth/{w=$2}/pixelHeight/{h=$2}END{print w, h}'`;
+const THUMB_W = 260;
+const THUMB_H = 320;
+const IMAGE_REF = /\[Image(?: #\d+)?(?:: source: [^\]]*)?\]/g;
 
 const FIRST_BYTES = 1500000;
 const KEEP = 400;
@@ -100,6 +115,7 @@ export default class Chat extends View {
     this.error = null;
     this.screen = null;
     this.showAll = false;
+    this.images = {};
     this.scroll = ScrollHandle.new();
     this.input = TextareaState.new({ placeholder: "Message Claude… (Enter sends, Shift+Enter new line)" });
     this.input.set_auto_grow(1, 8);
@@ -225,7 +241,11 @@ export default class Chat extends View {
         const t = this.tools.get(c.tool_use_id);
         if (t) { t.result = resultText(c.content); t.error = Boolean(c.is_error); }
       } else if (c.type === "text") this.userText(c.text, e);
-      else if (c.type === "image") this.items.push({ kind: "user", text: "[image]", key: `${e.uuid}-img-${this.items.length}` });
+      else if (c.type === "image") {
+        const idx = content.indexOf(c);
+        const ext = (c.source?.media_type ?? "image/png").split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+        this.items.push({ kind: "image", uuid: e.uuid, idx, ext, key: `${e.uuid}-img-${idx}` });
+      }
     }
   }
 
@@ -234,10 +254,42 @@ export default class Chat extends View {
     const cmd = commandLine(text);
     if (cmd) return this.items.push({ kind: "command", text: cmd, key: `${e.uuid}-cmd` });
     if (SYSTEM_TAG.test(text.trim())) return;
-    const clean = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+    const clean = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").replace(IMAGE_REF, "").trim();
     if (!clean) return;
     this.pending = this.pending.filter((p) => p.trim() !== clean.trim());
     this.items.push({ kind: "user", text: clean, key: `${e.uuid}-${this.items.length}` });
+  }
+
+  loadImage(item, cx) {
+    if (this.images[item.key] || !this.file) return;
+    const rel = `data/chat-images/${item.uuid}-${item.idx}.${item.ext}`;
+    this.images[item.key] = { state: "loading", rel, abs: `${appHome()}/${rel}` };
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("sh", ["-c", IMAGE, "image", this.images[item.key].abs, this.file, item.uuid, String(item.idx), this.on ?? ""], { timeout: 30000 });
+        const [w, h] = r.stdout.trim().split(/\s+/).map(Number);
+        this.images[item.key] = r.code === 0 && w && h ? { ...this.images[item.key], state: "ready", w, h } : { ...this.images[item.key], state: "failed" };
+      } catch {
+        this.images[item.key].state = "failed";
+      }
+      cx.notify();
+    });
+  }
+
+  thumb(t, item, cx) {
+    const im = this.images[item.key];
+    if (!im) this.loadImage(item, cx);
+    if (!im || im.state !== "ready") {
+      return div().w(THUMB_W).h(80).rounded(10).border_1().border_color(t.border).flex().items_center().justify_center().text_size(11.5).text_color(t.dim)
+        .child(im?.state === "failed" ? "image unavailable" : "loading image…");
+    }
+    let w = THUMB_W, h = Math.round((THUMB_W * im.h) / im.w);
+    if (h > THUMB_H) { w = Math.round((THUMB_H * im.w) / im.h); h = THUMB_H; }
+    return div().id(`img-${item.key}`).rounded(10).overflow_hidden().border_1().border_color(t.border).cursor_pointer()
+      .hover((s) => s.opacity(0.85))
+      .tooltip("Open full size")
+      .on_click(() => exec("open", [im.abs]).catch(() => {}))
+      .child(image(im.rel).w(w).h(h));
   }
 
   send() {
@@ -268,7 +320,8 @@ export default class Chat extends View {
     return this.showAll ? this.items : this.items.slice(-SHOWN);
   }
 
-  bubble(t, item) {
+  bubble(t, item, cx) {
+    if (item.kind === "image") return h_flex().w_full().justify_end().child(this.thumb(t, item, cx));
     if (item.kind === "user") {
       return h_flex().w_full().justify_end().child(
         div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).text_color(t.foreground)
@@ -278,7 +331,9 @@ export default class Chat extends View {
       return h_flex().w_full().justify_end().child(div().px(8).py(3).rounded(6).border_1().border_color(t.border).text_size(11.5).text_color(t.muted).child(item.text));
     }
     if (item.kind === "assistant") {
-      return div().w_full().text_color(t.foreground).child(TextView.markdown(`a-${item.key}`, item.text).selectable(true));
+      return h_flex().w_full().justify_start().child(
+        div().max_w_full().mr(48).px(14).py(10).rounded(12).bg(t.raised).text_color(t.foreground)
+          .child(TextView.markdown(`a-${item.key}`, item.text).selectable(true)));
     }
     const open = this.open.has(item.key);
     const color = item.error ? t.blocked : item.result == null ? t.working : t.dim;
@@ -337,13 +392,6 @@ export default class Chat extends View {
       .border_1().border_color(t.border).text_color(color ?? t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_click((_e, cx) => { f(); cx.notify(); }).child(label);
 
-    const header = h_flex().h(36).px(14).gap(10).flex_none().items_center().border_b(1).border_color(t.border).bg(t.chrome)
-      .child(div().flex_1().min_w(0).truncate().text_size(12.5).font_medium().text_color(t.foreground).child(title))
-      .when(status === "working", (el) => el.child(h_flex().gap(5).items_center().text_size(11.5).text_color(t.working)
-        .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900)).child("working")))
-      .when(status === "working", (el) => el.child(btn("chat-stop", "Stop (Esc)", () => this.keys("esc"), t.blocked)))
-      .child(btn("chat-terminal", "Terminal", () => this.back()));
-
     const needs = status === "blocked" ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
       .child(div().text_size(12).font_semibold().text_color(t.blocked).child("Claude needs you"))
       .when(Boolean(this.screen), (el) => el.child(TextView.markdown("needs-screen", "```\n" + this.screen + "\n```").selectable(true)))
@@ -360,13 +408,18 @@ export default class Chat extends View {
         .on_click((_e, cx) => { this.showAll = true; cx.notify(); }).child(`${hidden} earlier messages`)))
       .when(Boolean(this.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(this.error)))
       .when(!this.error && !this.file, (el) => el.child(div().text_size(12).text_color(t.dim).child("Finding the session…")))
-      .children(items.map((it) => this.bubble(t, it)))
+      .children(items.map((it) => this.bubble(t, it, cx)))
       .children(this.pending.map((p, i) => h_flex().w_full().justify_end().child(
         div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).opacity(0.6).text_color(t.foreground).child(p))));
 
+    const working = status === "working" ? h_flex().mx(14).mb(6).gap(8).flex_none().items_center().text_size(11.5).text_color(t.working)
+      .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
+      .child(div().flex_1().child("Claude is working…"))
+      .child(btn("chat-stop", "Stop (Esc)", () => this.keys("esc"), t.blocked)) : null;
+
     return v_flex().id("chat").size_full().bg(t.background).text_size(13)
-      .child(header)
       .child(list)
+      .when(Boolean(working), (el) => el.child(working))
       .when(Boolean(needs), (el) => el.child(needs))
       .child(h_flex().px(14).pb(12).pt(4).gap(8).flex_none().items_end()
         .child(div().flex_1().min_w(0).rounded(10).border_1().border_color(t.border).bg(t.input ?? t.raised).px(10).py(6)

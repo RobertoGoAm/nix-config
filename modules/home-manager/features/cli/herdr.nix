@@ -246,23 +246,34 @@ in
   # names the session, and =projects/*/<id>.jsonl= holds it -- on whichever machine
   # the agent runs, and types what is sent into the terminal with =hc send=.
 
-  # Your messages and Claude's replies are rendered Markdown; each tool call is one
+  # Your messages sit on the right and Claude's on the left, each in its own
+  # bubble, as rendered Markdown. Images you pasted show as thumbnails that open
+  # full size in Preview: they live in the transcript as base64, so each is
+  # decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
+  # an agent on another machine), since Herdr only draws images from there. each tool call is one
   # line, with a spinner until its result comes back, that opens to show its input
   # and output; slash commands show as chips. File edits (=Edit=, =MultiEdit=,
   # =Write=, =NotebookEdit=) show as a diff instead: the line with =+added −removed=
   # counts, then the changed lines in the terminal's font, green and red against
-  # their context, the first 24 inline and the rest a click away. While Claude is working a Stop
-  # button presses Esc; when it needs you, the last lines of its screen (the
+  # their context, the first 24 inline and the rest a click away. While Claude is working a line above
+  # the box says so, with a Stop button that presses Esc; when it needs you, the last lines of its screen (the
   # permission prompt or question) show with buttons for 1, 2, 3, Enter and Esc,
   # and Answer in terminal goes back. Only the last 160 messages are drawn, with
   # the earlier ones a click away.
 
-  # =⌘⇧C=, the leader's =a c= or the chat button on a Claude agent's row opens it,
-  # and the same again, or the Terminal button, goes back. Model and effort stay
+  # =⌘⇧C=, the leader's =a c=, the chat button on a Claude agent's row, or the
+  # Chat | Terminal switch in the pane's header opens it, and the same again goes
+  # back. That header is =pane-plus=, a copy of Herdr's =pane= header with the
+  # switch on every Claude pane and the chat pane named after its agent. Model and effort stay
   # in the bottom bar.
 
   home.file.".config/herdr-app/mods/chat" = {
     source = ./herdr-app/chat;
+    recursive = true;
+  };
+
+  home.file.".config/herdr-app/mods/pane-plus" = {
+    source = ./herdr-app/pane-plus;
     recursive = true;
   };
 
@@ -296,8 +307,8 @@ in
   # Layouts name their mods, and the shipped =main= layout is also rewritten on
   # every start, so a layout of its own, =herdr-plus=, is derived from it on
   # every switch: the same tree with =agents-plus= in place of =agents=,
-  # =spaces-plus= in place of =spaces= and =toolbar= in place of
-  # =workspace-status=. Deriving
+  # =spaces-plus= in place of =spaces=, =pane-plus= in place of
+  # the =pane= header and =toolbar= in place of =workspace-status=. Deriving
   # it each time keeps it in step with Herdr's updates to =main=; edits made to
   # =herdr-plus= from inside the app last until the next switch. Herdr picks the
   # file up live. The keys that drive =agents-plus= reach it only while a layout
@@ -310,7 +321,7 @@ in
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
