@@ -321,8 +321,11 @@ in
   # as a new space or a tab of this one, then a project. Projects are the ones
   # opened from it before, then zoxide's list on that machine, filtered as you
   # type; a typed path opens that folder, and Browse… (this Mac only) opens the
-  # system folder picker. The choices are remembered for next time, and so are
-  # the projects, per machine.
+  # system folder picker. A new space can bring companion tabs, opened behind the
+  # agent's: an editor (=nvim .=, which the editor-tab naming then calls =project ·
+  # branch=) and the project's open pull requests in =tuicr-prs= (from
+  # =tuicr.org=). The choices are remembered for next time, and so are the
+  # projects, per machine.
 
   # Claude's models are its aliases (default, Opus, Sonnet, Haiku) and Fable by
   # id, with =--effort= from low to max; Codex's are the default and the

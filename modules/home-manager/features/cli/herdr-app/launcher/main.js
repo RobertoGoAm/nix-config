@@ -54,6 +54,7 @@ export default class Launcher extends View {
     this.effort = { claude: "default", codex: "default", ...(last.effort ?? {}) };
     this.machine = props()?.machine !== undefined ? (props().machine || null) : (last.machine ?? null);
     this.asTab = Boolean(last.asTab);
+    this.extras = { editor: true, prs: false, ...(last.extras ?? {}) };
     this.machines = [null];
     this.dirs = {};
     this.query = "";
@@ -125,7 +126,7 @@ export default class Launcher extends View {
   }
 
   remember(folder) {
-    localStorage.setItem("last", JSON.stringify({ provider: this.provider, model: this.model, effort: this.effort, machine: this.machine, asTab: this.asTab }));
+    localStorage.setItem("last", JSON.stringify({ provider: this.provider, model: this.model, effort: this.effort, machine: this.machine, asTab: this.asTab, extras: this.extras }));
     if (!folder) return;
     const key = `recent:${this.machine ?? ""}`;
     const list = [folder, ...this.recent().filter((p) => p !== folder)].slice(0, MAX_RECENT);
@@ -139,8 +140,10 @@ export default class Launcher extends View {
     this.remember(folder);
     closeOverlay(props().overlay);
     const args = { folder, ...(argv ? { argv } : {}) };
-    if (this.asTab) run("tab.new", args);
-    else run("space.new", { ...args, machine: this.machine ?? "" });
+    if (this.asTab) return run("tab.new", args);
+    run("space.new", { ...args, machine: this.machine ?? "" });
+    if (this.extras.editor) run("tab.new", { folder, argv: ["nvim", "."], focus: false });
+    if (this.extras.prs) run("tab.new", { folder, name: "PRs", argv: ["tuicr-prs"], focus: false });
   }
 
   async browse(cx) {
@@ -161,6 +164,17 @@ export default class Launcher extends View {
     const cur = (kind === "model" ? this.model : this.effort)[this.provider] ?? list[0];
     const next = list[(list.indexOf(cur) + dir + list.length) % list.length];
     (kind === "model" ? this.model : this.effort)[this.provider] = next;
+  }
+
+  toggleChip(t, id, label, key) {
+    const on = Boolean(this.extras[key]);
+    return div().id(id).px(8).h(24).rounded(6).flex().items_center().gap(5).cursor_pointer().text_size(12)
+      .border_1().border_color(on ? t.accent : t.border).text_color(on ? t.foreground : t.muted)
+      .when(on, (el) => el.bg(t.selected))
+      .hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .on_click((_e, cx) => { this.extras[key] = !on; cx.notify(); })
+      .child(on ? "✓" : "+")
+      .child(label);
   }
 
   chips(t, id, items, on, set) {
@@ -199,7 +213,11 @@ export default class Launcher extends View {
       .when(p.efforts.length > 0, (el) => el.child(h_flex().gap(8).items_center().child(label("effort"))
         .child(this.chips(t, "ef", p.efforts.map((e) => [e, e]), this.effort[this.provider], (v) => { this.effort[this.provider] = v; }))))
       .child(h_flex().gap(8).items_center().child(label("open as"))
-        .child(this.chips(t, "as", [[false, "new space"], [true, "tab in this space"]], this.asTab, (v) => { this.asTab = v; })));
+        .child(this.chips(t, "as", [[false, "new space"], [true, "tab in this space"]], this.asTab, (v) => { this.asTab = v; })))
+      .when(!this.asTab, (el) => el.child(h_flex().gap(8).items_center().child(label("also open"))
+        .child(h_flex().gap(4)
+          .child(this.toggleChip(t, "ex-editor", "editor (nvim .)", "editor"))
+          .child(this.toggleChip(t, "ex-prs", "PRs (tuicr)", "prs")))));
 
     const list = v_flex().id("ln-list").flex_1().min_h(0).overflow_y_scroll().gap(1)
       .children(rows.map((r, i) => h_flex()

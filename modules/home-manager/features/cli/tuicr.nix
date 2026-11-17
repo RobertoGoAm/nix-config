@@ -106,6 +106,31 @@ in
     }
   ];
 
+  # A list of the repository's open requests to review
+
+  # =tuicr pr= reviews one request and has no list to choose from, so
+  # =tuicr-prs= (=tuicr-prs.sh= beside this module) is one: the repository's open
+  # pull requests (=gh=) or merge requests (=glab=), chosen by the =origin=
+  # remote, in fzf with their number, title, author, branch and review state.
+  # Enter opens the one picked in =tuicr pr=, and leaving tuicr comes back to the
+  # list; =ctrl-r= reloads it and Esc leaves. The Herdr launcher can open it in a
+  # tab of its own beside a new session.
+
+  home.packages = [
+    (pkgs.runCommand "tuicr-prs" { } ''
+      install -Dm755 ${./tuicr-prs.sh} $out/bin/tuicr-prs
+      substituteInPlace $out/bin/tuicr-prs \
+        --replace-fail 'set -u -o pipefail' 'set -u -o pipefail
+      PATH="${
+        lib.makeBinPath [
+          pkgs.fzf
+          pkgs.jq
+        ]
+      }:$PATH"'
+      patchShebangs $out/bin
+    '')
+  ];
+
   # Orca profiles that keep their own skills folder
 
   # Orca runs Claude from a profile directory of its own, and links that
