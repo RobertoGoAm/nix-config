@@ -243,12 +243,33 @@ export default class Agents extends View {
     if (!panes().find((p) => p.pane === pane)?.zoomed) run("pane.zoom", { pane });
   }
 
+  prefer(address, view) {
+    const live = new Set(terminals().filter((x) => x.state === "live").map((x) => x.address));
+    const prefs = Object.fromEntries(Object.entries(shared("chat.prefer") ?? {}).filter(([a]) => live.has(a)));
+    if (prefs[address] === view) return;
+    setShared("chat.prefer", { ...prefs, [address]: view });
+  }
+
+  restoreChat() {
+    const f = focused();
+    const term = f?.pane ? f.terminal : null;
+    if (term === this.lastFocusedTerm) return;
+    this.lastFocusedTerm = term;
+    if (!term) return;
+    const open = Object.entries(this.chatRegistry()).find(([, t]) => t === term)?.[0];
+    const view = (shared("chat.prefer") ?? {})[term] ?? (open ? "chat" : "terminal");
+    if (view !== "chat") return;
+    if (open) return this.showChat(open);
+    this.toggleChat(term);
+  }
+
   toggleChat(target) {
     const f = focused();
     const reg = this.chatRegistry();
     const here = f?.pane && panes().find((p) => p.pane === f.pane);
     if (!target && here?.mod === "chat") {
       const agent = agents().find((a) => a.address === reg[here.pane]);
+      if (reg[here.pane]) { this.prefer(reg[here.pane], "terminal"); this.lastFocusedTerm = reg[here.pane]; }
       delete reg[here.pane];
       setShared("chat.panes", reg);
       if (agent) run("pane.focus", { pane: agent.pane });
@@ -258,6 +279,7 @@ export default class Agents extends View {
     const address = target ?? f?.agent ?? f?.terminal;
     const a = agents().find((x) => x.address === address);
     if (!a || a.app !== "claude-code") return;
+    this.prefer(address, "chat");
     const existing = Object.entries(reg).find(([, t]) => t === address)?.[0];
     if (existing) return this.showChat(existing);
     const before = new Set(panes().map((p) => p.pane));
@@ -593,6 +615,7 @@ export default class Agents extends View {
     let list = agents();
     this.notifyChanges(list);
     if (this.pendingChat && !checking()) this.claimChat();
+    else if (!checking()) this.restoreChat();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
     this.migratePins(all);

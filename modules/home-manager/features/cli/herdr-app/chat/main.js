@@ -444,6 +444,7 @@ export default class Chat extends View {
   }
 
   back() {
+    setShared("chat.prefer", { ...(shared("chat.prefer") ?? {}), [this.address]: "terminal" });
     const mine = Object.entries(shared("chat.panes") ?? {}).find(([, t]) => t === this.address)?.[0];
     const agent = agents().find((a) => a.address === this.address);
     if (agent) run("pane.focus", { pane: agent.pane });
