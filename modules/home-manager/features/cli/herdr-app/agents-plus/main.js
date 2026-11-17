@@ -255,9 +255,11 @@ export default class Agents extends View {
       const tab = tabs.get(p.tab);
       if (!tab || (!p.tab.includes("/") && p.cwd.replace(/\/+$/, "") === home())) continue;
       const project = p.cwd.replace(/\/+$/, "").split("/").pop();
-      if (!project || (tab.named && mine[p.tab] !== tab.name && tab.name !== project)) continue;
+      const ours = mine[p.tab] === tab.name || tab.name === project || tab.name.startsWith(`${project} · `);
+      if (!project || (tab.named && !ours)) continue;
       const branch = p.branch && !["main", "master"].includes(p.branch) ? p.branch : null;
-      const name = branch ? `${project} · ${branch}` : project;
+      const editor = p.program?.name || "Editor";
+      const name = [editor, project, branch].filter(Boolean).join(" · ");
       if (tab.name === name) continue;
       run("tab.rename", { id: p.tab, name });
       mine[p.tab] = name;

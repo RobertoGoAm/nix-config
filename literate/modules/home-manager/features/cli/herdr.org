@@ -144,9 +144,9 @@ this module in =herdr-app/agents-plus=:
   login". Enter focuses the first agent left, Escape clears it.
 - The Dock badge counts the agents waiting on you.
 - A tab nobody named whose terminal runs an editor (Neovim, Vim, Helix or
-  Emacs) is named after the project it is open in and its branch, =project ·
-  branch= (just the project on main or master), so =nvim .= in a checkout
-  reads as that in the tab bar and the picker. The name follows the branch
+  Emacs) is named after the editor, the project it is open in and its branch,
+  =Neovim · project · branch= (no branch on main or master), so =nvim .= in a
+  checkout reads as that in the tab bar and the picker. The name follows the branch
   while it is still the one given here; a tab someone renamed is left alone,
   and so is the home folder.
 - A macOS notification when an agent starts needing you, or finishes while
