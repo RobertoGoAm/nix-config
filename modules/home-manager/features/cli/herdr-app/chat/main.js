@@ -58,6 +58,31 @@ const STOPPED = /^\[Request interrupted by user( for tool use)?\]/;
 const REJECTED = /^The user doesn't want to proceed with this tool use/;
 const SYSTEM_TAG = /^<(system-reminder|local-command-caveat|local-command-stdout|command-message|task-notification|user-prompt-submit-hook)/;
 
+function parseDialog(screen) {
+  const lines = screen.split("\n").map((l) => l.replace(/\s+$/, ""));
+  let end = -1;
+  for (let i = lines.length - 1; i >= 0; i--) if (/Esc to cancel|Enter to (select|confirm)/.test(lines[i])) { end = i; break; }
+  if (end < 0) return null;
+  const options = [];
+  let start = -1;
+  for (let i = end - 1; i >= 0; i--) {
+    const m = lines[i].match(/^\s*(?:❯\s*)?(\d+)\.\s+(.*)$/);
+    if (m) start = i;
+    else if (start >= 0 && !/^\s{3,}\S/.test(lines[i])) break;
+  }
+  if (start < 0) return null;
+  for (let i = start; i < end; i++) {
+    const m = lines[i].match(/^\s*(?:❯\s*)?(\d+)\.\s+(.*)$/);
+    if (m) options.push({ key: m[1], label: m[2].trim() });
+    else if (options.length && lines[i].trim()) options.at(-1).label += " " + lines[i].trim();
+  }
+  let question = "";
+  for (let i = start - 1; i >= 0 && i >= start - 4; i--) if (lines[i].trim()) { question = lines[i].trim(); break; }
+  let title = "";
+  for (let i = start - 1; i >= 0; i--) if (/^\s*─{10,}/.test(lines[i])) { title = (lines[i + 1] ?? "").trim(); break; }
+  return { title, question, options, footer: lines[end].trim() };
+}
+
 function commandLine(text) {
   const name = text.match(/<command-name>([^<]*)<\/command-name>/)?.[1];
   if (!name) return null;
@@ -266,6 +291,7 @@ export default class Chat extends View {
       const r = await hc(["read", this.address]).catch(() => null);
       const lines = (r?.stdout ?? "").split("\n").map((l) => l.replace(/\s+$/, "")).filter(Boolean);
       this.screen = blocked ? lines.slice(-16).join("\n") : null;
+      this.dialog = blocked ? parseDialog(lines.join("\n")) : null;
       const hint = lines.slice(-20).join("\n").match(/\b((?:ctrl|cmd|alt|shift|meta)\+[a-z]+|enter|tab)\b[^\n]{0,12}\bsend (?:it )?now\b/i);
       this.sendNowKey = hint ? hint[1].toLowerCase() : null;
       cx.notify();
@@ -637,7 +663,24 @@ export default class Chat extends View {
       .on_click((_e, cx) => { f(); cx.notify(); }).child(label);
 
     const asking = this.items.some((it) => it.kind === "question" && it.result == null);
-    const needs = status === "blocked" && !asking ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
+    const pendingTool = [...this.items].reverse().find((it) => it.kind === "tool" && it.result == null);
+    const dialog = status === "blocked" && !asking && this.dialog?.options?.length ? this.dialog : null;
+    const permission = dialog ? v_flex().mx(14).mb(8).p(12).gap(8).flex_none().rounded(12).border_1().border_color(t.blocked + "99").bg(t.raised)
+      .child(h_flex().gap(8).items_center()
+        .child(div().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child(dialog.title || "Claude needs you"))
+        .when(Boolean(pendingTool), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11.5).text_color(t.dim).child(pendingTool.summary))))
+      .child(div().text_color(t.foreground).font_medium().child(dialog.question))
+      .children(dialog.options.map((o) => h_flex().id(`perm-${o.key}`).px(10).py(6).gap(8).items_start().rounded(8).border_1().border_color(t.border).cursor_pointer()
+        .hover((s) => s.bg(t.hover).border_color(t.accent))
+        .on_click((_e, cx) => { this.keys(o.key); this.dialog = null; cx.notify(); })
+        .child(div().flex_none().w(16).text_color(t.accent).font_semibold().child(o.key))
+        .child(div().flex_1().min_w(0).text_size(12.5).text_color(t.foreground).child(o.label))))
+      .child(h_flex().gap(6)
+        .child(btn("perm-esc", "Esc", () => this.keys("esc")))
+        .child(btn("perm-term", "Answer in terminal", () => this.back()))
+        .child(div().flex_1())
+        .child(div().text_size(11).text_color(t.dim).child(dialog.footer))) : null;
+    const needs = status === "blocked" && !asking && !dialog ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
       .child(div().text_size(12).font_semibold().text_color(t.blocked).child("Claude needs you"))
       .when(Boolean(this.screen), (el) => el.child(TextView.markdown("needs-screen", "```\n" + this.screen + "\n```").selectable(true)))
       .child(h_flex().gap(6).flex_wrap()
@@ -678,6 +721,7 @@ export default class Chat extends View {
     return v_flex().id("chat").size_full().bg(t.background).text_size(13)
       .child(list)
       .when(Boolean(working), (el) => el.child(working))
+      .when(Boolean(permission), (el) => el.child(permission))
       .when(Boolean(needs), (el) => el.child(needs))
       .child(h_flex().px(14).pb(12).pt(4).gap(8).flex_none().items_end()
         .child(div().flex_1().min_w(0).rounded(10).border_1().border_color(t.border).bg(t.input ?? t.raised).px(10).py(6)

@@ -269,7 +269,11 @@ in
   # it with the keys Claude's own dialog takes -- each option's number, then 1 to
   # submit -- and the generic needs-you panel stays away; multiple-choice
   # questions and typed answers go to the terminal. Once answered, the chosen
-  # options stay lit and the rest dim. Stopping Claude shows where it happened: a
+  # options stay lit and the rest dim. A permission prompt (an edit, a command, a folder) is a card too:
+  # read from Claude's dialog on its screen -- its title, its question and each
+  # numbered option, wrapped lines joined -- with a button per option pressing its
+  # number, Esc, and the terminal for anything else; a dialog it cannot read still
+  # shows the last lines of the screen. Stopping Claude shows where it happened: a
   # red divider, =⏹ You stopped Claude= with the time (and "during a tool" when
   # it was), and a tool call cut short marked stopped rather than failed. Code blocks in Claude's replies are drawn
   # with the toolkit's own code editor, read-only and highlighted for their
