@@ -77,6 +77,7 @@ const TREE = {
         f: { label: "cycle filter", act: () => run("agents-plus.filter") },
         s: { label: "search agents", act: () => run("agents-plus.search") },
         R: { label: "review PR (tuicr)", act: () => run("agents-plus.review") },
+        c: { label: "chat ⇄ terminal", act: () => run("agents-plus.chat") },
         m: MODEL,
         E: EFFORT,
       },

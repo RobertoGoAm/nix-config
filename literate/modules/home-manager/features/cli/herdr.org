@@ -269,6 +269,35 @@ the left (machine, branch, how many agents, how many need you). On the right:
   };
 #+end_src
 
+* Claude as a chat
+
+=chat= shows a Claude Code agent as a conversation instead of its terminal,
+the way shepherdr does. Nothing about the agent changes: it keeps running in
+its terminal, which stays in the tab under the chat pane, zoomed over it, so
+its status, notifications and the agents list carry on. The chat reads the
+session's own transcript -- =sessions/<pid>.json= in the account's config folder
+names the session, and =projects/*/<id>.jsonl= holds it -- on whichever machine
+the agent runs, and types what is sent into the terminal with =hc send=.
+
+Your messages and Claude's replies are rendered Markdown; each tool call is one
+line, with a spinner until its result comes back, that opens to show its input
+and output; slash commands show as chips. While Claude is working a Stop
+button presses Esc; when it needs you, the last lines of its screen (the
+permission prompt or question) show with buttons for 1, 2, 3, Enter and Esc,
+and Answer in terminal goes back. Only the last 160 messages are drawn, with
+the earlier ones a click away.
+
+=⌘⇧C=, the leader's =a c= or the chat button on a Claude agent's row opens it,
+and the same again, or the Terminal button, goes back. Model and effort stay
+in the bottom bar.
+
+#+begin_src nix
+  home.file.".config/herdr-app/mods/chat" = {
+    source = ./herdr-app/chat;
+    recursive = true;
+  };
+#+end_src
+
 * A launcher for new sessions
 
 =launcher= is a dialog for starting work: pick the machine, the agent
@@ -372,6 +401,7 @@ shows. Added on top of them, and =cmd-p= moved to =picker-plus=:
 | =cmd-shift-j= | cycle the agents list's filter                        |
 | =cmd-;=       | leader: which-key panel, jump, model and effort, music |
 | =cmd-n=       | launcher: new session with machine, agent, model, effort |
+| =cmd-shift-c= | the focused Claude as a chat, and back to its terminal |
 | =cmd-shift-r= | the focused agent's review in tuicr, and back again   |
 | =cmd-shift-f= | search the agents list (within the current filter)    |
 
@@ -394,6 +424,7 @@ file to merge into, and nothing is written.
             "cmd-shift-r" = "agents-plus.review";
             "cmd-;" = "mod.open:leader";
             "cmd-n" = "mod.open:launcher";
+            "cmd-shift-c" = "agents-plus.chat";
             "cmd-shift-f" = "agents-plus.search";
           };
         }

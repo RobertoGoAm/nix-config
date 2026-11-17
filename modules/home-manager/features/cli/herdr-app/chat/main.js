@@ -1,0 +1,309 @@
+import { View, div, svg } from "gpui-kit";
+import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle } from "gpui-base";
+import { agents, terminals, panes, run, exec, hc, theme, props, shared, setShared, nextCommand, checking } from "herdr";
+
+const FIND = `t="$1"
+pid=$(hc get "$t" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
+[ -n "$pid" ] || exit 3
+for d in "$HOME/.claude" "$HOME/.claude-work" "$HOME/.claude-personal"; do
+  f="$d/sessions/$pid.json"
+  [ -f "$f" ] || continue
+  id=$(jq -r '.sessionId // empty' "$f")
+  [ -n "$id" ] || continue
+  for j in "$d"/projects/*/"$id".jsonl; do
+    [ -f "$j" ] && { printf '%s' "$j"; exit 0; }
+  done
+done
+exit 4`;
+
+const READ = `size=$(stat -f %z "$1" 2>/dev/null || stat -c %s "$1" 2>/dev/null) || exit 3
+echo "$size"
+[ "$size" -gt "$2" ] && tail -c +$(($2 + 1)) "$1"
+exit 0`;
+
+const FIRST_BYTES = 1500000;
+const KEEP = 400;
+const SHOWN = 160;
+
+const SYSTEM_TAG = /^<(system-reminder|local-command-caveat|local-command-stdout|command-message|task-notification|user-prompt-submit-hook)/;
+
+function commandLine(text) {
+  const name = text.match(/<command-name>([^<]*)<\/command-name>/)?.[1];
+  if (!name) return null;
+  const args = text.match(/<command-args>([^<]*)<\/command-args>/)?.[1]?.trim();
+  return [name.startsWith("/") ? name : `/${name}`, args].filter(Boolean).join(" ");
+}
+
+function toolSummary(name, input) {
+  const i = input ?? {};
+  const first = (s) => String(s ?? "").split("\n")[0].slice(0, 160);
+  const pick = i.description || i.command || i.file_path || i.path || i.pattern || i.url || i.query || i.prompt || i.subject || i.skill;
+  return `${name}${pick ? ": " + first(pick) : ""}`;
+}
+
+function resultText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((c) => (c?.type === "text" ? c.text : c?.type === "image" ? "[image]" : "")).join("\n");
+  return "";
+}
+
+export default class Chat extends View {
+  init(_props, cx) {
+    this.address = props()?.terminal ?? null;
+    this.on = this.address?.includes("/") ? this.address.split("/")[0] : null;
+    this.local = this.address?.includes("/") ? this.address.split("/").slice(1).join("/") : this.address;
+    this.file = null;
+    this.offset = 0;
+    this.partial = "";
+    this.items = [];
+    this.byMessage = new Map();
+    this.tools = new Map();
+    this.open = new Set();
+    this.pending = [];
+    this.error = null;
+    this.screen = null;
+    this.showAll = false;
+    this.scroll = ScrollHandle.new();
+    this.input = TextareaState.new({ placeholder: "Message Claude… (Enter sends, Shift+Enter new line)" });
+    this.input.set_auto_grow(1, 8);
+    this.input.on("submit", (_e, cx) => { this.send(); cx.notify(); });
+    if (checking() || !this.address) return;
+    cx.timer.after(200, () => this.input.focus());
+    this.locate(cx);
+    cx.timer.every(1500, (cx) => this.poll(cx));
+    cx.timer.every(2000, (cx) => this.pollScreen(cx));
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "focus") this.input.focus();
+        cx.notify();
+      }
+    });
+  }
+
+  locate(cx) {
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("sh", ["-c", FIND, "find", this.local], { on: this.on, timeout: 15000 });
+        if (r.code === 0 && r.stdout.trim()) {
+          this.file = r.stdout.trim();
+          this.error = null;
+          this.poll(cx, true);
+        } else this.error = "Could not find this session's transcript. Is it a Claude Code agent?";
+      } catch (e) {
+        this.error = `Could not reach ${this.on ?? "this computer"}: ${e}`;
+      }
+      cx.notify();
+    });
+  }
+
+  poll(cx, first = false) {
+    if (!this.file || this.reading) return;
+    this.reading = true;
+    cx.spawn(async (cx) => {
+      try {
+        let from = this.offset;
+        if (first) {
+          const s = await exec("sh", ["-c", READ, "read", this.file, String(Number.MAX_SAFE_INTEGER)], { on: this.on });
+          const size = Number(s.stdout.split("\n")[0]) || 0;
+          from = Math.max(0, size - FIRST_BYTES);
+        }
+        const r = await exec("sh", ["-c", READ, "read", this.file, String(from)], { on: this.on, timeout: 20000 });
+        if (r.code === 0) {
+          const nl = r.stdout.indexOf("\n");
+          const size = Number(r.stdout.slice(0, nl)) || 0;
+          let body = r.stdout.slice(nl + 1);
+          if (size < this.offset) { this.reset(); from = 0; }
+          if (body) {
+            if (first && from > 0) body = body.slice(body.indexOf("\n") + 1);
+            this.ingest(this.partial + body);
+            this.offset = size;
+            if (this.items.length) this.scroll.scroll_to_item(Math.max(0, this.visible().length - 1) + 1);
+          }
+        }
+      } catch {}
+      this.reading = false;
+      cx.notify();
+    });
+  }
+
+  pollScreen(cx) {
+    const a = agents().find((x) => x.address === this.address);
+    if (a?.status !== "blocked") { if (this.screen) { this.screen = null; cx.notify(); } return; }
+    cx.spawn(async (cx) => {
+      const r = await hc(["read", this.address]).catch(() => null);
+      const lines = (r?.stdout ?? "").split("\n").map((l) => l.replace(/\s+$/, "")).filter(Boolean);
+      this.screen = lines.slice(-16).join("\n");
+      cx.notify();
+    });
+  }
+
+  reset() {
+    this.items = [];
+    this.byMessage.clear();
+    this.tools.clear();
+    this.partial = "";
+    this.offset = 0;
+  }
+
+  ingest(text) {
+    const lines = text.split("\n");
+    this.partial = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let e;
+      try { e = JSON.parse(line); } catch { continue; }
+      if (e.isSidechain) continue;
+      if (e.type === "assistant") this.assistant(e);
+      else if (e.type === "user") this.user(e);
+    }
+    if (this.items.length > KEEP) this.items = this.items.slice(-KEEP);
+  }
+
+  assistant(e) {
+    const id = e.message?.id ?? e.uuid;
+    for (const c of e.message?.content ?? []) {
+      if (c.type === "text" && c.text?.trim()) {
+        const last = this.byMessage.get(id);
+        if (last && this.items.at(-1) === last) last.text += "\n\n" + c.text;
+        else {
+          const item = { kind: "assistant", text: c.text, key: `${id}-${this.items.length}` };
+          this.items.push(item);
+          this.byMessage.set(id, item);
+        }
+      } else if (c.type === "tool_use") {
+        const item = { kind: "tool", id: c.id, name: c.name, input: c.input, summary: toolSummary(c.name, c.input), result: null, error: false, key: c.id };
+        this.items.push(item);
+        this.tools.set(c.id, item);
+        this.byMessage.delete(id);
+      }
+    }
+  }
+
+  user(e) {
+    const content = e.message?.content;
+    if (typeof content === "string") return this.userText(content, e);
+    for (const c of content ?? []) {
+      if (c.type === "tool_result") {
+        const t = this.tools.get(c.tool_use_id);
+        if (t) { t.result = resultText(c.content); t.error = Boolean(c.is_error); }
+      } else if (c.type === "text") this.userText(c.text, e);
+      else if (c.type === "image") this.items.push({ kind: "user", text: "[image]", key: `${e.uuid}-img-${this.items.length}` });
+    }
+  }
+
+  userText(text, e) {
+    if (!text?.trim() || e.isMeta) return;
+    const cmd = commandLine(text);
+    if (cmd) return this.items.push({ kind: "command", text: cmd, key: `${e.uuid}-cmd` });
+    if (SYSTEM_TAG.test(text.trim())) return;
+    const clean = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+    if (!clean) return;
+    this.pending = this.pending.filter((p) => p.trim() !== clean.trim());
+    this.items.push({ kind: "user", text: clean, key: `${e.uuid}-${this.items.length}` });
+  }
+
+  send() {
+    const text = this.input.value().replace(/\s+$/, "");
+    if (!text.trim() || !this.address) return;
+    this.input.set_value("");
+    this.pending.push(text);
+    hc(["send", this.address, text]).catch(() => {});
+  }
+
+  keys(...k) {
+    hc(["keys", this.address, ...k]).catch(() => {});
+  }
+
+  back() {
+    const mine = Object.entries(shared("chat.panes") ?? {}).find(([, t]) => t === this.address)?.[0];
+    const agent = agents().find((a) => a.address === this.address);
+    if (agent) run("pane.focus", { pane: agent.pane });
+    if (mine) {
+      const reg = { ...(shared("chat.panes") ?? {}) };
+      delete reg[mine];
+      setShared("chat.panes", reg);
+      run("pane.close", { pane: mine });
+    }
+  }
+
+  visible() {
+    return this.showAll ? this.items : this.items.slice(-SHOWN);
+  }
+
+  bubble(t, item) {
+    if (item.kind === "user") {
+      return h_flex().w_full().justify_end().child(
+        div().max_w(0.85).px(12).py(8).rounded(12).bg(t.selected).text_color(t.foreground)
+          .child(TextView.markdown(`u-${item.key}`, item.text).selectable(true)));
+    }
+    if (item.kind === "command") {
+      return h_flex().w_full().justify_end().child(div().px(8).py(3).rounded(6).border_1().border_color(t.border).text_size(11.5).text_color(t.muted).child(item.text));
+    }
+    if (item.kind === "assistant") {
+      return div().w_full().text_color(t.foreground).child(TextView.markdown(`a-${item.key}`, item.text).selectable(true));
+    }
+    const open = this.open.has(item.key);
+    const color = item.error ? t.blocked : item.result == null ? t.working : t.dim;
+    return v_flex().w_full()
+      .child(h_flex().id(`tool-${item.key}`).gap(6).items_center().cursor_pointer().text_size(12).text_color(color)
+        .hover((s) => s.text_color(t.foreground))
+        .on_click((_e, cx) => { open ? this.open.delete(item.key) : this.open.add(item.key); cx.notify(); })
+        .child(svg(`mods/workspace-chrome/chevron-${open ? "down" : "right"}.svg`).size(10).flex_none())
+        .when(item.result == null, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
+        .child(div().flex_1().min_w(0).truncate().child(item.summary)))
+      .when(open, (el) => el.child(v_flex().ml(16).mt(4).p(8).gap(6).rounded(6).bg(t.raised).text_size(11.5)
+        .child(TextView.markdown(`ti-${item.key}`, "```json\n" + JSON.stringify(item.input ?? {}, null, 2).slice(0, 4000) + "\n```").selectable(true))
+        .when(item.result != null, (el) => el.child(TextView.markdown(`tr-${item.key}`, "```\n" + String(item.result).slice(0, 6000) + "\n```").selectable(true)))));
+  }
+
+  render(cx) {
+    const t = theme();
+    const agent = agents().find((a) => a.address === this.address);
+    const status = agent?.status ?? "idle";
+    const title = (agent?.title ?? "").replace(/^[^\p{L}\p{N}]+/u, "") || "Claude";
+    const items = this.visible();
+    const hidden = this.items.length - items.length;
+    const btn = (id, label, f, color) => div().id(id).px(8).h(22).rounded(6).flex().items_center().cursor_pointer().text_size(11.5)
+      .border_1().border_color(t.border).text_color(color ?? t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .on_click((_e, cx) => { f(); cx.notify(); }).child(label);
+
+    const header = h_flex().h(36).px(14).gap(10).flex_none().items_center().border_b(1).border_color(t.border).bg(t.chrome)
+      .child(div().flex_1().min_w(0).truncate().text_size(12.5).font_medium().text_color(t.foreground).child(title))
+      .when(status === "working", (el) => el.child(h_flex().gap(5).items_center().text_size(11.5).text_color(t.working)
+        .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900)).child("working")))
+      .when(status === "working", (el) => el.child(btn("chat-stop", "Stop (Esc)", () => this.keys("esc"), t.blocked)))
+      .child(btn("chat-terminal", "Terminal", () => this.back()));
+
+    const needs = status === "blocked" ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
+      .child(div().text_size(12).font_semibold().text_color(t.blocked).child("Claude needs you"))
+      .when(Boolean(this.screen), (el) => el.child(TextView.markdown("needs-screen", "```\n" + this.screen + "\n```").selectable(true)))
+      .child(h_flex().gap(6).flex_wrap()
+        .child(btn("k1", "1", () => this.keys("1")))
+        .child(btn("k2", "2", () => this.keys("2")))
+        .child(btn("k3", "3", () => this.keys("3")))
+        .child(btn("kenter", "Enter", () => this.keys("enter")))
+        .child(btn("kesc", "Esc", () => this.keys("esc")))
+        .child(btn("kterm", "Answer in terminal", () => this.back()))) : null;
+
+    const list = v_flex().id("chat-list").flex_1().min_h(0).px(18).py(12).gap(12).overflow_y_scroll().track_scroll(this.scroll)
+      .when(hidden > 0, (el) => el.child(div().id("chat-more").text_size(11.5).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
+        .on_click((_e, cx) => { this.showAll = true; cx.notify(); }).child(`${hidden} earlier messages`)))
+      .when(Boolean(this.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(this.error)))
+      .when(!this.error && !this.file, (el) => el.child(div().text_size(12).text_color(t.dim).child("Finding the session…")))
+      .children(items.map((it) => this.bubble(t, it)))
+      .children(this.pending.map((p, i) => h_flex().w_full().justify_end().child(
+        div().max_w(0.85).px(12).py(8).rounded(12).bg(t.selected).opacity(0.6).text_color(t.foreground).child(p))));
+
+    return v_flex().id("chat").size_full().bg(t.background).text_size(13)
+      .child(header)
+      .child(list)
+      .when(Boolean(needs), (el) => el.child(needs))
+      .child(h_flex().px(14).pb(12).pt(4).gap(8).flex_none().items_end()
+        .child(div().flex_1().min_w(0).rounded(10).border_1().border_color(t.border).bg(t.input ?? t.raised).px(10).py(6)
+          .child(Textarea.new(this.input).w_full().text_size(13).text_color(t.foreground)))
+        .child(div().id("chat-send").h(32).px(12).rounded(9).flex().items_center().cursor_pointer().bg(t.accent).text_color(t.accent_foreground)
+          .text_size(12.5).font_semibold().hover((s) => s.opacity(0.9))
+          .on_click((_e, cx) => { this.send(); cx.notify(); }).child("Send")));
+  }
+}

@@ -164,6 +164,7 @@ export default class Agents extends View {
         else if (c === "filter") this.cycleFilter();
         else if (c === "review") this.review();
         else if (c === "search") this.input.focus();
+        else if (c === "chat") this.toggleChat();
         cx.notify();
       }
     });
@@ -229,6 +230,53 @@ export default class Agents extends View {
       }
       cx.notify();
     });
+  }
+
+  chatRegistry() {
+    const live = new Set(panes().map((p) => p.pane));
+    const reg = Object.fromEntries(Object.entries(shared("chat.panes") ?? {}).filter(([p]) => live.has(p)));
+    return reg;
+  }
+
+  showChat(pane) {
+    run("pane.focus", { pane });
+    if (!panes().find((p) => p.pane === pane)?.zoomed) run("pane.zoom", { pane });
+  }
+
+  toggleChat(target) {
+    const f = focused();
+    const reg = this.chatRegistry();
+    const here = f?.pane && panes().find((p) => p.pane === f.pane);
+    if (!target && here?.mod === "chat") {
+      const agent = agents().find((a) => a.address === reg[here.pane]);
+      delete reg[here.pane];
+      setShared("chat.panes", reg);
+      if (agent) run("pane.focus", { pane: agent.pane });
+      run("pane.close", { pane: here.pane });
+      return;
+    }
+    const address = target ?? f?.agent ?? f?.terminal;
+    const a = agents().find((x) => x.address === address);
+    if (!a || a.app !== "claude-code") return;
+    const existing = Object.entries(reg).find(([, t]) => t === address)?.[0];
+    if (existing) return this.showChat(existing);
+    const before = new Set(panes().map((p) => p.pane));
+    run("pane.split", { pane: a.pane, direction: "right", mod: "chat", props: { terminal: address, tab: a.tab } });
+    this.pendingChat = { address, before, at: Date.now() };
+    this.claimChat();
+  }
+
+  claimChat() {
+    const p = this.pendingChat;
+    if (!p) return;
+    const fresh = panes().find((x) => x.mod === "chat" && !p.before.has(x.pane));
+    if (!fresh) {
+      if (Date.now() - p.at > 5000) this.pendingChat = null;
+      return;
+    }
+    this.pendingChat = null;
+    setShared("chat.panes", { ...this.chatRegistry(), [fresh.pane]: p.address });
+    this.showChat(fresh.pane);
   }
 
   forget(url) {
@@ -535,6 +583,7 @@ export default class Agents extends View {
     const sort = sortOf();
     let list = agents();
     this.notifyChanges(list);
+    if (this.pendingChat && !checking()) this.claimChat();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
     this.migratePins(all);
@@ -689,6 +738,25 @@ export default class Agents extends View {
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(Boolean(this.prPill(t, a)), el => el.child(this.prPill(t, a)))
+        .when(this.hovered === a.address && a.app === "claude-code", el => el.child(div()
+          .id(`chat-${a.address}`)
+          .flex_none()
+          .px(4)
+          .h(18)
+          .rounded(4)
+          .flex()
+          .items_center()
+          .text_size(10.5)
+          .text_color(t.dim)
+          .cursor_pointer()
+          .hover((s) => s.bg(t.hover).text_color(t.foreground))
+          .tooltip("Chat with this agent (⌘⇧C)")
+          .on_click((_e, cx) => {
+            cx.stop_propagation();
+            this.toggleChat(a.address);
+            cx.notify();
+          })
+          .child("chat")))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
