@@ -277,6 +277,11 @@ export default class Agents extends View {
     const f = focused();
     const here = f?.pane && panes().find((p) => p.pane === f.pane);
     if (here?.mod === "chat" && !here.zoomed && this.chatRegistry()[here.pane]) run("pane.zoom", { pane: here.pane });
+    const pane = f?.pane ?? null;
+    if (pane !== this.lastFocusedPane) {
+      this.lastFocusedPane = pane;
+      if (here?.mod === "chat") run("chat.focus");
+    }
     const term = f?.pane ? f.terminal : null;
     if (term === this.lastFocusedTerm) return;
     this.lastFocusedTerm = term;

@@ -556,7 +556,7 @@ export default class Chat extends View {
     const t = theme();
     const mine = Object.entries(shared("chat.panes") ?? {}).find(([, x]) => x === this.address)?.[0];
     const focusedNow = Boolean(mine && focused()?.pane === mine && window()?.active);
-    if (focusedNow && !this.hadFocus && !checking()) cx.timer.after(30, () => this.input.focus());
+    if (focusedNow && !this.hadFocus && !checking()) for (const ms of [50, 200, 500]) cx.timer.after(ms, () => this.input.focus());
     this.hadFocus = focusedNow;
     const agent = agents().find((a) => a.address === this.address);
     const status = agent?.status ?? "idle";
