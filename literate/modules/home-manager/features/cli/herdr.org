@@ -126,14 +126,16 @@ this module in =herdr-app/agents-plus=:
   All; Active (working, needing you, changed state in the last hour, or with
   a request whose CI is running or failing, so recently finished turns and
   broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
-  or merge request open).
+  or merge request still waiting for a review: open and not yet approved).
 - A PR pill on every agent with a pull or merge request: the one the tuicr
   review hook in =tuicr.org= labels the agent's terminal with when it opens
   one, else the one for the branch the agent's folder is on, looked up with
   =gh pr view= or =glab mr view= on its machine every five minutes (=main= and
-  =master= are skipped). Its color is the request's CI, polled every minute with =gh
-  pr view= or =glab mr view= on the agent's own machine: green passing,
-  spinning while running, red failing, then merged or closed. Clicking it
+  =master= are skipped). It reads =#135 · CI ✓= (or =CI ✗=, a spinner while
+  running, =no CI=), with =approved= once the request is, polled every minute
+  with =gh pr view= or =glab mr view= on the agent's own machine. Once the
+  request is merged or closed its labels are taken off the agent's terminal,
+  so it leaves the list by itself. Clicking it
   focuses the request's tuicr pane, or opens a new one beside the agent.
 - A search box under the filters, narrowing whichever filter is on (and its
   counts) to the agents whose space, tab, session title, program, pull

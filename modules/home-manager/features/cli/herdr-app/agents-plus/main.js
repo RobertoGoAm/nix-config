@@ -2,7 +2,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, checking, nextCommand, setBadge } from "herdr";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, hc, checking, nextCommand, setBadge } from "herdr";
 
 const SELF = "agents-plus";
 const APP = "/opt/homebrew/bin/herdr-app";
@@ -49,9 +49,9 @@ function glabCi(status) {
 }
 
 function ciQuery(url) {
-  if (/\/pull\/\d+/.test(url)) return { cmd: "gh", args: ["pr", "view", url, "--json", "state,statusCheckRollup"], parse: (j) => ({ state: (j.state ?? "").toLowerCase(), ci: ghCi(j.statusCheckRollup) }) };
+  if (/\/pull\/\d+/.test(url)) return { cmd: "gh", args: ["pr", "view", url, "--json", "state,statusCheckRollup,reviewDecision"], parse: (j) => ({ state: (j.state ?? "").toLowerCase(), ci: ghCi(j.statusCheckRollup), approved: j.reviewDecision === "APPROVED" }) };
   const m = url.match(/^(https?:\/\/.+?)\/-\/merge_requests\/(\d+)/);
-  if (m) return { cmd: "glab", args: ["mr", "view", m[2], "-R", m[1], "-F", "json"], parse: (j) => ({ state: j.state === "opened" ? "open" : (j.state ?? ""), ci: glabCi(j.head_pipeline?.status ?? j.pipeline?.status) }) };
+  if (m) return { cmd: "glab", args: ["mr", "view", m[2], "-R", m[1], "-F", "json"], parse: (j) => ({ state: j.state === "opened" ? "open" : (j.state ?? ""), ci: glabCi(j.head_pipeline?.status ?? j.pipeline?.status), approved: j.approved === true || j.detailed_merge_status === "mergeable" && j.approvals_left === 0 }) };
   return null;
 }
 
@@ -224,10 +224,19 @@ export default class Agents extends View {
         try {
           const r = await exec(q.cmd, q.args, { on, timeout: 20000 });
           if (r.code === 0) this.ci[url] = { ...q.parse(JSON.parse(r.stdout)), at: Date.now() };
+          if (this.ci[url]?.state === "merged" || this.ci[url]?.state === "closed") this.forget(url);
         } catch {}
       }
       cx.notify();
     });
+  }
+
+  forget(url) {
+    for (const t of terminals()) {
+      if (t.state !== "live" || t.labels?.["review.url"] !== url) continue;
+      hc(["label", t.address, "review.url=", "review.terminal=", "review.title="]).catch(() => {});
+    }
+    for (const k of Object.keys(this.branchUrl)) if (this.branchUrl[k]?.url === url) this.branchUrl[k].url = null;
   }
 
   attention() {
@@ -302,7 +311,12 @@ export default class Agents extends View {
   matches(a, filter, now) {
     if (filter === "all" || a.pinned) return true;
     if (filter === "attention") return a.status === "blocked" || a.status === "done";
-    if (filter === "review") return this.reviewOf.has(a.address);
+    if (filter === "review") {
+      const r = this.reviewOf.get(a.address);
+      if (!r) return false;
+      const c = r.url ? this.ci[r.url] : null;
+      return !c || (c.state === "open" && !c.approved);
+    }
     if (a.status !== "idle" || a.focused) return true;
     const ci = this.ci[this.reviewOf.get(a.address)?.url];
     if (ci && ci.state === "open" && (ci.ci === "running" || ci.ci === "fail")) return true;
@@ -313,23 +327,24 @@ export default class Agents extends View {
     const r = this.reviewOf.get(a.address);
     if (!r?.url) return null;
     const c = this.ci[r.url];
-    const state = c?.state === "merged" ? "merged" : c?.state === "closed" ? "closed" : (c?.ci ?? "none");
+    const n = r.url.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
+    const ref = `${r.url.includes("/pull/") ? "#" : "!"}${n ?? ""}`;
+    const state = c?.state === "merged" || c?.state === "closed" ? c.state : (c?.ci ?? "none");
     const color = { pass: t.done, fail: t.blocked, running: t.working, merged: t.accent, closed: t.dim, none: t.muted }[state] ?? t.muted;
-    const text = { pass: "PR ✓", fail: "PR ✗", running: "PR", merged: "merged", closed: "closed", none: "PR" }[state];
+    const ci = { pass: "CI ✓", fail: "CI ✗", running: "CI", merged: "merged", closed: "closed", none: c ? "no CI" : "…" }[state];
     return h_flex()
       .id(`pr-${a.address}`)
       .flex_none()
       .px(5)
       .h(18)
-      .gap(3)
+      .gap(4)
       .rounded(5)
       .items_center()
       .bg(color + "26")
       .text_size(10.5)
       .font_semibold()
-      .text_color(color)
       .cursor_pointer()
-      .tooltip(`${r.url}\nCI: ${state}. Click to review in tuicr.`)
+      .tooltip(`${r.url}\nCI: ${state}${c?.approved ? ", approved" : ""}. Click to review in tuicr.`)
       .on_click((_e, cx) => {
         cx.stop_propagation();
         run("pane.focus", { pane: a.pane });
@@ -337,8 +352,10 @@ export default class Agents extends View {
         if (live) run("pane.focus", { terminal: r.terminal });
         else this.openReview(r);
       })
-      .when(state === "running", (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
-      .child(text);
+      .child(div().text_color(t.muted).child(ref))
+      .when(state === "running", (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().text_color(color).spin(900)))
+      .child(div().text_color(color).child(ci))
+      .when(Boolean(c?.approved) && state !== "merged", (el) => el.child(div().text_color(t.done).child("approved")));
   }
 
   filterBar(t) {
