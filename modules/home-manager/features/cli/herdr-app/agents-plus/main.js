@@ -265,6 +265,12 @@ export default class Agents extends View {
       mine[p.tab] = name;
       changed = true;
     }
+    for (const r of this.reviews().values()) {
+      const p = r.terminal && r.title ? panes().find((x) => x.terminal === r.terminal) : null;
+      const tab = p && tabs.get(p.tab);
+      if (!tab || tab.named || tab.name === r.title) continue;
+      run("tab.rename", { id: p.tab, name: r.title });
+    }
     if (changed) setShared("editor.tabs", mine);
   }
 
@@ -674,6 +680,12 @@ export default class Agents extends View {
     const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
     const rankOf = (a) => urgency.get(a.address);
     if (byPriority) list = [...list].sort((x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq);
+    else {
+      const order = new Map(spaces().map((s, i) => [s.id, i]));
+      const tabOrder = new Map(spaces().flatMap((s) => s.tabs.map((tab, i) => [tab.id, i])));
+      const place = (a) => order.get(a.space) ?? order.size;
+      list = [...list].sort((x, y) => place(x) - place(y) || String(x.space).localeCompare(String(y.space)) || (tabOrder.get(x.tab) ?? 0) - (tabOrder.get(y.tab) ?? 0));
+    }
     const pinned = list.filter((a) => a.pinned);
     const rest = list.filter((a) => !a.pinned);
     list = [...pinned, ...rest];
@@ -827,8 +839,8 @@ export default class Agents extends View {
         .child(this.status(t, a, byPriority && !isPinned));
     };
 
-    // Groups in list order: spaces (grouped) or priority sections. Agents of a
-    // space are next to each other in agents(), so neighbours make a group.
+    // Groups in list order: spaces (grouped) or priority sections. The list is
+    // sorted by space in the sidebar's order, so neighbours make a group.
     const groups = pinned.length ? [{ id: "pinned", label: "Pinned", status: null, members: pinned }] : [];
     for (const a of rest) {
       const r = rankOf(a) || RANK.idle;

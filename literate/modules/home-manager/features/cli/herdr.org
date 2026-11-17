@@ -150,7 +150,12 @@ this module in =herdr-app/agents-plus=:
   =Neovim · project · branch= (no branch on main or master), so =nvim .= in a
   checkout reads as that in the tab bar and the picker. The name follows the branch
   while it is still the one given here; a tab someone renamed is left alone,
-  and so is the home folder.
+  and so is the home folder. A review tab nobody named takes the title the
+  review hook gave the agent (=#140 · title=): on another machine the hook
+  has no app to name it, so it arrives numbered.
+- Grouped by space, the agents follow the sidebar's order of spaces and, in a
+  space, of tabs, so each space is one group however Herdr happens to list
+  its agents.
 - A macOS notification when an agent starts needing you, or finishes while
   you aren't looking at it. Herdr itself only draws a note inside its window
   and plays a sound, which a hidden window or another space never shows. The
