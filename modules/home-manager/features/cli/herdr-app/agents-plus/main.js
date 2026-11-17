@@ -246,18 +246,24 @@ export default class Agents extends View {
   }
 
   nameEditorTabs() {
-    this.named ??= new Set();
+    const mine = { ...(shared("editor.tabs") ?? {}) };
     const tabs = new Map(spaces().flatMap((s) => s.tabs).map((tab) => [tab.id, tab]));
+    let changed = false;
+    for (const id of Object.keys(mine)) if (!tabs.has(id)) { delete mine[id]; changed = true; }
     for (const p of panes()) {
-      if (!p.terminal || !EDITORS.has(p.program?.key) || !p.cwd || this.named.has(p.tab)) continue;
-      if (!p.tab.includes("/") && p.cwd.replace(/\/+$/, "") === home()) continue;
+      if (!p.terminal || !EDITORS.has(p.program?.key) || !p.cwd) continue;
       const tab = tabs.get(p.tab);
-      if (!tab || tab.named) continue;
+      if (!tab || (!p.tab.includes("/") && p.cwd.replace(/\/+$/, "") === home())) continue;
       const project = p.cwd.replace(/\/+$/, "").split("/").pop();
-      if (!project) continue;
-      this.named.add(p.tab);
-      run("tab.rename", { id: p.tab, name: project });
+      if (!project || (tab.named && mine[p.tab] !== tab.name && tab.name !== project)) continue;
+      const branch = p.branch && !["main", "master"].includes(p.branch) ? p.branch : null;
+      const name = branch ? `${project} · ${branch}` : project;
+      if (tab.name === name) continue;
+      run("tab.rename", { id: p.tab, name });
+      mine[p.tab] = name;
+      changed = true;
     }
+    if (changed) setShared("editor.tabs", mine);
   }
 
   prefer(address, view) {
