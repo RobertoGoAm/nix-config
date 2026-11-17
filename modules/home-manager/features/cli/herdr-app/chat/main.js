@@ -16,7 +16,8 @@ for d in "$HOME/.claude" "$HOME/.claude-work" "$HOME/.claude-personal"; do
 done
 exit 4`;
 
-const READ = `size=$(stat -f %z "$1" 2>/dev/null || stat -c %s "$1" 2>/dev/null) || exit 3
+const READ = `size=$(wc -c < "$1" 2>/dev/null | tr -d ' ') || exit 3
+[ -n "$size" ] || exit 3
 echo "$size"
 [ "$size" -gt "$2" ] && tail -c +$(($2 + 1)) "$1"
 exit 0`;

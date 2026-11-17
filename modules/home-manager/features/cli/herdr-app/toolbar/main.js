@@ -30,7 +30,26 @@ function openTelega() {
 }
 
 const UNREAD = "flag:unread";
-const STATUSLINE = /\[([A-Za-z][\w .-]*?) [◔◑◕●○◐◒◓] (\w+)\]/;
+const STATUSLINE = /\[((?:Opus|Sonnet|Haiku|Fable|Claude)[\w .-]*?)(?: [◔◑◕●○◐◒◓] (\w+))?\]/;
+const ACCOUNT_MS = 10 * 60000;
+const ACCOUNT = `pid=$(hc get "$1" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
+[ -n "$pid" ] || exit 3
+for d in "$HOME/.claude-work" "$HOME/.claude-personal" "$HOME/.claude"; do
+  [ -f "$d/sessions/$pid.json" ] || continue
+  printf '%s\n' "$d"
+  if [ "$d" = "$HOME/.claude" ]; then CLAUDE_ACCOUNT=personal claude auth status --text 2>/dev/null
+  else CLAUDE_CONFIG_DIR="$d" claude auth status --text 2>/dev/null; fi
+  exit 0
+done
+exit 4`;
+
+function accountLabel(text) {
+  const org = text.match(/^Organization:\s*(.+)$/m)?.[1]?.trim();
+  const plan = text.match(/^Login method:\s*Claude (\w+)/m)?.[1];
+  if (!org && !plan) return null;
+  const personal = !org || /'s Organization$/.test(org);
+  return { label: `${personal ? "Personal" : org}${plan ? " · " + plan : ""}`, personal };
+}
 
 const TELEGRAM = "/Applications/Telegram.app";
 const TELEGA_UNREAD = "(if (and (fboundp 'telega-server-live-p) (telega-server-live-p)) (or (plist-get (bound-and-true-p telega--unread-chat-count) :unread_unmuted_count) 0) -1)";
@@ -42,6 +61,7 @@ export default class Toolbar extends View {
     this.mail = null;
     this.telegram = null;
     this.model = {};
+    this.account = {};
     if (checking()) return;
     cx.timer.every(3000, (cx) => this.pollMusic(cx));
     cx.timer.every(5000, (cx) => this.pollModel(cx));
@@ -91,6 +111,23 @@ export default class Toolbar extends View {
     });
   }
 
+  pollAccount(cx, address) {
+    const now = Date.now();
+    const known = this.account[address];
+    if (known && now - known.at < ACCOUNT_MS) return;
+    this.account[address] = { ...(known ?? {}), at: now };
+    const on = address.includes("/") ? address.split("/")[0] : null;
+    const local = address.includes("/") ? address.split("/").slice(1).join("/") : address;
+    cx.spawn(async (cx) => {
+      const r = await exec("sh", ["-c", ACCOUNT, "account", local], { on, timeout: 20000 }).catch(() => null);
+      if (r?.code === 0) {
+        const [dir, ...rest] = r.stdout.split("\n");
+        this.account[address] = { at: now, dir, ...(accountLabel(rest.join("\n")) ?? { label: "signed out", personal: null }) };
+      }
+      cx.notify();
+    });
+  }
+
   pollModel(cx) {
     const f = focused();
     const agent = f?.agent ?? f?.terminal;
@@ -98,12 +135,13 @@ export default class Toolbar extends View {
     this.agent = a && a.app === "claude-code" ? a.address : null;
     if (!this.agent) return cx.notify();
     const address = this.agent;
+    this.pollAccount(cx, address);
     cx.spawn(async (cx) => {
       const r = await hc(["read", address]).catch(() => null);
       const lines = (r?.stdout ?? "").split("\n").reverse();
       for (const l of lines) {
         const m = l.match(STATUSLINE);
-        if (m) { this.model[address] = { model: m[1], effort: m[2] }; break; }
+        if (m) { this.model[address] = { model: m[1], effort: m[2] ?? "default" }; break; }
       }
       cx.notify();
     });
@@ -133,6 +171,7 @@ export default class Toolbar extends View {
     const label = (icon, text) => h_flex().gap(6).items_center().child(svg(`mods/workspace-chrome/${icon}.svg`).size(13)).child(text);
     const leader = (start) => () => openOverlay({ mod: "leader", kind: "dialog", width: 640, height: 0.55, props: { start } });
     const m = this.agent && this.model[this.agent];
+    const acct = this.agent && this.account[this.agent];
     const music = this.music;
     const sep = () => div().w(1).h(14).bg(t.border);
 
@@ -143,6 +182,12 @@ export default class Toolbar extends View {
         .when(needs > 0, (el) => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
       .child(div().flex_1())
       .when(Boolean(m), (el) => el
+        .when(Boolean(acct?.label), (el) => {
+          const wantsPersonal = /\/\.claude(-personal)?$/.test(acct.dir ?? "");
+          const wrong = acct.personal === false && wantsPersonal;
+          return el.child(this.chip(t, "tb-account", `◉ ${acct.label}${wrong ? " !" : ""}`, wrong ? t.blocked : acct.personal ? t.done : t.accent, () => {},
+            wrong ? `${acct.dir} should be your personal login but is signed into ${acct.label}. Run \`claude auth login\` outside the work folders and pick your personal account.` : `Account of the focused Claude, from ${acct.dir ?? "?"}`));
+        })
         .child(this.chip(t, "tb-model", `◆ ${m.model}`, t.foreground, leader(["a", "m"]), "Model of the focused Claude (⌘; a m)"))
         .child(this.chip(t, "tb-effort", `◔ ${m.effort}`, t.foreground, leader(["a", "E"]), "Effort of the focused Claude (⌘; a E)"))
         .child(sep()))

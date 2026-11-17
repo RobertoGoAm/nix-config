@@ -187,8 +187,13 @@ in
   # =toolbar= takes the place of Herdr's status bar and keeps what it showed on
   # the left (machine, branch, how many agents, how many need you). On the right:
 
-  # - The focused Claude's model and effort, read from its status line on the
-  #   terminal's screen; clicking either opens the leader on that group.
+  # - The focused Claude's account, model and effort. The account comes from the
+  #   login folder its session runs from (=~/.claude=, =~/.claude-work=), checked
+  #   with =claude auth status= on the agent's machine every ten minutes, and reads
+  #   =Personal · Max= or =<organisation> · Team=; a personal folder signed into
+  #   an organisation shows red with how to fix it. Model and effort are read from
+  #   its status line on the terminal's screen, effort as =default= when the
+  #   status line leaves it out; clicking either opens the leader on that group.
   # - Spotify: previous, play or pause, next, and what is playing, through
   #   =spotify-ctl= (=pkgs/spotify-ctl.py=), the Web API client the Emacs mode
   #   line and the menu bar read. It reaches whichever Connect device is active,
