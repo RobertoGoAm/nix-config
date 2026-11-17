@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, focused, theme, run, exec, hc, keys, window, openOverlay, checking } from "herdr";
+import { spaces, agents, focused, theme, run, exec, hc, openOverlay, checking } from "herdr";
 
 
 function openMusic() {
@@ -147,13 +147,6 @@ export default class Toolbar extends View {
     });
   }
 
-  hint() {
-    const mac = window()?.platform === "macos";
-    const mod = { cmd: mac ? "⌘" : "Ctrl+", ctrl: mac ? "⌃" : "Ctrl+", shift: mac ? "⇧" : "Shift+", alt: mac ? "⌥" : "Alt+" };
-    const b = keys().find((k) => k.section === "global" && k.action === "mod.open:leader");
-    return b ? `${b.keys.split("-").map((p) => mod[p.toLowerCase()] ?? p).join("")}  leader` : "leader";
-  }
-
   chip(t, id, text, color, onClick, tip) {
     return h_flex().id(id).h(20).px(7).gap(5).rounded(5).items_center().cursor_pointer()
       .text_color(color ?? t.muted)
@@ -203,8 +196,6 @@ export default class Toolbar extends View {
         this.telegram.running ? `✈ ${this.telegram.count}` : "✈",
         this.telegram.count ? t.accent : t.dim,
         () => (this.telegram.via === "telega" ? openTelega() : exec("/usr/bin/open", ["-a", TELEGRAM]).catch(() => {})),
-        this.telegram.via === "telega" ? "Unread unmuted chats (telega). Click: telega tab" : this.telegram.running ? "Telegram: unread chats" : "Telegram is closed: click to open")))
-      .child(sep())
-      .child(div().id("tb-leader").text_color(t.dim).cursor_pointer().on_click(leader(null)).child(this.hint()));
+        this.telegram.via === "telega" ? "Unread unmuted chats (telega). Click: telega tab" : this.telegram.running ? "Telegram: unread chats" : "Telegram is closed: click to open")));
   }
 }

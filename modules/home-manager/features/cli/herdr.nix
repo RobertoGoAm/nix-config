@@ -209,7 +209,6 @@ in
   #   terminal frame of the same daemon (=emacsclient -t=), or brings that tab back
   #   if it is open. With no telega running it falls back to Telegram.app: its
   #   Dock badge while it runs, a bare icon while closed, and a click opens it.
-  # - The leader key, as a hint and a button.
 
   home.file.".config/herdr-app/mods/toolbar" = {
     source = ./herdr-app/toolbar;
