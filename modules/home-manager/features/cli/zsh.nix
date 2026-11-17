@@ -20,8 +20,11 @@
 
       # Wrapper to notify when a long-running Claude task finishes
 
-      # Auto-attach tmux on SSH login
-      if [[ -n "$SSH_CONNECTION" && -z "$TMUX" ]]; then
+      # Auto-attach tmux on SSH login, except in a Herdr terminal (HC_TERMINAL_ID
+      # or HERDR_ENV set): a pane reached over SSH, from the phone or another Mac,
+      # can carry SSH_CONNECTION, and attaching there would hide every agent run
+      # in the pane from Herdr.
+      if [[ -n "$SSH_CONNECTION" && -z "$TMUX" && -z "$HC_TERMINAL_ID" && -z "$HERDR_ENV" ]]; then
         tmux attach-session -t remote || tmux new-session -s remote
       fi
 
