@@ -24,7 +24,20 @@ const send = (text) => (target) => {
 
 const osa = (script) => () => exec("osascript", ["-e", script]).catch(() => {});
 
-const spotify = (cmd) => osa(`tell application "Spotify" to ${cmd}`);
+function openMusic() {
+  for (const s of spaces()) {
+    const tab = s.machine == null && s.tabs.find((x) => x.name === "music");
+    if (tab) {
+      run("space.select", { id: s.id });
+      run("tab.select", { id: tab.id });
+      return;
+    }
+  }
+  run("tab.new", { name: "music", argv: ["emacsclient", "-t", "-a", "", "-e", "(smudge-my-playlists)"] });
+}
+
+const spotifyCtl = (cmd) => exec("spotify-ctl", [cmd], { timeout: 15000 }).catch(() => null);
+
 const emacs = (form) => () => exec("emacsclient", ["-c", "-n", "-a", "", "-e", form]).catch(() => {});
 
 const MODEL = {
@@ -126,10 +139,11 @@ const TREE = {
     m: {
       label: "music",
       keys: {
-        m: { label: "play / pause", act: spotify("playpause") },
-        n: { label: "next track", act: spotify("next track") },
-        p: { label: "previous track", act: spotify("previous track") },
-        o: { label: "open spotify", act: spotify("activate") },
+        m: { label: "play / pause", act: () => spotifyCtl("playpause") },
+        n: { label: "next track", act: () => spotifyCtl("next") },
+        p: { label: "previous track", act: () => spotifyCtl("previous") },
+        l: { label: "my playlists", act: () => openMusic() },
+        o: { label: "open Spotify app", act: osa('tell application "Spotify" to activate') },
       },
     },
     i: {

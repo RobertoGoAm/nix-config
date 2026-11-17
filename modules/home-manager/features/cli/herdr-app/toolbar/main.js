@@ -3,6 +3,20 @@ import { h_flex } from "gpui-base";
 import { spaces, agents, focused, theme, run, exec, hc, keys, window, openOverlay, checking } from "herdr";
 
 
+function openMusic() {
+  for (const s of spaces()) {
+    const tab = s.machine == null && s.tabs.find((x) => x.name === "music");
+    if (tab) {
+      run("space.select", { id: s.id });
+      run("tab.select", { id: tab.id });
+      return;
+    }
+  }
+  run("tab.new", { name: "music", argv: ["emacsclient", "-t", "-a", "", "-e", "(smudge-my-playlists)"] });
+}
+
+const spotifyCtl = (cmd) => exec("spotify-ctl", [cmd], { timeout: 15000 }).catch(() => null);
+
 function openTelega() {
   for (const s of spaces()) {
     const tab = s.machine == null && s.tabs.find((x) => x.name === "telega");
@@ -15,14 +29,12 @@ function openTelega() {
   run("tab.new", { name: "telega", argv: ["emacsclient", "-t", "-a", "", "-e", "(telega)"] });
 }
 
-const SPOTIFY = 'if application "Spotify" is running then tell application "Spotify" to return (player state as text) & tab & artist of current track & tab & name of current track';
 const UNREAD = "flag:unread";
 const STATUSLINE = /\[([A-Za-z][\w .-]*?) [◔◑◕●○◐◒◓] (\w+)\]/;
 
 const TELEGRAM = "/Applications/Telegram.app";
 const TELEGA_UNREAD = "(if (and (fboundp 'telega-server-live-p) (telega-server-live-p)) (or (plist-get (bound-and-true-p telega--unread-chat-count) :unread_unmuted_count) 0) -1)";
 
-const osa = (script) => exec("osascript", ["-e", script]).catch(() => null);
 
 export default class Toolbar extends View {
   init(_props, cx) {
@@ -43,10 +55,17 @@ export default class Toolbar extends View {
 
   pollMusic(cx) {
     cx.spawn(async (cx) => {
-      const r = await osa(SPOTIFY);
+      const r = await spotifyCtl("now");
       const [state, artist, track] = (r?.code === 0 ? r.stdout.trim() : "").split("\t");
-      this.music = state ? { playing: state === "playing", artist, track } : null;
+      this.music = track ? { playing: state === "▶", artist, track } : null;
       cx.notify();
+    });
+  }
+
+  musicDo(cx, cmd) {
+    cx.spawn(async (cx) => {
+      await spotifyCtl(cmd);
+      this.pollMusic(cx);
     });
   }
 
@@ -128,10 +147,10 @@ export default class Toolbar extends View {
         .child(this.chip(t, "tb-effort", `◔ ${m.effort}`, t.foreground, leader(["a", "E"]), "Effort of the focused Claude (⌘; a E)"))
         .child(sep()))
       .when(Boolean(music), (el) => el
-        .child(this.chip(t, "tb-prev", "⏮", null, () => osa('tell application "Spotify" to previous track'), "Previous"))
-        .child(this.chip(t, "tb-play", music.playing ? "⏸" : "▶", t.foreground, () => osa('tell application "Spotify" to playpause'), "Play / pause"))
-        .child(this.chip(t, "tb-next", "⏭", null, () => osa('tell application "Spotify" to next track'), "Next"))
-        .child(this.chip(t, "tb-track", h_flex().max_w(260).child(div().truncate().child(`${music.track} — ${music.artist}`)), music.playing ? t.done : t.dim, () => osa('tell application "Spotify" to activate'), "Open Spotify"))
+        .child(this.chip(t, "tb-prev", "⏮", null, (_e, cx) => this.musicDo(cx, "previous"), "Previous"))
+        .child(this.chip(t, "tb-play", music.playing ? "⏸" : "▶", t.foreground, (_e, cx) => this.musicDo(cx, "playpause"), "Play / pause"))
+        .child(this.chip(t, "tb-next", "⏭", null, (_e, cx) => this.musicDo(cx, "next"), "Next"))
+        .child(this.chip(t, "tb-track", h_flex().max_w(260).child(div().truncate().child(`${music.track} — ${music.artist}`)), music.playing ? t.done : t.dim, () => openMusic(), "Playlists, search and devices (smudge in a Herdr tab)"))
         .child(sep()))
       .when(this.mail != null, (el) => el.child(this.chip(t, "tb-mail", `✉ ${this.mail}`, this.mail ? t.accent : t.dim,
         () => exec("/usr/bin/open", ["-b", "com.apple.mail"]).catch(() => {}), "Unread mail (mu, as in Emacs). Click: Mail")))

@@ -160,8 +160,8 @@ in
   # =development/emacs/plugins/keybinds=, so the same letters mean the same
   # things: =a= ai and agents (next needing you, filter, search, =R= review, =m=
   # model and =E= effort of the focused Claude, sent to it as =/model= and
-  # =/effort=), =b b= find, =j= jump, =m= music (Spotify, as =m m=, =m n=, =m p=,
-  # =m o= are in Emacs), =i= inbox (mu4e through =emacsclient=), =o t=
+  # =/effort=), =b b= find, =j= jump, =m= music (=m m=, =m n=, =m p= as in Emacs, through
+  # =spotify-ctl=; =m l= smudge's playlists in a tab; =m o= the Spotify app), =i= inbox (mu4e through =emacsclient=), =o t=
   # telega (in its Herdr tab, as above; =o T= the app), and Space for the command palette; =t= tabs, =s= spaces and =w=
   # panes add Herdr's own, moving on =h n e i= like nvim on this Colemak board.
 
@@ -182,8 +182,13 @@ in
 
   # - The focused Claude's model and effort, read from its status line on the
   #   terminal's screen; clicking either opens the leader on that group.
-  # - Spotify: previous, play or pause, next, and what is playing, over the same
-  #   AppleScript the Emacs music commands use; nothing while Spotify is closed.
+  # - Spotify: previous, play or pause, next, and what is playing, through
+  #   =spotify-ctl= (=pkgs/spotify-ctl.py=), the Web API client the Emacs mode
+  #   line and the menu bar read. It reaches whichever Connect device is active,
+  #   normally the headless librespot one Emacs plays on, so it works with
+  #   Spotify.app closed and never starts it. Clicking the track opens smudge's
+  #   playlists in a Herdr tab (a terminal frame of the Emacs daemon), where
+  #   search and device selection are smudge's own keys.
   # - Unread mail, counted by =mu= every minute with the query the Emacs mode
   #   line uses (=flag:unread=), so the two agree; clicking opens Mail. The
   #   leader's =i i= still opens mu4e.
