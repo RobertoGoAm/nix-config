@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, focused, theme, run, exec, hc, openOverlay, checking } from "herdr";
+import { spaces, agents, focused, panes, shared, theme, run, exec, hc, openOverlay, checking } from "herdr";
 
 
 function openMusic() {
@@ -128,11 +128,24 @@ export default class Toolbar extends View {
     });
   }
 
-  pollModel(cx) {
+  focusedClaude() {
     const f = focused();
-    const agent = f?.agent ?? f?.terminal;
-    const a = agents().find((x) => x.address === agent);
-    this.agent = a && a.app === "claude-code" ? a.address : null;
+    const here = f?.pane && panes().find((p) => p.pane === f.pane);
+    const chatPane = here?.mod === "chat" ? here.pane : null;
+    const address = chatPane ? (shared("chat.panes") ?? {})[chatPane] : (f?.agent ?? f?.terminal);
+    const a = agents().find((x) => x.address === address);
+    return a && a.app === "claude-code" ? { address: a.address, pane: a.pane, chatPane } : null;
+  }
+
+  toggleView() {
+    const c = this.focusedClaude();
+    if (!c) return;
+    run("pane.focus", { pane: c.chatPane ?? c.pane });
+    run("agents-plus.chat");
+  }
+
+  pollModel(cx) {
+    this.agent = this.focusedClaude()?.address ?? null;
     if (!this.agent) return cx.notify();
     const address = this.agent;
     this.pollAccount(cx, address);
@@ -163,6 +176,8 @@ export default class Toolbar extends View {
     const needs = list.filter((a) => a.status === "blocked").length;
     const label = (icon, text) => h_flex().gap(6).items_center().child(svg(`mods/workspace-chrome/${icon}.svg`).size(13)).child(text);
     const leader = (start) => () => openOverlay({ mod: "leader", kind: "dialog", width: 640, height: 0.55, props: { start } });
+    const claude = this.focusedClaude();
+    if (claude && claude.address !== this.agent && !checking()) { this.agent = claude.address; }
     const m = this.agent && this.model[this.agent];
     const acct = this.agent && this.account[this.agent];
     const music = this.music;
@@ -174,6 +189,8 @@ export default class Toolbar extends View {
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} agents`)
         .when(needs > 0, (el) => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
       .child(div().flex_1())
+      .when(Boolean(claude), (el) => el.child(this.chip(t, "tb-view", claude.chatPane ? "⇄ Terminal" : "⇄ Chat", t.accent, () => this.toggleView(),
+        claude.chatPane ? "Show this agent's terminal (⌘⇧C)" : "Show this agent as a chat (⌘⇧C)")))
       .when(Boolean(m), (el) => el
         .when(Boolean(acct?.label), (el) => {
           const wantsPersonal = /\/\.claude(-personal)?$/.test(acct.dir ?? "");

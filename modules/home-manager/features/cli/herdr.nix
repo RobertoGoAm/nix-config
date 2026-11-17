@@ -187,7 +187,9 @@ in
   # =toolbar= takes the place of Herdr's status bar and keeps what it showed on
   # the left (machine, branch, how many agents, how many need you). On the right:
 
-  # - The focused Claude's account, model and effort. The account comes from the
+  # - For the focused Claude, whether it shows as chat or terminal (a chat pane
+  #   counts as its agent), as a chip that switches between them, then its
+  #   account, model and effort. The account comes from the
   #   login folder its session runs from (=~/.claude=, =~/.claude-work=), checked
   #   with =claude auth status= on the agent's machine every ten minutes, and reads
   #   =Personal · Max= or =<organisation> · Team=; a personal folder signed into
@@ -286,8 +288,10 @@ in
   # and one switched back to its terminal stays there.
 
   # =⌘⇧C=, the leader's =a c=, the chat button on a Claude agent's row, or the
-  # Chat | Terminal switch in the pane's header opens it, and the same again goes
-  # back. That header is =pane-plus=, a copy of Herdr's =pane= header with the
+  # =⇄ Chat= / =⇄ Terminal= chip in the bottom bar opens it, and the same again
+  # goes back. The bottom bar is where the switch has to live: a tab with a single
+  # pane has no frame, and Herdr draws pane headers only inside a frame, so a
+  # terminal on its own has no header to hold one. That header is =pane-plus=, a copy of Herdr's =pane= header with the
   # switch on every Claude pane and the chat pane named after its agent. Model and effort stay
   # in the bottom bar.
 
