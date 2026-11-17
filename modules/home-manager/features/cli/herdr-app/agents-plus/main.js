@@ -420,13 +420,12 @@ export default class Agents extends View {
   }
 
   matches(a, filter, now) {
-    if (filter === "all" || a.pinned) return true;
+    if (filter === "all") return true;
     if (filter === "attention") return a.status === "blocked" || a.status === "done";
     if (filter === "review") {
       const r = this.reviewOf.get(a.address);
-      if (!r) return false;
-      const c = r.url ? this.ci[r.url] : null;
-      return !c || (c.state === "open" && !c.approved);
+      const c = r?.url ? this.ci[r.url] : null;
+      return Boolean(c && c.state === "open" && !c.approved);
     }
     if (a.status !== "idle" || a.focused) return true;
     const ci = this.ci[this.reviewOf.get(a.address)?.url];
@@ -661,7 +660,7 @@ export default class Agents extends View {
     const badge = waiting ? String(waiting) : null;
     if (badge !== this.badge && !checking()) { this.badge = badge; setBadge(badge); }
     const found = collapsed ? list : list.filter((a) => this.searched(a));
-    this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, found.filter((a) => this.matches({ ...a, pinned: false }, f.id, now)).length]));
+    this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, found.filter((a) => this.matches(a, f.id, now)).length]));
     const filter = collapsed ? "all" : filterOf().id;
     list = found.filter((a) => this.matches(a, filter, now));
     this.first = list[0] ?? null;

@@ -99,7 +99,9 @@ in
   #   All; Active (working, needing you, changed state in the last hour, or with
   #   a request whose CI is running or failing, so recently finished turns and
   #   broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
-  #   or merge request still waiting for a review: open and not yet approved).
+  #   or merge request still waiting for a review: open and not yet approved; a
+  #   review tab with no request behind it, such as a diff or a list, does not
+  #   count). Pinned agents stay first but are filtered like the rest.
   # - A PR pill on every agent with a pull or merge request: the one the tuicr
   #   review hook in =tuicr.org= labels the agent's terminal with when it opens
   #   one, else the one for the branch the agent's folder is on, looked up with
