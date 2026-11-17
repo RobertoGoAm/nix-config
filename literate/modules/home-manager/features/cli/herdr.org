@@ -290,10 +290,15 @@ full size in Preview: they live in the transcript as base64, so each is
 decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
 an agent on another machine), since Herdr only draws images from there. each tool call is one
 line, with a spinner until its result comes back, that opens to show its input
-and output; slash commands show as chips. File edits (=Edit=, =MultiEdit=,
-=Write=, =NotebookEdit=) show as a diff instead: the line with =+added −removed=
-counts, then the changed lines in the terminal's font, green and red against
-their context, the first 24 inline and the rest a click away. While Claude is working the list ends
+and output; slash commands show as chips. Code blocks in Claude's replies are drawn
+with the toolkit's own code editor, read-only and highlighted for their
+language in the theme's colours, under a label naming it; inline code stays
+with the Markdown view, which has no styling of its own to change. File edits
+(=Edit=, =MultiEdit=, =Write=, =NotebookEdit=) show as a diff instead: the line
+with =+added −removed= counts, then the changed lines in the terminal's font,
+highlighted for the file's language, each added line with a green =+=, edge and
+tint, each removed one the same in red, the first 24 inline and the rest a
+click away. While Claude is working the list ends
 in a working line and a Stop button beside Send presses Esc; the list keeps to
 its bottom as messages come in; a message sent while it works stays at the end
 marked Queued until the transcript shows Claude took it (it reads queued

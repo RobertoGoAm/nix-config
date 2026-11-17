@@ -1,5 +1,5 @@
 import { View, div, svg, image } from "gpui-kit";
-import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle } from "gpui-base";
+import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle, EditorState, Editor } from "gpui-base";
 import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome, spaces, window } from "herdr";
 
 const FIND = `t="$1"
@@ -71,6 +71,63 @@ function toolSummary(name, input) {
 }
 
 const DIFF_PREVIEW = 24;
+const FENCE = /```([\w+#.-]*)[^\n]*\n([\s\S]*?)```/g;
+const LANGS = {
+  js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript", javascript: "javascript",
+  ts: "typescript", tsx: "tsx", typescript: "typescript",
+  sh: "bash", bash: "bash", zsh: "bash", shell: "bash", console: "bash",
+  py: "python", python: "python", rb: "ruby", ruby: "ruby", rs: "rust", rust: "rust", go: "go",
+  nix: "nix", json: "json", jsonc: "json", yaml: "yaml", yml: "yaml", toml: "toml",
+  php: "php", html: "html", css: "css", scss: "css", sql: "sql", lua: "lua", md: "markdown", markdown: "markdown",
+  el: "elisp", elisp: "elisp", lisp: "elisp", c: "c", h: "c", cpp: "cpp", java: "java", kt: "kotlin", swift: "swift", diff: "diff",
+};
+const langOf = (name) => LANGS[(name ?? "").toLowerCase()] ?? "text";
+const extLang = (path) => langOf(String(path ?? "").split(".").pop());
+const KEYWORDS = new Set("if else elif fi then do done for while in of return function fn func def class import from export const let var new await async try catch finally throw case switch default break continue match struct enum impl pub use mod trait type interface extends implements public private protected static self this super null nil None true false True False undefined with inherit rec where package echo local and or not is lambda yield".split(" "));
+const TOKEN = /(\/\/.*$|#(?![{!]).*$|--\s.*$|;;.*$|\/\*.*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d[\d_.xa-fA-F]*\b)|([A-Za-z_$][\w$-]*)(?=\s*\()|([A-Za-z_$][\w$]*)/g;
+
+function syntaxColors(t) {
+  return {
+    keyword: t.ansi5, string: t.ansi2, comment: t.idle ?? t.dim, function: t.ansi4, type: t.ansi6,
+    number: t.ansi3, constant: t.ansi3, boolean: t.ansi3, variable: t.foreground, operator: t.ansi6,
+    punctuation: t.muted, "string.escape": t.ansi1,
+  };
+}
+
+function highlight(text, lang, t) {
+  const c = syntaxColors(t);
+  const commentOk = (m) => !(m.startsWith("#") && !["bash", "python", "ruby", "nix", "yaml", "toml", "elisp", "text"].includes(lang))
+    && !(m.startsWith("--") && !["sql", "lua"].includes(lang)) && !(m.startsWith(";;") && lang !== "elisp");
+  const out = [];
+  let at = 0, m;
+  TOKEN.lastIndex = 0;
+  while ((m = TOKEN.exec(text))) {
+    if (m.index > at) out.push([text.slice(at, m.index), null]);
+    const [all, comment, str, num, fn, word] = m;
+    const color = comment && commentOk(comment) ? c.comment : str ? c.string : num ? c.number : fn ? c.function
+      : word && KEYWORDS.has(word) ? c.keyword : word && /^[A-Z][a-z]/.test(word) ? c.type : null;
+    if (comment && !commentOk(comment)) { out.push([all[0], null]); at = m.index + 1; TOKEN.lastIndex = at; continue; }
+    out.push([all, color]);
+    at = m.index + all.length;
+  }
+  if (at < text.length) out.push([text.slice(at), null]);
+  return out;
+}
+
+function segments(text) {
+  const out = [];
+  let at = 0, m;
+  FENCE.lastIndex = 0;
+  while ((m = FENCE.exec(text))) {
+    if (m.index > at) out.push({ prose: text.slice(at, m.index) });
+    out.push({ lang: langOf(m[1]), label: m[1] || "code", code: m[2].replace(/\n$/, "") });
+    at = m.index + m[0].length;
+  }
+  if (at < text.length) out.push({ prose: text.slice(at) });
+  return out.filter((x) => x.code != null || x.prose.trim());
+}
+
+const hashOf = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 
 function lineDiff(a, b) {
   const x = a ? a.split("\n") : [], y = b ? b.split("\n") : [];
@@ -129,6 +186,7 @@ export default class Chat extends View {
     this.screen = null;
     this.showAll = false;
     this.images = {};
+    this.editors = new Map();
     this.scroll = ScrollHandle.new();
     this.input = TextareaState.new({ placeholder: "Message Claude… (Enter sends, Shift+Enter new line)" });
     this.input.set_auto_grow(1, 8);
@@ -246,6 +304,7 @@ export default class Chat extends View {
       else if (e.type === "user") this.user(e);
     }
     if (this.items.length > KEEP) this.items = this.items.slice(-KEEP);
+    this.ensureEditors();
   }
 
   assistant(e) {
@@ -293,6 +352,50 @@ export default class Chat extends View {
     if (!clean) return;
     this.pending = this.pending.filter((p) => p.trim() !== clean.trim());
     this.items.push({ kind: "user", text: clean, ts: e.timestamp, key: `${e.uuid}-${this.items.length}` });
+  }
+
+  blockKey(item, i, code) {
+    return `${item.key}:${i}:${hashOf(code)}`;
+  }
+
+  ensureEditors() {
+    const t = theme();
+    const wanted = new Set();
+    for (const item of this.items.slice(-SHOWN)) {
+      if (item.kind !== "assistant") continue;
+      segments(item.text).forEach((seg, i) => {
+        if (seg.code == null) return;
+        const key = this.blockKey(item, i, seg.code);
+        wanted.add(key);
+        if (this.editors.has(key)) return;
+        try {
+          this.editors.set(key, EditorState.new({
+            language: seg.lang, value: seg.code, readonly: true, line_numbers: false, folding: false,
+            soft_wrap: false, font_size: 12, syntax: syntaxColors(t),
+          }));
+        } catch {}
+      });
+    }
+    for (const [key, ed] of this.editors) if (!wanted.has(key)) { try { ed.release?.(); } catch {} this.editors.delete(key); }
+  }
+
+  codeBlock(t, key, seg) {
+    const lines = seg.code.split("\n").length;
+    const h = Math.min(420, lines * 18 + 14);
+    const ed = this.editors.get(key);
+    return v_flex().w_full().rounded(8).overflow_hidden().border_1().border_color(t.border).bg(t.chrome)
+      .child(h_flex().px(10).h(22).items_center().border_b(1).border_color(t.border).text_size(10.5).text_color(t.dim).child(seg.label))
+      .child(ed
+        ? div().w_full().h(h).px(4).child(Editor.new(ed).size_full())
+        : div().w_full().px(10).py(6).font_family(settings()?.font ?? "Menlo").text_size(12).text_color(t.foreground).child(seg.code));
+  }
+
+  assistantBody(t, item) {
+    const segs = segments(item.text);
+    if (!segs.some((x) => x.code != null)) return TextView.markdown(`a-${item.key}`, item.text).selectable(true);
+    return v_flex().w_full().gap(8).children(segs.map((seg, i) => seg.code != null
+      ? this.codeBlock(t, this.blockKey(item, i, seg.code), seg)
+      : TextView.markdown(`a-${item.key}-${i}`, seg.prose).selectable(true)));
   }
 
   loadImage(item, cx) {
@@ -380,7 +483,7 @@ export default class Chat extends View {
     if (item.kind === "assistant") {
       return h_flex().w_full().justify_start().child(
         div().max_w_full().mr(48).px(14).py(10).rounded(12).bg(t.ansi3 + "17").border_1().border_color(t.ansi3 + "45").text_color(t.foreground)
-          .child(TextView.markdown(`a-${item.key}`, item.text).selectable(true)));
+          .child(this.assistantBody(t, item)));
     }
     const open = this.open.has(item.key);
     const color = item.error ? t.blocked : item.result == null ? t.working : t.dim;
@@ -402,17 +505,20 @@ export default class Chat extends View {
     const mono = settings()?.font ?? "Menlo";
     const shown = open ? d.lines : d.lines.slice(0, DIFF_PREVIEW);
     const more = d.lines.length - shown.length;
-    const row = ([k, text], i) => div()
+    const lang = extLang(item.input?.file_path ?? item.input?.notebook_path);
+    const row = ([k, text], i) => h_flex()
       .id(`dl-${item.key}-${i}`)
-      .px(8)
+      .pl(6)
+      .pr(8)
       .whitespace_nowrap()
       .font_family(mono)
       .text_size(11.5)
-      .when(k === "+", (el) => el.bg(t.done + "22").text_color(t.foreground))
-      .when(k === "-", (el) => el.bg(t.blocked + "22").text_color(t.foreground))
-      .when(k === " ", (el) => el.text_color(t.muted))
-      .when(k === "@", (el) => el.text_color(t.dim))
-      .child(`${k === "@" ? " " : k} ${text}`);
+      .border_l(3)
+      .border_color(k === "+" ? t.done : k === "-" ? t.blocked : "#00000000")
+      .when(k === "+", (el) => el.bg(t.done + "2e"))
+      .when(k === "-", (el) => el.bg(t.blocked + "2e"))
+      .child(div().w(14).flex_none().font_bold().text_color(k === "+" ? t.done : k === "-" ? t.blocked : t.dim).child(k === "@" ? "…" : k === " " ? "" : k))
+      .children(k === "@" ? [] : highlight(text, lang, t).map(([str, color], n) => div().text_color(color ?? (k === " " ? t.muted : t.foreground)).child(str)));
     return v_flex().w_full().gap(4)
       .child(h_flex().gap(6).items_center().text_size(12).text_color(color)
         .when(item.result == null, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
