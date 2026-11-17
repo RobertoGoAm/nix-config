@@ -96,13 +96,15 @@ in
   # this module in =herdr-app/agents-plus=:
 
   # - Filters above the list, each with a count of the agents it would show:
-  #   All; Active (working, needing you, or changed state
-  #   in the last hour, so recently finished and recently failed turns stay in
-  #   view); Needs you (blocked, or finished unseen); Review (agents with a pull
+  #   All; Active (working, needing you, changed state in the last hour, or with
+  #   a request whose CI is running or failing, so recently finished turns and
+  #   broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
   #   or merge request open).
-  # - A PR pill on every agent whose terminal carries a =review.url= label, which
-  #   the tuicr review hook in =tuicr.org= sets when the agent opens a pull or
-  #   merge request. Its color is the request's CI, polled every minute with =gh
+  # - A PR pill on every agent with a pull or merge request: the one the tuicr
+  #   review hook in =tuicr.org= labels the agent's terminal with when it opens
+  #   one, else the one for the branch the agent's folder is on, looked up with
+  #   =gh pr view= or =glab mr view= on its machine every five minutes (=main= and
+  #   =master= are skipped). Its color is the request's CI, polled every minute with =gh
   #   pr view= or =glab mr view= on the agent's own machine: green passing,
   #   spinning while running, red failing, then merged or closed. Clicking it
   #   focuses the request's tuicr pane, or opens a new one beside the agent.
@@ -140,7 +142,10 @@ in
   # program, so every Claude tab reads "Claude Code". =picker-plus= is a copy that
   # labels it with the agents' own terminal titles -- Claude's session title --
   # falling back to the tab's name, and matches what is typed against those titles
-  # and the agents' pull request numbers too. A tab someone named keeps its name; one named after its own program,
+  # and the agents' pull request numbers too. Matches are ranked: a tab whose own
+  # title starts with what was typed (=135= finds =#135 Fix login=), then one
+  # with it at a word, then anywhere in the title, then a tab that only matches
+  # through its agent's details, such as the agent that opened that request. A tab someone named keeps its name; one named after its own program,
   # which is what Herdr's agent menu does when it starts one, counts as unnamed. A
   # tab with no agent, which Herdr calls by its number, is labelled from its
   # terminal instead: the title the program set, else the program and its folder

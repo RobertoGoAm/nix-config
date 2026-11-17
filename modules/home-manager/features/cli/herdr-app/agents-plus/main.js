@@ -13,6 +13,15 @@ const FILTERS = [
   { id: "review", label: "Review" },
 ];
 const RECENT_MS = 60 * 60000;
+const BRANCH_MS = 5 * 60000;
+const BRANCH_PR = `cd "$1" 2>/dev/null || exit 3
+b=$(git branch --show-current 2>/dev/null); [ -n "$b" ] || exit 3
+case "$b" in main|master) exit 3 ;; esac
+u=$(git remote get-url origin 2>/dev/null) || exit 3
+case "$u" in
+  *github.com*) gh pr view --json url --jq .url 2>/dev/null ;;
+  *) glab mr view -F json 2>/dev/null | jq -r '.web_url // empty' ;;
+esac`;
 const CI_POLL_MS = 60000;
 const filterOf = () => FILTERS.find((f) => f.id === shared("agents-plus.filter")) ?? FILTERS[1];
 
@@ -132,6 +141,7 @@ export default class Agents extends View {
     if (!this.pendingPins.length) localStorage.removeItem("pins");
     this.migratingPins = new Set();
     this.ci = {};
+    this.branchUrl = {};
     this.jumped = null;
     this.badge = null;
     this.query = "";
@@ -161,9 +171,10 @@ export default class Agents extends View {
 
   reviews() {
     const out = new Map();
+    const agentSet = new Set(agents().map((a) => a.address));
     for (const t of terminals()) {
-      const url = t.labels?.["review.url"] || null;
       const review = t.labels?.["review.terminal"];
+      const url = t.labels?.["review.url"] || (agentSet.has(t.address) ? this.branchUrl[this.branchKey(t)]?.url : null) || null;
       if (t.state !== "live" || (!url && !review)) continue;
       const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
       out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null, title: t.labels?.["review.title"] ?? null, space: t.labels?.["herdr.space"] ? machine + t.labels["herdr.space"] : null });
@@ -171,7 +182,38 @@ export default class Agents extends View {
     return out;
   }
 
+  branchKey(t) {
+    const machine = t.address.includes("/") ? t.address.split("/")[0] : "";
+    return `${machine}|${t.cwd ?? ""}`;
+  }
+
+  // The pull or merge request of the branch each agent is on, for agents the
+  // review hook has not labelled; looked up again every few minutes.
+  async findBranchPrs() {
+    const agentSet = new Set(agents().map((a) => a.address));
+    const now = Date.now();
+    for (const t of terminals()) {
+      if (t.state !== "live" || !agentSet.has(t.address) || !t.cwd || t.labels?.["review.url"]) continue;
+      const key = this.branchKey(t);
+      if (now - (this.branchUrl[key]?.at ?? 0) < BRANCH_MS) continue;
+      this.branchUrl[key] = { url: this.branchUrl[key]?.url ?? null, at: now };
+      const on = t.address.includes("/") ? t.address.split("/")[0] : null;
+      try {
+        const r = await exec("sh", ["-c", BRANCH_PR, "branch-pr", t.cwd], { on, timeout: 20000 });
+        const url = r.code === 0 ? r.stdout.trim() : "";
+        this.branchUrl[key] = { url: /^https?:\/\//.test(url) ? url : null, at: now };
+      } catch {}
+    }
+  }
+
   pollCi(cx) {
+    cx.spawn(async (cx) => {
+      await this.findBranchPrs();
+      this.pollCiNow(cx);
+    });
+  }
+
+  pollCiNow(cx) {
     const seen = new Map();
     for (const [address, r] of this.reviews()) if (r.url && !seen.has(r.url)) seen.set(r.url, address);
     cx.spawn(async (cx) => {
@@ -262,6 +304,8 @@ export default class Agents extends View {
     if (filter === "attention") return a.status === "blocked" || a.status === "done";
     if (filter === "review") return this.reviewOf.has(a.address);
     if (a.status !== "idle" || a.focused) return true;
+    const ci = this.ci[this.reviewOf.get(a.address)?.url];
+    if (ci && ci.state === "open" && (ci.ci === "running" || ci.ci === "fail")) return true;
     return now - this.since(a) < RECENT_MS;
   }
 

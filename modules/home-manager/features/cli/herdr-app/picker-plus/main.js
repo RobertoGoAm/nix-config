@@ -103,9 +103,30 @@ export default class Picker extends View {
           const mine = all.filter((a) => a.tab === ctx.id);
           return { w, ctx, mine, title: tabTitle(ctx, mine, allPanes.filter((p) => p.tab === ctx.id)), team: teamOf(mine.map((a) => a.address)) };
         })
-        .filter((c) => !f || [w.name, c.ctx.name, c.title, ...c.mine.map((a) => `${a.program?.name ?? ""} ${a.title ?? ""} ${prOf(a.address)}`)].join(" ").toLowerCase().includes(f));
-      return { w, ctxs };
+        .map((c) => ({ ...c, score: f ? score(c, w) : 0 }))
+        .filter((c) => !f || c.score > 0)
+        .sort((a, b) => b.score - a.score);
+      return { w, ctxs, best: Math.max(0, ...ctxs.map((c) => c.score)) };
     });
+    function score(c, w) {
+      const own = [c.title, c.ctx.name].map((x) => (x ?? "").toLowerCase());
+      if (own.some((x) => x.startsWith(f) || x.replace(/^[#!]/, "").startsWith(f))) return 4;
+      if (own.some((x) => new RegExp(`(^|[\\s#!/·-])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(x))) return 3;
+      if (own.some((x) => x.includes(f)) || w.name.toLowerCase().includes(f)) return 2;
+      const rest = c.mine.map((a) => `${a.program?.name ?? ""} ${a.title ?? ""} ${prOf(a.address)}`).join(" ").toLowerCase();
+      return rest.includes(f) ? 1 : 0;
+    }
+    if (f) {
+      const out = [];
+      for (const g of groups.filter((g) => g.ctxs.length).sort((a, b) => b.best - a.best)) {
+        out.push({ kind: "head", w: g.w });
+        for (const c of g.ctxs) out.push({ kind: "ctx", ...c });
+      }
+      out.push({ kind: "new" });
+      out.push({ kind: "space", machine: null });
+      for (const m of this.machines) out.push({ kind: "space", machine: m });
+      return out;
+    }
     const busy = groups.filter((p) => p.w.status && p.ctxs.length);
     const quiet = groups.filter((p) => !p.w.status && p.ctxs.length);
     busy.sort((a, b) => (b.w.status === "blocked") - (a.w.status === "blocked"));
