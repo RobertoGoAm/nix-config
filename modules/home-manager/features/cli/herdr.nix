@@ -126,9 +126,13 @@ in
   #   and so is the home folder. A review tab nobody named takes the title the
   #   review hook gave the agent (=#140 · title=): on another machine the hook
   #   has no app to name it, so it arrives numbered.
-  # - Grouped by space, the agents follow the sidebar's order of spaces and, in a
-  #   space, of tabs, so each space is one group however Herdr happens to list
-  #   its agents.
+  # - "Grouped by space" groups by project: spaces of the same repository (as the
+  #   spaces sidebar finds it, which publishes each space's project as
+  #   =space.projects=) or, outside a repository, of the same name, on the same
+  #   machine, share one group, so a checkout and a session started in the home
+  #   folder for it read as one. Groups and rows follow the sidebar's order of
+  #   spaces and tabs, and a row in a space named otherwise than its project (a
+  #   worktree) starts with that space's name.
   # - A macOS notification when an agent starts needing you, or finishes while
   #   you aren't looking at it. Herdr itself only draws a note inside its window
   #   and plays a sound, which a hidden window or another space never shows. The

@@ -306,6 +306,8 @@ export default class Spaces extends View {
     for (const w of sp) if (!this.shown.has(w.id) && ready(w)) this.shown.add(w.id);
     const list = sp.map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null }));
     const project = (r) => r.g?.repo ?? null;
+    const names = Object.fromEntries(list.filter((r) => r.g?.name).map((r) => [r.w.id, r.g.name]));
+    if (JSON.stringify(names) !== JSON.stringify(shared("space.projects") ?? {})) setShared("space.projects", names);
     const size = new Map();
     for (const r of list) if (project(r)) size.set(project(r), (size.get(project(r)) ?? 0) + 1);
     const out = [];

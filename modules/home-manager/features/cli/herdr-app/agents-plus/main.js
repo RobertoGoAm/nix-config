@@ -108,6 +108,12 @@ const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
+// A space's project: the repo the spaces sidebar found it in, else its name;
+// on its own machine, so same-named projects elsewhere stay apart.
+const projectOf = (space, name) => {
+  const machine = String(space ?? "").includes("/") ? String(space).split("/")[0] : "";
+  return `${machine}\u0000${(shared("space.projects") ?? {})[space] ?? name ?? ""}`;
+};
 const SORTS = [
   { id: "priority", label: "Priority", icon: "clock" },
   { id: "grouped", label: "Grouped by space", icon: "layers" },
@@ -683,8 +689,10 @@ export default class Agents extends View {
     else {
       const order = new Map(spaces().map((s, i) => [s.id, i]));
       const tabOrder = new Map(spaces().flatMap((s) => s.tabs.map((tab, i) => [tab.id, i])));
-      const place = (a) => order.get(a.space) ?? order.size;
-      list = [...list].sort((x, y) => place(x) - place(y) || String(x.space).localeCompare(String(y.space)) || (tabOrder.get(x.tab) ?? 0) - (tabOrder.get(y.tab) ?? 0));
+      const first = new Map();
+      for (const s of spaces()) if (!first.has(projectOf(s.id, s.name))) first.set(projectOf(s.id, s.name), order.get(s.id));
+      const place = (a) => first.get(projectOf(a.space, a.space_name)) ?? order.size;
+      list = [...list].sort((x, y) => place(x) - place(y) || projectOf(x.space, x.space_name).localeCompare(projectOf(y.space, y.space_name)) || (order.get(x.space) ?? 0) - (order.get(y.space) ?? 0) || (tabOrder.get(x.tab) ?? 0) - (tabOrder.get(y.tab) ?? 0));
     }
     const pinned = list.filter((a) => a.pinned);
     const rest = list.filter((a) => !a.pinned);
@@ -781,10 +789,13 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
-      // Under a space header the space goes without saying; an automatic tab number says nothing.
-      // Without a space header above (priority, pinned) the row names its space.
+      // Under a project header the project goes without saying, and so does a
+      // space named after it; an automatic tab number says nothing.
+      // Without a header above (priority, pinned) the row names its space.
       const full = byPriority || isPinned;
-      const name = full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
+      const own = more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
+      const other = a.space_name && a.space_name !== projectOf(a.space, a.space_name).split("\u0000")[1] ? a.space_name : null;
+      const name = full ? a.space_name || label(a) : other ? `${other} \u00b7 ${own}` : own;
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
@@ -839,14 +850,14 @@ export default class Agents extends View {
         .child(this.status(t, a, byPriority && !isPinned));
     };
 
-    // Groups in list order: spaces (grouped) or priority sections. The list is
-    // sorted by space in the sidebar's order, so neighbours make a group.
+    // Groups in list order: projects (grouped) or priority sections. The list
+    // is sorted by project in the sidebar's order, so neighbours make a group.
     const groups = pinned.length ? [{ id: "pinned", label: "Pinned", status: null, members: pinned }] : [];
     for (const a of rest) {
       const r = rankOf(a) || RANK.idle;
-      const id = byPriority ? `sec-${r}` : `sp-${a.space}`;
+      const id = byPriority ? `sec-${r}` : `pj-${projectOf(a.space, a.space_name)}`;
       if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
-      else groups.push({ id, label: byPriority ? SECTION[r] : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
+      else groups.push({ id, label: byPriority ? SECTION[r] : projectOf(a.space, a.space_name).split("\u0000")[1] || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
     }
 
     // A group's header; it folds the group. Folded, it says how many and the most urgent state.
