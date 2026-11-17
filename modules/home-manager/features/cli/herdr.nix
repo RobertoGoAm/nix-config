@@ -258,7 +258,10 @@ in
   # counts, then the changed lines in the terminal's font, green and red against
   # their context, the first 24 inline and the rest a click away. While Claude is working the list ends
   # in a working line and a Stop button beside Send presses Esc; the list keeps to
-  # its bottom as messages come in; when it needs you, the last lines of its screen (the
+  # its bottom as messages come in; a message sent while it works stays at the end
+  # marked Queued until the transcript shows Claude took it (it reads queued
+  # messages at its next step), and when Claude's screen offers a key to send it
+  # now, a Send now button presses that key; when it needs you, the last lines of its screen (the
   # permission prompt or question) show with buttons for 1, 2, 3, Enter and Esc,
   # and Answer in terminal goes back. Only the last 160 messages are drawn, with
   # the earlier ones a click away.

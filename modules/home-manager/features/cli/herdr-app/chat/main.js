@@ -196,11 +196,18 @@ export default class Chat extends View {
 
   pollScreen(cx) {
     const a = agents().find((x) => x.address === this.address);
-    if (a?.status !== "blocked") { if (this.screen) { this.screen = null; cx.notify(); } return; }
+    const blocked = a?.status === "blocked";
+    const queued = this.pending.length > 0 && a?.status === "working";
+    if (!blocked && !queued) {
+      if (this.screen || this.sendNowKey) { this.screen = null; this.sendNowKey = null; cx.notify(); }
+      return;
+    }
     cx.spawn(async (cx) => {
       const r = await hc(["read", this.address]).catch(() => null);
       const lines = (r?.stdout ?? "").split("\n").map((l) => l.replace(/\s+$/, "")).filter(Boolean);
-      this.screen = lines.slice(-16).join("\n");
+      this.screen = blocked ? lines.slice(-16).join("\n") : null;
+      const hint = lines.slice(-20).join("\n").match(/\b((?:ctrl|cmd|alt|shift|meta)\+[a-z]+|enter|tab)\b[^\n]{0,12}\bsend (?:it )?now\b/i);
+      this.sendNowKey = hint ? hint[1].toLowerCase() : null;
       cx.notify();
     });
   }
@@ -449,8 +456,16 @@ export default class Chat extends View {
     if (this.error) rows.push(div().text_size(12).text_color(t.blocked).child(this.error));
     if (!this.error && !this.file) rows.push(div().text_size(12).text_color(t.dim).child("Finding the session…"));
     for (const it of items) rows.push(this.bubble(t, it, cx));
-    for (const p of this.pending) rows.push(h_flex().w_full().justify_end().child(
-      div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "2e").border_1().border_color(t.accent + "66").opacity(0.6).text_color(t.foreground).child(p)));
+    this.pending.forEach((p, i) => rows.push(v_flex().w_full().items_end().gap(3)
+      .child(div().max_w_4_5().px(12).py(8).rounded(12).bg(t.accent + "1a").border_1().border_color(t.accent + "66").text_color(t.muted).child(p))
+      .child(h_flex().gap(8).items_center().px(4).text_size(10.5).text_color(t.dim)
+        .child(div().px(5).h(16).flex().items_center().rounded(4).border_1().border_color(t.accent + "66").text_color(t.accent).child("Queued"))
+        .child(div().child(status === "working" ? "Claude reads it at its next step" : "sending…"))
+        .when(Boolean(this.sendNowKey) && i === 0, (el) => el.child(div().id("chat-send-now").px(6).h(18).flex().items_center().rounded(5)
+          .cursor_pointer().bg(t.accent).text_color(t.accent_foreground).font_semibold().hover((s) => s.opacity(0.9))
+          .tooltip(`Interrupts Claude's current step to read it now (${this.sendNowKey})`)
+          .on_click((_e, cx) => { this.keys(this.sendNowKey); cx.notify(); })
+          .child("Send now"))))));
     if (status === "working") rows.push(h_flex().gap(8).items_center().text_size(11.5).text_color(t.working)
       .child(svg("mods/workspace-chrome/spinner.svg").size(11).spin(900))
       .child(div().child("Claude is working…")));
