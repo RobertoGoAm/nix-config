@@ -321,6 +321,13 @@ export default class Chat extends View {
           this.byMessage.set(id, item);
         }
       } else if (c.type === "tool_use") {
+        if (c.name === "AskUserQuestion") {
+          const item = { kind: "question", id: c.id, questions: c.input?.questions ?? [], answers: null, result: null, ts: e.timestamp, key: c.id };
+          this.items.push(item);
+          this.tools.set(c.id, item);
+          this.byMessage.delete(id);
+          continue;
+        }
         const item = { kind: "tool", id: c.id, name: c.name, input: c.input, summary: toolSummary(c.name, c.input), diff: diffOf(c.name, c.input), result: null, error: false, key: c.id };
         this.items.push(item);
         this.tools.set(c.id, item);
@@ -337,6 +344,7 @@ export default class Chat extends View {
         const t = this.tools.get(c.tool_use_id);
         if (t) {
           t.result = resultText(c.content);
+          if (t.kind === "question") t.answers = e.toolUseResult?.answers ?? {};
           t.stopped = Boolean(c.is_error) && REJECTED.test(t.result.trim());
           t.error = Boolean(c.is_error) && !t.stopped;
         }
@@ -438,6 +446,66 @@ export default class Chat extends View {
       .child(image(im.rel).w(w).h(h));
   }
 
+  async pressKeys(keys, cx) {
+    for (const k of keys) {
+      await hc(["keys", this.address, k]).catch(() => {});
+      await new Promise((done) => cx.timer.after(250, done));
+    }
+  }
+
+  answer(item, cx) {
+    const pick = this.picks?.[item.key] ?? [];
+    if (item.questions.some((_, i) => pick[i] == null)) return;
+    const keys = [...pick.map((n) => String(n + 1)), ...(item.questions.length > 1 ? ["1"] : [])];
+    item.sent = true;
+    cx.spawn(async (cx) => { await this.pressKeys(keys, cx); });
+  }
+
+  questionCard(t, item, cx) {
+    const pending = item.result == null;
+    const multi = item.questions.some((q) => q.multiSelect);
+    this.picks ??= {};
+    const pick = (this.picks[item.key] ??= []);
+    const chosen = (q, label) => {
+      const a = item.answers?.[q.question];
+      return a != null && String(a).split(", ").includes(label);
+    };
+    const canAnswer = pending && !multi && !item.sent;
+    return v_flex().w_full().p(12).gap(10).rounded(12).border_1().border_color(pending ? t.accent + "88" : t.border).bg(t.raised)
+      .child(h_flex().gap(6).items_center().text_size(11.5).text_color(pending ? t.accent : t.dim)
+        .child(div().child(pending ? (item.sent ? "Sending your answers…" : "Claude is asking") : "Claude asked"))
+        .when(!pending, (el) => el.child(div().text_color(t.done).child("· answered"))))
+      .children(item.questions.map((q, qi) => v_flex().gap(6)
+        .child(h_flex().gap(8).items_center()
+          .when(Boolean(q.header), (el) => el.child(div().px(6).h(18).flex().items_center().rounded(5).bg(t.accent + "26").text_size(10.5).font_semibold().text_color(t.accent).child(q.header)))
+          .child(div().flex_1().min_w(0).text_color(t.foreground).font_medium().child(q.question)))
+        .child(h_flex().gap(6).flex_wrap().children((q.options ?? []).map((o, oi) => {
+          const on = pending ? pick[qi] === oi : chosen(q, o.label);
+          return v_flex().id(`q-${item.key}-${qi}-${oi}`).px(10).py(6).gap(2).rounded(8).border_1()
+            .border_color(on ? t.accent : t.border).when(on, (el) => el.bg(t.accent + "26"))
+            .when(!pending && !on, (el) => el.opacity(0.5))
+            .when(canAnswer, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => {
+              pick[qi] = oi;
+              if (item.questions.length === 1) this.answer(item, cx);
+              cx.notify();
+            }))
+            .child(div().text_size(12.5).text_color(t.foreground).child(o.label))
+            .when(Boolean(o.description) && o.description !== o.label, (el) => el.child(div().text_size(11).text_color(t.dim).child(o.description)));
+        })))
+        .when(!pending && item.answers?.[q.question] != null && !(q.options ?? []).some((o) => chosen(q, o.label)),
+          (el) => el.child(div().text_size(12).text_color(t.foreground).child(`→ ${item.answers[q.question]}`)))))
+      .when(pending && !item.sent, (el) => el.child(h_flex().gap(8).items_center()
+        .when(canAnswer && item.questions.length > 1, (el) => el.child(div().id(`q-submit-${item.key}`).px(12).h(28).rounded(8).flex().items_center()
+          .text_size(12.5).font_semibold().cursor_pointer()
+          .when(item.questions.every((_, i) => pick[i] != null), (el) => el.bg(t.accent).text_color(t.accent_foreground).on_click((_e, cx) => { this.answer(item, cx); cx.notify(); }))
+          .when(!item.questions.every((_, i) => pick[i] != null), (el) => el.border_1().border_color(t.border).text_color(t.dim))
+          .child("Submit answers")))
+        .child(div().id(`q-term-${item.key}`).px(10).h(28).rounded(8).flex().items_center().text_size(12).cursor_pointer()
+          .border_1().border_color(t.border).text_color(t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground))
+          .on_click(() => this.back())
+          .child(multi ? "Multiple choice: answer in terminal" : "Type an answer in terminal"))));
+  }
+
   send() {
     const text = this.input.value().replace(/\s+$/, "");
     if (!text.trim() || !this.address) return;
@@ -480,7 +548,7 @@ export default class Chat extends View {
     const body = this.bubbleBody(t, item, cx);
     const when = item.kind === "tool" ? "" : stamp(item.ts);
     if (!when) return body;
-    const right = item.kind !== "assistant";
+    const right = item.kind === "user" || item.kind === "image" || item.kind === "command";
     return v_flex().w_full().gap(3)
       .child(body)
       .child(h_flex().w_full().when(right, (el) => el.justify_end()).px(4)
@@ -488,6 +556,7 @@ export default class Chat extends View {
   }
 
   bubbleBody(t, item, cx) {
+    if (item.kind === "question") return this.questionCard(t, item, cx);
     if (item.kind === "image") return h_flex().w_full().justify_end().child(this.thumb(t, item, cx));
     if (item.kind === "user") {
       return h_flex().w_full().justify_end().child(
@@ -567,7 +636,8 @@ export default class Chat extends View {
       .border_1().border_color(t.border).text_color(color ?? t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_click((_e, cx) => { f(); cx.notify(); }).child(label);
 
-    const needs = status === "blocked" ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
+    const asking = this.items.some((it) => it.kind === "question" && it.result == null);
+    const needs = status === "blocked" && !asking ? v_flex().mx(14).mb(8).p(10).gap(8).flex_none().rounded(8).border_1().border_color(t.blocked).bg(t.blocked + "14")
       .child(div().text_size(12).font_semibold().text_color(t.blocked).child("Claude needs you"))
       .when(Boolean(this.screen), (el) => el.child(TextView.markdown("needs-screen", "```\n" + this.screen + "\n```").selectable(true)))
       .child(h_flex().gap(6).flex_wrap()

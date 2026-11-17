@@ -298,7 +298,13 @@ full size in Preview: they live in the transcript as base64, so each is
 decoded once into =data/chat-images= in Herdr's folder (through =hc exec= for
 an agent on another machine), since Herdr only draws images from there. each tool call is one
 line, with a spinner until its result comes back, that opens to show its input
-and output; slash commands show as chips. Stopping Claude shows where it happened: a
+and output; slash commands show as chips. A question Claude asks (=AskUserQuestion=) is a card: each question with its
+header and its options as buttons with their descriptions. While it waits,
+clicking an option per question (and Submit answers for more than one) answers
+it with the keys Claude's own dialog takes -- each option's number, then 1 to
+submit -- and the generic needs-you panel stays away; multiple-choice
+questions and typed answers go to the terminal. Once answered, the chosen
+options stay lit and the rest dim. Stopping Claude shows where it happened: a
 red divider, =⏹ You stopped Claude= with the time (and "during a tool" when
 it was), and a tool call cut short marked stopped rather than failed. Code blocks in Claude's replies are drawn
 with the toolkit's own code editor, read-only and highlighted for their
