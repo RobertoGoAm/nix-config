@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle, EditorState, Editor } from "gpui-base";
-import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome, spaces, window } from "herdr";
+import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking, appHome, spaces, window, focused } from "herdr";
 
 const FIND = `t="$1"
 pid=$(hc get "$t" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
@@ -555,7 +555,7 @@ export default class Chat extends View {
   render(cx) {
     const t = theme();
     const mine = Object.entries(shared("chat.panes") ?? {}).find(([, x]) => x === this.address)?.[0];
-    const focusedNow = Boolean(mine && panes().find((p) => p.pane === mine)?.focused);
+    const focusedNow = Boolean(mine && focused()?.pane === mine && window()?.active);
     if (focusedNow && !this.hadFocus && !checking()) cx.timer.after(30, () => this.input.focus());
     this.hadFocus = focusedNow;
     const agent = agents().find((a) => a.address === this.address);
