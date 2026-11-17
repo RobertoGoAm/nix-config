@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, TextView, ScrollHandle } from "gpui-base";
-import { agents, terminals, panes, run, exec, hc, theme, props, shared, setShared, nextCommand, checking } from "herdr";
+import { agents, terminals, panes, run, exec, hc, theme, settings, props, shared, setShared, nextCommand, checking } from "herdr";
 
 const FIND = `t="$1"
 pid=$(hc get "$t" --json 2>/dev/null | jq -r '.foreground.pid // .pid // empty')
@@ -40,6 +40,42 @@ function toolSummary(name, input) {
   const first = (s) => String(s ?? "").split("\n")[0].slice(0, 160);
   const pick = i.description || i.command || i.file_path || i.path || i.pattern || i.url || i.query || i.prompt || i.subject || i.skill;
   return `${name}${pick ? ": " + first(pick) : ""}`;
+}
+
+const DIFF_PREVIEW = 24;
+
+function lineDiff(a, b) {
+  const x = a ? a.split("\n") : [], y = b ? b.split("\n") : [];
+  if (x.length * y.length > 250000) return [...x.map((l) => ["-", l]), ...y.map((l) => ["+", l])];
+  const n = x.length, m = y.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = x[i] === y[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (x[i] === y[j]) { out.push([" ", x[i]]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) out.push(["-", x[i++]]);
+    else out.push(["+", y[j++]]);
+  }
+  while (i < n) out.push(["-", x[i++]]);
+  while (j < m) out.push(["+", y[j++]]);
+  return out;
+}
+
+function diffOf(name, input) {
+  const i = input ?? {};
+  const pairs = name === "Edit" ? [[i.old_string, i.new_string]]
+    : name === "MultiEdit" ? (i.edits ?? []).map((e) => [e.old_string, e.new_string])
+    : name === "Write" ? [["", i.content]]
+    : name === "NotebookEdit" ? [["", i.new_source]]
+    : null;
+  if (!pairs) return null;
+  const lines = [];
+  pairs.forEach(([a, b], k) => {
+    if (k > 0) lines.push(["@", "…"]);
+    lines.push(...lineDiff(String(a ?? ""), String(b ?? "")));
+  });
+  return { lines, add: lines.filter((l) => l[0] === "+").length, del: lines.filter((l) => l[0] === "-").length };
 }
 
 function resultText(content) {
@@ -173,7 +209,7 @@ export default class Chat extends View {
           this.byMessage.set(id, item);
         }
       } else if (c.type === "tool_use") {
-        const item = { kind: "tool", id: c.id, name: c.name, input: c.input, summary: toolSummary(c.name, c.input), result: null, error: false, key: c.id };
+        const item = { kind: "tool", id: c.id, name: c.name, input: c.input, summary: toolSummary(c.name, c.input), diff: diffOf(c.name, c.input), result: null, error: false, key: c.id };
         this.items.push(item);
         this.tools.set(c.id, item);
         this.byMessage.delete(id);
@@ -235,7 +271,7 @@ export default class Chat extends View {
   bubble(t, item) {
     if (item.kind === "user") {
       return h_flex().w_full().justify_end().child(
-        div().max_w(0.85).px(12).py(8).rounded(12).bg(t.selected).text_color(t.foreground)
+        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).text_color(t.foreground)
           .child(TextView.markdown(`u-${item.key}`, item.text).selectable(true)));
     }
     if (item.kind === "command") {
@@ -246,6 +282,7 @@ export default class Chat extends View {
     }
     const open = this.open.has(item.key);
     const color = item.error ? t.blocked : item.result == null ? t.working : t.dim;
+    if (item.diff) return this.diffBlock(t, item, open, color);
     return v_flex().w_full()
       .child(h_flex().id(`tool-${item.key}`).gap(6).items_center().cursor_pointer().text_size(12).text_color(color)
         .hover((s) => s.text_color(t.foreground))
@@ -256,6 +293,37 @@ export default class Chat extends View {
       .when(open, (el) => el.child(v_flex().ml(16).mt(4).p(8).gap(6).rounded(6).bg(t.raised).text_size(11.5)
         .child(TextView.markdown(`ti-${item.key}`, "```json\n" + JSON.stringify(item.input ?? {}, null, 2).slice(0, 4000) + "\n```").selectable(true))
         .when(item.result != null, (el) => el.child(TextView.markdown(`tr-${item.key}`, "```\n" + String(item.result).slice(0, 6000) + "\n```").selectable(true)))));
+  }
+
+  diffBlock(t, item, open, color) {
+    const d = item.diff;
+    const mono = settings()?.font ?? "Menlo";
+    const shown = open ? d.lines : d.lines.slice(0, DIFF_PREVIEW);
+    const more = d.lines.length - shown.length;
+    const row = ([k, text], i) => div()
+      .id(`dl-${item.key}-${i}`)
+      .px(8)
+      .whitespace_nowrap()
+      .font_family(mono)
+      .text_size(11.5)
+      .when(k === "+", (el) => el.bg(t.done + "22").text_color(t.foreground))
+      .when(k === "-", (el) => el.bg(t.blocked + "22").text_color(t.foreground))
+      .when(k === " ", (el) => el.text_color(t.muted))
+      .when(k === "@", (el) => el.text_color(t.dim))
+      .child(`${k === "@" ? " " : k} ${text}`);
+    return v_flex().w_full().gap(4)
+      .child(h_flex().gap(6).items_center().text_size(12).text_color(color)
+        .when(item.result == null, (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().spin(900)))
+        .child(div().flex_1().min_w(0).truncate().child(item.summary))
+        .child(div().flex_none().text_color(t.done).child(`+${d.add}`))
+        .child(div().flex_none().text_color(t.blocked).child(`−${d.del}`)))
+      .child(v_flex().id(`diff-${item.key}`).w_full().py(4).rounded(6).border_1().border_color(t.border).bg(t.raised).overflow_x_scroll()
+        .children(shown.map(row)))
+      .when(more > 0 || open, (el) => el.child(div().id(`dm-${item.key}`).text_size(11.5).text_color(t.dim).cursor_pointer()
+        .hover((s) => s.text_color(t.foreground))
+        .on_click((_e, cx) => { open ? this.open.delete(item.key) : this.open.add(item.key); cx.notify(); })
+        .child(open ? "show less" : `show all ${d.lines.length} lines`)))
+      .when(item.error, (el) => el.child(div().text_size(11.5).text_color(t.blocked).child(String(item.result ?? "").slice(0, 300))));
   }
 
   render(cx) {
@@ -294,7 +362,7 @@ export default class Chat extends View {
       .when(!this.error && !this.file, (el) => el.child(div().text_size(12).text_color(t.dim).child("Finding the session…")))
       .children(items.map((it) => this.bubble(t, it)))
       .children(this.pending.map((p, i) => h_flex().w_full().justify_end().child(
-        div().max_w(0.85).px(12).py(8).rounded(12).bg(t.selected).opacity(0.6).text_color(t.foreground).child(p))));
+        div().max_w_4_5().px(12).py(8).rounded(12).bg(t.selected).opacity(0.6).text_color(t.foreground).child(p))));
 
     return v_flex().id("chat").size_full().bg(t.background).text_size(13)
       .child(header)

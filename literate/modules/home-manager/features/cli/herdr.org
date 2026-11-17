@@ -286,7 +286,10 @@ the agent runs, and types what is sent into the terminal with =hc send=.
 
 Your messages and Claude's replies are rendered Markdown; each tool call is one
 line, with a spinner until its result comes back, that opens to show its input
-and output; slash commands show as chips. While Claude is working a Stop
+and output; slash commands show as chips. File edits (=Edit=, =MultiEdit=,
+=Write=, =NotebookEdit=) show as a diff instead: the line with =+added −removed=
+counts, then the changed lines in the terminal's font, green and red against
+their context, the first 24 inline and the rest a click away. While Claude is working a Stop
 button presses Esc; when it needs you, the last lines of its screen (the
 permission prompt or question) show with buttons for 1, 2, 3, Enter and Esc,
 and Answer in terminal goes back. Only the last 160 messages are drawn, with
