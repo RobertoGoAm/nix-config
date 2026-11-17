@@ -204,12 +204,26 @@ in
     recursive = true;
   };
 
+  # Space rows that keep the name and give up the branch
+
+  # Herdr's =spaces= list puts the space's name and its git tail (repo, branch,
+  # ahead and behind) on one row, and when the row is too narrow both shrink in
+  # proportion, so a long branch takes the name down with it. =spaces-plus= is a
+  # copy where the name keeps its width, up to 170 points, and the branch is what
+  # truncates, down to nothing if it must.
+
+  home.file.".config/herdr-app/mods/spaces-plus" = {
+    source = ./herdr-app/spaces-plus;
+    recursive = true;
+  };
+
   # A layout that shows it
 
   # Layouts name their mods, and the shipped =main= layout is also rewritten on
   # every start, so a layout of its own, =herdr-plus=, is derived from it on
-  # every switch: the same tree with =agents-plus= in place of =agents= and
-  # =toolbar= in place of =workspace-status=. Deriving
+  # every switch: the same tree with =agents-plus= in place of =agents=,
+  # =spaces-plus= in place of =spaces= and =toolbar= in place of
+  # =workspace-status=. Deriving
   # it each time keeps it in step with Herdr's updates to =main=; edits made to
   # =herdr-plus= from inside the app last until the next switch. Herdr picks the
   # file up live. The keys that drive =agents-plus= reach it only while a layout
@@ -222,7 +236,7 @@ in
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
