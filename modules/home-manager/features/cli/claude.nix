@@ -40,6 +40,15 @@ let
     hash = "sha256-2Oo5cI8Xq0MgRkDshJ9Ls56n6++975R4+fqNJpF0ZCQ=";
   };
 
+  # Claude Code's own themes (=dark=, =light=, and =auto=, which picks one of them
+  # from the background the terminal reports) paint with fixed colours of their
+  # own, so in a terminal themed otherwise, Tokyo Night in Herdr, Ghostty and
+  # Emacs here, Claude reads as a different scheme. =dark-ansi= draws with the
+  # terminal's sixteen colours instead, so it follows whatever theme the terminal
+  # has. No ANSI theme follows the system's appearance; the terminal's light
+  # palette (Tokyo Night Day) still gives it its own colours, only on dark-theme
+  # roles.
+
   # The status line's stdin is also the only place Claude Code states how much of
   # the subscription's limits are used: =rate_limits.five_hour= and =.seven_day=,
   # each a =used_percentage= and a =resets_at=. The command keeps the latest of
@@ -1458,6 +1467,7 @@ in
         ];
       };
       agentPushNotifEnabled = true;
+      theme = "dark-ansi";
       statusLine = {
         type = "command";
         command = "${statusLine}";
