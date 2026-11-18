@@ -418,8 +418,7 @@ The view is remembered per agent: an agent last left in chat opens in chat
 again when it is focused (from its row, the picker or the attention jump),
 and one switched back to its terminal stays there.
 
-=⌘⇧C=, the leader's =a c= or the chat button on a Claude agent's row opens
-it, and the same again goes back. A chat pane's header is =pane-plus=, a copy of Herdr's =pane= header that names
+=⌘⇧C= or the leader's =a c= opens it, and the same again goes back. A chat pane's header is =pane-plus=, a copy of Herdr's =pane= header that names
 it after its agent. Model and effort stay
 in the bottom bar.
 

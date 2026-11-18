@@ -846,25 +846,6 @@ export default class Agents extends View {
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(Boolean(this.prPill(t, a)), el => el.child(this.prPill(t, a)))
-        .when(this.hovered === a.address && a.app === "claude-code", el => el.child(div()
-          .id(`chat-${a.address}`)
-          .flex_none()
-          .px(4)
-          .h(18)
-          .rounded(4)
-          .flex()
-          .items_center()
-          .text_size(10.5)
-          .text_color(t.dim)
-          .cursor_pointer()
-          .hover((s) => s.bg(t.hover).text_color(t.foreground))
-          .tooltip("Chat with this agent (⌘⇧C)")
-          .on_click((_e, cx) => {
-            cx.stop_propagation();
-            this.toggleChat(a.address);
-            cx.notify();
-          })
-          .child("chat")))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
