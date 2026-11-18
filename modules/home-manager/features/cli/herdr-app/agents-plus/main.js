@@ -75,6 +75,19 @@ function find(node, id) {
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
 
+const BLOCK = "agents";
+const FOLDED_PX = 42;
+const sectionFolded = () => shared("agents.section.folded") === true;
+function toggleSection() {
+  const folded = !sectionFolded();
+  if (folded) {
+    const w = find(layout(), BLOCK)?.size?.weight;
+    if (w) setShared("agents.section.weight", w);
+  }
+  setShared("agents.section.folded", folded);
+  run("layout.resize", folded ? { id: BLOCK, px: FOLDED_PX } : { id: BLOCK, weight: shared("agents.section.weight") ?? 1 });
+}
+
 // To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
 function toggleSidebar() {
   const width = find(layout(), "sidebar")?.size?.px;
@@ -894,7 +907,8 @@ export default class Agents extends View {
           .when(!byPriority && top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
           .child(svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
     };
-    const rows = collapsed
+    const shut = sectionFolded();
+    const rows = shut ? [] : collapsed
       ? list.flatMap(withKids)
       : groups.flatMap((g) => [header(g), ...(this.folded.has(g.id) ? [] : g.members.flatMap(withKids))]);
 
@@ -915,7 +929,22 @@ export default class Agents extends View {
             .flex_none()
             .items_center()
             .justify_between()
-            .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
+            .child(
+              h_flex()
+                .id("ag-section")
+                .gap(6)
+                .items_center()
+                .cursor_pointer()
+                .text_size(11.5)
+                .font_medium()
+                .text_color(t.dim)
+                .hover((s) => s.text_color(t.foreground))
+                .tooltip(shut ? "Show the agents" : "Fold the agents")
+                .on_click(toggleSection)
+                .child(svg(`mods/workspace-chrome/chevron-${shut ? "right" : "down"}.svg`).size(10).flex_none())
+                .child("Agents")
+                .when(shut && list.length > 0, (el) => el.child(div().text_color(t.muted).child(String(list.length)))),
+            )
             .child(
               div()
                 .id("ag-sort")
@@ -928,8 +957,8 @@ export default class Agents extends View {
             ),
         ),
       )
-      .when(!collapsed, (el) => el.child(this.filterBar(t)))
-      .when(!collapsed, (el) => el.child(
+      .when(!collapsed && !shut, (el) => el.child(this.filterBar(t)))
+      .when(!collapsed && !shut, (el) => el.child(
         h_flex().mx(14).mb(6).h(26).px(8).gap(6).flex_none().items_center().rounded(7).border_1().border_color(t.border).bg(t.background)
           .on_key_down((e, cx) => {
             if (e.key !== "escape") return;
@@ -940,7 +969,7 @@ export default class Agents extends View {
           })
           .child(svg("mods/workspace-chrome/search.svg").size(12).flex_none().text_color(t.dim))
           .child(Input.new(this.input).flex_1().h_full().text_size(12).text_color(t.foreground))))
-      .when(list.length === 0 && !collapsed, (el) =>
+      .when(list.length === 0 && !collapsed && !shut, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child(filter === "all"
           ? "No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not."
           : `No agents match “${filterOf().label}”.`)),

@@ -1,6 +1,17 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, run, exec, theme, shared, setShared, checking, home } from "herdr";
+import { spaces, run, exec, theme, shared, setShared, checking, home, layout } from "herdr";
+
+const BLOCK = "requests";
+const FOLDED_PX = 37;
+function find(node, id) {
+  if (node?.id === id) return node;
+  for (const child of node?.children ?? []) {
+    const found = find(child, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 const POLL_MS = 60000;
 const GLOBAL = "Global";
@@ -216,6 +227,29 @@ export default class Requests extends View {
     cx.notify();
   }
 
+  toggleSection(cx) {
+    const folded = !this.folded.has(BLOCK);
+    if (folded) {
+      const w = find(layout(), BLOCK)?.size?.weight;
+      if (w) setShared("requests.weight", w);
+    }
+    this.fold(BLOCK, cx);
+    run("layout.resize", folded ? { id: BLOCK, px: FOLDED_PX } : { id: BLOCK, weight: shared("requests.weight") ?? 1 });
+  }
+
+  tally(t, live) {
+    const requests = live.reduce((n, x) => n + (x.d.requests?.length ?? 0), 0);
+    const states = live.flatMap(({ d }) => [d.default, ...(d.requests ?? []).map((r) => r.ci)])
+      .filter((c) => c && c.state && c.state !== "none").map((c) => c.state);
+    const count = (s) => states.filter((x) => x === s).length;
+    const failed = count("failed");
+    const running = count("running");
+    const ci = failed ? [`✗ ${failed}`, t.blocked, `${failed} failing`]
+      : running ? [`● ${running}`, t.working, `${running} running`]
+      : states.length ? [`✓ ${count("passed")}`, t.done, `${count("passed")} passing`] : null;
+    return { requests, ci };
+  }
+
   ciIcon(t, state) {
     if (state === "running") return svg("mods/workspace-chrome/spinner.svg").size(11).flex_none().text_color(t.working);
     const [mark, color] = state === "passed" ? ["✓", t.done] : state === "failed" ? ["✗", t.blocked] : state === "manual" ? ["▷", t.dim] : ["·", t.dim];
@@ -279,7 +313,8 @@ export default class Requests extends View {
       }
     }
 
-    rows.push(this.header(t, "rq-sec-ci", "CI", null, true));
+    const sum = this.tally(t, live);
+    rows.push(this.header(t, "rq-sec-ci", "CI", sum.ci ? sum.ci[0] : null, true));
     if (!this.folded.has("rq-sec-ci")) {
       for (const { repo, d } of live) {
         const branches = [];
@@ -294,17 +329,26 @@ export default class Requests extends View {
       }
     }
 
+    const shut = this.folded.has(BLOCK);
     return v_flex().size_full().min_h(0).bg(t.chrome).border_t(1).border_color(t.border).text_size(13)
       .child(h_flex().px(16).h(36).pt(10).flex_none().items_center().justify_between()
-        .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Requests & CI"))
+        .child(h_flex().id("rq-section").gap(6).items_center().cursor_pointer().text_size(11.5).font_medium().text_color(t.dim)
+          .hover((s) => s.text_color(t.foreground))
+          .tooltip(shut ? "Show requests and CI" : "Fold requests and CI")
+          .on_click((_e, cx) => this.toggleSection(cx))
+          .child(svg(`mods/workspace-chrome/chevron-${shut ? "right" : "down"}.svg`).size(10).flex_none())
+          .child("Requests & CI")
+          .when(live.length > 0, (el) => el
+            .child(div().id("rq-count").text_color(t.muted).tooltip(`${sum.requests} open requests`).child(String(sum.requests)))
+            .when(Boolean(sum.ci), (el) => el.child(div().id("ci-count").text_color(sum.ci[1]).tooltip(`CI: ${sum.ci[2]}`).child(sum.ci[0])))))
         .child(div().id("rq-refresh").text_size(12).text_color(t.dim).cursor_pointer()
           .hover((s) => s.text_color(t.foreground)).tooltip("Look again now")
           .on_click((_e, cx) => this.poll(cx))
           .child(this.polling ? "…" : "↻")))
-      .when(!repos.length, (el) => el.child(div().px(16).py(4).text_size(12).text_color(t.dim)
+      .when(!shut && !repos.length, (el) => el.child(div().px(16).py(4).text_size(12).text_color(t.dim)
         .child("No space is open in a repository yet.")))
-      .when(repos.length > 0 && !live.length, (el) => el.child(div().px(16).py(4).text_size(12).text_color(t.dim)
+      .when(!shut && repos.length > 0 && !live.length, (el) => el.child(div().px(16).py(4).text_size(12).text_color(t.dim)
         .child("Looking up requests…")))
-      .child(v_flex().id("rq-list").flex_1().min_h(0).px(8).pb(6).overflow_y_scrollbar().children(rows));
+      .when(!shut, (el) => el.child(v_flex().id("rq-list").flex_1().min_h(0).px(8).pb(6).overflow_y_scrollbar().children(rows)));
   }
 }

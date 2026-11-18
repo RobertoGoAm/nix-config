@@ -326,6 +326,16 @@ own machine once a minute:
 A repository on another machine runs its tuicr and logs there, over
 =ssh -t <machine>= from the Global tab.
 
+The Agents and the Requests & CI titles fold their whole panel: the panel
+shrinks to its title, the panels left open share the room, and unfolding
+gives back the share it had. Folded, Agents shows how many agents its filter
+holds. Requests & CI always shows two counts by its title, the open requests
+and the CI summary: =✗ n= failing in red, else =● n= running, else =✓ n=
+passing, the same summary that heads the CI section. The size lives in
+Herdr's per-layout state, so a rebuild that rewrites the layout keeps it;
+for the panels to shrink that far the layout lowers their =min= to the
+title's height.
+
 The Global space is a space on this computer, in the home folder, that no
 project owns: =requests= makes it on start when there is none, under the
 name Global, and =spaces-plus= keeps it first in the list. Closing it is
@@ -480,7 +490,7 @@ cycles layouts. Nothing happens on a machine where the app has never run.
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and has("children") then .children |= map(select(.id? != "sidebar-footer")) else . end) | walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 90, content: { mod: "requests" } }] else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and has("children") then .children |= map(select(.id? != "sidebar-footer")) else . end) | walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 36, content: { mod: "requests" } }] else . end) | walk(if type == "object" and (.id == "agents" or .id == "requests") and has("min") then .min = 36 else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
