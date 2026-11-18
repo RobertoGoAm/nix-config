@@ -12,7 +12,7 @@ const FILTERS = [
   { id: "attention", label: "Needs you" },
   { id: "review", label: "Review" },
 ];
-const RECENT_MS = 60 * 60000;
+const RECENT_MS = 24 * 3600000;
 const EDITORS = new Set(["nvim", "vim", "hx", "emacs"]);
 const BRANCH_MS = 5 * 60000;
 const BRANCH_PR = `cd "$1" 2>/dev/null || exit 3

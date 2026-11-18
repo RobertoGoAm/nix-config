@@ -123,9 +123,9 @@ replaced on every start, so the changes live in a copy, =agents-plus=, beside
 this module in =herdr-app/agents-plus=:
 
 - Filters above the list, each with a count of the agents it would show:
-  All; Active (working, needing you, changed state in the last hour, or with
-  a request whose CI is running or failing, so recently finished turns and
-  broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
+  All; Active (working, needing you, changed state in the last day, or with
+  a request whose CI is running or failing, so the agents of a working day
+  and broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
   or merge request still waiting for a review: open and not yet approved; a
   review tab with no request behind it, such as a diff or a list, does not
   count). Pinned agents stay first but are filtered like the rest.
