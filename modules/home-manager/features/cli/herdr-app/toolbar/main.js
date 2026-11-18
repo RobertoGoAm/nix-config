@@ -152,13 +152,6 @@ export default class Toolbar extends View {
     return a && a.app === "claude-code" ? { address: a.address, pane: a.pane, chatPane } : null;
   }
 
-  toggleView() {
-    const c = this.focusedClaude();
-    if (!c) return;
-    run("pane.focus", { pane: c.chatPane ?? c.pane });
-    run("agents-plus.chat");
-  }
-
   pollModel(cx) {
     this.agent = this.focusedClaude()?.address ?? null;
     if (!this.agent) return cx.notify();
@@ -212,8 +205,6 @@ export default class Toolbar extends View {
       .child(h_flex().gap(6).items_center().child(div().size(6).rounded(3).bg(t.dim)).child(`${list.length} agents`)
         .when(needs > 0, (el) => el.child(div().text_color(t.blocked).child(`· ${needs} needs you`))))
       .child(div().flex_1())
-      .when(Boolean(claude), (el) => el.child(this.chip(t, "tb-view", claude.chatPane ? "⇄ Terminal" : "⇄ Chat", t.accent, () => this.toggleView(),
-        claude.chatPane ? "Show this agent's terminal (⌘⇧C)" : "Show this agent as a chat (⌘⇧C)")))
       .when(Boolean(m), (el) => el
         .when(Boolean(acct?.label), (el) => {
           const wantsPersonal = /\/\.claude(-personal)?$/.test(acct.dir ?? "");

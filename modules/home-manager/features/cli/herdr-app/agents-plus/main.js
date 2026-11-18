@@ -13,6 +13,13 @@ const FILTERS = [
   { id: "review", label: "Review" },
 ];
 const RECENT_MS = 24 * 3600000;
+const activeUntil = (at) => {
+  const d = new Date(at);
+  const day = d.getDay();
+  if (day !== 5 && day !== 6 && day !== 0) return at + RECENT_MS;
+  const tuesday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + ((9 - day) % 7), 0, 0, 0);
+  return Math.max(at + RECENT_MS, tuesday.getTime());
+};
 const EDITORS = new Set(["nvim", "vim", "hx", "emacs"]);
 const BRANCH_MS = 5 * 60000;
 const BRANCH_PR = `cd "$1" 2>/dev/null || exit 3
@@ -442,7 +449,7 @@ export default class Agents extends View {
     if (a.status !== "idle" || a.focused) return true;
     const ci = this.ci[this.reviewOf.get(a.address)?.url];
     if (ci && ci.state === "open" && (ci.ci === "running" || ci.ci === "fail")) return true;
-    return now - this.since(a) < RECENT_MS;
+    return now < activeUntil(this.since(a));
   }
 
   prPill(t, a) {

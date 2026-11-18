@@ -98,7 +98,9 @@ in
   # - Filters above the list, each with a count of the agents it would show:
   #   All; Active (working, needing you, changed state in the last day, or with
   #   a request whose CI is running or failing, so the agents of a working day
-  #   and broken builds stay in view); Needs you (blocked, or finished unseen); Review (agents with a pull
+  #   and broken builds stay in view; a change from Friday to Sunday keeps its
+  #   agent until Monday is over, so the week's agents wait out the weekend and
+  #   drop out only if Monday passes without them); Needs you (blocked, or finished unseen); Review (agents with a pull
   #   or merge request still waiting for a review: open and not yet approved; a
   #   review tab with no request behind it, such as a diff or a list, does not
   #   count). Pinned agents stay first but are filtered like the rest.
@@ -297,22 +299,6 @@ in
     recursive = true;
   };
 
-  # A footer with only Settings
-
-  # The shipped =workspace-chrome= mod draws the sidebar's brand row and, given
-  # =footer= in its props, the footer: Settings, with a dot when an update is
-  # ready, and Add machine. Machines are added once and rarely, so the button only
-  # takes room under the lists. The shipped mod is replaced on every start, so the
-  # footer is a mod of its own, =herdr-app/footer=, that draws the Settings row
-  # alone, the same way on the wide sidebar and on the rail; the layout below
-  # points the footer at it and shrinks it to the one row. A machine is still
-  # added from Settings, under its machines.
-
-  home.file.".config/herdr-app/mods/footer" = {
-    source = ./herdr-app/footer;
-    recursive = true;
-  };
-
   # Claude as a chat
 
   # =chat= shows a Claude Code agent as a conversation instead of its terminal,
@@ -375,11 +361,8 @@ in
   # again when it is focused (from its row, the picker or the attention jump),
   # and one switched back to its terminal stays there.
 
-  # =⌘⇧C=, the leader's =a c=, the chat button on a Claude agent's row, or the
-  # =⇄ Chat= / =⇄ Terminal= chip in the bottom bar opens it, and the same again
-  # goes back. The bottom bar is where the switch has to live: a tab with a single
-  # pane has no frame, and Herdr draws pane headers only inside a frame, so a
-  # terminal on its own has no header to hold one. A chat pane's header is =pane-plus=, a copy of Herdr's =pane= header that names
+  # =⌘⇧C=, the leader's =a c= or the chat button on a Claude agent's row opens
+  # it, and the same again goes back. A chat pane's header is =pane-plus=, a copy of Herdr's =pane= header that names
   # it after its agent. Model and effort stay
   # in the bottom bar.
 
@@ -445,7 +428,7 @@ in
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .id == "sidebar-footer" then .size = { px: 41 } | .content = { mod: "footer" } elif type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 90, content: { mod: "requests" } }] else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and has("children") then .children |= map(select(.id? != "sidebar-footer")) else . end) | walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 90, content: { mod: "requests" } }] else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
