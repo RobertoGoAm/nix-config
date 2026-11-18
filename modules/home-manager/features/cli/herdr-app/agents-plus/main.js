@@ -451,8 +451,23 @@ export default class Agents extends View {
     return this.query.split(/\s+/).every((tok) => fuzzy(tok, text));
   }
 
+  hidden(a) {
+    const at = (shared("agents.hidden") ?? {})[a.address];
+    if (!at) return false;
+    return !(this.since(a) > at && (a.status === "working" || a.status === "blocked"));
+  }
+
+  setHidden(a, on) {
+    const now = Date.now();
+    const all = Object.fromEntries(Object.entries(shared("agents.hidden") ?? {}).filter(([, at]) => now - at < 30 * 86400000));
+    if (on) all[a.address] = now;
+    else delete all[a.address];
+    setShared("agents.hidden", all);
+  }
+
   matches(a, filter, now) {
     if (filter === "all") return true;
+    if (this.hidden(a)) return false;
     if (filter === "attention") return a.status === "blocked" || a.status === "done";
     if (filter === "review") {
       const r = this.reviewOf.get(a.address);
@@ -691,7 +706,7 @@ export default class Agents extends View {
     const waiting = list.filter((a) => a.status === "blocked").length;
     const badge = waiting ? String(waiting) : null;
     if (badge !== this.badge && !checking()) { this.badge = badge; setBadge(badge); }
-    const found = collapsed ? list : list.filter((a) => this.searched(a));
+    const found = collapsed ? list.filter((a) => !this.hidden(a)) : list.filter((a) => this.searched(a));
     this.counts = Object.fromEntries(FILTERS.map((f) => [f.id, found.filter((a) => this.matches(a, f.id, now)).length]));
     const filter = collapsed ? "all" : filterOf().id;
     list = found.filter((a) => this.matches(a, filter, now));
@@ -809,6 +824,23 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
+      const isHidden = this.hidden(a);
+      const hide = div()
+        .id(`hide-${a.address}`)
+        .flex_none()
+        .p(2)
+        .rounded(4)
+        .text_color(isHidden ? t.accent : t.dim)
+        .cursor_pointer()
+        .hover((s) => s.bg(t.hover).text_color(t.foreground))
+        .tooltip(isHidden ? "Show again" : "Hide until it works again (All still lists it)")
+        .on_click((_e, cx) => {
+          cx.stop_propagation();
+          this.setHidden(a, !isHidden);
+          this.hovered = null;
+          cx.notify();
+        })
+        .child(svg("mods/workspace-chrome/archive.svg").size(13));
       // Under a project header the project goes without saying, and so does a
       // space named after it; an automatic tab number says nothing.
       // Without a header above (priority, pinned) the row names its space.
@@ -841,12 +873,12 @@ export default class Agents extends View {
             cx.notify();
           })).child(pic)))
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
-          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
+          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(isHidden ? t.dim : idle ? t.muted : t.foreground).child(name))
           .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(Boolean(this.prPill(t, a)), el => el.child(this.prPill(t, a)))
-        .when(this.hovered === a.address, el => el.child(pin))
+        .when(this.hovered === a.address, el => el.child(hide).child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
     };
