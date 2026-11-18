@@ -336,6 +336,24 @@ fine; it comes back on the next start.
   };
 #+end_src
 
+** A footer with only Settings
+
+The shipped =workspace-chrome= mod draws the sidebar's brand row and, given
+=footer= in its props, the footer: Settings, with a dot when an update is
+ready, and Add machine. Machines are added once and rarely, so the button only
+takes room under the lists. The shipped mod is replaced on every start, so the
+footer is a mod of its own, =herdr-app/footer=, that draws the Settings row
+alone, the same way on the wide sidebar and on the rail; the layout below
+points the footer at it and shrinks it to the one row. A machine is still
+added from Settings, under its machines.
+
+#+begin_src nix
+  home.file.".config/herdr-app/mods/footer" = {
+    source = ./herdr-app/footer;
+    recursive = true;
+  };
+#+end_src
+
 * Claude as a chat
 
 =chat= shows a Claude Code agent as a conversation instead of its terminal,
@@ -473,7 +491,7 @@ cycles layouts. Nothing happens on a machine where the app has never run.
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 90, content: { mod: "requests" } }] else . end)' \
+      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and .id == "sidebar-footer" then .size = { px: 41 } | .content = { mod: "footer" } elif type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 90, content: { mod: "requests" } }] else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
