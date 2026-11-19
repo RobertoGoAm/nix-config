@@ -83,6 +83,12 @@ so they match at any depth; we verify real coverage with `--dry-run` at seed.
     ${config.home.homeDirectory}/.claude/projects
     ${config.home.homeDirectory}/.claude/shell-snapshots
     ${config.home.homeDirectory}/.claude/image-cache
+    # Herdr's desktop app writes a 776K type file into every mod folder it
+    # checks (23M across them) and keeps the media of its release notes; both
+    # come back on their own. Its own data beside them -- shared.json,
+    # view.json, layouts/.state, data/ -- is small and stays in.
+    gpui-kit.d.ts
+    ${config.home.homeDirectory}/.config/herdr-app/update-notes-media
   '';
 
   backup = pkgs.writeShellScript "restic-backup" ''
@@ -182,9 +188,14 @@ so they match at any depth; we verify real coverage with `--dry-run` at seed.
     # Calibre library proper lives on vulcan, so this is mostly the notes tree
     # -- but excluding the books would mean maintaining a second exclude rule
     # for a directory measured in megabytes.
+    #
+    # herdr-core is the server under Herdr: its state names every space and tab,
+    # the machines it reaches and what each terminal last showed, in about a
+    # hundred kilobytes. The binaries it updates itself into ~/.local/share are
+    # downloads, and stay out.
     PATHS=""
     for p in Development Documents Desktop Pictures finance books \
-             .local/state/vulcan \
+             .local/state/vulcan .local/state/herdr-core .local/state/herdr \
              .config .claude .ssh .gnupg .aws .kube; do
       [ -e "$HOME/$p" ] && PATHS="$PATHS $HOME/$p"
     done
