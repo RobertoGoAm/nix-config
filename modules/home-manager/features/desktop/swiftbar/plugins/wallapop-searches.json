@@ -11,6 +11,6 @@
     { "keywords": "fujifilm x-t200", "min_sale_price": 100, "max_sale_price": 400, "order_by": "newest" },
     { "keywords": "fujifilm x-t20",  "min_sale_price": 100, "max_sale_price": 600, "order_by": "newest" },
     { "keywords": "fujifilm x-t30",  "min_sale_price": 100, "max_sale_price": 650, "order_by": "newest" },
-    { "keywords": "3090",            "min_sale_price": 600, "max_sale_price": 1100, "order_by": "newest" }
+    { "keywords": "3090",            "min_sale_price": 500, "max_sale_price": 1300, "order_by": "newest" }
   ]
 }
