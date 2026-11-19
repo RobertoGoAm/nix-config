@@ -74,6 +74,18 @@ case "$u" in
   ;;
 esac`;
 
+const WORKTREE = String.raw`cd "$1" 2>/dev/null || exit 3
+b="$2"; new="$3"; want="$new"; [ -n "$want" ] || want="$b"
+wt=$(git worktree list --porcelain | awk -v r="branch refs/heads/$want" '/^worktree /{p=substr($0,10)} $0==r {print p; exit}')
+if [ -z "$wt" ]; then
+  slug=$(printf '%s' "$want" | sed 's#^[^/]*/##; s#/#-#g')
+  wt="$1-worktrees/$slug"
+  git fetch -q origin "$b" >&2 || exit 4
+  if [ -n "$new" ]; then git worktree add -q -b "$new" "$wt" "origin/$b" >&2 || git worktree add -q "$wt" "$new" >&2 || exit 4
+  else git worktree add -q "$wt" "$b" >&2 || exit 4; fi
+fi
+printf '%s\n' "$wt"`;
+const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, "");
 const quote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
 function ago(at) {
@@ -114,6 +126,8 @@ export default class Requests extends View {
     this.folded = new Set(shared("requests.folded") ?? []);
     this.creating = 0;
     this.polling = false;
+    this.hovered = null;
+    this.busy = null;
     if (checking()) return;
     this.ensureGlobal();
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
@@ -221,6 +235,77 @@ export default class Requests extends View {
     this.openTab(`CI · ${repo.name} · ${branch}`.slice(0, 70), w.folder, w.argv);
   }
 
+  spaceFor(machine, folder) {
+    return spaces().find((s) => (s.machine ?? null) === (machine ?? null) && s.folder === folder) ?? null;
+  }
+
+  startClaude(machine, folder, name, prompt) {
+    const argv = ["claude", prompt];
+    const space = this.spaceFor(machine, folder);
+    const tab = space?.tabs.find((t) => t.name === name);
+    if (tab) {
+      run("space.select", { id: space.id });
+      run("tab.select", { id: tab.id });
+      return;
+    }
+    if (space) run("tab.new", { space: space.id, name, folder, argv });
+    else run("space.new", { folder, machine: machine ?? "", tab: name, argv });
+  }
+
+  reviewRequest(repo, host, r) {
+    const prompt = host === "github"
+      ? `/code-review ${r.num}`
+      : `Revisa la MR ${r.key} (${r.url}).`;
+    const name = `Review ${r.key}`.slice(0, 70);
+    if (repo.machine) return this.startClaude(repo.machine, repo.path, name, prompt);
+    this.openTab(name, repo.path, ["claude", prompt]);
+  }
+
+  fixCi(repo, host, branch, ci, isDefault, cx) {
+    const jobs = (ci.failed ?? []).filter((j) => j.id);
+    const how = host === "github" ? (id) => `gh run view --job ${id} --log-failed` : (id) => `glab ci trace ${id}`;
+    const list = jobs.length
+      ? jobs.map((j) => `- ${j.name}: \`${how(j.id)}\``).join("\n")
+      : `- (no job ids: start from ${ci.url ?? "the pipeline"})`;
+    const prompt = [
+      `CI failed on branch ${branch}${ci.url ? ` (${ci.url})` : ""}. Failed jobs, with the command that prints each log:`,
+      list,
+      "",
+      "Read the logs, find the root cause, fix it in this worktree, and run the matching checks locally until they pass.",
+      "Leave the changes uncommitted for me to review; do not commit or push.",
+    ].join("\n");
+    const fresh = isDefault ? `fix/${branch}-ci-${stamp()}` : "";
+    this.busy = `fix-${repo.key}-${branch}`;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("sh", ["-c", WORKTREE, "worktree", repo.path, branch, fresh], { on: repo.machine, timeout: 90000 });
+        const wt = r.code === 0 ? r.stdout.trim().split("\n").pop() : "";
+        if (wt) this.startClaude(repo.machine, wt, `Fix CI · ${branch}`.slice(0, 70), prompt);
+        else this.data[repo.key] = { ...(this.data[repo.key] ?? {}), error: `worktree for ${branch}: ${(r.stderr || `exit ${r.code}`).trim().split("\n").pop()}` };
+      } catch (e) {
+        this.data[repo.key] = { ...(this.data[repo.key] ?? {}), error: String(e?.message ?? e) };
+      }
+      this.busy = null;
+      cx.notify();
+    });
+  }
+
+  action(t, id, label, tip, act) {
+    return div().id(id).flex_none().px(4).h(16).rounded(4).flex().items_center().text_size(10).text_color(t.dim).cursor_pointer()
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+      .on_click((_e, cx) => { cx.stop_propagation(); act(cx); })
+      .child(label);
+  }
+
+  hover(id) {
+    return (on, cx) => {
+      if (on) this.hovered = id;
+      else if (this.hovered === id) this.hovered = null;
+      cx.notify();
+    };
+  }
+
   fold(id, cx) {
     this.folded.has(id) ? this.folded.delete(id) : this.folded.add(id);
     setShared("requests.folded", [...this.folded]);
@@ -267,9 +352,10 @@ export default class Requests extends View {
       .when(count != null, (el) => el.child(div().text_color(t.dim).child(String(count))));
   }
 
-  requestRow(t, repo, r, depth) {
-    return h_flex().id(`rq-${r.url}`).pl(18 + depth * 12).pr(8).h(24).flex_none().gap(6).items_center().rounded(5)
-      .cursor_pointer().hover((s) => s.bg(t.hover))
+  requestRow(t, repo, host, r, depth) {
+    const id = `rq-${r.url}`;
+    return h_flex().id(id).pl(18 + depth * 12).pr(8).h(24).flex_none().gap(6).items_center().rounded(5)
+      .cursor_pointer().hover((s) => s.bg(t.hover)).on_hover(this.hover(id))
       .tooltip(`${r.source} → ${r.target} · @${r.author}${r.draft ? " · draft" : ""}. Click: review in tuicr (Global space)`)
       .on_click(() => this.openRequest(repo, r))
       .when(depth > 0, (el) => el.child(div().text_size(10).text_color(t.dim).child("└")))
@@ -277,17 +363,25 @@ export default class Requests extends View {
       .child(div().flex_none().text_size(11).text_color(r.mine ? t.accent : t.dim).child(r.key))
       .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(r.draft ? t.dim : t.foreground).child(r.title))
       .when(r.review, (el) => el.child(div().flex_none().text_size(10).text_color(t.blocked).child("review")))
-      .when(r.approved === true, (el) => el.child(div().flex_none().text_size(10).text_color(t.done).child("✓")));
+      .when(r.approved === true, (el) => el.child(div().flex_none().text_size(10).text_color(t.done).child("✓")))
+      .when(this.hovered === id, (el) => el.child(this.action(t, `rv-${r.url}`, "review",
+        host === "github" ? "Claude reviews it with /code-review" : "Claude reviews it with the house review skill", () => this.reviewRequest(repo, host, r))));
   }
 
-  ciRow(t, repo, host, branch, ci, id) {
+  ciRow(t, repo, host, branch, ci, id, isDefault) {
     const failed = ci.state === "failed" ? (ci.failed ?? []).map((j) => j.name).join(", ") : "";
-    return v_flex().id(id).pl(18).pr(8).py(3).flex_none().rounded(5).cursor_pointer().hover((s) => s.bg(t.hover))
+    const busy = this.busy === `fix-${repo.key}-${branch}`;
+    return v_flex().id(id).pl(18).pr(8).py(3).flex_none().rounded(5).cursor_pointer().hover((s) => s.bg(t.hover)).on_hover(this.hover(id))
       .tooltip(ci.state === "failed" ? "Click: the failed job's log in the Global space" : "Click: open the pipeline")
       .on_click(() => this.openCi(repo, host, branch, ci))
       .child(h_flex().gap(6).items_center()
         .child(this.ciIcon(t, ci.state))
         .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(branch))
+        .when(ci.state === "failed" && (busy || this.hovered === id), (el) => el.child(busy
+          ? div().flex_none().text_size(10).text_color(t.dim).child("…")
+          : this.action(t, `fx-${id}`, "fix", isDefault
+            ? `Claude fixes it in a worktree on a new fix/${branch}-ci branch`
+            : "Claude fixes it in this branch's worktree (made if missing)", (cx) => this.fixCi(repo, host, branch, ci, isDefault, cx))))
         .child(div().flex_none().text_size(10.5).text_color(t.dim).child(ago(ci.at))))
       .when(Boolean(failed), (el) => el.child(div().pl(17).truncate().text_size(10.5).text_color(t.blocked).child(failed)));
   }
@@ -309,7 +403,7 @@ export default class Requests extends View {
         rows.push(this.header(t, id, repo.machine ? `${repo.name} · ${repo.machine}` : repo.name, reqs.length, false));
         if (this.folded.has(id)) continue;
         if (d.error) rows.push(div().pl(18).pr(8).py(2).text_size(11).text_color(t.blocked).truncate().child(d.error));
-        for (const { r, depth } of stacked(reqs)) rows.push(this.requestRow(t, repo, r, depth));
+        for (const { r, depth } of stacked(reqs)) rows.push(this.requestRow(t, repo, d.host, r, depth));
       }
     }
 
@@ -318,14 +412,14 @@ export default class Requests extends View {
     if (!this.folded.has("rq-sec-ci")) {
       for (const { repo, d } of live) {
         const branches = [];
-        if (d.default) branches.push([d.default.branch, d.default]);
-        for (const r of d.requests ?? []) if (r.ci && r.ci.state !== "none") branches.push([r.source, r.ci]);
+        if (d.default) branches.push([d.default.branch, d.default, true]);
+        for (const r of d.requests ?? []) if (r.ci && r.ci.state !== "none") branches.push([r.source, r.ci, false]);
         if (!branches.length) continue;
         const id = `ci-repo-${repo.key}`;
         const bad = branches.filter(([, c]) => c.state === "failed").length;
         rows.push(this.header(t, id, repo.machine ? `${repo.name} · ${repo.machine}` : repo.name, bad ? `${bad} ✗` : null, false));
         if (this.folded.has(id)) continue;
-        branches.forEach(([branch, ci], i) => rows.push(this.ciRow(t, repo, d.host, branch, ci, `ci-${repo.key}-${i}`)));
+        branches.forEach(([branch, ci, isDefault], i) => rows.push(this.ciRow(t, repo, d.host, branch, ci, `ci-${repo.key}-${i}`, isDefault)));
       }
     }
 

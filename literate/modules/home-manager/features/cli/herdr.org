@@ -328,8 +328,25 @@ own machine once a minute:
   of a request of yours fails, or when the default branch's does; nothing on
   the first look after a start, so a restart does not replay them.
 
+Hovering a row offers Claude for it:
+
+- =review= on a request starts Claude on the repository in a Global tab
+  named =Review !624=, asked to =Revisa la MR !624 (url)= on GitLab, so it
+  takes whichever house review skill fits the repository (PHP, spec or
+  frontend), or =/code-review 140= on GitHub.
+- =fix= on a failed pipeline starts Claude in the branch's worktree, in the
+  space open on it or a new one there, with the failed jobs and the command
+  that prints each log, asked to find the cause, fix it, run the checks, and
+  leave the change uncommitted. The worktree is the one =git worktree list=
+  has the branch in; with none, one is made at =<repo>-worktrees/<branch
+  without its prefix>=, the layout the other worktrees here already use. A
+  failure on the default branch goes to a new =fix/<branch>-ci-<date>= branch
+  from the remote's head instead, as nobody fixes the default branch on it
+  directly.
+
 A repository on another machine runs its tuicr and logs there, over
-=ssh -t <machine>= from the Global tab.
+=ssh -t <machine>= from the Global tab; its review and fix sessions open in
+spaces on that machine, so Herdr sees them as agents.
 
 The Agents and the Requests & CI titles fold their whole panel: the panel
 shrinks to its title, the panels left open share the room, and unfolding
