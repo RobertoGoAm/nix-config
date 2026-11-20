@@ -25,9 +25,10 @@ const send = (text) => (target) => {
 function openJira() {
   const space = spaces().find((s) => s.active);
   if (!space) return;
-  const tab = space.tabs.find((x) => x.name === "Kanban");
+  const tab = space.tabs.find((x) => x.name === "Kanban" || x.name.startsWith("Kanban · "));
   if (tab) return run("tab.select", { id: tab.id });
-  run("tab.new", { space: space.id, name: "Kanban", mod: "jira", props: { folder: space.folder, space: space.id, view: "board" } });
+  const project = space.folder.split("/").filter(Boolean).pop() ?? space.name;
+  run("tab.new", { space: space.id, name: `Kanban · ${project}`, mod: "jira", props: { folder: space.folder, space: space.id, view: "board" } });
 }
 
 const osa = (script) => () => exec("osascript", ["-e", script]).catch(() => {});

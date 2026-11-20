@@ -150,29 +150,36 @@ export default class Requests extends View {
         const id = `${s.folder}|${s.branch ?? ""}`;
         const known = this.jiraKey[id];
         if (!known || (!known.ok && Date.now() - known.at > 600000)) {
-          let ok = false;
+          let key = null;
           try {
             const r = await exec("jira-board", ["project", s.folder, s.branch ?? ""], { timeout: 15000 });
-            ok = r.code === 0 && Boolean(JSON.parse(r.stdout || "null")?.key);
+            key = r.code === 0 ? JSON.parse(r.stdout || "null")?.key ?? null : null;
           } catch {
-            ok = false;
+            key = null;
           }
-          this.jiraKey[id] = { ok, at: Date.now() };
+          this.jiraKey[id] = { ok: Boolean(key), key, at: Date.now() };
         }
         const live = spaces().find((x) => x.id === s.id);
         if (!live) continue;
         const auto = { ...(shared("jira.auto") ?? {}) };
         const made = new Set(auto[s.id] ?? []);
         let added = false;
-        const open = (name, spec) => {
-          if (made.has(name) || live.tabs.some((t) => t.name === name)) return;
-          run("tab.new", { space: s.id, name, ...spec, focus: false });
-          made.add(name);
+        const project = (shared("space.repos") ?? {})[s.id]?.name ?? s.folder.split("/").filter(Boolean).pop() ?? s.name;
+        const jira = this.jiraKey[id].key;
+        const open = (kind, title, spec) => {
+          const tab = live.tabs.find((t) => t.name === kind || t.name.startsWith(`${kind} · `));
+          if (tab) {
+            if (tab.name !== title) run("tab.rename", { id: tab.id, name: title });
+            return;
+          }
+          if (made.has(kind)) return;
+          run("tab.new", { space: s.id, name: title, ...spec, focus: false });
+          made.add(kind);
           added = true;
         };
-        if (s.folder !== home()) open("Notes", { folder: s.folder, argv: ["notes"] });
-        if (this.jiraKey[id].ok) {
-          for (const [name, view] of JIRA_TABS) open(name, { mod: "jira", props: { folder: s.folder, space: s.id, view } });
+        if (s.folder !== home()) open("Notes", `Notes · ${project}`, { folder: s.folder, argv: ["notes"] });
+        if (jira) {
+          for (const [kind, view] of JIRA_TABS) open(kind, `${kind} · ${project} (${jira})`, { mod: "jira", props: { folder: s.folder, space: s.id, view } });
         }
         if (added) setShared("jira.auto", { ...auto, [s.id]: [...made] });
       }
