@@ -74,6 +74,7 @@ export default class Jira extends View {
     this.fixed = VIEWS.some((v) => v.id === props()?.view) ? props().view : null;
     this.view = this.fixed ?? (VIEWS.some((v) => v.id === saved.view) ? saved.view : "board");
     this.mineOnly = saved.mineOnly === true;
+    this.lanesShut = new Set(Array.isArray(saved.lanesShut) ? saved.lanesShut : []);
     if (checking()) return;
     if (props()?.menu) {
       cx.timer.after(10, (cx) => this.loadMoves(cx));
@@ -90,7 +91,7 @@ export default class Jira extends View {
   }
 
   save() {
-    try { localStorage.setItem("view", JSON.stringify({ view: this.fixed ? undefined : this.view, mineOnly: this.mineOnly })); } catch {}
+    try { localStorage.setItem("view", JSON.stringify({ view: this.fixed ? undefined : this.view, mineOnly: this.mineOnly, lanesShut: [...this.lanesShut] })); } catch {}
   }
 
   place() {
@@ -254,30 +255,76 @@ export default class Jira extends View {
     return list.filter((i) => !i.subtask && (!this.mineOnly || i.mine));
   }
 
+  lanes(issues) {
+    const sw = this.data.swimlanes ?? {};
+    if (sw.strategy === "custom" && (sw.lanes ?? []).length) {
+      const lanes = sw.lanes.map((l) => ({ name: l.name, keys: l.keys ? new Set(l.keys) : null, cards: [] }));
+      const rest = lanes.find((l) => !l.keys) ?? (lanes.push({ name: "Everything else", keys: null, cards: [] }), lanes.at(-1));
+      for (const i of issues) (lanes.find((l) => l.keys && l.keys.has(i.key)) ?? rest).cards.push(i);
+      return lanes;
+    }
+    if (sw.strategy === "assignee") {
+      const by = new Map();
+      for (const i of issues) {
+        const name = i.assignee ?? "Unassigned";
+        if (!by.has(name)) by.set(name, { name, mine: i.mine, cards: [] });
+        by.get(name).cards.push(i);
+      }
+      return [...by.values()].sort((a, b) => (b.mine - a.mine) || (a.name === "Unassigned") - (b.name === "Unassigned") || a.name.localeCompare(b.name));
+    }
+    return [{ name: null, cards: issues }];
+  }
+
   boardView(t) {
     const d = this.data;
-    const issues = this.shown(d.issues ?? []);
-    const placed = new Set();
-    const cols = (d.columns ?? []).map((c) => {
-      const ids = new Set(c.statuses.map(String));
-      const cards = issues.filter((i) => ids.has(String(i.statusId)));
-      cards.forEach((i) => placed.add(i.key));
-      return { name: c.name, cards, blocked: BLOCKED.test(c.name) };
-    });
-    const loose = issues.filter((i) => !placed.has(i.key));
-    if (loose.length) cols.push({ name: "Not on the board", cards: loose });
     if (d.board?.type === "scrum" && !d.sprint) {
       return div().p(16).text_size(12.5).text_color(t.dim).child("No sprint is active. The backlog is one click away.");
     }
-    return h_flex().id("jr-board").flex_1().min_h(0).gap(10).px(12).pb(10).items_start().overflow_x_scrollbar()
-      .children(cols.map((c, i) => v_flex().id(`col-${i}`).w(250).flex_none().h_full().min_h(0).rounded(9).bg(t.chrome).border_1().border_color(t.border)
-        .child(h_flex().px(10).h(32).flex_none().gap(6).items_center()
-          .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(c.blocked && c.cards.length ? t.blocked : t.muted).child(c.name.toUpperCase()))
-          .when(c.cards.some(isBlocked), (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked)
-            .tooltip("Blocked or flagged in this column").child(`⚑ ${c.cards.filter(isBlocked).length}`)))
-          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(c.cards.length))))
-        .child(v_flex().id(`col-list-${i}`).flex_1().min_h(0).gap(6).px(6).pb(6).overflow_y_scrollbar()
-          .children(c.cards.map((issue) => this.card(t, issue))))));
+    const issues = this.shown(d.issues ?? []);
+    const columns = (d.columns ?? []).map((c) => ({ name: c.name, ids: new Set(c.statuses.map(String)) }));
+    const placed = (i) => columns.findIndex((c) => c.ids.has(String(i.statusId)));
+    const loose = issues.some((i) => placed(i) < 0);
+    if (loose) columns.push({ name: "Not on the board", ids: new Set() });
+    const colOf = (i) => {
+      const n = placed(i);
+      return n < 0 ? columns.length - 1 : n;
+    };
+    const W = 250;
+    const GAP = 10;
+    const width = columns.length * W + (columns.length - 1) * GAP;
+    const lanes = this.lanes(issues).filter((l) => l.cards.length);
+    const head = h_flex().gap(GAP).flex_none().children(columns.map((c, n) => {
+      const here = issues.filter((i) => colOf(i) === n);
+      const blocked = here.filter(isBlocked).length;
+      return h_flex().w(W).flex_none().h(30).px(10).gap(6).items_center().rounded(8).bg(t.chrome).border_1().border_color(t.border)
+        .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(BLOCKED.test(c.name) && here.length ? t.blocked : t.muted).child(c.name.toUpperCase()))
+        .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`)))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(String(here.length)));
+    }));
+    const lane = (l, n) => {
+      const shut = l.name != null && this.lanesShut.has(l.name);
+      const blocked = l.cards.filter(isBlocked).length;
+      const row = h_flex().gap(GAP).items_start().flex_none().children(columns.map((_c, k) => v_flex().w(W).flex_none().gap(6)
+        .children(l.cards.filter((i) => colOf(i) === k).map((issue) => this.card(t, issue)))));
+      if (l.name == null) return row;
+      return v_flex().gap(6).flex_none()
+        .child(h_flex().id(`lane-${n}`).w(width).h(26).px(8).gap(8).items_center().rounded(6).cursor_pointer()
+          .border_b(1).border_color(t.border).hover((s) => s.bg(t.hover))
+          .on_click((_e, cx) => {
+            shut ? this.lanesShut.delete(l.name) : this.lanesShut.add(l.name);
+            this.save();
+            cx.notify();
+          })
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(shut ? "▸" : "▾"))
+          .child(div().flex_none().text_size(12).font_semibold().text_color(t.foreground).child(l.name))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(l.cards.length)))
+          .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`))))
+        .when(!shut, (el) => el.child(row));
+    };
+    return div().id("jr-board").flex_1().min_h(0).px(12).pb(10).overflow_scrollbar()
+      .child(v_flex().gap(10).w(width)
+        .child(head)
+        .children(lanes.map(lane)));
   }
 
   backlogView(t) {

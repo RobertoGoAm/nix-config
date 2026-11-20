@@ -151,6 +151,16 @@ lib.mkIf (jira != null) {
 The mod draws one column per column of the Jira board, holding the issues
 whose status the board puts there, in the board's own order; an issue whose
 status no column claims goes in a last column, so nothing is hidden.
+Rows follow the board's swimlanes when it has them. Custom swimlanes are
+JQL queries, so =jira-board= asks Jira which of the shown issues each one
+matches, and an issue goes to the first lane that takes it, the default lane
+holding the rest, as Jira does; swimlanes by assignee are grouped here, yours
+first. Jira keeps swimlanes out of its public API, so they come from the
+board's settings in the API its own web app uses, and a board whose settings
+cannot be read shows as one lane. The column headers sit once above the
+lanes with the counts across all of them; a lane folds from its header, and
+an empty one is left out.
+
 A card shows the issue's priority, the remaining and the original estimate
 (red once the time logged passes the original), and its age since it was
 created. Sub-tasks do not get cards of their own: they are stacked inside

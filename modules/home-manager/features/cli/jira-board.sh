@@ -140,8 +140,8 @@ project() {
 }
 
 meta() {
-  local file="$cache/$1.json" want boards board id cols me
-  if [ -s "$file" ] && [ -z "$(find "$file" -mmin +1440)" ]; then
+  local file="$cache/$1.json" want boards board id cols me lanes
+  if [ -s "$file" ] && [ -z "$(find "$file" -mmin +1440)" ] && jq -e 'has("swimlanes")' "$file" >/dev/null 2>&1; then
     cat "$file"
     return
   fi
@@ -155,16 +155,22 @@ meta() {
   id="$(jq -r .id <<<"$board")"
   cols="$(api GET "/rest/agile/1.0/board/$id/configuration")" || return 1
   me="$(api GET "/rest/api/3/myself")" || return 1
-  jq -nc --arg site "$site" --arg k "$1" --arg s "$server" --argjson b "$board" --argjson c "$cols" --argjson me "$me" '{
+  lanes="$(api GET "/rest/greenhopper/1.0/rapidviewconfig/editmodel.json?rapidViewId=$id" 2>/dev/null |
+    jq -c '{strategy: (.swimlanesConfig.swimlaneStrategy // "none"),
+      lanes: [.swimlanesConfig.swimlanes[]? | {name, query: (.query // ""), default: (.isDefault // false)}]}' 2>/dev/null)" ||
+    lanes='{"strategy":"none","lanes":[]}'
+  [ -n "$lanes" ] || lanes='{"strategy":"none","lanes":[]}'
+  jq -nc --arg site "$site" --arg k "$1" --arg s "$server" --argjson b "$board" --argjson c "$cols" --argjson me "$me" --argjson l "$lanes" '{
     site: $site, key: $k,
     board: {id: $b.id, name: $b.name, type: $b.type, url: "\($s)/jira/software/c/projects/\($k)/boards/\($b.id)"},
     columns: [$c.columnConfig.columns[] | {name, statuses: [.statuses[].id]}],
+    swimlanes: $l,
     me: $me.accountId
   }' >"$file.tmp" && mv "$file.tmp" "$file" && cat "$file"
 }
 
 view() {
-  local m id type sprint='null' sid issues backlog file
+  local m id type sprint='null' sid='' issues backlog file lanekeys q
   resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
   [ -n "$key" ] || fail "no Jira project for this folder on $site: name the branch after a ticket or map the folder"
   token >/dev/null || fail "no Jira API token for $site yet: run jira-board login in a terminal"
@@ -189,7 +195,28 @@ view() {
       fail "could not read the board's issues"
   fi
   backlog="$(api GET "/rest/agile/1.0/board/$id/backlog?maxResults=100&fields=$fields")" || backlog='{"issues":[]}'
-  jq -nc --arg s "$server" --argjson m "$m" --argjson sprint "$sprint" --argjson i "$issues" --argjson b "$backlog" '
+  lanekeys='[]'
+  if [ "$(jq -r '.swimlanes.strategy // "none"' <<<"$m")" = custom ]; then
+    while IFS= read -r q; do
+      [ -n "$q" ] || continue
+      local keys='[]' at=0 path page n total
+      if [ -n "$sid" ]; then
+        path="/rest/agile/1.0/sprint/$sid/issue?jql=$(uri "$q")"
+      else
+        path="/rest/agile/1.0/board/$id/issue?jql=$(uri "($q) AND (statusCategory != Done OR resolutiondate >= -14d)")"
+      fi
+      while [ "$at" -lt 1000 ]; do
+        page="$(api GET "$path&fields=summary&maxResults=100&startAt=$at" 2>/dev/null)" || break
+        keys="$(jq -c --argjson p "$page" '. + [$p.issues[]?.key]' <<<"$keys")"
+        n="$(jq '.issues | length' <<<"$page")"
+        total="$(jq '.total // 0' <<<"$page")"
+        at=$((at + n))
+        { [ "$n" -gt 0 ] && [ "$at" -lt "$total" ]; } || break
+      done
+      lanekeys="$(jq -c --arg q "$q" --argjson k "$keys" '. + [{query: $q, keys: $k}]' <<<"$lanekeys")"
+    done < <(jq -r '.swimlanes.lanes[] | select(.default | not) | .query' <<<"$m")
+  fi
+  jq -nc --arg s "$server" --argjson m "$m" --argjson sprint "$sprint" --argjson i "$issues" --argjson b "$backlog" --argjson lk "$lanekeys" '
     def card: {
       key, summary: .fields.summary,
       status: .fields.status.name, statusId: .fields.status.id,
@@ -213,7 +240,8 @@ view() {
       mine: ((.fields.assignee.accountId // "") == $m.me),
       url: "\($s)/browse/\(.key)"
     };
-    $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}' >"$file.tmp" &&
+    $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}
+    | .swimlanes.lanes = [(.swimlanes.lanes // [])[] | . as $lane | . + {keys: (if .default then null else ([$lk[] | select(.query == $lane.query) | .keys][0] // []) end)}]' >"$file.tmp" &&
     mv "$file.tmp" "$file" && cat "$file"
 }
 
