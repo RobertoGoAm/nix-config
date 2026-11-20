@@ -12,13 +12,11 @@ const FILTERS = [
   { id: "attention", label: "Needs you" },
   { id: "review", label: "Review" },
 ];
-const RECENT_MS = 24 * 3600000;
 const activeUntil = (at) => {
   const d = new Date(at);
-  const day = d.getDay();
-  if (day !== 5 && day !== 6 && day !== 0) return at + RECENT_MS;
-  const tuesday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + ((9 - day) % 7), 0, 0, 0);
-  return Math.max(at + RECENT_MS, tuesday.getTime());
+  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
+  return new Date(next.getFullYear(), next.getMonth(), next.getDate() + 1).getTime();
 };
 const EDITORS = new Set(["nvim", "vim", "hx", "emacs"]);
 const BRANCH_MS = 5 * 60000;
