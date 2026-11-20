@@ -147,12 +147,14 @@ export default class Requests extends View {
     this.jiraBusy = true;
     cx.spawn(async () => {
       for (const s of list) {
-        const id = `${s.folder}|${s.branch ?? ""}`;
+        const repo = (shared("space.repos") ?? {})[s.id];
+        const where = repo?.path ?? s.folder;
+        const id = `${where}|${s.branch ?? ""}`;
         const known = this.jiraKey[id];
         if (!known || (!known.ok && Date.now() - known.at > 600000)) {
           let key = null;
           try {
-            const r = await exec("jira-board", ["project", s.folder, s.branch ?? ""], { timeout: 15000 });
+            const r = await exec("jira-board", ["project", where, s.branch ?? ""], { timeout: 15000 });
             key = r.code === 0 ? JSON.parse(r.stdout || "null")?.key ?? null : null;
           } catch {
             key = null;
@@ -164,7 +166,7 @@ export default class Requests extends View {
         const auto = { ...(shared("jira.auto") ?? {}) };
         const made = new Set(auto[s.id] ?? []);
         let added = false;
-        const project = (shared("space.repos") ?? {})[s.id]?.name ?? s.folder.split("/").filter(Boolean).pop() ?? s.name;
+        const project = repo?.name ?? where.split("/").filter(Boolean).pop() ?? s.name;
         const jira = this.jiraKey[id].key;
         const open = (kind, title, spec) => {
           const tab = live.tabs.find((t) => t.name === kind || t.name.startsWith(`${kind} · `));
@@ -177,9 +179,9 @@ export default class Requests extends View {
           made.add(kind);
           added = true;
         };
-        if (s.folder !== home()) open("Notes", `Notes · ${project}`, { folder: s.folder, argv: ["notes"] });
+        if (where !== home()) open("Notes", `Notes · ${project}`, { folder: where, argv: ["notes"] });
         if (jira) {
-          for (const [kind, view] of JIRA_TABS) open(kind, `${kind} · ${project} (${jira})`, { mod: "jira", props: { folder: s.folder, space: s.id, view } });
+          for (const [kind, view] of JIRA_TABS) open(kind, `${kind} · ${project} (${jira})`, { mod: "jira", props: { folder: where, space: s.id, view } });
         }
         if (added) setShared("jira.auto", { ...auto, [s.id]: [...made] });
       }

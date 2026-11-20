@@ -97,7 +97,8 @@ export default class Jira extends View {
     const p = props() ?? {};
     const pane = p.pane ? panes().find((x) => x.pane === p.pane) : null;
     const space = (pane && spaces().find((s) => s.tabs.some((t) => t.id === pane.tab))) || (p.space && spaces().find((s) => s.id === p.space)) || null;
-    return { space, folder: p.folder ?? space?.folder ?? "", branch: space?.branch ?? "" };
+    const repo = space ? (shared("space.repos") ?? {})[space.id] : null;
+    return { space, folder: p.folder ?? repo?.path ?? space?.folder ?? "", branch: space?.branch ?? "" };
   }
 
   poll(cx, fresh = false) {
