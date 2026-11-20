@@ -148,7 +148,9 @@ lib.mkIf (jira != null) {
   # holding the rest, as Jira does; swimlanes by assignee are grouped here, yours
   # first. Jira keeps swimlanes out of its public API, so they come from the
   # board's settings in the API its own web app uses, and a board whose settings
-  # cannot be read shows as one lane. The column headers sit once above the
+  # cannot be read shows as one lane. Each column is drawn as a panel running the height of the board, the lanes
+  # crossing it, so a card's column reads at a glance however far down it is. The
+  # column headers sit once above the
   # lanes with the counts across all of them; a lane folds from its header, and
   # an empty one is left out.
 
