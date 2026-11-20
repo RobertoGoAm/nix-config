@@ -26,18 +26,42 @@ token() {
   /usr/bin/security find-generic-password -s jira-api-token -a "$login" -w 2>/dev/null
 }
 
+base() {
+  if [ -s "$cache/base" ]; then cat "$cache/base"; else echo "$server"; fi
+}
+
 api() {
-  local t
+  local t b
   t="$(token)" || {
     echo "no Jira API token in the keychain: run jira-board login" >&2
     return 9
   }
+  b="${JIRA_BOARD_BASE:-$(base)}"
   if [ $# -ge 3 ]; then
     curl -sS --fail-with-body -u "$login:$t" -X "$1" -H 'Accept: application/json' \
-      -H 'Content-Type: application/json' --data "$3" "$server$2"
+      -H 'Content-Type: application/json' --data "$3" "$b$2"
   else
-    curl -sS --fail-with-body -u "$login:$t" -X "$1" -H 'Accept: application/json' "$server$2"
+    curl -sS --fail-with-body -u "$login:$t" -X "$1" -H 'Accept: application/json' "$b$2"
   fi
+}
+
+signin() {
+  local cid gateway who
+  mkdir -p "$cache"
+  if who="$(JIRA_BOARD_BASE="$server" api GET /rest/api/3/myself 2>/dev/null)"; then
+    echo "$server" >"$cache/base"
+  else
+    cid="$(curl -sS "$server/_edge/tenant_info" | jq -r '.cloudId // empty')"
+    gateway="https://api.atlassian.com/ex/jira/$cid"
+    if [ -n "$cid" ] && who="$(JIRA_BOARD_BASE="$gateway" api GET /rest/api/3/myself 2>/dev/null)"; then
+      echo "$gateway" >"$cache/base"
+    else
+      echo "Jira refused the token for $login. Check that the token was copied whole and that" >&2
+      echo "$login is the email you sign in to $server with (jira.login in work-extras.nix)." >&2
+      return 1
+    fi
+  fi
+  jq -r '"Signed in to Jira as \(.displayName)"' <<<"$who"
 }
 
 uri() {
@@ -122,7 +146,11 @@ case "${1:-}" in
   login)
     /usr/bin/security add-generic-password -U -s jira-api-token -a "$login" -w || exit 1
     rm -rf "$cache"
-    api GET /rest/api/3/myself | jq -r '"Signed in to Jira as \(.displayName)"'
+    signin
+    ;;
+  check)
+    rm -f "$cache/base"
+    signin
     ;;
   project) project "${2:?folder}" "${3:-}" ;;
   meta) meta "${2:?key}" ;;
@@ -141,6 +169,7 @@ case "${1:-}" in
   *)
     cat >&2 <<'USAGE'
 jira-board login                     store the API token in the keychain
+jira-board check                     try the stored token again
 jira-board project FOLDER [BRANCH]   the project key for a checkout
 jira-board meta KEY                  the project's board and its columns
 jira-board view FOLDER [BRANCH]      board, sprint, issues and backlog as JSON
