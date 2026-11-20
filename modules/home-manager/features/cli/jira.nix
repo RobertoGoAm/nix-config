@@ -71,6 +71,7 @@ let
   jiraBoard = pkgs.writeShellApplication {
     name = "jira-board";
     runtimeInputs = [
+      pkgs.coreutils
       pkgs.curl
       pkgs.jq
       pkgs.findutils

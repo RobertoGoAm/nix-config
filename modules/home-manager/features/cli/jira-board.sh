@@ -169,7 +169,7 @@ view() {
   [ -n "$key" ] || fail "no Jira project for this folder on $site: name the branch after a ticket or map the folder"
   token >/dev/null || fail "no Jira API token for $site yet: run jira-board login in a terminal"
   file="$cache/$key.view.json"
-  if [ -z "${fresh:-}" ] && [ -s "$file" ] && [ $(($(date +%s) - $(stat -f %m "$file"))) -lt 90 ]; then
+  if [ -z "${fresh:-}" ] && [ -s "$file" ] && [ $(($(date +%s) - $(stat -c %Y "$file"))) -lt 90 ]; then
     cat "$file"
     return
   fi
