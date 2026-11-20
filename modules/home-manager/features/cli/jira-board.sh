@@ -144,6 +144,10 @@ view() {
 
 case "${1:-}" in
   login)
+    if [ ! -t 0 ]; then
+      echo "jira-board login asks for the token twice, hidden: run it in a terminal tab, not through a pipe." >&2
+      exit 2
+    fi
     /usr/bin/security add-generic-password -U -s jira-api-token -a "$login" -w || exit 1
     rm -rf "$cache"
     signin
