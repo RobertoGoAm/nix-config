@@ -22,6 +22,14 @@ const send = (text) => (target) => {
   hc(["send", target, text]).catch(() => {});
 };
 
+function openJira() {
+  const space = spaces().find((s) => s.active);
+  if (!space) return;
+  const tab = space.tabs.find((x) => x.name === "Jira");
+  if (tab) return run("tab.select", { id: tab.id });
+  run("tab.new", { space: space.id, name: "Jira", mod: "jira", props: { folder: space.folder, space: space.id } });
+}
+
 const osa = (script) => () => exec("osascript", ["-e", script]).catch(() => {});
 
 function openMusic() {
@@ -162,6 +170,7 @@ const TREE = {
         T: { label: "Telegram app", act: osa('tell application "Telegram" to activate') },
       },
     },
+    k: { label: "jira board (kanban)", act: () => openJira() },
     l: { label: "next layout", act: () => run("layout.switch") },
     ",": { label: "settings", act: () => run("app.settings") },
     "?": { label: "all keys", act: () => run("app.help") },
