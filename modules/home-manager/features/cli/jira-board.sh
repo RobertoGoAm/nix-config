@@ -88,8 +88,17 @@ signin() {
 }
 
 login_site() {
-  echo "$site ($server), as $login: paste the API token twice; nothing shows as you type." >&2
-  /usr/bin/security add-generic-password -U -s jira-api-token -a "$login" -w || return 1
+  local t
+  echo "$site ($server), as $login." >&2
+  IFS= read -rsp "API token (hidden): " t </dev/tty
+  echo >&2
+  t="$(printf '%s' "$t" | tr -d '[:space:]')"
+  if [ -z "$t" ]; then
+    echo "$site: no token given, skipped." >&2
+    return 1
+  fi
+  printf 'add-generic-password -U -s jira-api-token -a %s -w %s\n' "$login" "$t" | /usr/bin/security -i >/dev/null || return 1
+  unset t
   rm -rf "$cache"
   signin
 }
@@ -209,7 +218,7 @@ fi
 case "${1:-}" in
   login)
     if [ ! -t 0 ]; then
-      echo "jira-board login asks for each token twice, hidden: run it in a terminal tab, not through a pipe." >&2
+      echo "jira-board login asks for each token, hidden: run it in a terminal tab, not through a pipe." >&2
       exit 2
     fi
     each_site login_site

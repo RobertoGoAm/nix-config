@@ -32,8 +32,10 @@ The API tokens are not in that file or in the store. =jira-board login= asks
 for each site's in turn (=--site <name>= for one) and keeps it in the login
 keychain, under =jira-api-token= and the login's name, where both tools read
 it: create one at id.atlassian.com, Security, API tokens, signed in as that
-login. It has to run in a terminal, as the keychain asks for the token
-hidden, twice. A scoped token only answers through Atlassian's API gateway
+login. It has to run in a terminal, as it reads the token hidden. It reads
+the token itself rather than leaving the prompt to =security=, whose prompt
+stops at 128 characters, short of an Atlassian token, and hands it over
+through =security -i= so it never shows in the process list. A scoped token only answers through Atlassian's API gateway
 rather than the site's own address; =login= tries both and remembers which
 one answered.
 
