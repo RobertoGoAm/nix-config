@@ -102,7 +102,7 @@ export default class Jira extends View {
     if (!issue) return;
     cx.spawn(async (cx) => {
       try {
-        const r = await exec("jira-board", ["transitions", issue.key], { timeout: 30000 });
+        const r = await exec("jira-board", ["--site", props().site, "transitions", issue.key], { timeout: 30000 });
         this.moves = r.code === 0 ? JSON.parse(r.stdout || "[]") : [];
       } catch {
         this.moves = [];
@@ -115,7 +115,7 @@ export default class Jira extends View {
     this.busy = label;
     cx.notify();
     cx.spawn(async (cx) => {
-      try { await exec("jira-board", args, { timeout: 30000 }); } catch {}
+      try { await exec("jira-board", ["--site", props().site, ...args], { timeout: 30000 }); } catch {}
       setShared("jira.changed", Date.now());
       closeOverlay(props().overlay);
     });
@@ -130,7 +130,7 @@ export default class Jira extends View {
 
   openMenu(issue) {
     const { space, folder } = this.place();
-    openOverlay({ mod: SELF, kind: "popup", width: 280, height: 360, props: { menu: issue, space: space?.id ?? null, folder } });
+    openOverlay({ mod: SELF, kind: "popup", width: 280, height: 360, props: { menu: issue, site: this.data?.site, space: space?.id ?? null, folder } });
   }
 
   menuRow(t, id, label, act, opts = {}) {

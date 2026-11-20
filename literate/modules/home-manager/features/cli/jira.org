@@ -24,14 +24,18 @@ map, the longest folder that contains the checkout winning. The board is the
 project's first scrum board, or a pinned one; its id and columns are cached
 for a day under =~/.cache/jira-board=.
 
-The site, the login and the folder map are in the private
-=work-extras.nix=, as =jira=: project keys name the clients they belong to,
+The sites, their logins and the folder maps are in the private
+=work-extras.nix=, as =jira.sites=: project keys name the clients they belong to,
 and this repository is public. Without that entry nothing here is installed.
 
-The API token is not in that file or in the store. =jira-board login= asks
-for it and keeps it in the login keychain, under =jira-api-token= and the
-login's name, where both tools read it: create one at id.atlassian.com,
-Security, API tokens.
+The API tokens are not in that file or in the store. =jira-board login= asks
+for each site's in turn (=--site <name>= for one) and keeps it in the login
+keychain, under =jira-api-token= and the login's name, where both tools read
+it: create one at id.atlassian.com, Security, API tokens, signed in as that
+login. It has to run in a terminal, as the keychain asks for the token
+hidden, twice. A scoped token only answers through Atlassian's API gateway
+rather than the site's own address; =login= tries both and remembers which
+one answered.
 
 #+begin_src nix
 {
@@ -47,16 +51,24 @@ let
   jira = private.jira or null;
 #+end_src
 
-The folder map arrives relative to the home folder, so a rename of the home
-folder does not reach into the private file; here it becomes absolute paths,
-which is what =jira-board= compares the checkout's folder with.
+There can be more than one Jira site, each signed into with its own account:
+the employer's and a client's, say. Each site names the folders it owns
+(=roots=) and its folder map, all relative to the home folder so a rename of
+the home folder does not reach into the private file; here they become
+absolute paths, which is what =jira-board= compares the checkout's folder
+with. The longest folder that contains the checkout decides the site, a root
+or a mapped folder alike, so a client's repository checked out under the
+employer's folder still goes to the client's Jira by mapping it there.
 
 #+begin_src nix
   boardConfig = pkgs.writeText "jira-board.json" (
     builtins.toJSON {
-      inherit (jira) server login;
-      folders = lib.mapAttrs' (dir: key: lib.nameValuePair "${home}/${dir}" key) (jira.folders or { });
-      boards = jira.boards or { };
+      sites = lib.mapAttrs (_: site: {
+        inherit (site) server login;
+        roots = map (dir: "${home}/${dir}") (site.roots or [ ]);
+        folders = lib.mapAttrs' (dir: key: lib.nameValuePair "${home}/${dir}" key) (site.folders or { });
+        boards = site.boards or { };
+      }) (jira.sites or { });
     }
   );
 
@@ -80,7 +92,7 @@ which is what =jira-board= compares the checkout's folder with.
 
 jira-cli keeps one project and one board per config file, and makes that
 file with =jira init=, which asks Jira for the project's fields. So each
-project gets its own file, =~/.config/.jira/<KEY>.yml=, made the first time
+project gets its own file, =~/.config/.jira/<site>-<KEY>.yml=, made the first time
 =jira= runs in one of its checkouts, with the board =jira-board= picked;
 =JIRA_CONFIG_FILE= points jira-cli at it. Outside any project it runs as
 itself, on its default file. The token goes in through =JIRA_API_TOKEN= for
@@ -96,22 +108,25 @@ that one process.
     ];
     text = ''
       real=${lib.getExe' pkgs.jira-cli-go "jira"}
-      conf=${boardConfig}
-      login="$(jq -r .login "$conf")"
-      if token="$(/usr/bin/security find-generic-password -s jira-api-token -a "$login" -w 2>/dev/null)"; then
-        export JIRA_API_TOKEN="$token"
-      fi
       branch="$(git branch --show-current 2>/dev/null || true)"
-      key="$(jira-board project "$PWD" "$branch" 2>/dev/null || true)"
-      if [ -z "$key" ] || [ -z "''${JIRA_API_TOKEN:-}" ]; then
+      here="$(jira-board project "$PWD" "$branch" 2>/dev/null || true)"
+      key="$(jq -r '.key // empty' <<<"''${here:-null}")"
+      if [ -z "$key" ]; then
         exec "$real" "$@"
       fi
-      file="$HOME/.config/.jira/$key.yml"
+      site="$(jq -r .site <<<"$here")"
+      login="$(jq -r .login <<<"$here")"
+      if token="$(/usr/bin/security find-generic-password -s jira-api-token -a "$login" -w 2>/dev/null)"; then
+        export JIRA_API_TOKEN="$token"
+      else
+        exec "$real" "$@"
+      fi
+      file="$HOME/.config/.jira/$site-$key.yml"
       if [ ! -s "$file" ]; then
-        board="$(jira-board meta "$key" | jq -r '.board.name // empty')"
+        board="$(jira-board --site "$site" meta "$key" | jq -r '.board.name // empty')"
         mkdir -p "$HOME/.config/.jira"
         JIRA_CONFIG_FILE="$file" "$real" init --installation cloud --auth-type basic \
-          --server "$(jq -r .server "$conf")" --login "$login" \
+          --server "$(jq -r .server <<<"$here")" --login "$login" \
           --project "$key" ''${board:+--board "$board"} --force >&2
       fi
       export JIRA_CONFIG_FILE="$file"

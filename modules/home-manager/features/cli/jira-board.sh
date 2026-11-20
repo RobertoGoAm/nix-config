@@ -1,26 +1,49 @@
 #!/usr/bin/env bash
 # jira-board: the Jira side of Herdr's board tab and of the jira wrapper.
-#   jira-board login                     store the API token in the keychain
-#   jira-board project FOLDER [BRANCH]   the project key for a checkout
-#   jira-board meta KEY                  the project's board and its columns
-#   jira-board view FOLDER [BRANCH]      board, sprint, issues and backlog as JSON
-#   jira-board transitions ISSUE         the moves open to an issue
-#   jira-board move ISSUE TRANSITION     make one
-#   jira-board assign ISSUE              assign it to yourself
+# Several Jira sites can be configured; a checkout's folder picks the site.
 set -u -o pipefail
 
 conf="${JIRA_BOARD_CONFIG:-$HOME/.config/jira-board/config.json}"
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/jira-board"
+cacheroot="${XDG_CACHE_HOME:-$HOME/.cache}/jira-board"
 fields="summary,status,issuetype,priority,assignee,parent"
+site="" server="" login="" cache="" key=""
 
 fail() {
   jq -nc --arg e "$1" '{error: $e}'
   exit 1
 }
 
+usage() {
+  cat >&2 <<'USAGE'
+jira-board [--site NAME] login        store the API token(s) in the keychain
+jira-board [--site NAME] check        try the stored token(s) again
+jira-board sites                      the configured sites
+jira-board project FOLDER [BRANCH]    the site and project key for a checkout
+jira-board view FOLDER [BRANCH]       board, sprint, issues and backlog as JSON
+jira-board --site NAME meta KEY       a project's board and its columns
+jira-board --site NAME transitions ISSUE
+jira-board --site NAME move ISSUE TRANSITION
+jira-board --site NAME assign ISSUE   to yourself
+USAGE
+  exit 2
+}
+
 [ -r "$conf" ] || fail "no Jira configured on this machine"
-server="$(jq -r .server "$conf")"
-login="$(jq -r .login "$conf")"
+
+use() {
+  site="$1"
+  server="$(jq -r --arg s "$site" '.sites[$s].server // empty' "$conf")"
+  [ -n "$server" ] || fail "no Jira site called $site"
+  login="$(jq -r --arg s "$site" '.sites[$s].login' "$conf")"
+  cache="$cacheroot/$site"
+}
+
+only() {
+  local names
+  names="$(jq -r '.sites | keys[]' "$conf")"
+  [ "$(wc -l <<<"$names")" -eq 1 ] || fail "several Jira sites: say which with --site"
+  use "$names"
+}
 
 token() {
   /usr/bin/security find-generic-password -s jira-api-token -a "$login" -w 2>/dev/null
@@ -33,7 +56,7 @@ base() {
 api() {
   local t b
   t="$(token)" || {
-    echo "no Jira API token in the keychain: run jira-board login" >&2
+    echo "no Jira API token in the keychain for $login: run jira-board login" >&2
     return 9
   }
   b="${JIRA_BOARD_BASE:-$(base)}"
@@ -56,30 +79,53 @@ signin() {
     if [ -n "$cid" ] && who="$(JIRA_BOARD_BASE="$gateway" api GET /rest/api/3/myself 2>/dev/null)"; then
       echo "$gateway" >"$cache/base"
     else
-      echo "Jira refused the token for $login. Check that the token was copied whole and that" >&2
-      echo "$login is the email you sign in to $server with (jira.login in work-extras.nix)." >&2
+      echo "$site: Jira refused the token for $login. Check that the token was copied whole, that it" >&2
+      echo "was made signed in as $login, and that $login is how you sign in to $server." >&2
       return 1
     fi
   fi
-  jq -r '"Signed in to Jira as \(.displayName)"' <<<"$who"
+  jq -r --arg s "$site" '"\($s): signed in to Jira as \(.displayName)"' <<<"$who"
+}
+
+login_site() {
+  echo "$site ($server), as $login: paste the API token twice; nothing shows as you type." >&2
+  /usr/bin/security add-generic-password -U -s jira-api-token -a "$login" -w || return 1
+  rm -rf "$cache"
+  signin
 }
 
 uri() {
   jq -rn --arg q "$1" '$q | @uri'
 }
 
-project() {
-  local key
+locate() {
+  jq -c --arg f "$1" '
+    def hit($p):
+      if ($p | endswith("*")) then ($f | startswith($p | rtrimstr("*")))
+      else $f == $p or ($f | startswith($p + "/")) or ($f | startswith($p + "-worktrees/")) end;
+    [.sites | to_entries[] | .key as $s | .value as $v
+      | (($v.roots // [])[] | {site: $s, path: ., key: null}),
+        (($v.folders // {}) | to_entries[] | {site: $s, path: .key, key: .value})]
+    | map(select(hit(.path))) | sort_by(.path | length)
+    | (last // null) as $best
+    | if $best == null then null
+      else {site: $best.site, key: (map(select(.site == $best.site and .key != null)) | last | .key // null)} end' "$conf"
+}
+
+resolve() {
+  local where s
+  where="$(locate "$1")"
+  s="$(jq -r '.site // empty' <<<"$where")"
+  [ -n "$s" ] || return 1
+  use "$s"
   key="$(printf '%s' "${2:-}" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -1 | cut -d- -f1 || true)"
-  if [ -n "$key" ]; then
-    echo "$key"
-    return
-  fi
-  jq -r --arg f "$1" '(.folders // {}) | to_entries
-    | map(select(.key as $p
-        | if ($p | endswith("*")) then ($f | startswith($p | rtrimstr("*")))
-          else $f == $p or ($f | startswith($p + "/")) or ($f | startswith($p + "-worktrees/")) end))
-    | sort_by(.key | length) | last | .value // empty' "$conf"
+  [ -n "$key" ] || key="$(jq -r '.key // empty' <<<"$where")"
+}
+
+project() {
+  resolve "$1" "${2:-}" || return 1
+  jq -nc --arg site "$site" --arg server "$server" --arg login "$login" --arg key "$key" \
+    '{site: $site, server: $server, login: $login, key: (if $key == "" then null else $key end)}'
 }
 
 meta() {
@@ -89,7 +135,7 @@ meta() {
     return
   fi
   mkdir -p "$cache"
-  want="$(jq -r --arg k "$1" '(.boards // {})[$k] // empty' "$conf")"
+  want="$(jq -r --arg s "$site" --arg k "$1" '(.sites[$s].boards // {})[$k] // empty' "$conf")"
   boards="$(api GET "/rest/agile/1.0/board?projectKeyOrId=$1&maxResults=50")" || return 1
   board="$(jq -c --arg w "$want" '[.values[]]
     | if $w != "" then map(select((.id | tostring) == $w)) else . end
@@ -98,8 +144,8 @@ meta() {
   id="$(jq -r .id <<<"$board")"
   cols="$(api GET "/rest/agile/1.0/board/$id/configuration")" || return 1
   me="$(api GET "/rest/api/3/myself")" || return 1
-  jq -nc --arg k "$1" --arg s "$server" --argjson b "$board" --argjson c "$cols" --argjson me "$me" '{
-    key: $k,
+  jq -nc --arg site "$site" --arg k "$1" --arg s "$server" --argjson b "$board" --argjson c "$cols" --argjson me "$me" '{
+    site: $site, key: $k,
     board: {id: $b.id, name: $b.name, type: $b.type, url: "\($s)/jira/software/c/projects/\($k)/boards/\($b.id)"},
     columns: [$c.columnConfig.columns[] | {name, statuses: [.statuses[].id]}],
     me: $me.accountId
@@ -107,11 +153,11 @@ meta() {
 }
 
 view() {
-  local key m id type sprint='null' sid issues backlog
-  key="$(project "$1" "${2:-}")"
-  [ -n "$key" ] || fail "no Jira project for this folder: name the branch after a ticket or map the folder"
-  token >/dev/null || fail "no Jira API token yet: run jira-board login in a terminal"
-  m="$(meta "$key")" || fail "could not read the board of $key"
+  local m id type sprint='null' sid issues backlog
+  resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
+  [ -n "$key" ] || fail "no Jira project for this folder on $site: name the branch after a ticket or map the folder"
+  token >/dev/null || fail "no Jira API token for $site yet: run jira-board login in a terminal"
+  m="$(meta "$key")" || fail "could not read the board of $key on $site"
   id="$(jq -r .board.id <<<"$m")"
   type="$(jq -r .board.type <<<"$m")"
   issues='{"issues":[]}'
@@ -142,45 +188,58 @@ view() {
     $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}'
 }
 
+each_site() {
+  local s status=0
+  if [ -n "$site" ]; then
+    "$@" || status=1
+    return "$status"
+  fi
+  for s in $(jq -r '.sites | keys[]' "$conf"); do
+    use "$s"
+    "$@" || status=1
+  done
+  return "$status"
+}
+
+if [ "${1:-}" = "--site" ]; then
+  use "${2:?site name}"
+  shift 2
+fi
+
 case "${1:-}" in
   login)
     if [ ! -t 0 ]; then
-      echo "jira-board login asks for the token twice, hidden: run it in a terminal tab, not through a pipe." >&2
+      echo "jira-board login asks for each token twice, hidden: run it in a terminal tab, not through a pipe." >&2
       exit 2
     fi
-    /usr/bin/security add-generic-password -U -s jira-api-token -a "$login" -w || exit 1
-    rm -rf "$cache"
-    signin
+    each_site login_site
     ;;
   check)
-    rm -f "$cache/base"
-    signin
+    clear_base() {
+      rm -f "$cache/base"
+      signin
+    }
+    each_site clear_base
     ;;
+  sites) jq -c '.sites | to_entries | map({site: .key, server: .value.server, login: .value.login})' "$conf" ;;
   project) project "${2:?folder}" "${3:-}" ;;
-  meta) meta "${2:?key}" ;;
   view) view "${2:?folder}" "${3:-}" ;;
-  transitions)
-    api GET "/rest/api/3/issue/${2:?issue}/transitions" |
-      jq -c '[.transitions[] | {id, name, to: .to.name, category: .to.statusCategory.key}]'
+  meta | transitions | move | assign)
+    [ -n "$site" ] || only
+    case "$1" in
+      meta) meta "${2:?key}" ;;
+      transitions)
+        api GET "/rest/api/3/issue/${2:?issue}/transitions" |
+          jq -c '[.transitions[] | {id, name, to: .to.name, category: .to.statusCategory.key}]'
+        ;;
+      move)
+        api POST "/rest/api/3/issue/${2:?issue}/transitions" "$(jq -nc --arg t "${3:?transition}" '{transition: {id: $t}}')" >/dev/null
+        ;;
+      assign)
+        me="$(api GET /rest/api/3/myself | jq -r .accountId)" || exit 1
+        api PUT "/rest/api/3/issue/${2:?issue}/assignee" "$(jq -nc --arg a "$me" '{accountId: $a}')" >/dev/null
+        ;;
+    esac
     ;;
-  move)
-    api POST "/rest/api/3/issue/${2:?issue}/transitions" "$(jq -nc --arg t "${3:?transition}" '{transition: {id: $t}}')" >/dev/null
-    ;;
-  assign)
-    me="$(api GET /rest/api/3/myself | jq -r .accountId)" || exit 1
-    api PUT "/rest/api/3/issue/${2:?issue}/assignee" "$(jq -nc --arg a "$me" '{accountId: $a}')" >/dev/null
-    ;;
-  *)
-    cat >&2 <<'USAGE'
-jira-board login                     store the API token in the keychain
-jira-board check                     try the stored token again
-jira-board project FOLDER [BRANCH]   the project key for a checkout
-jira-board meta KEY                  the project's board and its columns
-jira-board view FOLDER [BRANCH]      board, sprint, issues and backlog as JSON
-jira-board transitions ISSUE         the moves open to an issue
-jira-board move ISSUE TRANSITION     make one
-jira-board assign ISSUE              assign it to yourself
-USAGE
-    exit 2
-    ;;
+  *) usage ;;
 esac
