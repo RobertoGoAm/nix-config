@@ -54,7 +54,7 @@ export default class Launcher extends View {
     this.effort = { claude: "default", codex: "default", ...(last.effort ?? {}) };
     this.machine = props()?.machine !== undefined ? (props().machine || null) : (last.machine ?? null);
     this.asTab = Boolean(last.asTab);
-    this.extras = { editor: true, prs: false, jira: false, ...(last.extras ?? {}) };
+    this.extras = { editor: true, prs: false, ...(last.extras ?? {}) };
     this.machines = [null];
     this.dirs = {};
     this.query = "";
@@ -144,7 +144,6 @@ export default class Launcher extends View {
     run("space.new", { ...args, machine: this.machine ?? "" });
     if (this.extras.editor) run("tab.new", { folder, argv: ["nvim", "."], focus: false });
     if (this.extras.prs) run("tab.new", { folder, name: "PRs", argv: ["tuicr-prs"], focus: false });
-    if (this.extras.jira) run("tab.new", { name: "Jira", mod: "jira", props: { folder }, focus: false });
   }
 
   async browse(cx) {
@@ -218,8 +217,7 @@ export default class Launcher extends View {
       .when(!this.asTab, (el) => el.child(h_flex().gap(8).items_center().child(label("also open"))
         .child(h_flex().gap(4)
           .child(this.toggleChip(t, "ex-editor", "editor (nvim .)", "editor"))
-          .child(this.toggleChip(t, "ex-prs", "PRs (tuicr)", "prs"))
-          .child(this.toggleChip(t, "ex-jira", "Jira board", "jira")))));
+          .child(this.toggleChip(t, "ex-prs", "PRs (tuicr)", "prs")))));
 
     const list = v_flex().id("ln-list").flex_1().min_h(0).overflow_y_scroll().gap(1)
       .children(rows.map((r, i) => h_flex()

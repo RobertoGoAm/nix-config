@@ -19,7 +19,9 @@ jira-board [--site NAME] login        store the API token(s) in the keychain
 jira-board [--site NAME] check        try the stored token(s) again
 jira-board sites                      the configured sites
 jira-board project FOLDER [BRANCH]    the site and project key for a checkout
-jira-board view FOLDER [BRANCH]       board, sprint, issues and backlog as JSON
+jira-board [--fresh] view FOLDER [BRANCH]
+                                      board, sprint, issues and backlog as JSON
+                                      (kept 90 s unless --fresh)
 jira-board --site NAME meta KEY       a project's board and its columns
 jira-board --site NAME transitions ISSUE
 jira-board --site NAME move ISSUE TRANSITION
@@ -162,10 +164,15 @@ meta() {
 }
 
 view() {
-  local m id type sprint='null' sid issues backlog
+  local m id type sprint='null' sid issues backlog file
   resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
   [ -n "$key" ] || fail "no Jira project for this folder on $site: name the branch after a ticket or map the folder"
   token >/dev/null || fail "no Jira API token for $site yet: run jira-board login in a terminal"
+  file="$cache/$key.view.json"
+  if [ -z "${fresh:-}" ] && [ -s "$file" ] && [ $(($(date +%s) - $(stat -f %m "$file"))) -lt 90 ]; then
+    cat "$file"
+    return
+  fi
   m="$(meta "$key")" || fail "could not read the board of $key on $site"
   id="$(jq -r .board.id <<<"$m")"
   type="$(jq -r .board.type <<<"$m")"
@@ -194,7 +201,8 @@ view() {
       mine: ((.fields.assignee.accountId // "") == $m.me),
       url: "\($s)/browse/\(.key)"
     };
-    $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}'
+    $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}' >"$file.tmp" &&
+    mv "$file.tmp" "$file" && cat "$file"
 }
 
 each_site() {
@@ -209,6 +217,12 @@ each_site() {
   done
   return "$status"
 }
+
+fresh=""
+if [ "${1:-}" = "--fresh" ]; then
+  fresh=1
+  shift
+fi
 
 if [ "${1:-}" = "--site" ]; then
   use "${2:?site name}"

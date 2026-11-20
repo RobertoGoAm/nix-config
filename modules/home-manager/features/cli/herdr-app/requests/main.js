@@ -85,6 +85,7 @@ if [ -z "$wt" ]; then
   else git worktree add -q "$wt" "$b" >&2 || exit 4; fi
 fi
 printf '%s\n' "$wt"`;
+const JIRA_TABS = [["Kanban", "board"], ["Backlog", "backlog"]];
 const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, "");
 const quote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
@@ -132,6 +133,52 @@ export default class Requests extends View {
     this.ensureGlobal();
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
     cx.timer.after(2500, (cx) => this.poll(cx));
+    this.jiraKey = {};
+    this.jiraBusy = false;
+    cx.timer.after(4000, (cx) => this.jiraTabs(cx));
+    cx.timer.every(POLL_MS, (cx) => this.jiraTabs(cx));
+  }
+
+  jiraTabs(cx) {
+    if (this.jiraBusy) return;
+    const global = shared("requests.global");
+    const list = spaces().filter((s) => !s.machine && s.id !== global && s.folder);
+    if (!list.length) return;
+    this.jiraBusy = true;
+    cx.spawn(async () => {
+      for (const s of list) {
+        const id = `${s.folder}|${s.branch ?? ""}`;
+        const known = this.jiraKey[id];
+        if (!known || (!known.ok && Date.now() - known.at > 600000)) {
+          let ok = false;
+          try {
+            const r = await exec("jira-board", ["project", s.folder, s.branch ?? ""], { timeout: 15000 });
+            ok = r.code === 0 && Boolean(JSON.parse(r.stdout || "null")?.key);
+          } catch {
+            ok = false;
+          }
+          this.jiraKey[id] = { ok, at: Date.now() };
+        }
+        if (!this.jiraKey[id].ok) continue;
+        const live = spaces().find((x) => x.id === s.id);
+        if (!live) continue;
+        const auto = { ...(shared("jira.auto") ?? {}) };
+        const made = new Set(auto[s.id] ?? []);
+        let added = false;
+        for (const [name, view] of JIRA_TABS) {
+          if (made.has(name) || live.tabs.some((t) => t.name === name)) continue;
+          run("tab.new", { space: s.id, name, mod: "jira", props: { folder: s.folder, space: s.id, view }, focus: false });
+          made.add(name);
+          added = true;
+        }
+        if (added) setShared("jira.auto", { ...auto, [s.id]: [...made] });
+      }
+      const ids = new Set(spaces().map((x) => x.id));
+      const auto = shared("jira.auto") ?? {};
+      const kept = Object.fromEntries(Object.entries(auto).filter(([k]) => ids.has(k)));
+      if (ids.size && Object.keys(kept).length !== Object.keys(auto).length) setShared("jira.auto", kept);
+      this.jiraBusy = false;
+    });
   }
 
   ensureGlobal() {

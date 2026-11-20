@@ -156,9 +156,18 @@ plus what was finished in the last two weeks. The backlog view is the
 board's backlog as a list. =Mine= narrows both to your issues, and your cards
 are outlined in the accent colour.
 
-It looks again every two minutes and right after any change made from a
-card's menu. The tab opens from the leader's =k= in the shown space, or
-with the new space when the launcher's =Jira board= is on.
+Every space on this computer whose folder has a Jira project gets two of
+these tabs, =Kanban= and =Backlog=, opened behind the others by the
+=requests= panel, which is always loaded and looks at the spaces once a
+minute. A tab closed by hand stays closed for that space (=jira.auto= in
+Herdr's shared state remembers which ones were opened); the leader's =k=
+brings the Kanban back.
+
+Each tab looks again every two minutes, and at once after a change made
+from a card's menu or a click on its refresh. Two tabs on one project, or
+several spaces on one, share what =jira-board view= fetched for ninety
+seconds, so the tabs cost Jira a request per project, not per tab; a change
+or a refresh asks with =--fresh=.
 
 #+begin_src nix
   home.file.".config/herdr-app/mods/jira" = {

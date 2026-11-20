@@ -25,9 +25,9 @@ const send = (text) => (target) => {
 function openJira() {
   const space = spaces().find((s) => s.active);
   if (!space) return;
-  const tab = space.tabs.find((x) => x.name === "Jira");
+  const tab = space.tabs.find((x) => x.name === "Kanban");
   if (tab) return run("tab.select", { id: tab.id });
-  run("tab.new", { space: space.id, name: "Jira", mod: "jira", props: { folder: space.folder, space: space.id } });
+  run("tab.new", { space: space.id, name: "Kanban", mod: "jira", props: { folder: space.folder, space: space.id, view: "board" } });
 }
 
 const osa = (script) => () => exec("osascript", ["-e", script]).catch(() => {});

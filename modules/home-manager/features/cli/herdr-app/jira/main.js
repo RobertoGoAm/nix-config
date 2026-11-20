@@ -43,7 +43,8 @@ export default class Jira extends View {
     this.busy = null;
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem("view") ?? "{}"); } catch { saved = {}; }
-    this.view = VIEWS.some((v) => v.id === saved.view) ? saved.view : "board";
+    this.fixed = VIEWS.some((v) => v.id === props()?.view) ? props().view : null;
+    this.view = this.fixed ?? (VIEWS.some((v) => v.id === saved.view) ? saved.view : "board");
     this.mineOnly = saved.mineOnly === true;
     if (checking()) return;
     if (props()?.menu) {
@@ -56,12 +57,12 @@ export default class Jira extends View {
       const changed = shared("jira.changed") ?? 0;
       if (changed === this.seen) return;
       this.seen = changed;
-      this.poll(cx);
+      this.poll(cx, true);
     });
   }
 
   save() {
-    try { localStorage.setItem("view", JSON.stringify({ view: this.view, mineOnly: this.mineOnly })); } catch {}
+    try { localStorage.setItem("view", JSON.stringify({ view: this.fixed ? undefined : this.view, mineOnly: this.mineOnly })); } catch {}
   }
 
   place() {
@@ -71,7 +72,7 @@ export default class Jira extends View {
     return { space, folder: p.folder ?? space?.folder ?? "", branch: space?.branch ?? "" };
   }
 
-  poll(cx) {
+  poll(cx, fresh = false) {
     if (this.loading) return;
     const { folder, branch } = this.place();
     if (!folder) {
@@ -82,7 +83,7 @@ export default class Jira extends View {
     cx.notify();
     cx.spawn(async (cx) => {
       try {
-        const r = await exec("jira-board", ["view", folder, branch], { timeout: 60000 });
+        const r = await exec("jira-board", [...(fresh ? ["--fresh"] : []), "view", folder, branch], { timeout: 60000 });
         const out = JSON.parse(r.stdout || "{}");
         if (out.error || r.code !== 0) this.error = out.error || (r.stderr || `exit ${r.code}`).trim().split("\n").pop();
         else {
@@ -249,10 +250,11 @@ export default class Jira extends View {
       .when(Boolean(d?.sprint), (el) => el.child(div().text_size(12).text_color(t.dim)
         .child(`${d.sprint.name}${left ? ` · ${left}` : ""}`)))
       .child(div().flex_1())
-      .children(VIEWS.map((v) => this.chip(t, `jr-v-${v.id}`, v.label, this.view === v.id, () => { this.view = v.id; })))
+      .when(Boolean(this.fixed), (el) => el.child(div().text_size(12).text_color(t.muted).child(VIEWS.find((v) => v.id === this.fixed).label)))
+      .when(!this.fixed, (el) => el.children(VIEWS.map((v) => this.chip(t, `jr-v-${v.id}`, v.label, this.view === v.id, () => { this.view = v.id; }))))
       .child(this.chip(t, "jr-mine", "Mine", this.mineOnly, () => { this.mineOnly = !this.mineOnly; }))
       .child(div().id("jr-refresh").text_size(13).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
-        .tooltip("Look again now").on_click((_e, cx) => this.poll(cx)).child(this.loading ? "…" : "↻"));
+        .tooltip("Look again now").on_click((_e, cx) => this.poll(cx, true)).child(this.loading ? "…" : "↻"));
     return v_flex().size_full().min_h(0).bg(t.background).text_size(13)
       .child(header)
       .when(Boolean(this.error), (el) => el.child(div().px(16).pb(8).text_size(12).text_color(t.blocked).child(this.error)))
