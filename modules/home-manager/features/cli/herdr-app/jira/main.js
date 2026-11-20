@@ -331,7 +331,8 @@ export default class Jira extends View {
       return n < 0 ? columns.length - 1 : n;
     };
     const W = 250;
-    const GAP = 10;
+    const GAP = 14;
+    const EDGE = 4;
     const PAD = 12;
     const HEAD = 40;
     const width = columns.length * W + (columns.length - 1) * GAP;
@@ -352,7 +353,7 @@ export default class Jira extends View {
     let current = -1;
     tops.forEach((top, n) => { if (top <= this.sy) current = n; });
 
-    const head = h_flex().absolute().top(0).left(PAD - this.sx).h(HEAD).pb(10).gap(GAP).items_end().bg(t.background)
+    const head = h_flex().absolute().top(0).left(PAD - this.sx).h(HEAD - 6).pb(4).gap(GAP).items_end().bg(t.background)
       .children(columns.map((c, n) => {
         const here = issues.filter((i) => colOf(i) === n);
         const blocked = here.filter(isBlocked).length;
@@ -378,6 +379,9 @@ export default class Jira extends View {
           .when(!shut, (el) => el.child(row));
       }));
 
+    const strips = h_flex().absolute().top(HEAD - 6).left(PAD - EDGE - this.sx).h(Math.max(0, vp.height - HEAD + 6)).gap(GAP - 2 * EDGE)
+      .children(columns.map(() => div().w(W + 2 * EDGE).h_full().flex_none().rounded_t(8).bg(t.chrome).border_1().border_b(0).border_color(t.border)));
+
     const pin = named && current >= 0 && this.sy > tops[current] && lanes[current].name != null
       ? div().absolute().top(HEAD).left(PAD).child(this.laneHeader(t, lanes[current], current, laneW, true))
       : null;
@@ -396,6 +400,7 @@ export default class Jira extends View {
       })
       .when(!lanes.length, (el) => el.child(div().absolute().top(HEAD).left(PAD).text_size(12.5).text_color(t.dim)
         .child(this.query || this.mineOnly ? "Nothing matches." : "The board is empty.")))
+      .child(strips)
       .child(body)
       .child(head)
       .when(Boolean(pin), (el) => el.child(pin));
