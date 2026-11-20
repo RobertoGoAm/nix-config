@@ -146,7 +146,11 @@ lib.mkIf (jira != null) {
   # scrum board shows its active sprint; a kanban board shows what is not done,
   # plus what was finished in the last two weeks. The backlog view is the
   # board's backlog as a list. =Mine= narrows both to your issues, and your cards
-  # are outlined in the accent colour.
+  # are outlined in the accent colour. A blocked issue stands out in red: one
+  # flagged in Jira (the impediment flag), or one whose status reads as blocked
+  # (=BLOCKED=, =Bloqueado=, =On hold=, =En espera=). Its card gets a red edge
+  # and says why, its column's header counts the blocked ones, and in the
+  # backlog its key turns red behind a flag.
 
   # Every space on this computer whose folder has a Jira project gets two of
   # these tabs, =Kanban= and =Backlog=, opened behind the others by the

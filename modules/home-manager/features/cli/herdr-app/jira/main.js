@@ -24,6 +24,9 @@ const typeMark = (type) => {
   return "■";
 };
 
+const BLOCKED = /block|bloque|imped|on hold|en espera/i;
+const isBlocked = (issue) => Boolean(issue.flagged) || BLOCKED.test(String(issue.status ?? ""));
+
 const prioMark = (p) => {
   const s = String(p ?? "").toLowerCase();
   if (/highest|blocker|critical|urgente|crítica/.test(s)) return "⇈";
@@ -169,8 +172,11 @@ export default class Jira extends View {
 
   card(t, issue) {
     const prio = prioMark(issue.priority);
+    const blocked = isBlocked(issue);
     const catColor = issue.category === "done" ? t.done : issue.category === "indeterminate" ? t.working : t.dim;
-    return v_flex().id(`card-${issue.key}`).flex_none().p(8).gap(4).rounded(7).border_1().border_color(issue.mine ? t.accent : t.border)
+    return v_flex().id(`card-${issue.key}`).flex_none().p(8).gap(4).rounded(7).border_1()
+      .border_color(blocked ? t.blocked : issue.mine ? t.accent : t.border)
+      .when(blocked, (el) => el.border_l(3))
       .bg(t.background).cursor_pointer().hover((s) => s.bg(t.hover))
       .tooltip(`${issue.type}${issue.priority ? ` · ${issue.priority}` : ""}${issue.parent ? ` · in ${issue.parent}` : ""}. Click: open, move, assign or start Claude`)
       .on_click(() => this.openMenu(issue))
@@ -179,6 +185,8 @@ export default class Jira extends View {
         .child(div().flex_none().text_color(issue.mine ? t.accent : t.muted).child(issue.key))
         .child(div().flex_1())
         .when(Boolean(prio), (el) => el.child(div().flex_none().text_color(prio.startsWith("⇈") || prio === "↑" ? t.blocked : t.dim).child(prio))))
+      .when(blocked, (el) => el.child(div().text_size(10.5).font_medium().text_color(t.blocked)
+        .child(issue.flagged ? "⚑ Blocked (flagged)" : `⚑ ${issue.status}`)))
       .child(div().text_size(12.5).text_color(issue.category === "done" ? t.muted : t.foreground).child(issue.summary))
       .when(Boolean(issue.assignee), (el) => el.child(div().text_size(10.5).text_color(t.dim).truncate().child(issue.assignee)));
   }
@@ -195,7 +203,7 @@ export default class Jira extends View {
       const ids = new Set(c.statuses.map(String));
       const cards = issues.filter((i) => ids.has(String(i.statusId)));
       cards.forEach((i) => placed.add(i.key));
-      return { name: c.name, cards };
+      return { name: c.name, cards, blocked: BLOCKED.test(c.name) };
     });
     const loose = issues.filter((i) => !placed.has(i.key));
     if (loose.length) cols.push({ name: "Not on the board", cards: loose });
@@ -205,7 +213,9 @@ export default class Jira extends View {
     return h_flex().id("jr-board").flex_1().min_h(0).gap(10).px(12).pb(10).items_start().overflow_x_scrollbar()
       .children(cols.map((c, i) => v_flex().id(`col-${i}`).w(250).flex_none().h_full().min_h(0).rounded(9).bg(t.chrome).border_1().border_color(t.border)
         .child(h_flex().px(10).h(32).flex_none().gap(6).items_center()
-          .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(t.muted).child(c.name.toUpperCase()))
+          .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(c.blocked && c.cards.length ? t.blocked : t.muted).child(c.name.toUpperCase()))
+          .when(c.cards.some(isBlocked), (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked)
+            .tooltip("Blocked or flagged in this column").child(`⚑ ${c.cards.filter(isBlocked).length}`)))
           .child(div().flex_none().text_size(11).text_color(t.dim).child(String(c.cards.length))))
         .child(v_flex().id(`col-list-${i}`).flex_1().min_h(0).gap(6).px(6).pb(6).overflow_y_scrollbar()
           .children(c.cards.map((issue) => this.card(t, issue))))));
@@ -219,8 +229,8 @@ export default class Jira extends View {
         const prio = prioMark(issue.priority);
         return h_flex().id(`bl-${issue.key}`).h(30).px(8).gap(8).flex_none().items_center().rounded(6).cursor_pointer()
           .hover((s) => s.bg(t.hover)).on_click(() => this.openMenu(issue))
-          .child(div().w(12).flex_none().text_size(11).text_color(t.dim).child(typeMark(issue.type)))
-          .child(div().w(90).flex_none().text_size(11.5).text_color(issue.mine ? t.accent : t.muted).child(issue.key))
+          .child(div().w(12).flex_none().text_size(11).text_color(isBlocked(issue) ? t.blocked : t.dim).child(isBlocked(issue) ? "⚑" : typeMark(issue.type)))
+          .child(div().w(90).flex_none().text_size(11.5).text_color(isBlocked(issue) ? t.blocked : issue.mine ? t.accent : t.muted).child(issue.key))
           .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(issue.summary))
           .when(Boolean(prio), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(prio)))
           .child(div().w(110).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.status))

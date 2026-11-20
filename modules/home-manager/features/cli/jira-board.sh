@@ -5,7 +5,7 @@ set -u -o pipefail
 
 conf="${JIRA_BOARD_CONFIG:-$HOME/.config/jira-board/config.json}"
 cacheroot="${XDG_CACHE_HOME:-$HOME/.cache}/jira-board"
-fields="summary,status,issuetype,priority,assignee,parent"
+fields="summary,status,issuetype,priority,assignee,parent,flagged"
 site="" server="" login="" cache="" key=""
 
 fail() {
@@ -198,6 +198,7 @@ view() {
       parent: (.fields.parent.key // null),
       priority: (.fields.priority.name // null),
       assignee: (.fields.assignee.displayName // null),
+      flagged: (.fields.flagged // false),
       mine: ((.fields.assignee.accountId // "") == $m.me),
       url: "\($s)/browse/\(.key)"
     };
