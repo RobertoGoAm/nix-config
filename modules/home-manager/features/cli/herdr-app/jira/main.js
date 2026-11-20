@@ -1,5 +1,5 @@
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, panes, run, exec, theme, shared, setShared, checking, props, openOverlay, closeOverlay } from "herdr";
 
 const SELF = "jira";
@@ -75,6 +75,20 @@ export default class Jira extends View {
     this.view = this.fixed ?? (VIEWS.some((v) => v.id === saved.view) ? saved.view : "board");
     this.mineOnly = saved.mineOnly === true;
     this.lanesShut = new Set(Array.isArray(saved.lanesShut) ? saved.lanesShut : []);
+    this.sx = 0;
+    this.sy = 0;
+    this.max = { x: 0, y: 0 };
+    this.vp = null;
+    this.laneH = {};
+    this.query = "";
+    if (!props()?.menu) {
+      this.input = InputState.new({ placeholder: "Filter: key, title, person, status…" });
+      this.input.on("change", (_e, cx) => {
+        this.query = this.input.value().trim().toLowerCase();
+        this.sy = 0;
+        cx.notify();
+      });
+    }
     if (checking()) return;
     if (props()?.menu) {
       cx.timer.after(10, (cx) => this.loadMoves(cx));
@@ -223,10 +237,10 @@ export default class Jira extends View {
       .child(div().text_size(12.5).text_color(issue.category === "done" ? t.muted : t.foreground).child(issue.summary))
       .child(h_flex().gap(8).items_center().text_size(10.5).text_color(t.dim)
         .child(div().flex_1().min_w(0).truncate().child(issue.assignee ?? "unassigned"))
-        .when(Boolean(est), (el) => el.child(div().flex_none().id(`est-${issue.key}`)
-          .text_color(overrun(issue.estimate) ? t.blocked : t.dim)
-          .tooltip(`Remaining / original estimate${issue.estimate?.spent ? `; ${issue.estimate.spent} logged` : ""}`)
-          .child(`⏱ ${est}`)))
+        .child(div().flex_none().id(`est-${issue.key}`)
+          .text_color(overrun(issue.estimate) ? t.blocked : est ? t.muted : t.dim)
+          .tooltip(est ? `Remaining / original estimate${issue.estimate?.spent ? `; ${issue.estimate.spent} logged` : ""}` : "Not estimated")
+          .child(`⏱ ${est ?? "–"}`))
         .when(Boolean(old), (el) => el.child(div().flex_none().id(`age-${issue.key}`).tooltip("Age, since it was created").child(old))))
       .when(subs.length > 0, (el) => el
         .child(h_flex().id(`subs-${issue.key}`).gap(5).items_center().text_size(10.5).text_color(t.muted).rounded(4)
@@ -252,7 +266,10 @@ export default class Jira extends View {
   }
 
   shown(list) {
-    return list.filter((i) => !i.subtask && (!this.mineOnly || i.mine));
+    const words = this.query ? this.query.split(/\s+/) : [];
+    const text = (i) => [i.key, i.summary, i.assignee, i.status, i.priority, i.type, i.parent,
+      ...(i.subtasks ?? []).flatMap((x) => [x.key, x.summary])].filter(Boolean).join(" ").toLowerCase();
+    return list.filter((i) => !i.subtask && (!this.mineOnly || i.mine) && (!words.length || words.every((w) => text(i).includes(w))));
   }
 
   lanes(issues) {
@@ -275,6 +292,31 @@ export default class Jira extends View {
     return [{ name: null, cards: issues }];
   }
 
+  scrollBy(dx, dy, cx) {
+    const x = Math.max(0, Math.min(this.max.x, this.sx - dx));
+    const y = Math.max(0, Math.min(this.max.y, this.sy - dy));
+    if (x === this.sx && y === this.sy) return;
+    this.sx = x;
+    this.sy = y;
+    cx.notify();
+  }
+
+  laneHeader(t, l, n, width, pinned) {
+    const shut = this.lanesShut.has(l.name);
+    const blocked = l.cards.filter(isBlocked).length;
+    return h_flex().id(`${pinned ? "pin" : "lane"}-${n}`).w(width).h(26).px(8).gap(8).items_center().rounded(6).cursor_pointer()
+      .bg(t.background).border_b(1).border_color(t.border).hover((s) => s.bg(t.hover))
+      .on_click((_e, cx) => {
+        shut ? this.lanesShut.delete(l.name) : this.lanesShut.add(l.name);
+        this.save();
+        cx.notify();
+      })
+      .child(div().flex_none().text_size(11).text_color(t.dim).child(shut ? "▸" : "▾"))
+      .child(div().flex_none().text_size(12).font_semibold().text_color(t.foreground).child(l.name))
+      .child(div().flex_none().text_size(11).text_color(t.dim).child(String(l.cards.length)))
+      .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`)));
+  }
+
   boardView(t) {
     const d = this.data;
     if (d.board?.type === "scrum" && !d.sprint) {
@@ -283,69 +325,114 @@ export default class Jira extends View {
     const issues = this.shown(d.issues ?? []);
     const columns = (d.columns ?? []).map((c) => ({ name: c.name, ids: new Set(c.statuses.map(String)) }));
     const placed = (i) => columns.findIndex((c) => c.ids.has(String(i.statusId)));
-    const loose = issues.some((i) => placed(i) < 0);
-    if (loose) columns.push({ name: "Not on the board", ids: new Set() });
+    if (issues.some((i) => placed(i) < 0)) columns.push({ name: "Not on the board", ids: new Set() });
     const colOf = (i) => {
       const n = placed(i);
       return n < 0 ? columns.length - 1 : n;
     };
     const W = 250;
     const GAP = 10;
+    const PAD = 12;
+    const HEAD = 40;
     const width = columns.length * W + (columns.length - 1) * GAP;
     const lanes = this.lanes(issues).filter((l) => l.cards.length);
-    const head = h_flex().gap(GAP).flex_none().children(columns.map((c, n) => {
-      const here = issues.filter((i) => colOf(i) === n);
-      const blocked = here.filter(isBlocked).length;
-      return h_flex().w(W).flex_none().h(30).px(10).gap(6).items_center().rounded(8).bg(t.chrome).border_1().border_color(t.border)
-        .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(BLOCKED.test(c.name) && here.length ? t.blocked : t.muted).child(c.name.toUpperCase()))
-        .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`)))
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(String(here.length)));
-    }));
-    const lane = (l, n) => {
-      const shut = l.name != null && this.lanesShut.has(l.name);
-      const blocked = l.cards.filter(isBlocked).length;
-      const row = h_flex().gap(GAP).items_start().flex_none().children(columns.map((_c, k) => v_flex().w(W).flex_none().gap(6)
-        .children(l.cards.filter((i) => colOf(i) === k).map((issue) => this.card(t, issue)))));
-      if (l.name == null) return row;
-      return v_flex().gap(6).flex_none()
-        .child(h_flex().id(`lane-${n}`).w(width).h(26).px(8).gap(8).items_center().rounded(6).cursor_pointer()
-          .border_b(1).border_color(t.border).hover((s) => s.bg(t.hover))
-          .on_click((_e, cx) => {
-            shut ? this.lanesShut.delete(l.name) : this.lanesShut.add(l.name);
-            this.save();
+    const named = lanes.some((l) => l.name != null);
+
+    const tops = [];
+    let y = 0;
+    for (const l of lanes) {
+      tops.push(y);
+      y += (this.laneH[l.name ?? ""] ?? 120) + GAP;
+    }
+    const vp = this.vp ?? { width: 900, height: 600 };
+    this.max = { x: Math.max(0, width + 2 * PAD - vp.width), y: Math.max(0, HEAD + y + PAD - vp.height) };
+    this.sx = Math.min(this.sx, this.max.x);
+    this.sy = Math.min(this.sy, this.max.y);
+    let current = -1;
+    tops.forEach((top, n) => { if (top <= this.sy) current = n; });
+
+    const head = h_flex().absolute().top(0).left(PAD - this.sx).h(HEAD).pb(10).gap(GAP).items_end().bg(t.background)
+      .children(columns.map((c, n) => {
+        const here = issues.filter((i) => colOf(i) === n);
+        const blocked = here.filter(isBlocked).length;
+        return h_flex().w(W).flex_none().h(30).px(10).gap(6).items_center().rounded(8).bg(t.chrome).border_1().border_color(t.border)
+          .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(BLOCKED.test(c.name) && here.length ? t.blocked : t.muted).child(c.name.toUpperCase()))
+          .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`)))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(here.length)));
+      }));
+
+    const body = v_flex().absolute().top(HEAD - this.sy).left(PAD - this.sx).w(width).gap(GAP)
+      .children(lanes.map((l, n) => {
+        const shut = l.name != null && this.lanesShut.has(l.name);
+        const row = h_flex().gap(GAP).items_start().flex_none().children(columns.map((_c, k) => v_flex().w(W).flex_none().gap(6)
+          .children(l.cards.filter((i) => colOf(i) === k).map((issue) => this.card(t, issue)))));
+        return v_flex().id(`lane-box-${n}`).gap(6).flex_none()
+          .on_size_change((size, cx) => {
+            const key = l.name ?? "";
+            if (Math.abs((this.laneH[key] ?? 0) - size.height) < 1) return;
+            this.laneH[key] = size.height;
             cx.notify();
           })
-          .child(div().flex_none().text_size(11).text_color(t.dim).child(shut ? "▸" : "▾"))
-          .child(div().flex_none().text_size(12).font_semibold().text_color(t.foreground).child(l.name))
-          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(l.cards.length)))
-          .when(blocked > 0, (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child(`⚑ ${blocked}`))))
-        .when(!shut, (el) => el.child(row));
-    };
-    return div().id("jr-board").flex_1().min_h(0).px(12).pb(10).overflow_scrollbar()
-      .child(v_flex().gap(10).w(width)
-        .child(head)
-        .children(lanes.map(lane)));
+          .when(l.name != null, (el) => el.child(this.laneHeader(t, l, n, width, false)))
+          .when(!shut, (el) => el.child(row));
+      }));
+
+    const pin = named && current >= 0 && this.sy > tops[current] && lanes[current].name != null
+      ? div().absolute().top(HEAD).left(PAD).child(this.laneHeader(t, lanes[current], current, Math.min(width, vp.width - 2 * PAD), true))
+      : null;
+
+    return div().id("jr-board").flex_1().min_h(0).relative().overflow_hidden()
+      .on_size_change((size, cx) => {
+        if (this.vp && this.vp.width === size.width && this.vp.height === size.height) return;
+        this.vp = size;
+        cx.notify();
+      })
+      .on_scroll_wheel((e, cx) => {
+        const dx = e.delta?.x ?? 0;
+        const dy = e.delta?.y ?? 0;
+        if (e.modifiers?.shift && !dx) this.scrollBy(dy, 0, cx);
+        else this.scrollBy(dx, dy, cx);
+      })
+      .when(!lanes.length, (el) => el.child(div().absolute().top(HEAD).left(PAD).text_size(12.5).text_color(t.dim)
+        .child(this.query || this.mineOnly ? "Nothing matches." : "The board is empty.")))
+      .child(body)
+      .child(head)
+      .when(Boolean(pin), (el) => el.child(pin));
   }
 
   backlogView(t) {
     const list = this.shown(this.data.backlog ?? []);
-    if (!list.length) return div().p(16).text_size(12.5).text_color(t.dim).child(this.mineOnly ? "Nothing of yours in the backlog." : "The backlog is empty.");
-    return v_flex().id("jr-backlog").flex_1().min_h(0).px(12).pb(10).gap(2).overflow_y_scrollbar()
-      .children(list.map((issue) => {
-        const prio = prioMark(issue.priority);
-        return h_flex().id(`bl-${issue.key}`).h(30).px(8).gap(8).flex_none().items_center().rounded(6).cursor_pointer()
-          .hover((s) => s.bg(t.hover)).on_click(() => this.openMenu(issue))
-          .child(div().w(12).flex_none().text_size(11).text_color(isBlocked(issue) ? t.blocked : t.dim).child(isBlocked(issue) ? "⚑" : typeMark(issue.type)))
-          .child(div().w(90).flex_none().text_size(11.5).text_color(isBlocked(issue) ? t.blocked : issue.mine ? t.accent : t.muted).child(issue.key))
-          .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(issue.summary))
-          .when((issue.subtasks ?? []).length > 0, (el) => el.child(div().flex_none().text_size(10.5).text_color(t.dim)
-            .child(`${issue.subtasks.filter((x) => x.category === "done").length}/${issue.subtasks.length} sub`)))
-          .child(div().w(70).flex_none().truncate().text_size(11).text_color(prioColor(t, issue.priority)).child(issue.priority ?? ""))
-          .child(div().w(90).flex_none().truncate().text_size(10.5).text_color(overrun(issue.estimate) ? t.blocked : t.dim).child(estimateText(issue.estimate) ?? ""))
-          .child(div().w(40).flex_none().text_size(10.5).text_color(t.dim).child(age(issue.created) ?? ""))
-          .child(div().w(110).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.status))
-          .child(div().w(130).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.assignee ?? "unassigned"));
-      }));
+    const label = (w, text) => div().w(w).flex_none().truncate().child(text);
+    const head = h_flex().h(28).px(20).gap(8).flex_none().items_center().text_size(10.5).font_medium().text_color(t.dim)
+      .border_b(1).border_color(t.border)
+      .child(div().w(12).flex_none())
+      .child(label(90, "KEY"))
+      .child(div().flex_1().child("SUMMARY"))
+      .child(label(50, "SUBS"))
+      .child(label(70, "PRIORITY"))
+      .child(label(90, "LEFT / EST."))
+      .child(label(40, "AGE"))
+      .child(label(110, "STATUS"))
+      .child(label(130, "ASSIGNEE"));
+    const rows = list.map((issue) => {
+      const subs = issue.subtasks ?? [];
+      return h_flex().id(`bl-${issue.key}`).h(30).px(8).gap(8).flex_none().items_center().rounded(6).cursor_pointer()
+        .hover((s) => s.bg(t.hover)).on_click(() => this.openMenu(issue))
+        .child(div().w(12).flex_none().text_size(11).text_color(isBlocked(issue) ? t.blocked : t.dim).child(isBlocked(issue) ? "⚑" : typeMark(issue.type)))
+        .child(div().w(90).flex_none().text_size(11.5).text_color(isBlocked(issue) ? t.blocked : issue.mine ? t.accent : t.muted).child(issue.key))
+        .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(issue.summary))
+        .child(div().w(50).flex_none().text_size(10.5).text_color(t.dim).child(subs.length ? `${subs.filter((x) => x.category === "done").length}/${subs.length}` : ""))
+        .child(div().w(70).flex_none().truncate().text_size(11).text_color(prioColor(t, issue.priority)).child(issue.priority ?? ""))
+        .child(div().w(90).flex_none().truncate().text_size(10.5).text_color(overrun(issue.estimate) ? t.blocked : t.dim).child(estimateText(issue.estimate) ?? "–"))
+        .child(div().w(40).flex_none().text_size(10.5).text_color(t.dim).child(age(issue.created) ?? ""))
+        .child(div().w(110).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.status))
+        .child(div().w(130).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.assignee ?? "unassigned"));
+    });
+    return v_flex().flex_1().min_h(0)
+      .child(head)
+      .when(!list.length, (el) => el.child(div().p(16).text_size(12.5).text_color(t.dim)
+        .child(this.query || this.mineOnly ? "Nothing matches." : "The backlog is empty.")))
+      .child(v_flex().id("jr-backlog").flex_1().min_h(0).px(12).py(4).gap(2).overflow_y_scrollbar().children(rows));
   }
 
   chip(t, id, label, on, act) {
@@ -370,6 +457,16 @@ export default class Jira extends View {
       .when(Boolean(d?.sprint), (el) => el.child(div().text_size(12).text_color(t.dim)
         .child(`${d.sprint.name}${left ? ` · ${left}` : ""}`)))
       .child(div().flex_1())
+      .child(h_flex().w(260).h(26).px(8).gap(6).flex_none().items_center().rounded(7).border_1().border_color(t.border).bg(t.chrome)
+        .on_key_down((e, cx) => {
+          if (e.key !== "escape") return;
+          this.input.set_value("");
+          this.query = "";
+          cx.stop_propagation();
+          cx.notify();
+        })
+        .child(svg("mods/workspace-chrome/search.svg").size(12).flex_none().text_color(t.dim))
+        .child(Input.new(this.input).flex_1().h_full().text_size(12).text_color(t.foreground)))
       .when(Boolean(this.fixed), (el) => el.child(div().text_size(12).text_color(t.muted).child(VIEWS.find((v) => v.id === this.fixed).label)))
       .when(!this.fixed, (el) => el.children(VIEWS.map((v) => this.chip(t, `jr-v-${v.id}`, v.label, this.view === v.id, () => { this.view = v.id; }))))
       .child(this.chip(t, "jr-mine", "Mine", this.mineOnly, () => { this.mineOnly = !this.mineOnly; }))

@@ -161,6 +161,16 @@ cannot be read shows as one lane. The column headers sit once above the
 lanes with the counts across all of them; a lane folds from its header, and
 an empty one is left out.
 
+The board scrolls both ways under headers that stay put: the column headers
+stay at the top, and the lane being looked at keeps its header pinned under
+them once its own has scrolled away. Herdr's scroll areas do not say where
+they are, which a pinned header needs, so the board scrolls itself: it
+reads the wheel and trackpad, and moves the lanes under the headers by what
+they report, measured lane by lane. The backlog's column titles stay above
+its list the same way. A filter in the header narrows both views to the
+issues whose key, title, assignee, status, priority, type or sub-tasks hold
+every word typed; Escape clears it.
+
 A card shows the issue's priority, the remaining and the original estimate
 (red once the time logged passes the original), and its age since it was
 created. Sub-tasks do not get cards of their own: they are stacked inside
