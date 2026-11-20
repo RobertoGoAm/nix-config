@@ -154,7 +154,8 @@ lib.mkIf (jira != null) {
 
   # The board scrolls both ways under headers that stay put: the column headers
   # stay at the top, and the lane being looked at keeps its header pinned under
-  # them once its own has scrolled away. Herdr's scroll areas do not say where
+  # them once its own has scrolled away; sideways, the lane headers stay at the
+  # left edge while the columns move. Herdr's scroll areas do not say where
   # they are, which a pinned header needs, so the board scrolls itself: it
   # reads the wheel and trackpad, and moves the lanes under the headers by what
   # they report, measured lane by lane. The backlog's column titles stay above
@@ -178,6 +179,10 @@ lib.mkIf (jira != null) {
   # (=BLOCKED=, =Bloqueado=, =On hold=, =En espera=). Its card gets a red edge
   # and says why, its column's header counts the blocked ones, and in the
   # backlog its key turns red behind a flag.
+
+  # Each answer is kept with a file name of its own before it replaces the
+  # kept one, so two tabs fetching the same project at once do not trip over
+  # each other's write.
 
   # Every space on this computer whose folder has a Jira project gets two of
   # these tabs, =Kanban= and =Backlog=, and every space a =Notes= tab running

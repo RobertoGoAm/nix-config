@@ -105,6 +105,16 @@ login_site() {
   signin
 }
 
+keep() {
+  local out
+  out="$(cat)"
+  [ -n "$out" ] || return 1
+  if ! { printf '%s\n' "$out" >"$1.$$" && mv -f "$1.$$" "$1" 2>/dev/null; }; then
+    rm -f "$1.$$"
+  fi
+  printf '%s\n' "$out"
+}
+
 uri() {
   jq -rn --arg q "$1" '$q | @uri'
 }
@@ -166,7 +176,7 @@ meta() {
     columns: [$c.columnConfig.columns[] | {name, statuses: [.statuses[].id]}],
     swimlanes: $l,
     me: $me.accountId
-  }' >"$file.tmp" && mv "$file.tmp" "$file" && cat "$file"
+  }' | keep "$file"
 }
 
 view() {
@@ -241,8 +251,7 @@ view() {
       url: "\($s)/browse/\(.key)"
     };
     $m + {sprint: $sprint, issues: [$i.issues[] | card], backlog: [$b.issues[] | card], at: (now | floor)}
-    | .swimlanes.lanes = [(.swimlanes.lanes // [])[] | . as $lane | . + {keys: (if .default then null else ([$lk[] | select(.query == $lane.query) | .keys][0] // []) end)}]' >"$file.tmp" &&
-    mv "$file.tmp" "$file" && cat "$file"
+    | .swimlanes.lanes = [(.swimlanes.lanes // [])[] | . as $lane | . + {keys: (if .default then null else ([$lk[] | select(.query == $lane.query) | .keys][0] // []) end)}]' | keep "$file"
 }
 
 each_site() {

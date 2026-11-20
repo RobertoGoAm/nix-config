@@ -340,6 +340,7 @@ export default class Jira extends View {
 
     const tops = [];
     let y = 0;
+    const laneW = Math.max(200, Math.min(width, (this.vp?.width ?? 900) - 2 * PAD));
     for (const l of lanes) {
       tops.push(y);
       y += (this.laneH[l.name ?? ""] ?? 120) + GAP;
@@ -373,12 +374,12 @@ export default class Jira extends View {
             this.laneH[key] = size.height;
             cx.notify();
           })
-          .when(l.name != null, (el) => el.child(this.laneHeader(t, l, n, width, false)))
+          .when(l.name != null, (el) => el.child(div().ml(this.sx).child(this.laneHeader(t, l, n, laneW, false))))
           .when(!shut, (el) => el.child(row));
       }));
 
     const pin = named && current >= 0 && this.sy > tops[current] && lanes[current].name != null
-      ? div().absolute().top(HEAD).left(PAD).child(this.laneHeader(t, lanes[current], current, Math.min(width, vp.width - 2 * PAD), true))
+      ? div().absolute().top(HEAD).left(PAD).child(this.laneHeader(t, lanes[current], current, laneW, true))
       : null;
 
     return div().id("jr-board").flex_1().min_h(0).relative().overflow_hidden()
