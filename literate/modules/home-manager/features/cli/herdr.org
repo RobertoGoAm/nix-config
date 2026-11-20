@@ -251,9 +251,12 @@ the left (machine, branch, how many agents, how many need you). On the right:
   login folder its session runs from (=~/.claude=, =~/.claude-work=), checked
   with =claude auth status= on the agent's machine every ten minutes, and reads
   =Personal · Max= or =<organisation> · Team=; a personal folder signed into
-  an organisation shows red with how to fix it. Model and effort are read from
-  its status line on the terminal's screen, effort as =default= when the
-  status line leaves it out; clicking either opens the leader on that group.
+  an organisation shows red with how to fix it. Model and effort are what Claude
+  last handed its status line, which the status line command keeps per
+  terminal (=claude.org=) and which changes on =/model= and =/effort=; a
+  session started before that command falls back to the status line drawn on
+  the screen, effort as =default= when it leaves it out. Clicking either opens
+  the leader on that group.
   Beside the account, how much of its limits is used: =◷ 5h 23% · wk 41%=,
   amber from 70% and red from 90%, with when each window resets in the
   tooltip; clicking opens the usage page. Claude Code hands those figures

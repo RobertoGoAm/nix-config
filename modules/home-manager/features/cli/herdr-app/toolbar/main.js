@@ -158,15 +158,23 @@ export default class Toolbar extends View {
     const address = this.agent;
     this.pollAccount(cx, address);
     cx.spawn(async (cx) => {
-      const r = await hc(["read", address]).catch(() => null);
-      const lines = (r?.stdout ?? "").split("\n").reverse();
-      for (const l of lines) {
-        const m = l.match(STATUSLINE);
-        if (m) { this.model[address] = { model: m[1], effort: m[2] ?? "default" }; break; }
+      const on = address.includes("/") ? address.split("/")[0] : null;
+      const local = address.includes("/") ? address.split("/").slice(1).join("/") : address;
+      const s = await exec("sh", ["-c", 'cat "$HOME/.cache/claude-status/$1.json"', "status", local], { on, timeout: 10000 }).catch(() => null);
+      let seen = null;
+      try { if (s?.code === 0) seen = JSON.parse(s.stdout); } catch {}
+      if (seen?.model) {
+        this.model[address] = { model: seen.model, effort: seen.effort ?? "default" };
+      } else {
+        const r = await hc(["read", address]).catch(() => null);
+        const lines = (r?.stdout ?? "").split("\n").reverse();
+        for (const l of lines) {
+          const m = l.match(STATUSLINE);
+          if (m) { this.model[address] = { model: m[1], effort: m[2] ?? "default" }; break; }
+        }
       }
       const dir = this.account[address]?.dir;
       if (dir) {
-        const on = address.includes("/") ? address.split("/")[0] : null;
         const u = await exec("cat", [`${dir}/usage.json`], { on, timeout: 10000 }).catch(() => null);
         try { if (u?.code === 0) this.usage[dir + "|" + (on ?? "")] = usageOf(u.stdout); } catch {}
       }

@@ -87,6 +87,15 @@ of it, and the Herdr desktop toolbar (=herdr.org=) shows them beside the
 account. A session without the field (an API key, an old version) leaves the
 file as it was.
 
+The same stdin says which model and effort the session runs at, =effort.level=
+included when nothing chose one (it is then the model's default), and Claude
+Code runs the command again on =/effort= and =/model=. In a Herdr terminal
+(=HC_TERMINAL_ID= set) the command keeps those under
+=~/.cache/claude-status/<terminal>.json=, which the toolbar reads for the
+focused Claude: what is drawn on the screen is not enough, as claude-hud leaves
+the effort out of its line at times, and a line scrolled into the history is
+an old one.
+
 #+begin_src nix
   statusLine = pkgs.writeShellScript "claude-statusline" ''
     input="$(cat)"
@@ -94,6 +103,16 @@ file as it was.
     if limits="$(printf '%s' "$input" | ${lib.getExe pkgs.jq} -ce 'select(.rate_limits != null) | {rate_limits, at: (now | floor)}' 2>/dev/null)"; then
       printf '%s\n' "$limits" > "$dir/usage.json.$$" && mv -f "$dir/usage.json.$$" "$dir/usage.json"
     fi
+    term="''${HC_TERMINAL_ID:-}"
+    case "$term" in
+    "" | *[!A-Za-z0-9_-]*) ;;
+    *)
+      status="$HOME/.cache/claude-status"
+      if seen="$(printf '%s' "$input" | ${lib.getExe pkgs.jq} -ce '{model: .model.display_name, id: .model.id, effort: (.effort | if type == "object" then .level else . end), at: (now | floor)}' 2>/dev/null)"; then
+        mkdir -p "$status" && printf '%s\n' "$seen" > "$status/$term.json.$$" && mv -f "$status/$term.json.$$" "$status/$term.json"
+      fi
+      ;;
+    esac
     printf '%s' "$input" | exec ${lib.getExe pkgs.nodejs} ${hud}/dist/index.js
   '';
 #+end_src
