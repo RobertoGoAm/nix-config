@@ -163,7 +163,12 @@ lib.mkIf (jira != null) {
   # these tabs, =Kanban= and =Backlog=, and every space a =Notes= tab running
   # =notes= (=notes.org=) on its folder, opened behind the others by the
   # =requests= panel, which is always loaded and looks at the spaces once a
-  # minute. A tab closed by hand stays closed for that space (=jira.auto= in
+  # minute. Their names carry the project, =Kanban · shop-api (ABC)= or
+  # =Notes · nix-config=, so the picker finds them by repository or Jira key; a
+  # tab with the bare name is renamed. A space's project is its repository's
+  # main checkout, as =spaces-plus= records it, rather than the space's own
+  # folder, which is wherever its first terminal started. A tab closed by hand
+  # stays closed for that space (=jira.auto= in
   # Herdr's shared state remembers which ones were opened); the leader's =k=
   # brings the Kanban back.
 
