@@ -27,6 +27,30 @@ const typeMark = (type) => {
 const BLOCKED = /block|bloque|imped|on hold|en espera/i;
 const isBlocked = (issue) => Boolean(issue.flagged) || BLOCKED.test(String(issue.status ?? ""));
 
+const age = (created) => {
+  const t = Date.parse(created ?? "");
+  if (!Number.isFinite(t)) return null;
+  const d = Math.floor((Date.now() - t) / 86400000);
+  if (d < 1) return "today";
+  if (d < 60) return `${d}d`;
+  if (d < 730) return `${Math.floor(d / 30)}mo`;
+  return `${Math.floor(d / 365)}y`;
+};
+
+const estimateText = (e) => {
+  if (!e || (!e.original && !e.remaining)) return null;
+  return `${e.remaining ?? "–"} / ${e.original ?? "–"}`;
+};
+
+const overrun = (e) => Boolean(e && e.originalS && e.spentS && e.spentS > e.originalS);
+
+const prioColor = (t, p) => {
+  const s = String(p ?? "").toLowerCase();
+  if (/highest|blocker|critical|urgente|crítica/.test(s)) return t.blocked;
+  if (/high|alta/.test(s)) return t.working;
+  return t.dim;
+};
+
 const prioMark = (p) => {
   const s = String(p ?? "").toLowerCase();
   if (/highest|blocker|critical|urgente|crítica/.test(s)) return "⇈";
@@ -44,6 +68,7 @@ export default class Jira extends View {
     this.seen = shared("jira.changed") ?? 0;
     this.moves = null;
     this.busy = null;
+    this.open = new Set();
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem("view") ?? "{}"); } catch { saved = {}; }
     this.fixed = VIEWS.some((v) => v.id === props()?.view) ? props().view : null;
@@ -174,21 +199,54 @@ export default class Jira extends View {
     const prio = prioMark(issue.priority);
     const blocked = isBlocked(issue);
     const catColor = issue.category === "done" ? t.done : issue.category === "indeterminate" ? t.working : t.dim;
+    const est = estimateText(issue.estimate);
+    const old = age(issue.created);
+    const subs = issue.subtasks ?? [];
+    const subsDone = subs.filter((x) => x.category === "done").length;
+    const unfolded = this.open.has(issue.key);
     return v_flex().id(`card-${issue.key}`).flex_none().p(8).gap(4).rounded(7).border_1()
       .border_color(blocked ? t.blocked : issue.mine ? t.accent : t.border)
       .when(blocked, (el) => el.border_l(3))
       .bg(t.background).cursor_pointer().hover((s) => s.bg(t.hover))
-      .tooltip(`${issue.type}${issue.priority ? ` · ${issue.priority}` : ""}${issue.parent ? ` · in ${issue.parent}` : ""}. Click: open, move, assign or start Claude`)
+      .tooltip(`${issue.type}${issue.parent ? ` · in ${issue.parent}` : ""}${issue.created ? ` · created ${String(issue.created).slice(0, 10)}` : ""}${issue.estimate?.spent ? ` · ${issue.estimate.spent} logged` : ""}. Click: open, move, assign or start Claude`)
       .on_click(() => this.openMenu(issue))
       .child(h_flex().gap(6).items_center().text_size(11)
         .child(div().flex_none().text_color(catColor).child(typeMark(issue.type)))
         .child(div().flex_none().text_color(issue.mine ? t.accent : t.muted).child(issue.key))
         .child(div().flex_1())
-        .when(Boolean(prio), (el) => el.child(div().flex_none().text_color(prio.startsWith("⇈") || prio === "↑" ? t.blocked : t.dim).child(prio))))
+        .when(Boolean(issue.priority), (el) => el.child(div().flex_none().text_color(prioColor(t, issue.priority))
+          .child(`${prio ? `${prio} ` : ""}${issue.priority}`))))
       .when(blocked, (el) => el.child(div().text_size(10.5).font_medium().text_color(t.blocked)
         .child(issue.flagged ? "⚑ Blocked (flagged)" : `⚑ ${issue.status}`)))
       .child(div().text_size(12.5).text_color(issue.category === "done" ? t.muted : t.foreground).child(issue.summary))
-      .when(Boolean(issue.assignee), (el) => el.child(div().text_size(10.5).text_color(t.dim).truncate().child(issue.assignee)));
+      .child(h_flex().gap(8).items_center().text_size(10.5).text_color(t.dim)
+        .child(div().flex_1().min_w(0).truncate().child(issue.assignee ?? "unassigned"))
+        .when(Boolean(est), (el) => el.child(div().flex_none().id(`est-${issue.key}`)
+          .text_color(overrun(issue.estimate) ? t.blocked : t.dim)
+          .tooltip(`Remaining / original estimate${issue.estimate?.spent ? `; ${issue.estimate.spent} logged` : ""}`)
+          .child(`⏱ ${est}`)))
+        .when(Boolean(old), (el) => el.child(div().flex_none().id(`age-${issue.key}`).tooltip("Age, since it was created").child(old))))
+      .when(subs.length > 0, (el) => el
+        .child(h_flex().id(`subs-${issue.key}`).gap(5).items_center().text_size(10.5).text_color(t.muted).rounded(4)
+          .hover((s) => s.text_color(t.foreground))
+          .on_click((_e, cx) => {
+            cx.stop_propagation();
+            unfolded ? this.open.delete(issue.key) : this.open.add(issue.key);
+            cx.notify();
+          })
+          .child(unfolded ? "▾" : "▸")
+          .child(`${subs.length} subtask${subs.length === 1 ? "" : "s"} · ${subsDone} done`))
+        .when(unfolded, (el) => el.child(v_flex().gap(1).pl(10).border_l(1).border_color(t.border)
+          .children(subs.map((x) => h_flex().id(`sub-${x.key}`).gap(6).h(20).px(4).items_center().rounded(4).text_size(11)
+            .hover((s) => s.bg(t.selected))
+            .on_click((_e, cx) => {
+              cx.stop_propagation();
+              this.openMenu({ ...x, mine: false, parent: issue.key });
+            })
+            .child(div().size(6).flex_none().rounded_full().bg(x.category === "done" ? t.done : x.category === "indeterminate" ? t.working : t.dim))
+            .child(div().flex_none().text_color(t.muted).child(x.key))
+            .child(div().flex_1().min_w(0).truncate().text_color(x.category === "done" ? t.dim : t.foreground).child(x.summary))
+            .child(div().flex_none().max_w(90).truncate().text_size(10).text_color(t.dim).child(x.status)))))));
   }
 
   shown(list) {
@@ -232,7 +290,11 @@ export default class Jira extends View {
           .child(div().w(12).flex_none().text_size(11).text_color(isBlocked(issue) ? t.blocked : t.dim).child(isBlocked(issue) ? "⚑" : typeMark(issue.type)))
           .child(div().w(90).flex_none().text_size(11.5).text_color(isBlocked(issue) ? t.blocked : issue.mine ? t.accent : t.muted).child(issue.key))
           .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(issue.summary))
-          .when(Boolean(prio), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(prio)))
+          .when((issue.subtasks ?? []).length > 0, (el) => el.child(div().flex_none().text_size(10.5).text_color(t.dim)
+            .child(`${issue.subtasks.filter((x) => x.category === "done").length}/${issue.subtasks.length} sub`)))
+          .child(div().w(70).flex_none().truncate().text_size(11).text_color(prioColor(t, issue.priority)).child(issue.priority ?? ""))
+          .child(div().w(90).flex_none().truncate().text_size(10.5).text_color(overrun(issue.estimate) ? t.blocked : t.dim).child(estimateText(issue.estimate) ?? ""))
+          .child(div().w(40).flex_none().text_size(10.5).text_color(t.dim).child(age(issue.created) ?? ""))
           .child(div().w(110).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.status))
           .child(div().w(130).flex_none().truncate().text_size(11).text_color(t.dim).child(issue.assignee ?? "unassigned"));
       }));

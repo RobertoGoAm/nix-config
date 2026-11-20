@@ -142,7 +142,14 @@ lib.mkIf (jira != null) {
   # The mod draws one column per column of the Jira board, holding the issues
   # whose status the board puts there, in the board's own order; an issue whose
   # status no column claims goes in a last column, so nothing is hidden.
-  # Sub-tasks stay off the board, as they sit under their parents in Jira too. A
+  # A card shows the issue's priority, the remaining and the original estimate
+  # (red once the time logged passes the original), and its age since it was
+  # created. Sub-tasks do not get cards of their own: they are stacked inside
+  # their parent's card, folded to a count of how many there are and how many
+  # are done, and unfold to a row each with its status, which opens the same
+  # menu as a card. Jira returns them with the parent, so a parent shows all of
+  # its sub-tasks even when the board leaves them off. The backlog lists the
+  # same priority, estimate, age and sub-task count per row. A
   # scrum board shows its active sprint; a kanban board shows what is not done,
   # plus what was finished in the last two weeks. The backlog view is the
   # board's backlog as a list. =Mine= narrows both to your issues, and your cards

@@ -5,7 +5,7 @@ set -u -o pipefail
 
 conf="${JIRA_BOARD_CONFIG:-$HOME/.config/jira-board/config.json}"
 cacheroot="${XDG_CACHE_HOME:-$HOME/.cache}/jira-board"
-fields="summary,status,issuetype,priority,assignee,parent,flagged"
+fields="summary,status,issuetype,priority,assignee,parent,flagged,created,timetracking,subtasks"
 site="" server="" login="" cache="" key=""
 
 fail() {
@@ -199,6 +199,17 @@ view() {
       priority: (.fields.priority.name // null),
       assignee: (.fields.assignee.displayName // null),
       flagged: (.fields.flagged // false),
+      created: ((.fields.created // "") | sub("(?<h>[+-][0-9]{2})(?<m>[0-9]{2})$"; "\(.h):\(.m)")),
+      estimate: (.fields.timetracking // {} | {
+        original: (.originalEstimate // null), remaining: (.remainingEstimate // null), spent: (.timeSpent // null),
+        originalS: (.originalEstimateSeconds // null), remainingS: (.remainingEstimateSeconds // null), spentS: (.timeSpentSeconds // null)
+      }),
+      subtasks: [(.fields.subtasks // [])[] | {
+        key, summary: .fields.summary, status: .fields.status.name,
+        category: (.fields.status.statusCategory.key // null),
+        priority: (.fields.priority.name // null), type: (.fields.issuetype.name // null),
+        url: "\($s)/browse/\(.key)"
+      }],
       mine: ((.fields.assignee.accountId // "") == $m.me),
       url: "\($s)/browse/\(.key)"
     };
