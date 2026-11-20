@@ -1,0 +1,66 @@
+#+TITLE: cli notes
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Notes beside the code, in the Obsidian vault
+
+Every repository gets a notes folder in the Obsidian vault
+(=~/Documents/robertogoam=, the same one obsidian.nvim, obsidian.el and the
+app open): =<area>/Projects/<repository>/notes=. The area is where the
+repository's work belongs: a client's folder under =Work/Clients=, the
+employer's under =Work=, or =Personal= for everything else. The repository's
+name is its main checkout's, so a worktree files its notes with the
+repository, and the folder is made on the first note.
+
+=notes= (=notes.sh= beside this module) does the mapping, so nvim and Herdr
+agree on it:
+
+- =notes dir [FOLDER]= prints the notes folder for a code folder. Inside the
+  vault it answers the project notes folder the path is in, or the vault's
+  =Inbox= anywhere else there; the home folder also answers the =Inbox=.
+- =notes [FOLDER]= opens nvim on that folder, the file tree showing it.
+
+Which code folders belong to which area names clients, so the map lives in
+the private =work-extras.nix=, as =notes.areas=, folders relative to the home
+folder. A machine without it files everything under =Personal=.
+
+#+begin_src nix
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  home = config.home.homeDirectory;
+  privatePath = "${home}/.config/nix-secrets/work-extras.nix";
+  private = if builtins.pathExists privatePath then import privatePath { inherit pkgs; } else { };
+
+  notesConfig = pkgs.writeText "notes.json" (
+    builtins.toJSON {
+      vault = "${home}/Documents/robertogoam";
+      default = "Personal";
+      areas = lib.mapAttrs' (dir: area: lib.nameValuePair "${home}/${dir}" area) (
+        (private.notes or { }).areas or { }
+      );
+    }
+  );
+
+  notes = pkgs.writeShellApplication {
+    name = "notes";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.git
+      pkgs.jq
+    ];
+    bashOptions = [
+      "nounset"
+      "pipefail"
+    ];
+    text = builtins.readFile ./notes.sh;
+  };
+in
+{
+  home.packages = [ notes ];
+  xdg.configFile."notes/config.json".source = notesConfig;
+}
+#+end_src

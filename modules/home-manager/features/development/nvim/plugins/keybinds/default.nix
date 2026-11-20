@@ -518,8 +518,23 @@
 
     {
       key = "<leader>nn";
+      action = "<cmd>lua notes_new()<CR>";
+      options.desc = "new project note";
+    }
+    {
+      key = "<leader>nf";
+      action = "<cmd>lua notes_find()<CR>";
+      options.desc = "find project note";
+    }
+    {
+      key = "<leader>nb";
+      action = "<cmd>lua notes_browse()<CR>";
+      options.desc = "browse project notes";
+    }
+    {
+      key = "<leader>nv";
       action = "<cmd>Obsidian new<CR>";
-      options.desc = "new note";
+      options.desc = "new vault note";
     }
     {
       key = "<leader>nN";

@@ -159,17 +159,20 @@ export default class Requests extends View {
           }
           this.jiraKey[id] = { ok, at: Date.now() };
         }
-        if (!this.jiraKey[id].ok) continue;
         const live = spaces().find((x) => x.id === s.id);
         if (!live) continue;
         const auto = { ...(shared("jira.auto") ?? {}) };
         const made = new Set(auto[s.id] ?? []);
         let added = false;
-        for (const [name, view] of JIRA_TABS) {
-          if (made.has(name) || live.tabs.some((t) => t.name === name)) continue;
-          run("tab.new", { space: s.id, name, mod: "jira", props: { folder: s.folder, space: s.id, view }, focus: false });
+        const open = (name, spec) => {
+          if (made.has(name) || live.tabs.some((t) => t.name === name)) return;
+          run("tab.new", { space: s.id, name, ...spec, focus: false });
           made.add(name);
           added = true;
+        };
+        if (s.folder !== home()) open("Notes", { folder: s.folder, argv: ["notes"] });
+        if (this.jiraKey[id].ok) {
+          for (const [name, view] of JIRA_TABS) open(name, { mod: "jira", props: { folder: s.folder, space: s.id, view } });
         }
         if (added) setShared("jira.auto", { ...auto, [s.id]: [...made] });
       }

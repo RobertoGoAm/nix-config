@@ -153,7 +153,8 @@ lib.mkIf (jira != null) {
   # backlog its key turns red behind a flag.
 
   # Every space on this computer whose folder has a Jira project gets two of
-  # these tabs, =Kanban= and =Backlog=, opened behind the others by the
+  # these tabs, =Kanban= and =Backlog=, and every space a =Notes= tab running
+  # =notes= (=notes.org=) on its folder, opened behind the others by the
   # =requests= panel, which is always loaded and looks at the spaces once a
   # minute. A tab closed by hand stays closed for that space (=jira.auto= in
   # Herdr's shared state remembers which ones were opened); the leader's =k=
