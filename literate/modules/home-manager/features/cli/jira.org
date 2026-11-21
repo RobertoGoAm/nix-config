@@ -275,7 +275,9 @@ touches two. So Claude decides, headless and on the work account
 (=claude -p=, =CLAUDE_ACCOUNT=work=, =claude.org=), forty tickets at a time,
 from each ticket's title, labels, components, parent and description, and
 from the list of the stream's repositories, each with the stack its manifest
-shows (=composer.json= is PHP, a =nuxt.config= is Nuxt), read from the
+shows (=composer.json= is PHP, a =nuxt.config= is Nuxt, a Capacitor config or
+Capacitor or Cordova among its packages is a mobile app around its web front),
+read from the
 digest's folder of checkouts each morning so a repository cloned since counts
 without a config change, and from the stream's list of projects, the
 titles of the children of a Confluence page the digest names, read the same
@@ -284,7 +286,9 @@ way (=jira-board children=). The ticket text is what
 the pages it links through the Atlassian connector when that is connected,
 with only its reading tools allowed. Its verdicts are kept with the time the
 ticket last changed in Jira, so each morning it is asked only about tickets
-that are new or were edited since; the first run sorts the whole board. A
+that are new or were edited since; the first run sorts the whole board, and
+so does the first after the project's notes or parts change in the config,
+as the verdicts were given against the old ones. A
 ticket it could not sort is left out of that note, said so, and tried again
 the next time.
 

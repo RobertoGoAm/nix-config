@@ -54,6 +54,8 @@ repos() {
     name="$(basename "$d")"
     case "$name" in *-worktrees | backups | *[A-Z]*) continue ;; esac
     if [ -e "$d/composer.json" ]; then kind="PHP"
+    elif ls "$d"/capacitor.config.* >/dev/null 2>&1 || grep -qE '"@capacitor/|cordova' "$d/package.json" 2>/dev/null; then
+      kind="mobile app, Capacitor/Cordova around its web front"
     elif ls "$d"/nuxt.config.* >/dev/null 2>&1; then kind="Nuxt"
     elif [ -e "$d/pyproject.toml" ] || [ -e "$d/requirements.txt" ]; then kind="Python"
     elif [ -e "$d/pom.xml" ] || [ -e "$d/build.gradle" ]; then kind="Java"
@@ -102,7 +104,7 @@ classify() {
 }
 
 digest_one() {
-  local digest="$1" site key dir vault folder note tsv rows texts prev classes need verdicts n prevdate batch
+  local digest="$1" site key dir vault folder note tsv rows texts prev classes need verdicts n prevdate batch sig
   site="$(jq -r .site <<<"$digest")"
   key="$(jq -r .key <<<"$digest")"
   dir="$stateroot/$site-$key"
@@ -127,6 +129,14 @@ digest_one() {
   texts="$(jq -r '.[].Key' <<<"$rows" | xargs jira-board --site "$site" texts | jq -sc 'map(select(.key != null) | {key: .key, value: .}) | from_entries')" ||
     texts='{}'
   classes="$(cat "$dir/classes.json" 2>/dev/null || echo '{}')"
+  # Verdicts hold for the notes and parts they were given: when those change,
+  # the whole board is sorted again.
+  sig="$(jq -c '{context, areas}' <<<"$digest" | sha256sum | cut -c1-16)"
+  if [ "$(cat "$dir/classes.sig" 2>/dev/null)" != "$sig" ]; then
+    classes='{}'
+    echo '{}' >"$dir/classes.json"
+    echo "$sig" >"$dir/classes.sig"
+  fi
 
   # Tickets Claude has not seen, or that changed in Jira since it did.
   need="$(jq -c --argjson c "$classes" --argjson t "$texts" '
