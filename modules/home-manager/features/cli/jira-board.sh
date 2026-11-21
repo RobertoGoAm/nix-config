@@ -29,6 +29,11 @@ jira-board --site NAME assign ISSUE   to yourself
 jira-board export FOLDER [BRANCH] [--copy]
                                       every issue of the board and its backlog,
                                       sub-tasks included, as a table for an agent
+                                      (--site NAME with a project KEY for FOLDER:
+                                      that project's board)
+jira-board --site NAME children PAGE   the titles of a Confluence page's children
+jira-board --site NAME texts ISSUE...  title, labels, parent, updated and
+                                      description of each, as JSON lines
 jira-board --site NAME issue ISSUE [--json | --copy]
                                       the issue written out for an agent to read
                                       (--copy: onto the clipboard instead)
@@ -141,6 +146,12 @@ locate() {
 
 resolve() {
   local where s
+  # A project key in place of a folder, with the site already chosen by
+  # --site: a board several repositories share is asked for once, by its key.
+  if [ -n "$site" ] && [[ "$1" =~ ^[A-Z][A-Z0-9]+$ ]]; then
+    key="$1"
+    return 0
+  fi
   where="$(locate "$1")"
   s="$(jq -r '.site // empty' <<<"$where")"
   [ -n "$s" ] || return 1
@@ -347,6 +358,21 @@ export_board() {
   printf '%s\n' "$out"
 }
 
+texts() {
+  local batch keys
+  keys="$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(length > 0))')"
+  for ((at = 0; at < $(jq length <<<"$keys"); at += 100)); do
+    batch="$(jq -r --argjson a "$at" '.[$a:$a + 100] | join(",")' <<<"$keys")"
+    api POST /rest/api/2/search/jql "$(jq -nc --arg q "key in ($batch)" \
+      '{jql: $q, maxResults: 100, fields: ["summary", "issuetype", "labels", "components", "parent", "updated", "description"]}')" |
+      jq -c '.issues[] | {key, summary: .fields.summary, type: .fields.issuetype.name, labels: (.fields.labels // []),
+        components: [(.fields.components // [])[].name], parent: (.fields.parent.key // null),
+        parentSummary: (.fields.parent.fields.summary // null), updated: .fields.updated,
+        description: ((.fields.description // "") | gsub("\r"; "") | gsub("\n{3,}"; "\n\n") | .[0:1500])}' ||
+      fail "could not read the issues"
+  done
+}
+
 each_site() {
   local s status=0
   if [ -n "$site" ]; then
@@ -402,9 +428,21 @@ case "${1:-}" in
       export_board "${args[0]:?folder}" "${args[1]:-}"
     fi
     ;;
-  meta | transitions | move | assign | issue)
+  meta | transitions | move | assign | issue | texts | children)
     [ -n "$site" ] || only
     case "$1" in
+      children)
+        # Confluence answers on the site's own address with the same login,
+        # not through the Jira gateway a scoped token may have needed.
+        t="$(token)" || fail "no Jira API token in the keychain for $login"
+        curl -sS --fail-with-body -u "$login:$t" -H 'Accept: application/json' \
+          "$server/wiki/api/v2/pages/${2:?page}/children?limit=250" | jq -r '.results[].title' ||
+          fail "could not read the children of page $2"
+        ;;
+      texts)
+        shift
+        texts "$@"
+        ;;
       meta) meta "${2:?key}" ;;
       issue) issue "${2:?issue}" "${3:-}" ;;
       transitions)

@@ -139,11 +139,29 @@ let
       exec "$real" "$@"
     '';
   };
+
+  jiraDigest = pkgs.writeShellApplication {
+    name = "jira-digest";
+    runtimeInputs = [
+      jiraBoard
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnused
+      pkgs.jq
+      pkgs.terminal-notifier
+    ];
+    bashOptions = [
+      "nounset"
+      "pipefail"
+    ];
+    text = builtins.readFile ./jira-digest.sh;
+  };
 in
 lib.mkIf (jira != null) {
   home.packages = [
     jiraCli
     jiraBoard
+    jiraDigest
   ];
 
   xdg.configFile."jira-board/config.json".source = boardConfig;
@@ -225,5 +243,85 @@ lib.mkIf (jira != null) {
   home.file.".config/herdr-app/mods/jira" = {
     source = ./herdr-app/jira;
     recursive = true;
+  };
+
+  # The daily digest
+
+  # A board with a few hundred tickets, shared by several repositories, is more
+  # than anyone reads each morning, and only the tickets that touch our part of
+  # the system matter: the frontend and the BFF, say, while the core backend is
+  # another team's. =jira-digest= (=jira-digest.sh= beside this module) writes a
+  # note a day per board into the Obsidian vault with those tickets only, in a
+  # table per part (priority, age, the remaining and original estimate, assignee,
+  # status, where on the board, and why it counts), and above them what is new
+  # on the board since the last note and what moved: column, status, priority,
+  # assignee or remaining estimate. It runs per board rather than per
+  # repository, so the repositories that share one get one note and one pass.
+
+  # Which part a ticket touches is a judgement, not a label lookup: titles carry
+  # tags only sometimes, and a sub-task often touches one part of a parent that
+  # touches two. So Claude decides, headless and on the work account
+  # (=claude -p=, =CLAUDE_ACCOUNT=work=, =claude.org=), forty tickets at a time,
+  # from each ticket's title, labels, components, parent and description, and
+  # from the list of the stream's repositories, each with the stack its manifest
+  # shows (=composer.json= is PHP, a =nuxt.config= is Nuxt), read from the
+  # digest's folder of checkouts each morning so a repository cloned since counts
+  # without a config change, and from the stream's list of projects, the
+  # titles of the children of a Confluence page the digest names, read the same
+  # way (=jira-board children=). The ticket text is what
+  # =jira-board texts= reads, a hundred at a time; Claude may also read the ticket or
+  # the pages it links through the Atlassian connector when that is connected,
+  # with only its reading tools allowed. Its verdicts are kept with the time the
+  # ticket last changed in Jira, so each morning it is asked only about tickets
+  # that are new or were edited since; the first run sorts the whole board. A
+  # ticket it could not sort is left out of that note, said so, and tried again
+  # the next time.
+
+  # The boards, the folder in the vault each note goes to, the parts and a few
+  # lines about the project for Claude (which repositories are which, what the
+  # core backend is written in, what the ticket tags mean) are client knowledge,
+  # so they live in the private =work-extras.nix= as =jira.digests=.
+
+  # It runs at 9:40 on weekdays, or when the Mac wakes after that, and a
+  # notification opens the note in Obsidian. Running =jira-digest= by hand
+  # writes the notes at once and counts as that day's: the 9:40 run
+  # (=--scheduled=) skips a day that already has them. A run in which Claude
+  # sorted nothing at all is a failure rather than a quiet board: it says so in a
+  # notification, writes no note, leaves the last snapshot to compare with, and
+  # does not count as the day's. The prompt goes to =claude -p= on its standard
+  # input, as =--allowedTools= would take a prompt given after it for one more
+  # tool.
+
+  xdg.configFile."jira-digest/config.json".text = builtins.toJSON {
+    vault = "${home}/Documents/robertogoam";
+    digests = jira.digests or [ ];
+  };
+
+  launchd.agents.jira-digest = lib.mkIf ((jira.digests or [ ]) != [ ]) {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        (lib.getExe jiraDigest)
+        "--scheduled"
+      ];
+      StartCalendarInterval =
+        map
+          (day: {
+            Weekday = day;
+            Hour = 9;
+            Minute = 40;
+          })
+          [
+            1
+            2
+            3
+            4
+            5
+          ];
+      EnvironmentVariables.PATH = "/etc/profiles/per-user/${config.home.username}/bin:/run/current-system/sw/bin:/usr/bin:/bin";
+      ProcessType = "Background";
+      StandardOutPath = "${home}/Library/Logs/jira-digest.out.log";
+      StandardErrorPath = "${home}/Library/Logs/jira-digest.err.log";
+    };
   };
 }
