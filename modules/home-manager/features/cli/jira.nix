@@ -263,7 +263,7 @@ lib.mkIf (jira != null) {
   # A digest names its boards by project key, one (=key=), a list (=keys=), or
   # =auto=: every project the site's folder map and pinned boards name, so each
   # project a repository is mapped to gets its digest with nothing listed by
-  # hand. A project with no board this login can read is skipped, in the log
+  # hand, less those in =skipKeys=, projects not worked on for now. A project with no board this login can read is skipped, in the log
   # rather than in a notification each morning.
 
   # The notes go to =<notes>/<KEY>/<date>.md= in the vault, a history, and the

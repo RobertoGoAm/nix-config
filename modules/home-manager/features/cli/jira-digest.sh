@@ -259,12 +259,12 @@ share() {
 
 # A digest names its board with key, or with keys: a list, or "auto" for every
 # project its site's folder map and pinned boards name, so each repository's
-# project gets one without listing them by hand.
+# project gets one without listing them by hand; skipKeys leaves some out.
 expand() {
   jq -c --slurpfile b "$HOME/.config/jira-board/config.json" '.digests[] | . as $d |
     (if .key then [.key]
      elif .keys == "auto" then ($b[0].sites[$d.site] // {}) | ([.folders[]?] + (.boards // {} | keys)) | unique
-     else .keys // [] end)[] as $k | $d + {key: $k} | del(.keys)' "$conf"
+     else .keys // [] end) - ($d.skipKeys // []) | .[] as $k | $d + {key: $k} | del(.keys, .skipKeys)' "$conf"
 }
 
 status=0
