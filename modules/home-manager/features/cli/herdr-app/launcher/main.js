@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { exec, hc, run, home, pickFolder, theme, props, closeOverlay, checking } from "herdr";
+import { exec, hc, run, home, pickFolder, theme, props, closeOverlay, checking, shared, setShared } from "herdr";
 
 const PROVIDERS = {
   claude: {
@@ -28,6 +28,8 @@ const PROVIDERS = {
 };
 const ORDER = ["claude", "codex", "shell"];
 const MAX_RECENT = 12;
+const COMPANIONS = [["notes", "Notes"], ["kanban", "Kanban"], ["backlog", "Backlog"]];
+const PENDING_MS = 10 * 60000;
 
 function fuzzy(q, text) {
   if (!q) return true;
@@ -54,7 +56,7 @@ export default class Launcher extends View {
     this.effort = { claude: "default", codex: "default", ...(last.effort ?? {}) };
     this.machine = props()?.machine !== undefined ? (props().machine || null) : (last.machine ?? null);
     this.asTab = Boolean(last.asTab);
-    this.extras = { editor: true, prs: false, ...(last.extras ?? {}) };
+    this.extras = { editor: true, prs: false, notes: true, kanban: true, backlog: true, ...(last.extras ?? {}) };
     this.machines = [null];
     this.dirs = {};
     this.query = "";
@@ -144,6 +146,11 @@ export default class Launcher extends View {
     run("space.new", { ...args, machine: this.machine ?? "" });
     if (this.extras.editor) run("tab.new", { folder, argv: ["nvim", "."], focus: false });
     if (this.extras.prs) run("tab.new", { folder, name: "PRs", argv: ["tuicr-prs"], focus: false });
+    if (this.machine == null) {
+      const skip = COMPANIONS.filter(([key]) => !this.extras[key]).map(([, kind]) => kind);
+      const pending = Object.fromEntries(Object.entries(shared("companions.pending") ?? {}).filter(([, v]) => Date.now() - v.at < PENDING_MS));
+      setShared("companions.pending", { ...pending, [folder]: { skip, at: Date.now() } });
+    }
   }
 
   async browse(cx) {
@@ -217,7 +224,8 @@ export default class Launcher extends View {
       .when(!this.asTab, (el) => el.child(h_flex().gap(8).items_center().child(label("also open"))
         .child(h_flex().gap(4)
           .child(this.toggleChip(t, "ex-editor", "editor (nvim .)", "editor"))
-          .child(this.toggleChip(t, "ex-prs", "PRs (tuicr)", "prs")))));
+          .child(this.toggleChip(t, "ex-prs", "PRs (tuicr)", "prs"))
+          .when(this.machine == null, (el) => el.children(COMPANIONS.map(([key, kind]) => this.toggleChip(t, `ex-${key}`, kind, key)))))));
 
     const list = v_flex().id("ln-list").flex_1().min_h(0).overflow_y_scroll().gap(1)
       .children(rows.map((r, i) => h_flex()

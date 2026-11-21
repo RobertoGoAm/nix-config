@@ -86,6 +86,7 @@ if [ -z "$wt" ]; then
 fi
 printf '%s\n' "$wt"`;
 const JIRA_TABS = [["Kanban", "board"], ["Backlog", "backlog"]];
+const PENDING_MS = 10 * 60000;
 const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, "");
 const quote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
@@ -137,6 +138,11 @@ export default class Requests extends View {
     this.jiraBusy = false;
     cx.timer.after(4000, (cx) => this.jiraTabs(cx));
     cx.timer.every(POLL_MS, (cx) => this.jiraTabs(cx));
+    cx.timer.every(5000, (cx) => {
+      const auto = shared("jira.auto") ?? {};
+      const global = shared("requests.global");
+      if (spaces().some((s) => !s.machine && s.id !== global && s.folder && !(s.id in auto))) this.jiraTabs(cx);
+    });
   }
 
   jiraTabs(cx) {
@@ -165,7 +171,13 @@ export default class Requests extends View {
         if (!live) continue;
         const auto = { ...(shared("jira.auto") ?? {}) };
         const made = new Set(auto[s.id] ?? []);
-        let added = false;
+        let added = !(s.id in auto);
+        const pending = shared("companions.pending") ?? {};
+        if (added && pending[s.folder]) {
+          if (Date.now() - pending[s.folder].at < PENDING_MS) for (const kind of pending[s.folder].skip ?? []) made.add(kind);
+          const { [s.folder]: _used, ...rest } = pending;
+          setShared("companions.pending", rest);
+        }
         const project = repo?.name ?? where.split("/").filter(Boolean).pop() ?? s.name;
         const jira = this.jiraKey[id].key;
         const open = (kind, title, spec) => {

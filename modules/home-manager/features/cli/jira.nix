@@ -197,7 +197,11 @@ lib.mkIf (jira != null) {
   # folder, which is wherever its first terminal started. A tab closed by hand
   # stays closed for that space (=jira.auto= in
   # Herdr's shared state remembers which ones were opened); the leader's =k=
-  # brings the Kanban back.
+  # brings the Kanban back. A space made from the new-space dialog gets only the
+  # ones ticked there: the dialog leaves the others under =companions.pending=,
+  # keyed by the space's folder, and the panel counts them as opened already when
+  # it first meets the space, which it looks for every five seconds, so the tabs
+  # come up moments after the space rather than up to a minute later.
 
   # Each tab looks again every two minutes, and at once after a change made
   # from a card's menu or a click on its refresh. Two tabs on one project, or
