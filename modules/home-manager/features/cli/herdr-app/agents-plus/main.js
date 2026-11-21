@@ -437,7 +437,7 @@ export default class Agents extends View {
 
   haystack(a) {
     const r = this.reviewOf.get(a.address);
-    const n = r?.url.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
+    const n = r?.url?.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
     const c = r && this.ci[r.url];
     return [a.space_name, a.tab_name, clean(a.title), a.program?.name, a.address, r?.url, r?.title, n && `#${n} !${n} pr${n} mr${n}`, c && `ci:${c.ci} ${c.state}`]
       .filter(Boolean).join(" ").toLowerCase();
