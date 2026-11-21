@@ -92,6 +92,11 @@ vulcan_state() {
 # keyword searches at the plugin's own cadence would be 1200 requests an hour
 # to somebody else's API to learn nothing new, and listings do not appear that
 # fast.
+# An edited search list, or a new probe after a rebuild, searches again at once
+# rather than when the fifteen minutes are up.
+for _wl in "$HOME/.config/swiftbar/wallapop-searches.json" "$HOME/.config/swiftbar/lib/wallapop.py"; do
+  if [ -n "$(find -L "$_wl" -newer "$CACHE/wallapop" 2>/dev/null)" ]; then rm -f "$CACHE/wallapop"; fi
+done
 WALLAPOP="$(cached wallapop 900 python3 "$HOME/.config/swiftbar/lib/wallapop.py")"
 
 BACKUP_TS="$(cached backup 300 backup_age)"
