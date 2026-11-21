@@ -178,7 +178,9 @@ digest_one() {
     --arg key "$key" --arg today "$today" --arg prevdate "$prevdate" --arg skip "$skip" \
     --argjson old "$(jq '.oldDays // 30' <<<"$digest")" --arg server "$(jira-board sites | jq -r --arg s "$site" '.[] | select(.site == $s) | .server')" '
     $c[0] as $c | $prev[0] as $prev |
-    def cell: tostring | gsub("\\|"; "/") | gsub("[\n\r\t]"; " ");
+    # Brackets are escaped: "[GPC] - ..." would read as a link, drawn without
+    # them, and markview would then size its column for text it does not show.
+    def cell: tostring | gsub("\\|"; "/") | gsub("[\n\r\t]"; " ") | gsub("(?<b>[\\[\\]])"; "\\\(.b)");
     def link: "[\(.Key)](\($server)/browse/\(.Key))";
     def est: if .["Original estimate"] == "" and .Remaining == "" then "–" else "\(.Remaining | if . == "" then "?" else . end) / \(.["Original estimate"] | if . == "" then "?" else . end)" end;
     def rank: {"Highest": 0, "Rápido": 0, "High": 1, "Medium": 2, "Low": 3, "Lowest": 4}[.Priority] // 2;
