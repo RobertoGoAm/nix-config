@@ -5,7 +5,7 @@ set -u -o pipefail
 
 conf="${JIRA_BOARD_CONFIG:-$HOME/.config/jira-board/config.json}"
 cacheroot="${XDG_CACHE_HOME:-$HOME/.cache}/jira-board"
-fields="summary,status,issuetype,priority,assignee,parent,flagged,created,timetracking,subtasks"
+fields="summary,status,issuetype,priority,assignee,parent,flagged,created,timetracking,subtasks,labels,components"
 site="" server="" login="" cache="" key=""
 
 fail() {
@@ -26,6 +26,9 @@ jira-board --site NAME meta KEY       a project's board and its columns
 jira-board --site NAME transitions ISSUE
 jira-board --site NAME move ISSUE TRANSITION
 jira-board --site NAME assign ISSUE   to yourself
+jira-board export FOLDER [BRANCH] [--copy]
+                                      every issue of the board and its backlog,
+                                      sub-tasks included, as a table for an agent
 jira-board --site NAME issue ISSUE [--json | --copy]
                                       the issue written out for an agent to read
                                       (--copy: onto the clipboard instead)
@@ -182,6 +185,19 @@ meta() {
   }' | keep "$file"
 }
 
+paged() {
+  local all='[]' at=0 page n total
+  while [ "$at" -lt 2000 ]; do
+    page="$(api GET "$1&maxResults=100&startAt=$at")" || return 1
+    all="$(jq -c --argjson p "$page" '. + ($p.issues // [])' <<<"$all")"
+    n="$(jq '.issues // [] | length' <<<"$page")"
+    total="$(jq '.total // 0' <<<"$page")"
+    at=$((at + n))
+    { [ "$n" -gt 0 ] && [ "$at" -lt "$total" ]; } || break
+  done
+  jq -c '{issues: .}' <<<"$all"
+}
+
 view() {
   local m id type sprint='null' sid='' issues backlog file lanekeys q
   resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
@@ -201,13 +217,13 @@ view() {
     sprint="$(jq -c '.values[0] // null | if . == null then null else {id, name, end: (.endDate // null), goal: (.goal // null)} end' <<<"$sprint")"
     sid="$(jq -r '.id // empty' <<<"$sprint")"
     if [ -n "$sid" ]; then
-      issues="$(api GET "/rest/agile/1.0/sprint/$sid/issue?maxResults=200&fields=$fields")" || fail "could not read the sprint's issues"
+      issues="$(paged "/rest/agile/1.0/sprint/$sid/issue?fields=$fields")" || fail "could not read the sprint's issues"
     fi
   else
-    issues="$(api GET "/rest/agile/1.0/board/$id/issue?maxResults=200&fields=$fields&jql=$(uri 'statusCategory != Done OR resolutiondate >= -14d')")" ||
+    issues="$(paged "/rest/agile/1.0/board/$id/issue?fields=$fields&jql=$(uri 'statusCategory != Done OR resolutiondate >= -14d')")" ||
       fail "could not read the board's issues"
   fi
-  backlog="$(api GET "/rest/agile/1.0/board/$id/backlog?maxResults=100&fields=$fields")" || backlog='{"issues":[]}'
+  backlog="$(paged "/rest/agile/1.0/board/$id/backlog?fields=$fields")" || backlog='{"issues":[]}'
   lanekeys='[]'
   if [ "$(jq -r '.swimlanes.strategy // "none"' <<<"$m")" = custom ]; then
     while IFS= read -r q; do
@@ -238,6 +254,8 @@ view() {
       parent: (.fields.parent.key // null),
       priority: (.fields.priority.name // null),
       assignee: (.fields.assignee.displayName // null),
+      labels: (.fields.labels // []),
+      components: [(.fields.components // [])[].name],
       flagged: (.fields.flagged // false),
       created: ((.fields.created // "") | sub("(?<h>[+-][0-9]{2})(?<m>[0-9]{2})$"; "\(.h):\(.m)")),
       estimate: (.fields.timetracking // {} | {
@@ -292,6 +310,43 @@ issue() {
   ' <<<"$raw" | if [ "${2:-}" = --copy ]; then /usr/bin/pbcopy; else cat; fi
 }
 
+export_board() {
+  local v keys all='[]' batch found out
+  resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
+  v="$(view "$1" "${2:-}")" || exit 1
+  keys="$(jq -c '[(.issues[], .backlog[]) | .key, .subtasks[].key] | unique' <<<"$v")"
+  for ((at = 0; at < $(jq length <<<"$keys"); at += 100)); do
+    batch="$(jq -r --argjson a "$at" '.[$a:$a + 100] | join(",")' <<<"$keys")"
+    found="$(api POST /rest/api/3/search/jql "$(jq -nc --arg q "key in ($batch)" \
+      '{jql: $q, maxResults: 100, fields: ["summary", "status", "issuetype", "priority", "assignee", "parent", "labels", "components", "created", "timetracking"]}')")" ||
+      fail "could not read the issues"
+    all="$(jq -c --argjson f "$found" '. + $f.issues' <<<"$all")"
+  done
+  out="$(jq -r --argjson v "$v" '
+    def clean: tostring | gsub("[\t\n\r|]+"; " ");
+    ($v.columns // []) as $cols |
+    (reduce $v.issues[] as $i ({}; .[$i.key] = ([$cols[] | select(.statuses | map(tostring) | index($i.statusId | tostring)) | .name][0] // $i.status))) as $col |
+    (reduce $v.backlog[] as $i ({}; .[$i.key] = "Backlog")) as $back |
+    (map({key: .key, value: .}) | from_entries) as $by |
+    def place(k): $col[k] // $back[k];
+    def row(f; where):
+      [where, f.key, f.fields.issuetype.name, (f.fields.parent.key // ""), f.fields.summary, f.fields.status.name,
+       (f.fields.priority.name // ""), (f.fields.assignee.displayName // "unassigned"), ((f.fields.created // "")[0:10]),
+       (if f.fields.created then ((now - (f.fields.created[0:19] + "Z" | fromdateiso8601)) / 86400 | floor) else "" end),
+       (f.fields.timetracking.originalEstimate // ""), (f.fields.timetracking.remainingEstimate // ""), (f.fields.timetracking.timeSpent // ""),
+       ((f.fields.labels // []) | join(", ")), ([(f.fields.components // [])[].name] | join(", "))] | map(clean) | join("\t");
+    "Jira board \($v.board.name) (project \($v.key)), exported \(now | strftime("%Y-%m-%d")).",
+    "Where: the board column the issue is in, or Backlog; a sub-task is listed after its parent, with the parent in Parent, and is where its parent is.",
+    "Age: days since it was created. Estimates are Jira time strings (1w = 5d, 1d = 8h).",
+    "",
+    (["Where", "Key", "Type", "Parent", "Summary", "Status", "Priority", "Assignee", "Created", "Age (days)", "Original estimate", "Remaining", "Spent", "Labels", "Components"] | join("\t")),
+    (($v.issues + $v.backlog)[] as $i | ($by[$i.key] // empty) as $f |
+      row($f; place($i.key)),
+      ($i.subtasks[] | ($by[.key] // empty) as $s | row($s; "\(place($i.key)) (sub-task)")))
+  ' <<<"$all")" || fail "could not write the table"
+  printf '%s\n' "$out"
+}
+
 each_site() {
   local s status=0
   if [ -n "$site" ]; then
@@ -334,6 +389,19 @@ case "${1:-}" in
   sites) jq -c '.sites | to_entries | map({site: .key, server: .value.server, login: .value.login})' "$conf" ;;
   project) project "${2:?folder}" "${3:-}" ;;
   view) view "${2:?folder}" "${3:-}" ;;
+  export)
+    shift
+    copy=""
+    args=()
+    for a in "$@"; do
+      if [ "$a" = --copy ]; then copy=1; else args+=("$a"); fi
+    done
+    if [ -n "$copy" ]; then
+      export_board "${args[0]:?folder}" "${args[1]:-}" | /usr/bin/pbcopy
+    else
+      export_board "${args[0]:?folder}" "${args[1]:-}"
+    fi
+    ;;
   meta | transitions | move | assign | issue)
     [ -n "$site" ] || only
     case "$1" in

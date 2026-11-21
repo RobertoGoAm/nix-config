@@ -215,6 +215,20 @@ export default class Jira extends View {
     });
   }
 
+  copyAll(cx) {
+    if (this.copied === "Copying…") return;
+    const { folder, branch } = this.place();
+    this.copied = "Copying…";
+    cx.spawn(async (cx) => {
+      const r = await exec("jira-board", ["export", folder, branch, "--copy"], { timeout: 120000 }).catch(() => null);
+      this.copied = r?.code === 0 ? "✓ Copied" : "Copy failed";
+      cx.notify();
+      await new Promise((done) => cx.timer.after(3000, done));
+      this.copied = null;
+      cx.notify();
+    });
+  }
+
   openTicket(key) {
     const d = this.data ?? {};
     const all = [...(d.issues ?? []), ...(d.backlog ?? [])].flatMap((i) => [i, ...(i.subtasks ?? []).map((x) => ({ ...x, parent: i.key }))]);
@@ -494,7 +508,7 @@ export default class Jira extends View {
     return div().id(id).px(9).h(22).flex().items_center().rounded(6).text_size(11.5).cursor_pointer()
       .when(on, (el) => el.bg(t.selected).text_color(t.foreground))
       .when(!on, (el) => el.text_color(t.dim).hover((s) => s.bg(t.hover).text_color(t.foreground)))
-      .on_click((_e, cx) => { act(); this.save(); cx.notify(); })
+      .on_click((_e, cx) => { act(cx); this.save(); cx.notify(); })
       .child(label);
   }
 
@@ -526,6 +540,7 @@ export default class Jira extends View {
       .when(Boolean(this.fixed), (el) => el.child(div().text_size(12).text_color(t.muted).child(VIEWS.find((v) => v.id === this.fixed).label)))
       .when(!this.fixed, (el) => el.children(VIEWS.map((v) => this.chip(t, `jr-v-${v.id}`, v.label, this.view === v.id, () => { this.view = v.id; }))))
       .when(Boolean(ticket), (el) => el.child(this.chip(t, "jr-branch", `⎇ ${ticket}`, false, () => this.openTicket(ticket))))
+      .child(this.chip(t, "jr-copy-all", this.copied ?? "⧉ Copy all", false, (cx) => this.copyAll(cx)))
       .child(this.chip(t, "jr-mine", "Mine", this.mineOnly, () => { this.mineOnly = !this.mineOnly; }))
       .child(div().id("jr-refresh").text_size(13).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
         .tooltip("Look again now").on_click((_e, cx) => this.poll(cx, true)).child(this.loading ? "…" : "↻"));

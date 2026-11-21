@@ -18,7 +18,12 @@
 #   latest comments, so Claude needs no Jira access of its own. A checkout whose
 #   branch names a ticket (=feature/ABC-123_…=) gets that ticket as a chip in
 #   the board's header, and the leader's =K= opens the same menu for it from
-#   anywhere in the space.
+#   anywhere in the space. =Copy all= in the header copies the whole board
+#   instead (=jira-board export=): every issue on the board and in its backlog,
+#   each sub-task after its parent, as one tab-separated table with its column,
+#   type, status, priority, assignee, age, the three estimates, labels and
+#   components, under a few lines saying what the columns mean. It is for
+#   handing to Claude to sort, filter or watch, and runs to a few hundred rows.
 
 # Both get the project the same way, through =jira-board= (=jira-board.sh=
 # beside this module), a small script around Jira's REST API: the ticket key in
@@ -180,7 +185,9 @@ lib.mkIf (jira != null) {
   # its sub-tasks even when the board leaves them off. The backlog lists the
   # same priority, estimate, age and sub-task count per row. A
   # scrum board shows its active sprint; a kanban board shows what is not done,
-  # plus what was finished in the last two weeks. The backlog view is the
+  # plus what was finished in the last two weeks. Jira hands issues over a
+  # hundred at a time, so the board and the backlog are read page by page, all of
+  # them, rather than the first page only. The backlog view is the
   # board's backlog as a list. =Mine= narrows both to your issues, and your cards
   # are outlined in the accent colour. A blocked issue stands out in red: one
   # flagged in Jira (the impediment flag), or one whose status reads as blocked
