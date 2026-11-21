@@ -234,7 +234,8 @@ view() {
     issues="$(paged "/rest/agile/1.0/board/$id/issue?fields=$fields&jql=$(uri 'statusCategory != Done OR resolutiondate >= -14d')")" ||
       fail "could not read the board's issues"
   fi
-  backlog="$(paged "/rest/agile/1.0/board/$id/backlog?fields=$fields")" || backlog='{"issues":[]}'
+  # A kanban board without a backlog answers 400 here: it has none to show.
+  backlog="$(paged "/rest/agile/1.0/board/$id/backlog?fields=$fields" 2>/dev/null)" || backlog='{"issues":[]}'
   lanekeys='[]'
   if [ "$(jq -r '.swimlanes.strategy // "none"' <<<"$m")" = custom ]; then
     while IFS= read -r q; do
@@ -256,7 +257,7 @@ view() {
       lanekeys="$(jq -c --arg q "$q" --argjson k "$keys" '. + [{query: $q, keys: $k}]' <<<"$lanekeys")"
     done < <(jq -r '.swimlanes.lanes[] | select(.default | not) | .query' <<<"$m")
   fi
-  jq -nc --arg s "$server" --argjson m "$m" --argjson sprint "$sprint" --argjson i "$issues" --argjson b "$backlog" --argjson lk "$lanekeys" '
+  jq -nc --arg s "$server" --slurpfile m <(printf '%s' "$m") --slurpfile sprint <(printf '%s' "$sprint") --slurpfile i <(printf '%s' "$issues") --slurpfile b <(printf '%s' "$backlog") --slurpfile lk <(printf '%s' "$lanekeys") '$m[0] as $m | $sprint[0] as $sprint | $i[0] as $i | $b[0] as $b | $lk[0] as $lk | 
     def card: {
       key, summary: .fields.summary,
       status: .fields.status.name, statusId: .fields.status.id,
@@ -324,7 +325,10 @@ issue() {
 export_board() {
   local v keys all='[]' batch found out
   resolve "$1" "${2:-}" || fail "this folder belongs to no configured Jira site"
-  v="$(view "$1" "${2:-}")" || exit 1
+  v="$(view "$1" "${2:-}")" || {
+    printf '%s\n' "$v"
+    exit 1
+  }
   keys="$(jq -c '[(.issues[], .backlog[]) | .key, .subtasks[].key] | unique' <<<"$v")"
   for ((at = 0; at < $(jq length <<<"$keys"); at += 100)); do
     batch="$(jq -r --argjson a "$at" '.[$a:$a + 100] | join(",")' <<<"$keys")"
@@ -333,7 +337,7 @@ export_board() {
       fail "could not read the issues"
     all="$(jq -c --argjson f "$found" '. + $f.issues' <<<"$all")"
   done
-  out="$(jq -r --argjson v "$v" '
+  out="$(jq -r --slurpfile v <(printf '%s' "$v") '$v[0] as $v | 
     def clean: tostring | gsub("[\t\n\r|]+"; " ");
     ($v.columns // []) as $cols |
     (reduce $v.issues[] as $i ({}; .[$i.key] = ([$cols[] | select(.statuses | map(tostring) | index($i.statusId | tostring)) | .name][0] // $i.status))) as $col |

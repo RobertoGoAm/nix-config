@@ -110,14 +110,20 @@ digest_one() {
   dir="$stateroot/$site-$key"
   mkdir -p "$dir"
   vault="$(jq -r .vault "$conf")"
-  folder="$vault/$(jq -r .notes <<<"$digest")"
+  folder="$vault/$(jq -r .notes <<<"$digest")/$key"
   note="$folder/$today.md"
 
   projects=""
   if [ "$(jq -r '.projectsPage // ""' <<<"$digest")" != "" ]; then
     projects="$(jira-board --site "$site" children "$(jq -r .projectsPage <<<"$digest")" 2>/dev/null | sed 's/^/- /')" || projects=""
   fi
-  tsv="$(jira-board --fresh --site "$site" export "$key")" || {
+  tsv="$(jira-board --fresh --site "$site" export "$key" 2>/dev/null)" || {
+    # A project with no board this login can read has nothing to digest,
+    # today or any day: said in the log, not in a notification every morning.
+    if grep -q 'could not read the board of' <<<"$tsv"; then
+      echo "jira-digest: $key has no board to read, skipped" >&2
+      return 0
+    fi
     notify "$key" "Jira digest $key failed" "Could not read the board: $(jq -r '.error // empty' <<<"$tsv" 2>/dev/null)"
     return 1
   }
@@ -145,14 +151,14 @@ digest_one() {
   open="$(jq -c --arg skip "$skip" '[.[] | select(.Category != "done" and ($skip == "" or (.Summary | test($skip; "i")) | not))]' <<<"$rows")"
 
   # Tickets Claude has not seen, or that changed in Jira since it did.
-  need="$(jq -c --argjson c "$classes" --argjson t "$texts" '
+  need="$(jq -c --slurpfile c <(printf '%s' "$classes") --slurpfile t <(printf '%s' "$texts") '$c[0] as $c | $t[0] as $t | 
     [.[] | .Key as $k | select(($c[$k].updated // "") != ($t[$k].updated // "none")) | $k]' <<<"$open")"
   n="$(jq length <<<"$need")"
   for ((at = 0; at < n; at += BATCH)); do
-    batch="$(jq -c --argjson t "$texts" --argjson a "$at" --argjson b "$BATCH" '
+    batch="$(jq -c --slurpfile t <(printf '%s' "$texts") --argjson a "$at" --argjson b "$BATCH" '$t[0] as $t | 
       .[$a:$a + $b] | map($t[.] // {key: .}) | map(del(.updated))' <<<"$need")"
     if verdicts="$(classify "$digest" "$batch")" || verdicts="$(classify "$digest" "$batch")"; then
-      classes="$(jq -c --argjson v "$verdicts" --argjson t "$texts" '
+      classes="$(jq -c --slurpfile v <(printf '%s' "$verdicts") --slurpfile t <(printf '%s' "$texts") '$t[0] as $t | $v[0] as $v | 
         reduce $v[] as $x (.; .[$x.key] = {areas: $x.areas, why: $x.why, updated: ($t[$x.key].updated // "")})' <<<"$classes")"
       printf '%s\n' "$classes" >"$dir/classes.json"
     fi
@@ -160,7 +166,7 @@ digest_one() {
 
   # Nothing sorted at all is Claude failing, not a quiet board: say so, and
   # keep the last snapshot so the next run still compares with it.
-  if [ "$n" -gt 0 ] && [ "$(jq --argjson c "$classes" '[.[] | select($c[.Key])] | length' <<<"$rows")" -eq 0 ]; then
+  if [ "$n" -gt 0 ] && [ "$(jq --slurpfile c <(printf '%s' "$classes") '$c[0] as $c | [.[] | select($c[.Key])] | length' <<<"$rows")" -eq 0 ]; then
     notify "$key" "Jira digest $key failed" "Claude sorted none of the tickets: see $stateroot/claude.err"
     return 1
   fi
@@ -168,9 +174,10 @@ digest_one() {
   prev="$(cat "$dir/snapshot.json" 2>/dev/null || echo 'null')"
   prevdate="$(cat "$dir/snapshot.date" 2>/dev/null || true)"
   mkdir -p "$folder"
-  jq -r --argjson c "$classes" --argjson prev "$prev" --argjson d "$digest" \
+  jq -r --slurpfile c <(printf '%s' "$classes") --slurpfile prev <(printf '%s' "$prev") --argjson d "$digest" \
     --arg key "$key" --arg today "$today" --arg prevdate "$prevdate" --arg skip "$skip" \
     --argjson old "$(jq '.oldDays // 30' <<<"$digest")" --arg server "$(jira-board sites | jq -r --arg s "$site" '.[] | select(.site == $s) | .server')" '
+    $c[0] as $c | $prev[0] as $prev |
     def cell: tostring | gsub("\\|"; "/") | gsub("[\n\r\t]"; " ");
     def link: "[\(.Key)](\($server)/browse/\(.Key))";
     def est: if .["Original estimate"] == "" and .Remaining == "" then "–" else "\(.Remaining | if . == "" then "?" else . end) / \(.["Original estimate"] | if . == "" then "?" else . end)" end;
@@ -225,14 +232,46 @@ digest_one() {
   echo "$today" >"$dir/snapshot.date"
   notify "$key" "Jira digest $key" "$(grep -m1 'touch' "$note")" \
     "obsidian://open?path=$(jq -rn --arg p "$note" '$p | @uri')"
+  share "$digest" "$note"
   echo "$note"
+}
+
+# The latest note also goes into the notes folder of every repository whose
+# Jira project it is (notes dir, notes.org), as "Jira digest (KEY).md", so the
+# Notes tab of each space opens on the tickets of its own board; repositories
+# that share a board share the note.
+share() {
+  local digest="$1" note="$2" site key root d dir hist
+  site="$(jq -r .site <<<"$digest")"
+  key="$(jq -r .key <<<"$digest")"
+  root="$HOME/$(jq -r '.repos // ""' <<<"$digest")"
+  command -v notes >/dev/null || return 0
+  [ -d "$root" ] || return 0
+  hist="$(jq -r .notes <<<"$digest")/$key/$(basename "$note" .md)"
+  for d in "$root"/*/; do
+    case "$(basename "$d")" in *-worktrees | backups | *[A-Z]*) continue ;; esac
+    [ "$(jira-board project "$d" 2>/dev/null | jq -r '"\(.site)/\(.key)"')" = "$site/$key" ] || continue
+    dir="$(notes dir "$d" 2>/dev/null)" || continue
+    mkdir -p "$dir"
+    { cat "$note"; printf '\nEarlier digests: [[%s|%s]] and the ones beside it.\n' "$hist" "$(basename "$note" .md)"; } >"$dir/Jira digest ($key).md"
+  done
+}
+
+# A digest names its board with key, or with keys: a list, or "auto" for every
+# project its site's folder map and pinned boards name, so each repository's
+# project gets one without listing them by hand.
+expand() {
+  jq -c --slurpfile b "$HOME/.config/jira-board/config.json" '.digests[] | . as $d |
+    (if .key then [.key]
+     elif .keys == "auto" then ($b[0].sites[$d.site] // {}) | ([.folders[]?] + (.boards // {} | keys)) | unique
+     else .keys // [] end)[] as $k | $d + {key: $k} | del(.keys)' "$conf"
 }
 
 status=0
 while IFS= read -r digest; do
   [ -z "$only" ] || [ "$(jq -r .key <<<"$digest")" = "$only" ] || continue
   digest_one "$digest" || status=1
-done < <(jq -c '.digests[]' "$conf")
+done < <(expand)
 # Only a run that wrote every note counts as the day's, so the 9:40 run still
 # tries after a failed one.
 [ "$status" -ne 0 ] || echo "$today" >"$stateroot/last-run"

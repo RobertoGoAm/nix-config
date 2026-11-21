@@ -271,6 +271,21 @@ Below that comes everything of ours in a table per part. Each table gives
 the priority, age, the remaining and original estimate, assignee, status,
 where on the board, and which part or why it counts. It runs per board rather than per
 repository, so the repositories that share one get one note and one pass.
+A digest names its boards by project key, one (=key=), a list (=keys=), or
+=auto=: every project the site's folder map and pinned boards name, so each
+project a repository is mapped to gets its digest with nothing listed by
+hand. A project with no board this login can read is skipped, in the log
+rather than in a notification each morning.
+
+The notes go to =<notes>/<KEY>/<date>.md= in the vault, a history, and the
+latest one also into the notes folder of every repository on that board
+(=notes dir=, =notes.org=) as =Jira digest (KEY).md=, ending with a link to
+the history: the Notes tab of a space opens on its own board's tickets, and
+the spaces whose repositories share a board read the same note.
+
+Boards run to a few thousand tickets, more than a command line holds, so the
+scripts hand the large JSON to =jq= through pipes (=--slurpfile=) rather than
+as arguments.
 
 Finished and discarded tickets (Jira's done status category, which the
 export carries as a column of its own) are left out of the note, and so are
