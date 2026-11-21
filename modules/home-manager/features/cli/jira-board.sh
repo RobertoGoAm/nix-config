@@ -339,7 +339,7 @@ export_board() {
     (reduce $v.issues[] as $i ({}; .[$i.key] = ([$cols[] | select(.statuses | map(tostring) | index($i.statusId | tostring)) | .name][0] // $i.status))) as $col |
     (reduce $v.backlog[] as $i ({}; .[$i.key] = "Backlog")) as $back |
     (map({key: .key, value: .}) | from_entries) as $by |
-    def place(k): $col[k] // $back[k];
+    def place(k): $back[k] // $col[k];
     def row(f; where):
       [where, f.key, f.fields.issuetype.name, (f.fields.parent.key // ""), f.fields.summary, f.fields.status.name,
        (f.fields.priority.name // ""), (f.fields.assignee.displayName // "unassigned"), ((f.fields.created // "")[0:10]),
@@ -351,7 +351,13 @@ export_board() {
     "Age: days since it was created. Estimates are Jira time strings (1w = 5d, 1d = 8h).",
     "",
     (["Where", "Key", "Type", "Parent", "Summary", "Status", "Priority", "Assignee", "Created", "Age (days)", "Original estimate", "Remaining", "Spent", "Labels", "Components"] | join("\t")),
-    (($v.issues + $v.backlog)[] as $i | ($by[$i.key] // empty) as $f |
+    # A kanban board answers its backlog among its issues too, and the backlog
+    # lists sub-tasks on their own: each issue is written once, a sub-task
+    # after its parent, and one in the backlog says Backlog.
+    ([$v.issues[], ($v.backlog[] | select(.key as $k | $v.issues | any(.key == $k) | not))]) as $top |
+    ([$top[].key]) as $listed |
+    (($top[] | select((.subtask and (.parent as $p | $listed | index($p))) | not)) as $i |
+      ($by[$i.key] // empty) as $f |
       row($f; place($i.key)),
       ($i.subtasks[] | ($by[.key] // empty) as $s | row($s; "\(place($i.key)) (sub-task)")))
   ' <<<"$all")" || fail "could not write the table"
