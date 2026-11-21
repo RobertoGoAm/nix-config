@@ -251,12 +251,22 @@ lib.mkIf (jira != null) {
   # than anyone reads each morning, and only the tickets that touch our part of
   # the system matter: the frontend and the BFF, say, while the core backend is
   # another team's. =jira-digest= (=jira-digest.sh= beside this module) writes a
-  # note a day per board into the Obsidian vault with those tickets only, in a
-  # table per part (priority, age, the remaining and original estimate, assignee,
-  # status, where on the board, and why it counts), and above them what is new
-  # on the board since the last note and what moved: column, status, priority,
-  # assignee or remaining estimate. It runs per board rather than per
+  # note a day per board into the Obsidian vault with those tickets only. It
+  # opens with what needs looking at: the blocked ones (flagged in Jira, or in a
+  # blocked status), what is new on the board since the last note, what moved
+  # (column, status, priority, assignee or remaining estimate), the highest
+  # priority ones, and the high priority ones older than a month (=oldDays=).
+  # Below that comes everything of ours in a table per part. Each table gives
+  # the priority, age, the remaining and original estimate, assignee, status,
+  # where on the board, and which part or why it counts. It runs per board rather than per
   # repository, so the repositories that share one get one note and one pass.
+
+  # Finished and discarded tickets (Jira's done status category, which the
+  # export carries as a column of its own) are left out of the note, and so are
+  # those whose title matches the digest's =skip= pattern, QA team work for
+  # instance; the note names, in one line, the tickets of ours that were finished
+  # or discarded since the last one. Neither kind is sent to Claude, which keeps
+  # the morning's pass to the open tickets.
 
   # Which part a ticket touches is a judgement, not a label lookup: titles carry
   # tags only sometimes, and a sub-task often touches one part of a parent that

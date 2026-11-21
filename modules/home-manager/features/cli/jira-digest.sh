@@ -104,7 +104,7 @@ classify() {
 }
 
 digest_one() {
-  local digest="$1" site key dir vault folder note tsv rows texts prev classes need verdicts n prevdate batch sig
+  local digest="$1" site key dir vault folder note tsv rows texts prev classes need verdicts n prevdate batch sig skip open
   site="$(jq -r .site <<<"$digest")"
   key="$(jq -r .key <<<"$digest")"
   dir="$stateroot/$site-$key"
@@ -138,9 +138,15 @@ digest_one() {
     echo "$sig" >"$dir/classes.sig"
   fi
 
+  # Finished or discarded tickets (Jira's done category), and those whose
+  # title matches the digest's skip pattern (QA work, say), are out of the
+  # note, so Claude is not asked about them either.
+  skip="$(jq -r '.skip // ""' <<<"$digest")"
+  open="$(jq -c --arg skip "$skip" '[.[] | select(.Category != "done" and ($skip == "" or (.Summary | test($skip; "i")) | not))]' <<<"$rows")"
+
   # Tickets Claude has not seen, or that changed in Jira since it did.
   need="$(jq -c --argjson c "$classes" --argjson t "$texts" '
-    [.[] | .Key as $k | select(($c[$k].updated // "") != ($t[$k].updated // "none")) | $k]' <<<"$rows")"
+    [.[] | .Key as $k | select(($c[$k].updated // "") != ($t[$k].updated // "none")) | $k]' <<<"$open")"
   n="$(jq length <<<"$need")"
   for ((at = 0; at < n; at += BATCH)); do
     batch="$(jq -c --argjson t "$texts" --argjson a "$at" --argjson b "$BATCH" '
@@ -163,7 +169,8 @@ digest_one() {
   prevdate="$(cat "$dir/snapshot.date" 2>/dev/null || true)"
   mkdir -p "$folder"
   jq -r --argjson c "$classes" --argjson prev "$prev" --argjson d "$digest" \
-    --arg key "$key" --arg today "$today" --arg prevdate "$prevdate" --arg server "$(jira-board sites | jq -r --arg s "$site" '.[] | select(.site == $s) | .server')" '
+    --arg key "$key" --arg today "$today" --arg prevdate "$prevdate" --arg skip "$skip" \
+    --argjson old "$(jq '.oldDays // 30' <<<"$digest")" --arg server "$(jira-board sites | jq -r --arg s "$site" '.[] | select(.site == $s) | .server')" '
     def cell: tostring | gsub("\\|"; "/") | gsub("[\n\r\t]"; " ");
     def link: "[\(.Key)](\($server)/browse/\(.Key))";
     def est: if .["Original estimate"] == "" and .Remaining == "" then "–" else "\(.Remaining | if . == "" then "?" else . end) / \(.["Original estimate"] | if . == "" then "?" else . end)" end;
@@ -171,26 +178,34 @@ digest_one() {
     def areas: $c[.Key].areas // null;
     def tags: (areas // []) | map(. as $a | ($d.areas[] | select(.id == $a) | .short // .id)) | join(", ");
     def relevant: (areas // []) | length > 0;
+    def age: (.["Age (days)"] | tonumber?) // 0;
+    def blocked: .Flagged == "yes" or (.Status | test("block|bloquead|on hold|en espera"; "i"));
+    def highest: .Priority | test("^(highest|rápido|rapido|urgent|critical|blocker)$"; "i");
     def table(rows; extra):
       if (rows | length) == 0 then "_None._" else
         "| Ticket | Title | Where | Status | Priority | Assignee | Age | Left / est. | \(extra) |",
         "|---|---|---|---|---|---|---|---|---|",
         (rows | sort_by(rank, -((.["Age (days)"] | tonumber? ) // 0))[] |
-          "| \(link) | \(.Summary | cell) | \(.Where | cell) | \(.Status | cell) | \(.Priority | cell) | \(.Assignee | cell) | \(.["Age (days)"])d | \(est) | \((if extra == "Why" then ($c[.Key].why // "") else tags end) | cell) |")
+          "| \(link) | \(.Summary | cell) | \(.Where | cell) | \(if blocked then "⚑ " else "" end)\(.Status | cell) | \(.Priority | cell) | \(.Assignee | cell) | \(.["Age (days)"])d | \(est) | \((if extra == "Why" then ($c[.Key].why // "") else tags end) | cell) |")
       end;
     (($prev // []) | map({key: .Key, value: .}) | from_entries) as $before |
-    [.[] | select(relevant)] as $mine |
+    [.[] | select(relevant)] as $all |
+    [$all[] | select(.Category != "done" and ($skip == "" or (.Summary | test($skip; "i")) | not))] as $mine |
+    [$all[] | select(.Category == "done" and $before[.Key] != null and $before[.Key].Category != "done")] as $finished |
     [$mine[] | select($prev != null and ($before[.Key] == null))] as $new |
     [$mine[] | select($before[.Key] != null) | . as $r | $before[.Key] as $b |
       [("Where", "Status", "Priority", "Assignee", "Remaining") | select($r[.] != $b[.]) | "\(.): \($b[.] | if . == "" then "–" else . end) → \($r[.] | if . == "" then "–" else . end)"] as $ch |
       select($ch | length > 0) | . + {changes: ($ch | join("; "))}] as $changed |
-    [.[] | select(areas == null)] as $unsorted |
+    [.[] | select(.Category != "done" and ($skip == "" or (.Summary | test($skip; "i")) | not) and areas == null)] as $unsorted |
     "# \($key) digest · \($today)",
     "",
-    "\(length) tickets on the board and in its backlog; \($mine | length) touch \([$d.areas[].label] | join(" or ")).",
+    "\(length) tickets on the board and in its backlog, \([.[] | select(.Category != "done")] | length) still open; \($mine | length) of those touch \([$d.areas[].label] | join(", ")).",
     (if $prev == null then "First digest: nothing to compare with yet." else "Compared with \($prevdate)." end),
+    "Finished and discarded tickets are left out\(if $skip != "" then ", and so are those whose title matches `\($skip)`" else "" end).",
+    (if ($finished | length) > 0 then "Finished or discarded since \($prevdate): \([$finished[] | link] | join(", "))." else empty end),
     (if ($unsorted | length) > 0 then "\($unsorted | length) tickets could not be sorted this time and are left out; the next run tries them again." else empty end),
     "",
+    "## Blocked", "", table([$mine[] | select(blocked)]; "Part"), "",
     (if $prev != null then
       "## New since \($prevdate)", "", table($new; "Part"), "",
       "## Changed since \($prevdate)", "",
@@ -198,6 +213,9 @@ digest_one() {
         "| Ticket | Title | Part | What changed |", "|---|---|---|---|",
         ($changed[] | "| \(link) | \(.Summary | cell) | \(tags) | \(.changes | cell) |") end), ""
     else empty end),
+    "## Highest priority", "", table([$mine[] | select(highest)]; "Part"), "",
+    "## High priority, older than \($old) days", "", table([$mine[] | select(.Priority == "High" and age > $old)]; "Part"), "",
+    "# Everything of ours, by part", "",
     ($d.areas[] as $a |
       "## \($a.label)", "",
       table([$mine[] | select((areas // []) | index($a.id))]; "Why"), "")

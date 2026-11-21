@@ -339,18 +339,21 @@ export_board() {
     (reduce $v.issues[] as $i ({}; .[$i.key] = ([$cols[] | select(.statuses | map(tostring) | index($i.statusId | tostring)) | .name][0] // $i.status))) as $col |
     (reduce $v.backlog[] as $i ({}; .[$i.key] = "Backlog")) as $back |
     (map({key: .key, value: .}) | from_entries) as $by |
+    (reduce ($v.issues + $v.backlog)[] as $i ({}; .[$i.key] = ($i.flagged // false))) as $flag |
     def place(k): $back[k] // $col[k];
     def row(f; where):
       [where, f.key, f.fields.issuetype.name, (f.fields.parent.key // ""), f.fields.summary, f.fields.status.name,
-       (f.fields.priority.name // ""), (f.fields.assignee.displayName // "unassigned"), ((f.fields.created // "")[0:10]),
+       (f.fields.status.statusCategory.key // ""), (if $flag[f.key] then "yes" else "" end), (f.fields.priority.name // ""), (f.fields.assignee.displayName // "unassigned"), ((f.fields.created // "")[0:10]),
        (if f.fields.created then ((now - (f.fields.created[0:19] + "Z" | fromdateiso8601)) / 86400 | floor) else "" end),
        (f.fields.timetracking.originalEstimate // ""), (f.fields.timetracking.remainingEstimate // ""), (f.fields.timetracking.timeSpent // ""),
        ((f.fields.labels // []) | join(", ")), ([(f.fields.components // [])[].name] | join(", "))] | map(clean) | join("\t");
     "Jira board \($v.board.name) (project \($v.key)), exported \(now | strftime("%Y-%m-%d")).",
     "Where: the board column the issue is in, or Backlog; a sub-task is listed after its parent, with the parent in Parent, and is where its parent is.",
     "Age: days since it was created. Estimates are Jira time strings (1w = 5d, 1d = 8h).",
+    "Category: the status as Jira groups it, new, indeterminate (in progress) or done (finished or discarded).",
+    "Flagged: yes when the issue carries Jira'"'"'s impediment flag.",
     "",
-    (["Where", "Key", "Type", "Parent", "Summary", "Status", "Priority", "Assignee", "Created", "Age (days)", "Original estimate", "Remaining", "Spent", "Labels", "Components"] | join("\t")),
+    (["Where", "Key", "Type", "Parent", "Summary", "Status", "Category", "Flagged", "Priority", "Assignee", "Created", "Age (days)", "Original estimate", "Remaining", "Spent", "Labels", "Components"] | join("\t")),
     # A kanban board answers its backlog among its issues too, and the backlog
     # lists sub-tasks on their own: each issue is written once, a sub-task
     # after its parent, and one in the backlog says Backlog.
