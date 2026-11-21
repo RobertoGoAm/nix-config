@@ -11,8 +11,14 @@
 # - A board tab in Herdr (the =jira= mod in =herdr-app/jira=): the project's
 #   board in its own columns, the sprint's name and the days left in it, and
 #   the backlog. A card opens a menu to open the issue in the browser, move it
-#   to any status Jira allows from where it is, assign it to yourself, or start
-#   Claude on it in a new tab of the same space.
+#   to any status Jira allows from where it is, assign it to yourself, start
+#   Claude on it in a new tab of the same space, or copy it for a Claude
+#   session already running. Both hand Claude the whole ticket written out
+#   (=jira-board issue=): its fields, description, sub-tasks, linked issues and
+#   latest comments, so Claude needs no Jira access of its own. A checkout whose
+#   branch names a ticket (=feature/ABC-123_…=) gets that ticket as a chip in
+#   the board's header, and the leader's =K= opens the same menu for it from
+#   anywhere in the space.
 
 # Both get the project the same way, through =jira-board= (=jira-board.sh=
 # beside this module), a small script around Jira's REST API: the ticket key in

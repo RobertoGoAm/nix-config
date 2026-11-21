@@ -60,6 +60,9 @@ const prioMark = (p) => {
   return "";
 };
 
+const TICKET = /(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9]+-\d+)(?![0-9])/;
+const branchTicket = (branch) => (branch ?? "").match(TICKET)?.[1] ?? null;
+
 export default class Jira extends View {
   init(_props, cx) {
     this.data = null;
@@ -92,6 +95,7 @@ export default class Jira extends View {
     if (checking()) return;
     if (props()?.menu) {
       cx.timer.after(10, (cx) => this.loadMoves(cx));
+      if (!props().menu.summary) cx.timer.after(10, (cx) => this.loadIssue(cx));
       return;
     }
     cx.timer.after(300, (cx) => this.poll(cx));
@@ -156,8 +160,39 @@ export default class Jira extends View {
     });
   }
 
-  act(cx, label, args) {
-    this.busy = label;
+  loadIssue(cx) {
+    const p = props();
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("jira-board", ["--site", p.site, "issue", p.menu.key, "--json"], { timeout: 30000 });
+        const out = JSON.parse(r.stdout || "{}");
+        this.detail = out.error || r.code !== 0 ? { summary: out.error || "Could not read the issue." } : out;
+      } catch {
+        this.detail = { summary: "Could not read the issue." };
+      }
+      cx.notify();
+    });
+  }
+
+  brief(issue) {
+    return exec("jira-board", ["--site", props().site, "issue", issue.key], { timeout: 30000 })
+      .then((r) => (r.code === 0 ? r.stdout.trim() : ""))
+      .catch(() => "");
+  }
+
+  copyIssue(cx, issue) {
+    this.busy = "Copying…";
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = await exec("jira-board", ["--site", props().site, "issue", issue.key, "--copy"], { timeout: 30000 }).catch(() => null);
+      this.busy = r?.code === 0 ? "Copied: paste it into a Claude session" : "Could not read the issue";
+      cx.notify();
+      cx.timer.after(r?.code === 0 ? 900 : 2500, () => closeOverlay(props().overlay));
+    });
+  }
+
+  act(cx, _label, args) {
+    this.busy = "Working…";
     cx.notify();
     cx.spawn(async (cx) => {
       try { await exec("jira-board", ["--site", props().site, ...args], { timeout: 30000 }); } catch {}
@@ -166,11 +201,24 @@ export default class Jira extends View {
     });
   }
 
-  startClaude(issue) {
+  startClaude(cx, issue) {
     const p = props() ?? {};
-    const prompt = `Work on Jira ticket ${issue.key}: ${issue.summary} (${issue.url}). Read the ticket and its context before changing anything.`;
-    run("tab.new", { ...(p.space ? { space: p.space } : {}), name: issue.key, folder: p.folder || undefined, argv: ["claude"], task: prompt });
-    closeOverlay(p.overlay);
+    this.busy = "Reading the ticket…";
+    cx.notify();
+    cx.spawn(async () => {
+      const brief = await this.brief(issue);
+      const prompt = brief
+        ? `Work on this Jira ticket. Read it, and the code it touches, before changing anything.\n\n${brief}`
+        : `Work on Jira ticket ${issue.key}: ${issue.summary} (${issue.url}). Read the ticket and its context before changing anything.`;
+      run("tab.new", { ...(p.space ? { space: p.space } : {}), name: issue.key, folder: p.folder || undefined, argv: ["claude"], task: prompt });
+      closeOverlay(p.overlay);
+    });
+  }
+
+  openTicket(key) {
+    const d = this.data ?? {};
+    const all = [...(d.issues ?? []), ...(d.backlog ?? [])].flatMap((i) => [i, ...(i.subtasks ?? []).map((x) => ({ ...x, parent: i.key }))]);
+    this.openMenu(all.find((i) => i.key === key) ?? { key });
   }
 
   openMenu(issue) {
@@ -188,22 +236,23 @@ export default class Jira extends View {
   }
 
   menu(t) {
-    const issue = props().menu;
+    const issue = { ...props().menu, ...(this.detail ?? {}) };
     const rows = [
       this.menuRow(t, "m-open", "Open in the browser", () => {
         exec("/usr/bin/open", [issue.url]).catch(() => {});
         closeOverlay(props().overlay);
       }, { mark: "↗" }),
-      this.menuRow(t, "m-claude", "Start Claude on it", () => this.startClaude(issue), { mark: "✦", color: t.accent }),
+      this.menuRow(t, "m-claude", "Start Claude on it", (cx) => this.startClaude(cx, issue), { mark: "✦", color: t.accent }),
+      this.menuRow(t, "m-copy", "Copy for Claude", (cx) => this.copyIssue(cx, issue), { mark: "⧉" }),
     ];
     if (!issue.mine) rows.push(this.menuRow(t, "m-assign", "Assign to me", (cx) => this.act(cx, "assign", ["assign", issue.key]), { mark: "@" }));
     const moves = this.moves;
     return v_flex().size_full().p(5).bg(t.popover).text_size(12.5)
       .child(div().px(8).pt(4).text_size(11).text_color(t.dim).child(issue.key))
-      .child(div().px(8).pb(6).text_size(12).text_color(t.foreground).child(issue.summary))
+      .child(div().px(8).pb(6).text_size(12).text_color(t.foreground).child(issue.summary || "Loading…"))
       .children(rows)
       .child(div().mx(8).my(4).h(1).bg(t.border))
-      .child(div().px(8).pb(2).text_size(11).text_color(t.dim).child(this.busy ? "Working…" : `Move from ${issue.status}`))
+      .child(div().px(8).pb(2).text_size(11).text_color(t.dim).child(this.busy ?? (issue.status ? `Move from ${issue.status}` : "Move")))
       .when(moves === null, (el) => el.child(div().px(8).text_size(12).text_color(t.dim).child("Loading…")))
       .when(Array.isArray(moves), (el) => el.child(v_flex().id("m-moves").flex_1().min_h(0).overflow_y_scrollbar()
         .children(moves.filter((m) => m.to !== issue.status).map((m) => this.menuRow(t, `m-mv-${m.id}`, m.name === m.to ? m.to : `${m.name} → ${m.to}`,
@@ -454,6 +503,7 @@ export default class Jira extends View {
     if (props()?.menu) return this.menu(t);
     const d = this.data;
     const left = daysLeft(d?.sprint?.end);
+    const ticket = d ? branchTicket(this.place().branch) : null;
     const header = h_flex().px(16).h(44).flex_none().gap(10).items_center()
       .child(div().text_size(13).font_semibold().text_color(t.foreground).child(d ? d.key : "Jira"))
       .when(Boolean(d?.board), (el) => el.child(div().id("jr-boardname").text_size(12).text_color(t.muted).cursor_pointer()
@@ -475,6 +525,7 @@ export default class Jira extends View {
         .child(Input.new(this.input).flex_1().h_full().text_size(12).text_color(t.foreground)))
       .when(Boolean(this.fixed), (el) => el.child(div().text_size(12).text_color(t.muted).child(VIEWS.find((v) => v.id === this.fixed).label)))
       .when(!this.fixed, (el) => el.children(VIEWS.map((v) => this.chip(t, `jr-v-${v.id}`, v.label, this.view === v.id, () => { this.view = v.id; }))))
+      .when(Boolean(ticket), (el) => el.child(this.chip(t, "jr-branch", `⎇ ${ticket}`, false, () => this.openTicket(ticket))))
       .child(this.chip(t, "jr-mine", "Mine", this.mineOnly, () => { this.mineOnly = !this.mineOnly; }))
       .child(div().id("jr-refresh").text_size(13).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
         .tooltip("Look again now").on_click((_e, cx) => this.poll(cx, true)).child(this.loading ? "…" : "↻"));

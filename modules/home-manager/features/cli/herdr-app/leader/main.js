@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { openOverlay, agents, spaces, panes, terminals, focused, run, exec, hc, theme, props, closeOverlay, setShared, checking } from "herdr";
+import { openOverlay, agents, spaces, panes, terminals, focused, run, exec, hc, theme, props, closeOverlay, shared, setShared, checking } from "herdr";
 
 
 function openTelega() {
@@ -21,6 +21,17 @@ const send = (text) => (target) => {
   if (!target) return;
   hc(["send", target, text]).catch(() => {});
 };
+
+async function openBranchTicket() {
+  const space = spaces().find((s) => s.active);
+  const key = space && !space.machine ? (space.branch ?? "").match(/(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9]+-\d+)(?![0-9])/)?.[1] : null;
+  if (!key) return;
+  const folder = (shared("space.repos") ?? {})[space.id]?.path ?? space.folder;
+  const r = await exec("jira-board", ["project", folder, space.branch], { timeout: 15000 }).catch(() => null);
+  let site = null;
+  try { site = JSON.parse(r?.stdout || "null")?.site ?? null; } catch {}
+  if (site) openOverlay({ mod: "jira", kind: "popup", width: 280, height: 360, props: { menu: { key }, site, space: space.id, folder } });
+}
 
 function openJira() {
   const space = spaces().find((s) => s.active);
@@ -172,6 +183,7 @@ const TREE = {
       },
     },
     k: { label: "jira board (kanban)", act: () => openJira() },
+    K: { label: "this branch's ticket", act: () => openBranchTicket() },
     l: { label: "next layout", act: () => run("layout.switch") },
     ",": { label: "settings", act: () => run("app.settings") },
     "?": { label: "all keys", act: () => run("app.help") },

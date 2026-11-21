@@ -225,7 +225,8 @@ things: =a= ai and agents (next needing you, filter, search, =R= review, =m=
 model and =E= effort of the focused Claude, sent to it as =/model= and
 =/effort=), =b b= find, =j= jump, =m= music (=m m=, =m n=, =m p= as in Emacs, through
 =spotify-ctl=; =m l= smudge's playlists in a tab; =m o= the Spotify app), =i= inbox (mu4e through =emacsclient=), =o t=
-telega (in its Herdr tab, as above; =o T= the app), and Space for the command palette; =t= tabs, =s= spaces and =w=
+telega (in its Herdr tab, as above; =o T= the app), =k= the space's Jira board and =K=
+the ticket its branch names (=jira.org=), and Space for the command palette; =t= tabs, =s= spaces and =w=
 panes add Herdr's own, moving on =h n e i= like nvim on this Colemak board.
 
 =j= jumps: every agent, tab and pane of the shown tab gets a two-letter code

@@ -26,6 +26,9 @@ jira-board --site NAME meta KEY       a project's board and its columns
 jira-board --site NAME transitions ISSUE
 jira-board --site NAME move ISSUE TRANSITION
 jira-board --site NAME assign ISSUE   to yourself
+jira-board --site NAME issue ISSUE [--json | --copy]
+                                      the issue written out for an agent to read
+                                      (--copy: onto the clipboard instead)
 USAGE
   exit 2
 }
@@ -254,6 +257,41 @@ view() {
     | .swimlanes.lanes = [(.swimlanes.lanes // [])[] | . as $lane | . + {keys: (if .default then null else ([$lk[] | select(.query == $lane.query) | .keys][0] // []) end)}]' | keep "$file"
 }
 
+issue() {
+  local raw
+  raw="$(api GET "/rest/api/2/issue/$1?fields=summary,description,status,issuetype,priority,assignee,reporter,parent,labels,timetracking,subtasks,issuelinks,comment,created")" ||
+    fail "could not read $1"
+  if [ "${2:-}" = --json ]; then
+    jq -c --arg server "$server" --arg site "$site" '{key, site: $site, summary: .fields.summary, status: .fields.status.name,
+      url: "\($server)/browse/\(.key)", type: .fields.issuetype.name, priority: (.fields.priority.name // null),
+      assignee: (.fields.assignee.displayName // null)}' <<<"$raw"
+    return
+  fi
+  jq -r --arg server "$server" '
+    def tidy: gsub("\r"; "") | gsub("[ \t]+\n"; "\n") | gsub("\n{3,}"; "\n\n") | sub("^\n+"; "") | sub("\n+$"; "");
+    def linked(dir; i): "- \(dir) \(i.key) \(i.fields.summary) (\(i.fields.status.name))";
+    .fields as $f |
+    "# \(.key): \($f.summary)", "",
+    "\($server)/browse/\(.key)", "",
+    "- Type: \($f.issuetype.name)",
+    "- Status: \($f.status.name)",
+    "- Priority: \($f.priority.name // "none")",
+    "- Assignee: \($f.assignee.displayName // "unassigned")",
+    "- Reporter: \($f.reporter.displayName // "unknown")",
+    "- Created: \(($f.created // "")[0:10])",
+    (if $f.parent then "- Parent: \($f.parent.key) \($f.parent.fields.summary)" else empty end),
+    (if (($f.labels // []) | length) > 0 then "- Labels: \($f.labels | join(", "))" else empty end),
+    (if $f.timetracking.originalEstimate then "- Estimate: \($f.timetracking.remainingEstimate // "?") left of \($f.timetracking.originalEstimate)" else empty end),
+    "", "## Description", "", (($f.description // "") | tidy | if . == "" then "(none)" else . end),
+    (if (($f.subtasks // []) | length) > 0 then "", "## Sub-tasks", "",
+      ($f.subtasks[] | "- \(.key) \(.fields.summary) (\(.fields.status.name))") else empty end),
+    (if (($f.issuelinks // []) | length) > 0 then "", "## Linked issues", "",
+      ($f.issuelinks[] | if .outwardIssue then linked(.type.outward; .outwardIssue) else linked(.type.inward; .inwardIssue) end) else empty end),
+    (($f.comment.comments // []) | if length > 0 then "", "## Comments", "",
+      (.[-10:][] | "### \(.author.displayName) · \(.created[0:10])", "", (.body | tidy), "") else empty end)
+  ' <<<"$raw" | if [ "${2:-}" = --copy ]; then /usr/bin/pbcopy; else cat; fi
+}
+
 each_site() {
   local s status=0
   if [ -n "$site" ]; then
@@ -296,10 +334,11 @@ case "${1:-}" in
   sites) jq -c '.sites | to_entries | map({site: .key, server: .value.server, login: .value.login})' "$conf" ;;
   project) project "${2:?folder}" "${3:-}" ;;
   view) view "${2:?folder}" "${3:-}" ;;
-  meta | transitions | move | assign)
+  meta | transitions | move | assign | issue)
     [ -n "$site" ] || only
     case "$1" in
       meta) meta "${2:?key}" ;;
+      issue) issue "${2:?issue}" "${3:-}" ;;
       transitions)
         api GET "/rest/api/3/issue/${2:?issue}/transitions" |
           jq -c '[.transitions[] | {id, name, to: .to.name, category: .to.statusCategory.key}]'
