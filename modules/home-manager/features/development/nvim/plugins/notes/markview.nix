@@ -106,4 +106,35 @@
       })
     end
   '';
+
+  # Markdown is soft-wrapped (=ui/linenumbers.org=), and markview leaves a table
+  # drawn raw when wrapping is on and the table is nearly as wide as the window,
+  # as wrapping would split its rows. A note of wide tables, the Jira digests
+  # (=cli/jira.org=) for one, is worth more as tables than as wrapped prose, so a
+  # markdown window showing a table row wider than nine tenths of it turns
+  # wrapping off, and the tables draw and scroll sideways (=zh=, =zl=, =zs=,
+  # =ze=). =<leader>nw= switches wrapping back and forth by hand.
+
+  extraConfigLuaPost = ''
+    do
+      local function wide_table(buf, win)
+        local limit = vim.api.nvim_win_get_width(win) * 0.9
+        for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+          if line:match("^%s*|") and vim.fn.strdisplaywidth(line) > limit then return true end
+        end
+        return false
+      end
+      vim.api.nvim_create_autocmd("BufWinEnter", {
+        callback = function(ev)
+          if vim.bo[ev.buf].filetype ~= "markdown" then return end
+          local win = vim.api.nvim_get_current_win()
+          if wide_table(ev.buf, win) then
+            vim.wo[win].wrap = false
+            vim.o.sidescroll = 1
+            vim.wo[win].sidescrolloff = 8
+          end
+        end,
+      })
+    end
+  '';
 }

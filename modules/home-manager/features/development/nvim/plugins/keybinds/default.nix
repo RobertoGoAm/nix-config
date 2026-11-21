@@ -551,6 +551,11 @@
       action = "<cmd>Obsidian open<CR>";
       options.desc = "open app";
     }
+    {
+      key = "<leader>nw";
+      action = "<cmd>setlocal wrap!<CR>";
+      options.desc = "toggle wrap (tables)";
+    }
 
     # Project
 
