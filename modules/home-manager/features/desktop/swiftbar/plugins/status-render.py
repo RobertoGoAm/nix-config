@@ -110,6 +110,15 @@ try:
 except Exception:
     pass
 wallapop_items = wallapop.get("items") or []
+# The probe's answer is cached for fifteen minutes, so a listing hidden from
+# the menu is also dropped here, at once, rather than on the next search.
+try:
+    with open(os.path.expanduser("~/.config/swiftbar/wallapop-hidden.json"), encoding="utf-8") as fh:
+        _hidden = json.load(fh)
+except (OSError, ValueError):
+    _hidden = {}
+if isinstance(_hidden, dict) and _hidden:
+    wallapop_items = [i for i in wallapop_items if str(i.get("id", "")) not in _hidden]
 
 preflight = {}
 try:
@@ -408,11 +417,15 @@ if wallapop:
     if failures:
         label += f" ({failures} searches failed)"
     print(label)
+    probe = os.path.expanduser("~/.config/swiftbar/lib/wallapop.py")
     for item in wallapop_items:
         title = item["title"].strip().capitalize()
         print(f"--{title} — {item['price']:.0f}€, {item['city']} | href={quote_url(item['url'])}")
         if item["description"]:
             print(f"----{item['description'][:300]}")
+        if item.get("id"):
+            print(f"----Hide this listing | bash={sys.executable} param1={probe} param2=hide "
+                  f"param3={item['id']} terminal=false refresh=true")
     if wallapop_items:
         print("-----")
     for entry in wallapop.get("searches", []):

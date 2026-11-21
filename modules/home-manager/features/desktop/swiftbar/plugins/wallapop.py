@@ -22,6 +22,7 @@ import json
 import os
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +30,10 @@ import uuid
 
 CONFIG = os.path.expanduser("~/.config/swiftbar/wallapop-searches.json")
 DEVICE_ID_FILE = os.path.expanduser("~/.config/swiftbar/wallapop-device-id")
+HIDDEN_FILE = os.path.expanduser("~/.config/swiftbar/wallapop-hidden.json")
+# A hidden listing is forgotten after this long: by then Wallapop has long
+# dropped it from a newest-first search, and the file stays small.
+HIDDEN_DAYS = 60
 
 # Valencia. Wallapop sorts by distance from here even when order_by says
 # otherwise, and shipping-only results still come back for the whole country.
@@ -112,15 +117,45 @@ def within_window(item, hours):
     return (time.time() - created / 1000.0) <= hours * 3600
 
 
-def interesting(item, keyword, hours):
-    """The original plugin's filter, kept as it was.
+def plain(text):
+    """Lower case without accents, so "portatil" also catches "portátil"."""
+    text = unicodedata.normalize("NFKD", (text or "").lower())
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+
+def load_hidden():
+    try:
+        with open(HIDDEN_FILE, encoding="utf-8") as fh:
+            hidden = json.load(fh)
+        return hidden if isinstance(hidden, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def hide(item_id):
+    """Remember a listing the menu's "Hide this listing" was clicked on."""
+    cutoff = time.time() - HIDDEN_DAYS * 86400
+    hidden = {k: v for k, v in load_hidden().items() if v >= cutoff}
+    hidden[item_id] = time.time()
+    tmp = "%s.%d" % (HIDDEN_FILE, os.getpid())
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(hidden, fh)
+    os.replace(tmp, HIDDEN_FILE)
+
+
+def interesting(item, keyword, hours, exclude):
+    """The original plugin's filter, plus the words a search excludes.
 
     Matching the keyword against the title is the important one: a search for
     "sony a6400" returns batteries, cages and straps for it, and they are the
-    overwhelming majority of the results.
+    overwhelming majority of the results. An excluded word or phrase anywhere
+    in the title drops the listing: whole computers and laptops that come with
+    the card, "busco" and "compro" posts from buyers.
     """
-    title = (item.get("title") or "").lower()
-    if not all(word in title for word in keyword.lower().split()):
+    title = plain(item.get("title"))
+    if not all(word in title for word in plain(keyword).split()):
+        return False
+    if any(plain(word) in title for word in exclude):
         return False
     if (item.get("reserved") or {}).get("flag"):
         return False
@@ -140,9 +175,13 @@ def web_url(keyword, product):
 
 
 def main():
+    if sys.argv[1:2] == ["hide"] and len(sys.argv) == 3:
+        hide(sys.argv[2])
+        return
     with open(CONFIG, encoding="utf-8") as fh:
         config = json.load(fh)
     hours = config.get("max_age_hours", 24)
+    hidden = load_hidden()
 
     searches, items, failures = [], [], 0
     for product in config.get("products", []):
@@ -155,10 +194,12 @@ def main():
             # menu says how many went missing.
             failures += 1
             continue
+        exclude = config.get("exclude", []) + product.get("exclude", [])
         for item in found:
-            if not interesting(item, keyword, hours):
+            if str(item.get("id")) in hidden or not interesting(item, keyword, hours, exclude):
                 continue
             items.append({
+                "id": str(item.get("id", "")),
                 "keyword": keyword,
                 "title": item.get("title", ""),
                 "price": (item.get("price") or {}).get("amount", 0),

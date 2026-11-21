@@ -67,6 +67,16 @@ lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
   # returned *more* results than searching without -- so the age filter moved into
   # the probe, where ~created_at~ makes it unambiguous.
 
+  # Listings not worth seeing are dropped two ways. ~exclude~, at the top level
+  # for every search or on a product for its own, lists words and phrases that
+  # drop a listing when its title holds one, ignoring case and accents: a graphics
+  # card search loses the whole computers and laptops sold with the card, and
+  # every search loses the "busco", "compro" and "cambio" posts of people buying
+  # or swapping. One listing at a time, each one's submenu has "Hide this
+  # listing", which keeps its id in =wallapop-hidden.json= beside the searches for
+  # sixty days. The menu drops a hidden listing at once, as the search results it
+  # was drawn from are kept for a quarter of an hour.
+
   home.activation.wallapopSearches = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     _wl="${config.home.homeDirectory}/.config/swiftbar/wallapop-searches.json"
     if [ ! -e "$_wl" ]; then
