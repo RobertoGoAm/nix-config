@@ -159,7 +159,11 @@ def interesting(item, keyword, hours, exclude):
         return False
     if (item.get("reserved") or {}).get("flag"):
         return False
-    if not (item.get("shipping") or {}).get("item_is_shippable"):
+    # Only what can be delivered: everything else is a trip across Spain. The
+    # item can be shippable while its seller has turned shipping off, and then
+    # it is pickup only.
+    shipping = item.get("shipping") or {}
+    if not (shipping.get("item_is_shippable") and shipping.get("user_allows_shipping")):
         return False
     return within_window(item, hours)
 
