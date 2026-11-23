@@ -420,7 +420,8 @@ if wallapop:
     probe = os.path.expanduser("~/.config/swiftbar/lib/wallapop.py")
     for item in wallapop_items:
         title = item["title"].strip().capitalize()
-        print(f"--{title} — {item['price']:.0f}€, {item['city']} | href={quote_url(item['url'])}")
+        where = f"{item['city']}, a recoger" if item.get("pickup") else item["city"]
+        print(f"--{title} — {item['price']:.0f}€, {where} | href={quote_url(item['url'])}")
         if item["description"]:
             print(f"----{item['description'][:300]}")
         if item.get("id"):

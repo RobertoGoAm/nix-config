@@ -19,6 +19,7 @@ data.section.items.
 """
 
 import json
+import math
 import os
 import sys
 import time
@@ -37,6 +38,7 @@ HIDDEN_DAYS = 60
 
 # Valencia. Wallapop sorts by distance from here even when order_by says
 # otherwise, and shipping-only results still come back for the whole country.
+# A "pickup" point in the searches file takes its place.
 LATITUDE = "39.4676"
 LONGITUDE = "-0.3771"
 
@@ -79,13 +81,13 @@ HEADERS = {
 }
 
 
-def search(product):
+def search(product, pickup=None):
     params = {
         "keywords": product["keywords"],
         "source": "quick_filters",
         "order_by": product.get("order_by", "newest"),
-        "latitude": LATITUDE,
-        "longitude": LONGITUDE,
+        "latitude": str(pickup["latitude"]) if pickup else LATITUDE,
+        "longitude": str(pickup["longitude"]) if pickup else LONGITUDE,
         "search_country": "ES",
         "section_type": "organic_search_results",
     }
@@ -143,7 +145,38 @@ def hide(item_id):
     os.replace(tmp, HIDDEN_FILE)
 
 
-def interesting(item, keyword, hours, exclude):
+def km_between(lat1, lon1, lat2, lon2):
+    """Great-circle distance, which is close enough to the road at a few km."""
+    lat1, lon1, lat2, lon2 = map(math.radians, (lat1, lon1, lat2, lon2))
+    a = (math.sin((lat2 - lat1) / 2) ** 2
+         + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2)
+    return 6371 * 2 * math.asin(math.sqrt(a))
+
+
+def pickup_km(item, pickup):
+    """How far a listing is from the pickup point, or None when unknown."""
+    location = item.get("location") or {}
+    if not pickup or location.get("latitude") is None or location.get("longitude") is None:
+        return None
+    return km_between(float(pickup["latitude"]), float(pickup["longitude"]),
+                      float(location["latitude"]), float(location["longitude"]))
+
+
+def deliverable(item, pickup):
+    """Whether the listing can reach me: shipped, or near enough to collect.
+
+    The item can be shippable while its seller has turned shipping off, and
+    then it is pickup only. Pickup is fine within the pickup point's km and
+    nowhere else.
+    """
+    shipping = item.get("shipping") or {}
+    if shipping.get("item_is_shippable") and shipping.get("user_allows_shipping"):
+        return True
+    km = pickup_km(item, pickup)
+    return km is not None and km <= float(pickup.get("km", 0))
+
+
+def interesting(item, keyword, hours, exclude, pickup=None):
     """The original plugin's filter, plus the words a search excludes.
 
     Matching the keyword against the title is the important one: a search for
@@ -159,11 +192,7 @@ def interesting(item, keyword, hours, exclude):
         return False
     if (item.get("reserved") or {}).get("flag"):
         return False
-    # Only what can be delivered: everything else is a trip across Spain. The
-    # item can be shippable while its seller has turned shipping off, and then
-    # it is pickup only.
-    shipping = item.get("shipping") or {}
-    if not (shipping.get("item_is_shippable") and shipping.get("user_allows_shipping")):
+    if not deliverable(item, pickup):
         return False
     return within_window(item, hours)
 
@@ -186,13 +215,14 @@ def main():
         config = json.load(fh)
     hours = config.get("max_age_hours", 24)
     hidden = load_hidden()
+    pickup = config.get("pickup")
 
     searches, items, failures = [], [], 0
     for product in config.get("products", []):
         keyword = product["keywords"]
         searches.append({"keyword": keyword, "url": web_url(keyword, product)})
         try:
-            found = search(product)
+            found = search(product, pickup)
         except (urllib.error.URLError, OSError, ValueError, KeyError):
             # One dead search must not blank the other nine. The count in the
             # menu says how many went missing.
@@ -200,7 +230,7 @@ def main():
             continue
         exclude = config.get("exclude", []) + product.get("exclude", [])
         for item in found:
-            if str(item.get("id")) in hidden or not interesting(item, keyword, hours, exclude):
+            if str(item.get("id")) in hidden or not interesting(item, keyword, hours, exclude, pickup):
                 continue
             items.append({
                 "id": str(item.get("id", "")),
@@ -208,6 +238,7 @@ def main():
                 "title": item.get("title", ""),
                 "price": (item.get("price") or {}).get("amount", 0),
                 "city": (item.get("location") or {}).get("city", ""),
+                "pickup": not deliverable(item, None),
                 "description": " ".join((item.get("description") or "").split()),
                 "url": "https://es.wallapop.com/item/%s" % item.get("web_slug", ""),
             })

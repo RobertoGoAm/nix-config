@@ -88,6 +88,15 @@ listing", which keeps its id in =wallapop-hidden.json= beside the searches for
 sixty days. The menu drops a hidden listing at once, as the search results it
 was drawn from are kept for a quarter of an hour.
 
+A listing is kept only when it can reach me. Wallapop returns sellers from the
+whole country, so one that ships is fine and one that doesn't is a day's drive
+away -- unless it is near. An item can be marked shippable while its seller has
+turned shipping off, so both flags have to be set for it to count as shipped.
+~pickup~, a ~latitude~, ~longitude~ and ~km~, is how near is near enough to
+collect by hand; the menu marks those listings "a recoger", and the searches are
+centred on it. The seed leaves it out, as it says where I live, and without it
+nothing pickup-only is shown.
+
 #+begin_src nix
   home.activation.wallapopSearches = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     _wl="${config.home.homeDirectory}/.config/swiftbar/wallapop-searches.json"
