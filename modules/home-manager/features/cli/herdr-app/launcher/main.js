@@ -28,7 +28,7 @@ const PROVIDERS = {
 };
 const ORDER = ["claude", "codex", "shell"];
 const MAX_RECENT = 12;
-const COMPANIONS = [["notes", "Notes"], ["kanban", "Kanban"], ["backlog", "Backlog"]];
+const COMPANIONS = [["notes", "Notes"], ["mrs", "MRs"], ["kanban", "Kanban"], ["backlog", "Backlog"]];
 const PENDING_MS = 10 * 60000;
 
 function fuzzy(q, text) {

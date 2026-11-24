@@ -192,6 +192,7 @@ export default class Requests extends View {
           added = true;
         };
         if (where !== home()) open("Notes", `Notes · ${project}`, { folder: where, argv: ["notes"] });
+        if (where !== home() && await this.onGitlab(where)) open("MRs", `MRs · ${project}`, { mod: "mrs", props: { folder: where, space: s.id } });
         if (jira) {
           for (const [kind, view] of JIRA_TABS) open(kind, `${kind} · ${project} (${jira})`, { mod: "jira", props: { folder: where, space: s.id, view } });
         }
@@ -203,6 +204,22 @@ export default class Requests extends View {
       if (ids.size && Object.keys(kept).length !== Object.keys(auto).length) setShared("jira.auto", kept);
       this.jiraBusy = false;
     });
+  }
+
+  async onGitlab(where) {
+    this.remotes ??= {};
+    const known = this.remotes[where];
+    if (known && (known.ok || Date.now() - known.at < 600000)) return known.gitlab;
+    let gitlab = false, ok = false;
+    try {
+      const r = await exec("git", ["-C", where, "remote", "get-url", "origin"], { timeout: 5000 });
+      ok = r.code === 0;
+      gitlab = ok && !/github\.com/.test(r.stdout);
+    } catch {
+      gitlab = false;
+    }
+    this.remotes[where] = { gitlab, ok, at: Date.now() };
+    return gitlab;
   }
 
   ensureGlobal() {

@@ -422,9 +422,9 @@ in
   # system folder picker. A new space can bring companion tabs, opened behind the
   # agent's: an editor (=nvim .=, which the editor-tab naming then calls =project ·
   # branch=) and the project's open pull requests in =tuicr-prs= (from
-  # =tuicr.org=); on this computer also its Notes, Kanban and Backlog tabs
-  # (=jira.org=), all three on by default, and one turned off here is not opened
-  # for that space later either. The choices are remembered for next time, and so
+  # =tuicr.org=); on this computer also its Notes, MRs (=mr-review.org=), Kanban
+  # and Backlog tabs (=jira.org=), all four on by default, and one turned off here
+  # is not opened for that space later either. The choices are remembered for next time, and so
   # are the projects, per machine.
 
   # Claude's models are its aliases (default, Opus, Sonnet, Haiku) and Fable by

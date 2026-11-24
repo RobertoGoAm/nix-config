@@ -1,0 +1,112 @@
+#+TITLE: cli mr-review
+#+PROPERTY: header-args:nix :tangle (my/lit-target) :comments org :mkdirp yes
+
+* Merge requests reviewed inside Herdr
+
+Every Herdr space on a GitLab repository gets an MRs tab beside its Notes,
+Kanban and Backlog: the repository's open merge requests on the left, and the
+one picked on the right as a diff to read and comment on with nvim's keys.
+It is for going from one merge request to the next without leaving Herdr,
+and for seeing them change while the tab stays open. tuicr stays for the
+phone, whose Herdr app shows terminals only: =t= on a merge request opens it
+there in a new tab.
+
+The list puts the merge requests waiting for my review first, then mine,
+then everyone else's, each with its pipeline, its approvals, how many of its
+threads are still open, its size and when it last moved. It is fetched every
+two minutes, while the window is in front, and at once when the window comes
+back after half a minute away. The merge request on the right is read again
+when the list says it moved on: a push, an approval, a pipeline that finished.
+
+The diff is every file in one list, each line's threads under it and my
+drafts under those, and at the end the threads that sit on no line: the
+merge request's conversation, and threads whose line a later push took
+away. Where I was in each merge request is kept per space, so coming back to
+one puts the cursor on the same line.
+
+My comments are GitLab draft notes, as in GitLab's own review: nobody sees
+them until =S=, pressed twice, publishes them all at once. A draft shows in
+the diff where it will land, and =D= on it drops it.
+
+| Keys        | What they do                                                  |
+|-------------+---------------------------------------------------------------|
+| =n= =e=     | down and up: a line in the diff, a merge request in the list  |
+| =h= =i=     | to the list and back to the diff (=i= or =enter= opens one)   |
+| =ctrl-d/u=  | half a page                                                   |
+| =gg= =G=    | top and bottom                                                |
+| =]f= =[f=   | next and previous file                                        |
+| =]c= =[c=   | next and previous change                                      |
+| =]t= =[t=   | next and previous thread or draft                             |
+| =tab=       | next merge request (=shift-tab= the previous one)             |
+| =v=         | select lines, for a comment on all of them                    |
+| =c=         | comment on the line, or on the selection                      |
+| =C=         | general comment, on the merge request rather than a line      |
+| =r=         | reply to the thread under the cursor                          |
+| =x=         | resolve the thread, or reopen it                              |
+| =D=         | drop the draft under the cursor                               |
+| =a=         | approve, or take my approval back                             |
+| =S=         | publish every draft (asks for a second =S=)                   |
+| =y=         | copy =path:line=, for a Claude session                        |
+| =o=         | open the merge request in the browser                         |
+| =t=         | open it in tuicr                                              |
+| =R=         | fetch everything again now                                    |
+
+=h n e i= move, as in nvim here (=hnei, as in nvim= in =herdr.org=). In the
+comment box =⌘↵= saves the draft and =esc= gives up on it.
+
+=requests= opens the tab with the others, for every space whose folder's
+=origin= is not on GitHub: GitHub has no draft notes in the same shape, so
+it waits for its own turn. A tab closed stays closed for that space, and the
+new-space dialog has it as a fourth companion to tick.
+
+** The GitLab side
+
+The tab asks =mr-review= (=mr-review.sh=) for everything and gets one JSON
+answer per call, so the mod holds no GitLab knowledge and the helper can be
+tried from a terminal: =mr-review list .= in a checkout. =glab= does the
+talking, with the host and project of the folder's =origin=:
+
+- =list= is one GraphQL query for every open merge request with its
+  reviewers, approvals, pipeline, thread counts and diff size, where the REST
+  list would need a request per merge request for half of those.
+- =show= makes its five requests (the merge request, its diffs, discussions,
+  drafts and approvals) at once and waits for the slowest.
+- =comment=, =reply=, =undraft=, =resolve=, =approve=, =unapprove= and
+  =submit= each make one change.
+
+A comment on several lines carries GitLab's =line_range=, whose ends are
+named by line codes: the SHA-1 of the file's path and the old and new line
+counters at that line, both of them even on a line only one side has. The
+mod keeps those counters on every row it draws for that.
+
+Errexit stays off: =show='s requests run in the background and each records
+its own exit code, which errexit would end before it was written.
+
+#+begin_src nix
+{ pkgs, ... }:
+let
+  mrReview = pkgs.writeShellApplication {
+    name = "mr-review";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.git
+      pkgs.glab
+      pkgs.gnused
+      pkgs.jq
+    ];
+    bashOptions = [
+      "nounset"
+      "pipefail"
+    ];
+    text = builtins.readFile ./mr-review.sh;
+  };
+in
+{
+  home.packages = [ mrReview ];
+
+  home.file.".config/herdr-app/mods/mrs" = {
+    source = ./herdr-app/mrs;
+    recursive = true;
+  };
+}
+#+end_src

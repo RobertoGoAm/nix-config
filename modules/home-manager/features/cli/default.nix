@@ -13,6 +13,7 @@
     ./gpg.nix
     ./herdr.nix # agent-aware terminal multiplexer, on trial beside Orca
     ./jira.nix # jira-cli per project and a Herdr board tab; needs the private jira entry
+    ./mr-review.nix # Herdr's MRs tab: GitLab merge requests reviewed with nvim's keys
     ./notes.nix # each repository's notes folder in the Obsidian vault, for nvim and Herdr
     ./hammerspoon.nix # macOS quake terminal (Alacritty drop-down); no-op off darwin
     ./aider.nix
