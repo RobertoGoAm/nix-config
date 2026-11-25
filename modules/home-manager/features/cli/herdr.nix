@@ -445,12 +445,49 @@ in
     recursive = true;
   };
 
+  # The tab bar's + opens the space's companions too
+
+  # Herdr's =+= beside Files and Changes opens its =new-menu=: a terminal, an
+  # agent, a space or a worktree. =new-menu-plus= is that menu with an "Open in
+  # this space" section under it: the editor (=nvim .=), Notes, MRs (=mr-review.org=),
+  # Kanban and Backlog (=jira.org=), each showing the space's tab when it has one
+  # and opening it otherwise, so a companion closed by hand, or never opened, is
+  # one click away. Kanban and Backlog wait for =jira-board= to name the folder's
+  # Jira project; Notes and the Jira tabs are for spaces on this computer.
+
+  # The tab bar is Herdr's own =tabs=, which names =new-menu= in its code, so
+  # =tabs-plus= is derived from it on every switch: a copy whose =+= opens
+  # =new-menu-plus=, in a popup tall enough for it. Should an update change that
+  # line, the copy is not made and the layout keeps Herdr's =tabs=.
+
+  home.file.".config/herdr-app/mods/new-menu-plus" = {
+    source = ./herdr-app/new-menu-plus;
+    recursive = true;
+  };
+
+  home.activation.herdrAppTabsPlus = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    app="$HOME/.config/herdr-app"
+    open='openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })'
+    if [ -f "$app/mods/tabs/main.js" ] && grep -qF "$open" "$app/mods/tabs/main.js"; then
+      run mkdir -p "$app/mods/tabs-plus"
+      for f in "$app"/mods/tabs/*; do
+        case "$f" in */main.js) ;; *) run install -m 644 "$f" "$app/mods/tabs-plus/" ;; esac
+      done
+      ${lib.getExe pkgs.gnused} 's/openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })/openOverlay({ mod: "new-menu-plus", kind: "popup", width: 250, height: 720 })/' \
+        "$app/mods/tabs/main.js" > "$app/mods/tabs-plus/main.js.new" \
+        && run mv "$app/mods/tabs-plus/main.js.new" "$app/mods/tabs-plus/main.js"
+    else
+      run rm -rf "$app/mods/tabs-plus"
+    fi
+  '';
+
   # A layout that shows it
 
   # Layouts name their mods, and the shipped =main= layout is also rewritten on
   # every start, so a layout of its own, =herdr-plus=, is derived from it on
   # every switch: the same tree with =agents-plus= in place of =agents=,
-  # =spaces-plus= in place of =spaces=, =pane-plus= in place of
+  # =spaces-plus= in place of =spaces=, =tabs-plus= in place of =tabs= when it
+  # could be made, =pane-plus= in place of
   # the =pane= header and =toolbar= in place of =workspace-status=, the
   # =requests= panel added under the agents, and quieter
   # pane frames: no border on panes without the focus, and on the focused one
@@ -464,12 +501,13 @@ in
   # switched to it; after that the app remembers the choice, and =cmd-shift-l=
   # cycles layouts. Nothing happens on a machine where the app has never run.
 
-  home.activation.herdrAppLayout = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+  home.activation.herdrAppLayout = lib.hm.dag.entryAfter [ "herdrAppTabsPlus" ] ''
     app="$HOME/.config/herdr-app"
     if [ -f "$app/layouts/main.json" ]; then
       first=; [ -f "$app/layouts/herdr-plus.json" ] || first=1
+      tabsplus=false; [ -f "$app/mods/tabs-plus/main.js" ] && tabsplus=true
       tmp="$(mktemp)"
-      if ${lib.getExe pkgs.jq} 'walk(if type == "object" and has("children") then .children |= map(select(.id? != "sidebar-footer")) else . end) | walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 36, content: { mod: "requests" } }] else . end) | walk(if type == "object" and (.id == "agents" or .id == "requests") and has("min") then .min = 36 else . end)' \
+      if ${lib.getExe pkgs.jq} --argjson tabsplus "$tabsplus" 'walk(if type == "object" and .mod == "tabs" and $tabsplus then .mod = "tabs-plus" else . end) | walk(if type == "object" and has("children") then .children |= map(select(.id? != "sidebar-footer")) else . end) | walk(if type == "object" and .mod == "agents" then .mod = "agents-plus" elif type == "object" and .mod == "spaces" then .mod = "spaces-plus" elif type == "object" and .mod == "pane" then .mod = "pane-plus" elif type == "object" and .mod == "workspace-status" then .mod = "toolbar" elif type == "object" and has("focus") and has("border") then .lone = false | .border = { width: 1, color: "background" } | .focus = { width: 1, color: "dim" } else . end) | walk(if type == "object" and .id == "sidebar-lists" and ([.children[]?.id] | index("requests") | not) then .children += [{ id: "requests", type: "block", size: { weight: 1 }, min: 36, content: { mod: "requests" } }] else . end) | walk(if type == "object" and (.id == "agents" or .id == "requests") and has("min") then .min = 36 else . end)' \
           "$app/layouts/main.json" > "$tmp"; then
         run install -m 644 "$tmp" "$app/layouts/herdr-plus.json"
         if [ -n "$first" ] && [ -S "$app/herdr-app.sock" ] && command -v herdr-app >/dev/null; then
