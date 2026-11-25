@@ -53,6 +53,36 @@ function parseDiff(text) {
   return rows;
 }
 
+// bat's colours, as runs of text in one of the terminal's sixteen colours,
+// tabs widened as untab does.
+function colourRuns(raw) {
+  const runs = [];
+  let colour = null, bold = false, col = 0, last = 0;
+  const add = (text) => {
+    if (!text) return;
+    let s = "";
+    for (const ch of text) {
+      if (ch === "\t") { const w = 4 - (col % 4); s += " ".repeat(w); col += w; } else { s += ch; col++; }
+    }
+    runs.push({ text: s, colour, bold });
+  };
+  for (const m of raw.matchAll(/\x1b\[([0-9;]*)m/g)) {
+    add(raw.slice(last, m.index));
+    last = m.index + m[0].length;
+    for (const c of (m[1] || "0").split(";").map(Number)) {
+      if (c === 38 || c === 48) break;
+      if (c === 0) { colour = null; bold = false; }
+      else if (c === 1) bold = true;
+      else if (c === 22) bold = false;
+      else if (c === 39) colour = null;
+      else if (c >= 30 && c <= 37) colour = c - 30;
+      else if (c >= 90 && c <= 97) colour = c - 82;
+    }
+  }
+  add(raw.slice(last));
+  return runs;
+}
+
 function wrap(text, cols) {
   const out = [];
   for (const para of String(text ?? "").replace(/\r/g, "").split("\n")) {
@@ -273,8 +303,14 @@ export default class Mrs extends View {
       push({ kind: "file", file: fi, status: f.status, path: f.new_path, from: f.status === "R" ? f.old_path : null, add, del });
       if (f.too_large) push({ kind: "text", file: fi, text: "Too large for GitLab to show: open it in the browser (o) or tuicr (t)." });
       else if (f.generated) push({ kind: "text", file: fi, text: "Generated file." });
+      let oi = 0, ni = 0;
       for (const r of parsed) {
         const row = { ...r, file: fi };
+        if (r.kind === "line") {
+          row.hl = r.sign === "-" ? f.hl_old?.[oi] : f.hl_new?.[ni];
+          if (r.sign !== "+") oi++;
+          if (r.sign !== "-") ni++;
+        }
         longest = Math.max(longest, row.text.length);
         push(row);
         if (row.kind !== "line") continue;
@@ -673,7 +709,20 @@ export default class Mrs extends View {
       .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.old == null ? "" : String(r.old)))
       .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.new == null ? "" : String(r.new)))
       .child(div().w(Math.ceil(2.5 * cw)).flex_none().text_right().text_color(r.sign === "+" ? t.ansi2 : r.sign === "-" ? t.ansi1 : t.dim).child(r.sign === " " ? "" : r.sign))
-      .child(div().pl(8).flex_1().min_w(0).whitespace_nowrap().child(r.text));
+      .child(this.code(r, t));
+  }
+
+  code(r, t) {
+    if (r.runs === undefined) {
+      const runs = r.hl ? colourRuns(r.hl) : null;
+      r.runs = runs && runs.map((x) => x.text).join("") === r.text ? runs : null;
+    }
+    if (!r.runs) return div().pl(8).flex_1().min_w(0).whitespace_nowrap().child(r.text);
+    return h_flex().pl(8).flex_1().min_w(0).whitespace_nowrap()
+      .children(r.runs.map((x) => div().flex_none().whitespace_nowrap()
+        .when(x.colour != null, (el) => el.text_color(t[`ansi${x.colour}`]))
+        .when(x.bold, (el) => el.font_bold())
+        .child(x.text)));
   }
 
   diffPane(t) {
