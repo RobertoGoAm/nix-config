@@ -13,6 +13,10 @@
 #   mr-review resolve DIR IID DISCUSSION true|false
 #   mr-review approve|unapprove DIR IID
 #   mr-review submit DIR IID               publish every draft note at once
+#   mr-review state DIR IID                my progress on it: {reads, pos}
+#   mr-review read DIR IID PATH [DIGEST]   mark a file read at that digest, or
+#                                          unmark it with none
+#   mr-review pos DIR IID POSITION         keep my place: {path, old, new, ...}
 #
 # DIR is any checkout of the repository; glab takes the host and the project
 # from its origin. A repository on GitHub is handed to mr-review-github, which
@@ -63,6 +67,27 @@ LIST_QUERY='query($p: ID!) {
 
 cmd=${1:-}
 shift || true
+
+# Progress is the same for either forge, so it is answered before handing on.
+case "$cmd" in
+state)
+  state_file "${1:?DIR}" "${2:?IID}"
+  state
+  exit 0
+  ;;
+read)
+  state_file "${1:?DIR}" "${2:?IID}"
+  # shellcheck disable=SC2016 # jq variables
+  change_state --arg p "${3:?PATH}" --arg d "${4:-}" '.reads |= (if $d == "" then del(.[$p]) else .[$p] = $d end)'
+  exit 0
+  ;;
+pos)
+  state_file "${1:?DIR}" "${2:?IID}"
+  # shellcheck disable=SC2016 # jq variables
+  change_state --argjson pos "${3:?POSITION}" '.pos = $pos'
+  exit 0
+  ;;
+esac
 
 if [ -n "${1:-}" ] && origin=$(git -C "$1" remote get-url origin 2>/dev/null) && [[ "$origin" == *github.com* ]]; then
   exec mr-review-github "$cmd" "$@"
@@ -150,7 +175,7 @@ show)
      drafts: [($drafts | add // [])[] | {
        id, body: .note, reply_to: .discussion_id,
        at: (if .position and .position.position_type == "text" then (.position | pos) else null end)}]}' >"$tmp/out"
-  highlight "$tmp/out"
+  highlight "$tmp/out" "${num:-${iid:-}}"
   ;;
 
 comment)

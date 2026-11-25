@@ -313,11 +313,12 @@ export default class Mrs extends View {
       try {
         const detail = await helper(["show", this.folder, String(iid)]);
         if (token !== this.token) return;
-        const keep = this.detail?.mr.iid === iid ? this.anchor() : this.savedAnchor(iid);
+        const keep = this.detail?.mr.iid === iid ? this.anchor() : detail.state?.pos ?? this.savedAnchor(iid);
         this.detail = detail;
         this.detailError = null;
         this.detailAt = Date.now();
-        this.reads = this.stored(`read:${this.space}:${iid}`, {});
+        this.reads = detail.state?.reads ?? this.stored(`read:${this.space}:${iid}`, {});
+        this.savedText = JSON.stringify(detail.state?.pos ?? null);
         this.build();
         this.restore(keep);
       } catch (e) {
@@ -463,7 +464,8 @@ export default class Mrs extends View {
     const text = JSON.stringify(this.anchor());
     if (text === this.savedText) return;
     this.savedText = text;
-    try { localStorage.setItem(`pos:${this.space}:${this.detail.mr.iid}`, text); } catch {}
+    // Kept by mr-review, so the phone's page continues from here too.
+    helper(["pos", this.folder, String(this.detail.mr.iid), text]).catch(() => {});
   }
 
   toggleWrap() {
@@ -489,7 +491,8 @@ export default class Mrs extends View {
     const was = this.reads[f.new_path] === digest(f.diff ?? "");
     if (was) delete this.reads[f.new_path];
     else this.reads[f.new_path] = digest(f.diff ?? "");
-    this.store(`read:${this.space}:${d.mr.iid}`, this.reads);
+    helper(["read", this.folder, String(d.mr.iid), f.new_path, was ? "" : this.reads[f.new_path]])
+      .catch((e) => this.say(`Could not keep the mark: ${e.message ?? e}`, true));
     this.visual = null;
     this.build();
     const header = (x) => this.rows.findIndex((y) => y.kind === "file" && y.file === x);

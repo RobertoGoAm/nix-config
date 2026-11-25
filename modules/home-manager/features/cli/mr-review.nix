@@ -35,14 +35,21 @@
 # comment; =a= submits it as an approval, drafts and all, since GitHub keeps one
 # review in the making. Pull requests a GitHub App opens in a repository of mine
 # (an agent's) count as waiting for my review. The colouring both use is
-# =mr-review-highlight.sh=, put before each script.
+# =mr-review-lib.sh=, put before each script, with the progress below.
+
+# Progress is the helper's too, so every screen that reviews a request shares
+# it: the files marked read, each with the digest of its diff, and the place,
+# as the last screen left it. =state=, =read= and =pos= keep them in
+# =~/.local/state/mr-review/<origin>/<number>.json=, and =show= hands them back
+# with the request. The MRs tab and the phone's page (=mr-review-web.org=) both
+# read and write them there.
 
 # Errexit stays off: =show='s requests run in the background and each records
 # its own exit code, which errexit would end before it was written.
 
 { pkgs, ... }:
 let
-  highlight = builtins.readFile ./mr-review-highlight.sh;
+  shared = builtins.readFile ./mr-review-lib.sh;
   tools = [
     pkgs.bat
     pkgs.coreutils
@@ -59,7 +66,7 @@ let
     name = "mr-review-github";
     runtimeInputs = tools ++ [ pkgs.gh ];
     bashOptions = options;
-    text = highlight + builtins.readFile ./mr-review-github.sh;
+    text = shared + builtins.readFile ./mr-review-github.sh;
   };
   mrReview = pkgs.writeShellApplication {
     name = "mr-review";
@@ -68,7 +75,7 @@ let
       mrReviewGithub
     ];
     bashOptions = options;
-    text = highlight + builtins.readFile ./mr-review.sh;
+    text = shared + builtins.readFile ./mr-review.sh;
   };
 in
 {

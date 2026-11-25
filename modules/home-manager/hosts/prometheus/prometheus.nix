@@ -57,6 +57,7 @@
     ../../features/security/appsec.nix
     ../../features/cli/iterm2.nix
     ../../features/cli/k9s.nix
+    ../../features/cli/mr-review-web.nix
     ../../features/development
     ../../features/development/cursor.nix
     ../../features/development/antigravity.nix

@@ -178,7 +178,7 @@ show)
        + (if $pending and ($pending.body // "") != "" then [{id: $pending.id, body: $pending.body, reply_to: null, at: null}] else [] end))}' \
     --slurpfile pr "$tmp/pr" --slurpfile files "$tmp/files" --slurpfile comments "$tmp/comments" --slurpfile graph "$tmp/graph" \
     >"$tmp/out"
-  highlight "$tmp/out"
+  highlight "$tmp/out" "${num:-${iid:-}}"
   ;;
 
 comment)
