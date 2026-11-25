@@ -641,8 +641,7 @@ export default class Mrs extends View {
     const lo = this.visual != null ? Math.min(this.visual, this.cur) : -1, hi = this.visual != null ? Math.max(this.visual, this.cur) : -1;
     const selected = i >= lo && i <= hi;
     const base = h_flex().id(`d-${i}`).w_full().h(h).flex_none().items_center().border_l(2).border_color(at ? t.accent : "#00000000")
-      .when(selected, (el) => el.bg(t.accent + "26"))
-      .on_mouse_down("left", (_e, cx) => { this.side = "diff"; this.go(i); this.handle.focus(); cx.notify(); });
+      .when(selected, (el) => el.bg(t.accent + "26"));
     if (r.kind === "file") {
       const color = r.status === "A" ? t.ansi2 : r.status === "D" ? t.ansi1 : t.working;
       return base.bg(selected ? t.accent + "26" : t.raised).px(10).gap(8)
@@ -686,21 +685,25 @@ export default class Mrs extends View {
       .child(this.header(t) ?? div())
       .child(div().id("mrs-diff-box").flex_1().min_h(0).relative().font_family(settings().font_family ?? "JetBrains Mono").text_size(size)
         .on_size_change((s, cx) => {
-          this.height = s.height;
-          const cols = Math.floor((s.width - 2 * Math.ceil(5 * charWidth(size)) - 60) / charWidth(size));
+          const zoom = settings().zoom || 1;
+          const height = Math.floor(s.height / zoom);
+          const cols = Math.floor((s.width / zoom - 2 * Math.ceil(5 * charWidth(size)) - 60) / charWidth(size));
+          const grown = height !== this.height;
+          this.height = height;
           if (Math.abs(cols - this.cols) >= 4) {
             const a = this.anchor();
             this.cols = cols;
             if (this.detail) { this.build(); this.restore(a); }
             cx.notify();
-          }
+          } else if (grown) cx.notify();
         })
         .when(Boolean(message), (el) => el.child(div().p(14).text_size(12).text_color(this.detailError ? t.blocked : t.dim).child(message)))
         .when(Boolean(d), (el) => el
-          .child(div().id("mrs-diff-x").size_full().overflow_x_scrollbar()
-            .child(div().w_full().min_w(Math.max(300, (this.longest + 4) * charWidth(size) + 2 * Math.ceil(5 * charWidth(size)) + 40)).h_full()
+          .child(div().id("mrs-diff-x").w_full().h(this.height || 0).overflow_x_scrollbar()
+            .child(div().w_full().min_w(Math.max(300, (this.longest + 4) * charWidth(size) + 2 * Math.ceil(5 * charWidth(size)) + 40)).h(this.height || 0)
               .child(v_virtual_list("mrs-diff", this.rows.length, rowHeight(size), (i) => String(i),
-                (range) => this.rows.slice(range.start, range.end).map((r, k) => this.diffRow(r, range.start + k, t, size))).track_scroll(this.scroll).size_full())))
+                (range) => this.rows.slice(range.start, range.end).map((r, k) => this.diffRow(r, range.start + k, t, size))).track_scroll(this.scroll).w_full().h(this.height || 0)
+                .on_item_click((key, cx) => { this.side = "diff"; this.go(Number(key)); this.handle.focus(); cx.notify(); }))))
           .child(Scrollbar.vertical("mrs-diff").viewport_from_layout().absolute().inset_0())))
       .when(Boolean(this.editing), (el) => el.child(v_flex().flex_none().p(10).gap(6).border_t(1).border_color(t.border).bg(t.raised)
         .child(h_flex().gap(8).text_size(11)
