@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, Scrollbar, v_virtual_list, VirtualListScrollHandle } from "gpui-base";
-import { run, exec, theme, settings, props, checking, nextCommand, window } from "herdr";
+import { run, exec, theme, settings, props, checking, nextCommand, window, terminals, shared } from "herdr";
 
 const POLL_MS = 120000;
 const STALE_MS = 30000;
@@ -155,17 +155,21 @@ export default class Mrs extends View {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(`sel:${this.space}`) ?? "null"); } catch { saved = null; }
     this.iid = Number.isInteger(saved) ? saved : null;
+    try { this.handled = Number(localStorage.getItem(`handled:${this.space}`)) || 0; } catch { this.handled = 0; }
     this.loadList(cx);
+    this.takeRequest(cx);
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
     cx.timer.every(3000, (cx) => {
       const active = window()?.active !== false;
       if (active && !this.activeBefore) this.freshen(cx);
       this.activeBefore = active;
+      this.takeRequest(cx);
     });
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
         if (c === "focus") {
+          this.takeRequest(cx);
           if (this.editing) this.editor.focus();
           else this.handle.focus();
           this.freshen(cx);
@@ -211,6 +215,37 @@ export default class Mrs extends View {
         cx.notify();
       }
     });
+    cx.notify();
+  }
+
+  // A merge request to show, asked for after the last one taken: by the review
+  // hook, through the labels of an agent in this space that just opened it
+  // (review.at in seconds), or by the agents mod's pill and Cmd+Shift+R,
+  // through shared("mrs.open") (at in milliseconds).
+  requested() {
+    let best = null;
+    const s = shared("mrs.open");
+    if (s && s.space === this.space && Number.isInteger(s.iid) && s.at > this.handled) best = { iid: s.iid, at: s.at };
+    for (const t of terminals()) {
+      const l = t.labels;
+      if (l?.["review.view"] !== "mrs") continue;
+      const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
+      if (machine + l["herdr.space"] !== this.space) continue;
+      const iid = Number(l["review.url"]?.match(/\/merge_requests\/(\d+)/)?.[1]);
+      const at = Number(l["review.at"]) * 1000;
+      if (iid && at > this.handled && at > (best?.at ?? 0)) best = { iid, at };
+    }
+    return best;
+  }
+
+  takeRequest(cx) {
+    const r = !this.editing && this.requested();
+    if (!r) return;
+    this.handled = r.at;
+    try { localStorage.setItem(`handled:${this.space}`, String(r.at)); } catch {}
+    this.side = "diff";
+    this.open(cx, r.iid);
+    this.loadList(cx, true);
     cx.notify();
   }
 
@@ -766,8 +801,9 @@ export default class Mrs extends View {
           .child(flash?.text ?? (this.visual != null ? "Selecting: c comments on the selection, v or esc stops" : this.prefix ? `${this.prefix}…  f file · c change · t thread` : HINTS))));
   }
 
-  render(_cx) {
+  render(cx) {
     const t = theme();
+    if (!checking() && !this.editing && this.requested()) cx.spawn(async (cx) => this.takeRequest(cx));
     return h_flex().id("mrs").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(13)
       .track_focus(this.handle)
       .on_key_down((e, cx) => this.key(e, cx))

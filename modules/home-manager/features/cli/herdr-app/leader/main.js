@@ -96,7 +96,7 @@ const TREE = {
         l: { label: "switch agent…", act: () => run("mod.open", { name: "picker-plus" }) },
         f: { label: "cycle filter", act: () => run("agents-plus.filter") },
         s: { label: "search agents", act: () => run("agents-plus.search") },
-        R: { label: "review PR (tuicr)", act: () => run("agents-plus.review") },
+        R: { label: "review PR", act: () => run("agents-plus.review") },
         c: { label: "chat ⇄ terminal", act: () => run("agents-plus.chat") },
         m: MODEL,
         E: EFFORT,

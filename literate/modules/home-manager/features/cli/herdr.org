@@ -145,8 +145,11 @@ this module in =herdr-app/agents-plus=:
   running, =no CI=), with =approved= once the request is, polled every minute
   with =gh pr view= or =glab mr view= on the agent's own machine. Once the
   request is merged or closed its labels are taken off the agent's terminal,
-  so it leaves the list by itself. Clicking it
-  focuses the request's tuicr pane, or opens a new one beside the agent.
+  so it leaves the list by itself. Clicking it shows a GitLab merge request
+  in its space's MRs tab (=mr-review.org=), selected and with the keyboard,
+  the agents mod telling the tab which one through the shared key
+  =mrs.open=; a pull request, or a space without an MRs tab, gets the
+  request's tuicr pane, or a new one beside the agent.
 - A search box under the filters, narrowing whichever filter is on (and its
   counts) to the agents whose space, tab, session title, program, pull
   request (=#123=, =!45=, its URL) or CI state (=ci:fail=) match every word
@@ -575,7 +578,7 @@ shows. Added on top of them, and =cmd-p= moved to =picker-plus=:
 | =cmd-;=       | leader: which-key panel, jump, model and effort, music |
 | =cmd-n=       | launcher: new session with machine, agent, model, effort |
 | =cmd-shift-c= | the focused Claude as a chat, and back to its terminal |
-| =cmd-shift-r= | the focused agent's review in tuicr, and back again   |
+| =cmd-shift-r= | the focused agent's review (MRs tab or tuicr), and back |
 | =cmd-shift-f= | search the agents list (within the current filter)    |
 
 =keys.json= is the app's and stays writable: any edit marks it as the

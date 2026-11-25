@@ -83,6 +83,24 @@ review_title() {
   printf '%s' "${t:0:60}"
 }
 
+# The space's MRs tab, by the name the requests mod gives it, or nothing.
+mrs_tab() {
+  herdr-app ls 2>/dev/null | jq -r --arg s "$1" \
+    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty'
+}
+
+open_in_mrs() {
+  local me="$HC_TERMINAL_ID" info space tab title
+  [[ "$url" == */-/merge_requests/* ]] && command -v herdr-app >/dev/null || return 1
+  info="$(hc get "$me" --json)" || return 1
+  space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
+  tab="$(mrs_tab "$space")"
+  [[ -n "$tab" ]] || return 1
+  title="$(review_title)"
+  hc label "$me" "review.url=$url" "review.title=$title" "review.view=mrs" "review.at=$(date +%s)" "review.terminal=" >/dev/null || return 1
+  printf '%s' "$tab"
+}
+
 open_in_herdr_app() {
   local me="$HC_TERMINAL_ID" info space run addr argv title
   info="$(hc get "$me" --json)" || return 1
@@ -98,13 +116,15 @@ open_in_herdr_app() {
       --label "herdr.space=$space" --label "herdr.tab=tbreview$(date +%s)$RANDOM" -- tuicr pr "$url")" || return 1
     addr="$(jq -er '.address' <<<"$run")" || return 1
   fi
-  hc label "$me" "review.url=$url" "review.terminal=$addr" "review.title=$title" >/dev/null || true
+  hc label "$me" "review.url=$url" "review.terminal=$addr" "review.title=$title" "review.view=" >/dev/null || true
   printf '%s\t%s' "$addr" "$title"
 }
 
 case "$host" in
   herdr-app)
-    if opened="$(open_in_herdr_app 2>&1)"; then
+    if tab="$(open_in_mrs 2>/dev/null)"; then
+      context "$url is open for review in this space's \"$tab\" tab, where the user reviews GitLab merge requests with nvim's keys inside Herdr. It was not shown, so their view did not move; do not open tuicr or anything else for it, and do not focus it. Tell the user it is ready: Cmd+Shift+R from your row, or the PR pill, which also shows its CI state, brings the tab up on it. Their comments are GitLab draft notes, which only they see until they publish them. When they say the review is done, read them with \`mr-review show $cwd ${url##*/} | jq '{drafts, threads}'\`: each draft has its body, \`at\` (path, old_line and new_line; null for one on the whole merge request) and \`reply_to\`, the id of the thread in \`threads\` it answers. Publishing or dropping their drafts is theirs to do, not yours."
+    elif opened="$(open_in_herdr_app 2>&1)"; then
       term="${opened%%$'\t'*}"
       title="${opened#*$'\t'}"
       context "tuicr is now open on $url in a new Herdr tab named \"$title\" in this space (terminal $term), opened in the background so the user's view did not move; do not open another, and do not focus it. Tell the user it is ready: they reach it with Cmd+P by that title, Cmd+Shift+R from your row, or the PR pill, which also shows its CI state. $read_back The tab holds only that terminal, so \`hc kill $term\` closes it once it is no longer needed."

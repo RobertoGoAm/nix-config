@@ -402,9 +402,26 @@ export default class Agents extends View {
     if (owner) return run("pane.focus", { terminal: owner });
     const r = agent && all.get(agent);
     if (!r) return;
+    if (this.showInMrs(r)) return;
     const live = r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
     if (live) run("pane.focus", { terminal: r.terminal });
     else this.openReview(r);
+  }
+
+  // A GitLab merge request is reviewed in its space's MRs tab (mr-review.org)
+  // when the space has one: the tab is shown, given the keyboard, and told
+  // through shared("mrs.open") which request to select. False otherwise.
+  showInMrs(r) {
+    const iid = Number(r.url?.match(/\/-\/merge_requests\/(\d+)/)?.[1]);
+    const space = iid && r.space ? spaces().find((s) => s.id === r.space) : null;
+    const tab = space?.tabs.find((x) => x.name.startsWith("MRs · "));
+    if (!tab) return false;
+    setShared("mrs.open", { space: space.id, iid, at: Date.now() });
+    run("space.select", { id: space.id });
+    run("tab.select", { id: tab.id });
+    const pane = panes().find((p) => p.mod === "mrs" && p.tab === tab.id);
+    if (pane) run("pane.focus", { pane: pane.pane });
+    return true;
   }
 
   openReview(r) {
@@ -499,9 +516,10 @@ export default class Agents extends View {
       .text_size(10.5)
       .font_semibold()
       .cursor_pointer()
-      .tooltip(`${r.url}\nCI: ${state}${c?.approved ? ", approved" : ""}. Click to review in tuicr.`)
+      .tooltip(`${r.url}\nCI: ${state}${c?.approved ? ", approved" : ""}. Click to review it.`)
       .on_click((_e, cx) => {
         cx.stop_propagation();
+        if (this.showInMrs(r)) return;
         run("pane.focus", { pane: a.pane });
         const live = r.terminal && terminals().some((x) => x.address === r.terminal && x.state === "live");
         if (live) run("pane.focus", { terminal: r.terminal });

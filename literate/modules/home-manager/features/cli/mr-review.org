@@ -54,6 +54,12 @@ the diff where it will land, and =D= on it drops it.
 =h n e i= move, as in nvim here (=hnei, as in nvim= in =herdr.org=). In the
 comment box =⌘↵= saves the draft and =esc= gives up on it.
 
+An agent's merge request comes here rather than to tuicr: the review hook in
+=tuicr.org= labels the agent's terminal with it, and this space's tab selects
+it the next time it is drawn, without being shown; the agent's PR pill and
+=Cmd+Shift+R= show the tab on it. The agent reads the drafts back with
+=mr-review show=, and leaves publishing them to me.
+
 =requests= opens the tab with the others, for every space whose folder's
 =origin= is not on GitHub: GitHub has no draft notes in the same shape, so
 it waits for its own turn. A tab closed stays closed for that space, and the
