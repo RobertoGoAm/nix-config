@@ -408,11 +408,11 @@ export default class Agents extends View {
     else this.openReview(r);
   }
 
-  // A GitLab merge request is reviewed in its space's MRs tab (mr-review.org)
+  // A merge or pull request is reviewed in its space's MRs tab (mr-review.org)
   // when the space has one: the tab is shown, given the keyboard, and told
   // through shared("mrs.open") which request to select. False otherwise.
   showInMrs(r) {
-    const iid = Number(r.url?.match(/\/-\/merge_requests\/(\d+)/)?.[1]);
+    const iid = Number(r.url?.match(/\/(?:-\/merge_requests|pull)\/(\d+)/)?.[1]);
     const space = iid && r.space ? spaces().find((s) => s.id === r.space) : null;
     const tab = space?.tabs.find((x) => x.name.startsWith("MRs · "));
     if (!tab) return false;

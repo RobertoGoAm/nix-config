@@ -3,7 +3,7 @@
 
 * Merge requests reviewed inside Herdr
 
-Every Herdr space on a GitLab repository gets an MRs tab beside its Notes,
+Every Herdr space on a GitLab or GitHub repository gets an MRs tab beside its Notes,
 Kanban and Backlog: the repository's open merge requests on the left, and the
 one picked on the right as a diff to read and comment on with nvim's keys.
 It is for going from one merge request to the next without leaving Herdr,
@@ -60,12 +60,13 @@ it the next time it is drawn, without being shown; the agent's PR pill and
 =Cmd+Shift+R= show the tab on it. The agent reads the drafts back with
 =mr-review show=, and leaves publishing them to me.
 
-=requests= opens the tab with the others, for every space whose folder's
-=origin= is not on GitHub: GitHub has no draft notes in the same shape, so
-it waits for its own turn. A tab closed stays closed for that space, and the
+=requests= opens the tab with the others, for every space whose folder has an
+=origin=, on GitLab or GitHub. A space on another machine is reviewed through
+the checkout at the same path on this computer, found from its terminals'
+folder; without one it gets no tab. A tab closed stays closed for that space, and the
 new-space dialog has it as a fourth companion to tick.
 
-** The GitLab side
+** The forge side
 
 The tab asks =mr-review= (=mr-review.sh=) for everything and gets one JSON
 answer per call, so the mod holds no GitLab knowledge and the helper can be
@@ -93,28 +94,50 @@ the same colours as the terminals beside it. PHP is named outright, as a
 hunk rarely has the =<?php= bat would switch PHP on from. A file too large
 or generated, or one bat fails on, is drawn plain.
 
+A repository on GitHub goes to =mr-review-github= (=mr-review-github.sh=),
+which answers the same calls in the same shapes, so the tab knows one helper.
+GitLab's draft notes are GitHub's pending review there: one per pull request
+and person, seen only by them until it is submitted. A comment on lines is a
+thread of that review, a reply a pending reply in a thread, and a comment on
+the whole pull request goes into the review's own body. =S= submits it as a
+comment; =a= submits it as an approval, drafts and all, since GitHub keeps one
+review in the making. Pull requests a GitHub App opens in a repository of mine
+(an agent's) count as waiting for my review. The colouring both use is
+=mr-review-highlight.sh=, put before each script.
+
 Errexit stays off: =show='s requests run in the background and each records
 its own exit code, which errexit would end before it was written.
 
 #+begin_src nix
 { pkgs, ... }:
 let
+  highlight = builtins.readFile ./mr-review-highlight.sh;
+  tools = [
+    pkgs.bat
+    pkgs.coreutils
+    pkgs.gawk
+    pkgs.git
+    pkgs.gnused
+    pkgs.jq
+  ];
+  options = [
+    "nounset"
+    "pipefail"
+  ];
+  mrReviewGithub = pkgs.writeShellApplication {
+    name = "mr-review-github";
+    runtimeInputs = tools ++ [ pkgs.gh ];
+    bashOptions = options;
+    text = highlight + builtins.readFile ./mr-review-github.sh;
+  };
   mrReview = pkgs.writeShellApplication {
     name = "mr-review";
-    runtimeInputs = [
-      pkgs.bat
-      pkgs.coreutils
-      pkgs.gawk
-      pkgs.git
+    runtimeInputs = tools ++ [
       pkgs.glab
-      pkgs.gnused
-      pkgs.jq
+      mrReviewGithub
     ];
-    bashOptions = [
-      "nounset"
-      "pipefail"
-    ];
-    text = builtins.readFile ./mr-review.sh;
+    bashOptions = options;
+    text = highlight + builtins.readFile ./mr-review.sh;
   };
 in
 {

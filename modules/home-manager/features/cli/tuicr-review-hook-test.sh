@@ -27,7 +27,9 @@ EOF
 stub herdr-app <<'EOF'
 echo "herdr-app $*" >> "$CALLS"
 case "$1" in
-  ls) echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}' ;;
+  ls) [ -n "${NO_WINDOW:-}" ] && exit 1
+      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","tabs":[]}]}'
+      else echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
   *) echo '{"space":"sp-test","tab":"tb-review","terminal":"t9"}' ;;
 esac
 EOF
@@ -41,7 +43,7 @@ echo '#7 Fix the login'
 EOF
 
 input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+out="$(NO_MRS=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
 
 fail() {
   echo "tuicr review hook test: $1" >&2
@@ -76,3 +78,13 @@ jq -e '.hookSpecificOutput.additionalContext
   | test("MRs · repo") and test("mr-review show /tmp/repo 12") and (test("tuicr pr") | not)' <<<"$out" >/dev/null \
   || fail "the context does not point the agent at the MRs tab and its drafts"
 echo "tuicr review hook: merge request to the MRs tab passes"
+
+: > "$calls"
+input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
+out="$(NO_WINDOW=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+  || fail "a pull request on a machine with no window was not handed to the MRs tab"
+if grep -qE 'tab\.new|tuicr' "$calls"; then
+  fail "a pull request on a machine with no window opened tuicr"
+fi
+echo "tuicr review hook: pull request with no window here passes"

@@ -1,4 +1,4 @@
-# The GitLab side
+# The forge side
 
 # The tab asks =mr-review= (=mr-review.sh=) for everything and gets one JSON
 # answer per call, so the mod holds no GitLab knowledge and the helper can be
@@ -26,27 +26,49 @@
 # hunk rarely has the =<?php= bat would switch PHP on from. A file too large
 # or generated, or one bat fails on, is drawn plain.
 
+# A repository on GitHub goes to =mr-review-github= (=mr-review-github.sh=),
+# which answers the same calls in the same shapes, so the tab knows one helper.
+# GitLab's draft notes are GitHub's pending review there: one per pull request
+# and person, seen only by them until it is submitted. A comment on lines is a
+# thread of that review, a reply a pending reply in a thread, and a comment on
+# the whole pull request goes into the review's own body. =S= submits it as a
+# comment; =a= submits it as an approval, drafts and all, since GitHub keeps one
+# review in the making. Pull requests a GitHub App opens in a repository of mine
+# (an agent's) count as waiting for my review. The colouring both use is
+# =mr-review-highlight.sh=, put before each script.
+
 # Errexit stays off: =show='s requests run in the background and each records
 # its own exit code, which errexit would end before it was written.
 
 { pkgs, ... }:
 let
+  highlight = builtins.readFile ./mr-review-highlight.sh;
+  tools = [
+    pkgs.bat
+    pkgs.coreutils
+    pkgs.gawk
+    pkgs.git
+    pkgs.gnused
+    pkgs.jq
+  ];
+  options = [
+    "nounset"
+    "pipefail"
+  ];
+  mrReviewGithub = pkgs.writeShellApplication {
+    name = "mr-review-github";
+    runtimeInputs = tools ++ [ pkgs.gh ];
+    bashOptions = options;
+    text = highlight + builtins.readFile ./mr-review-github.sh;
+  };
   mrReview = pkgs.writeShellApplication {
     name = "mr-review";
-    runtimeInputs = [
-      pkgs.bat
-      pkgs.coreutils
-      pkgs.gawk
-      pkgs.git
+    runtimeInputs = tools ++ [
       pkgs.glab
-      pkgs.gnused
-      pkgs.jq
+      mrReviewGithub
     ];
-    bashOptions = [
-      "nounset"
-      "pipefail"
-    ];
-    text = builtins.readFile ./mr-review.sh;
+    bashOptions = options;
+    text = highlight + builtins.readFile ./mr-review.sh;
   };
 in
 {

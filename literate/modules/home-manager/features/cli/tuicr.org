@@ -91,14 +91,17 @@ there for them in the picker, from the agent's row or its PR pill. Herdr has no
 way to make a tab the selected one of a space without showing it, so the tab is
 not selected either.
 
-A GitLab merge request skips tuicr when the agent's space has an MRs tab
-(=mr-review.org=): it is reviewed there, with GitLab's own draft notes. The
-hook only labels the agent's terminal with the request, =review.view=mrs= and
-=review.at=, the time; the MRs tab of that space reads the labels and selects
-the request the next time it is drawn, and the agent is told to read the
-owner's drafts back with =mr-review show=. Nothing is shown or focused here
-either: the pill and =Cmd+Shift+R= show the tab, selected. A GitHub pull
-request, or a space whose MRs tab was closed, still gets tuicr.
+A merge or pull request skips tuicr when the agent's space has an MRs tab
+(=mr-review.org=): it is reviewed there, with GitLab's draft notes or GitHub's
+pending review. The hook only labels the agent's terminal with the request,
+=review.view=mrs= and =review.at=, the time; the MRs tab of that space reads
+the labels and selects the request the next time it is drawn, and the agent is
+told to read the owner's drafts back with =mr-review show=. Nothing is shown or
+focused here either: the pill and =Cmd+Shift+R= show the tab, selected. A space
+whose MRs tab was closed still gets tuicr. On a machine with no Herdr window
+(an agent on vulcan, its space shown by the window on another Mac) the hook
+cannot see the space's tabs, so it labels for the MRs tab all the same: the
+window's MRs tab takes it, and the pill opens tuicr where there is none.
 
 The script follows. It is tangled to =tuicr-review-hook.sh= beside the module,
 like the Nix around it, so it is edited here and never in that file.
@@ -190,14 +193,21 @@ review_title() {
 }
 
 # The space's MRs tab, by the name the requests mod gives it, or nothing.
+# With no Herdr window on this machine to ask, the window elsewhere that shows
+# the space is trusted to have one.
 mrs_tab() {
-  herdr-app ls 2>/dev/null | jq -r --arg s "$1" \
-    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty'
+  local layout
+  if ! layout="$(herdr-app ls 2>/dev/null)"; then
+    printf 'MRs'
+    return
+  fi
+  jq -r --arg s "$1" \
+    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty' <<<"$layout"
 }
 
 open_in_mrs() {
   local me="$HC_TERMINAL_ID" info space tab title
-  [[ "$url" == */-/merge_requests/* ]] && command -v herdr-app >/dev/null || return 1
+  [[ "$url" == */-/merge_requests/* || "$url" == */pull/* ]] || return 1
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
   tab="$(mrs_tab "$space")"
@@ -263,7 +273,9 @@ and =gh= for the Herdr desktop case and fails the build when it no longer opens
 a background tab named after the request in the agent's space, labels the
 agent's terminal, or tells the agent about a tab and how to close it, or when
 it moves the owner's view; and when a merge request in a space with an MRs
-tab is not handed to that tab through the labels, or opens anything.
+tab is not handed to that tab through the labels, or opens anything, and when
+a pull request on a machine with no Herdr window opens tuicr rather than being
+handed to the MRs tab.
 
 #+begin_src bash :tangle (concat (file-name-directory (my/lit-target)) "tuicr-review-hook-test.sh") :comments no
 #!/usr/bin/env bash
@@ -295,7 +307,9 @@ EOF
 stub herdr-app <<'EOF'
 echo "herdr-app $*" >> "$CALLS"
 case "$1" in
-  ls) echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}' ;;
+  ls) [ -n "${NO_WINDOW:-}" ] && exit 1
+      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","tabs":[]}]}'
+      else echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
   *) echo '{"space":"sp-test","tab":"tb-review","terminal":"t9"}' ;;
 esac
 EOF
@@ -309,7 +323,7 @@ echo '#7 Fix the login'
 EOF
 
 input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+out="$(NO_MRS=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
 
 fail() {
   echo "tuicr review hook test: $1" >&2
@@ -344,6 +358,16 @@ jq -e '.hookSpecificOutput.additionalContext
   | test("MRs · repo") and test("mr-review show /tmp/repo 12") and (test("tuicr pr") | not)' <<<"$out" >/dev/null \
   || fail "the context does not point the agent at the MRs tab and its drafts"
 echo "tuicr review hook: merge request to the MRs tab passes"
+
+: > "$calls"
+input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
+out="$(NO_WINDOW=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+  || fail "a pull request on a machine with no window was not handed to the MRs tab"
+if grep -qE 'tab\.new|tuicr' "$calls"; then
+  fail "a pull request on a machine with no window opened tuicr"
+fi
+echo "tuicr review hook: pull request with no window here passes"
 #+end_src
 
 

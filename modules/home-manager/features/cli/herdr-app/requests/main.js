@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, run, exec, theme, shared, setShared, checking, home, layout } from "herdr";
+import { spaces, terminals, run, exec, theme, shared, setShared, checking, home, layout } from "herdr";
 
 const BLOCK = "requests";
 const FOLDED_PX = 37;
@@ -148,16 +148,19 @@ export default class Requests extends View {
   jiraTabs(cx) {
     if (this.jiraBusy) return;
     const global = shared("requests.global");
-    const list = spaces().filter((s) => !s.machine && s.id !== global && s.folder);
+    const list = spaces().filter((s) => s.id !== global && (s.machine || s.folder));
     if (!list.length) return;
     this.jiraBusy = true;
     cx.spawn(async () => {
       for (const s of list) {
+        const remote = Boolean(s.machine);
         const repo = (shared("space.repos") ?? {})[s.id];
-        const where = repo?.path ?? s.folder;
+        const where = remote ? this.remoteFolder(s) : repo?.path ?? s.folder;
+        if (!where) continue;
         const id = `${where}|${s.branch ?? ""}`;
         const known = this.jiraKey[id];
-        if (!known || (!known.ok && Date.now() - known.at > 600000)) {
+        if (remote) this.jiraKey[id] = { ok: true, key: null, at: Date.now() };
+        else if (!known || (!known.ok && Date.now() - known.at > 600000)) {
           let key = null;
           try {
             const r = await exec("jira-board", ["project", where, s.branch ?? ""], { timeout: 15000 });
@@ -191,8 +194,8 @@ export default class Requests extends View {
           made.add(kind);
           added = true;
         };
-        if (where !== home()) open("Notes", `Notes · ${project}`, { folder: where, argv: ["notes"] });
-        if (where !== home() && await this.onGitlab(where)) open("MRs", `MRs · ${project}`, { mod: "mrs", props: { folder: where, space: s.id } });
+        if (where !== home() && !remote) open("Notes", `Notes · ${project}`, { folder: where, argv: ["notes"] });
+        if (where !== home() && await this.hasOrigin(where)) open("MRs", `MRs · ${project}`, { mod: "mrs", props: { folder: where, space: s.id } });
         if (jira) {
           for (const [kind, view] of JIRA_TABS) open(kind, `${kind} · ${project} (${jira})`, { mod: "jira", props: { folder: where, space: s.id, view } });
         }
@@ -206,20 +209,30 @@ export default class Requests extends View {
     });
   }
 
-  async onGitlab(where) {
+  // Whether a checkout here has an origin, GitLab or GitHub, for the MRs tab
+  // (mr-review.org), which runs on this computer whatever machine the space is on.
+  async hasOrigin(where) {
     this.remotes ??= {};
     const known = this.remotes[where];
-    if (known && (known.ok || Date.now() - known.at < 600000)) return known.gitlab;
-    let gitlab = false, ok = false;
+    if (known && (known.ok || Date.now() - known.at < 600000)) return known.ok;
+    let ok = false;
     try {
       const r = await exec("git", ["-C", where, "remote", "get-url", "origin"], { timeout: 5000 });
       ok = r.code === 0;
-      gitlab = ok && !/github\.com/.test(r.stdout);
     } catch {
-      gitlab = false;
+      ok = false;
     }
-    this.remotes[where] = { gitlab, ok, at: Date.now() };
-    return gitlab;
+    this.remotes[where] = { ok, at: Date.now() };
+    return ok;
+  }
+
+  // A space on another machine has no folder here: its terminals' folder,
+  // reviewed through the checkout at the same path on this computer, if any.
+  remoteFolder(s) {
+    if (s.folder) return s.folder;
+    const local = s.id.slice(s.machine.length + 1);
+    const t = terminals().find((x) => x.address.startsWith(`${s.machine}/`) && x.labels?.["herdr.space"] === local && x.cwd);
+    return t?.cwd ?? null;
   }
 
   ensureGlobal() {

@@ -84,14 +84,21 @@ review_title() {
 }
 
 # The space's MRs tab, by the name the requests mod gives it, or nothing.
+# With no Herdr window on this machine to ask, the window elsewhere that shows
+# the space is trusted to have one.
 mrs_tab() {
-  herdr-app ls 2>/dev/null | jq -r --arg s "$1" \
-    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty'
+  local layout
+  if ! layout="$(herdr-app ls 2>/dev/null)"; then
+    printf 'MRs'
+    return
+  fi
+  jq -r --arg s "$1" \
+    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty' <<<"$layout"
 }
 
 open_in_mrs() {
   local me="$HC_TERMINAL_ID" info space tab title
-  [[ "$url" == */-/merge_requests/* ]] && command -v herdr-app >/dev/null || return 1
+  [[ "$url" == */-/merge_requests/* || "$url" == */pull/* ]] || return 1
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
   tab="$(mrs_tab "$space")"

@@ -336,7 +336,7 @@ export default class Mrs extends View {
       const parsed = f.too_large ? [] : parseDiff(f.diff ?? "");
       const add = parsed.filter((r) => r.sign === "+").length, del = parsed.filter((r) => r.sign === "-").length;
       push({ kind: "file", file: fi, status: f.status, path: f.new_path, from: f.status === "R" ? f.old_path : null, add, del });
-      if (f.too_large) push({ kind: "text", file: fi, text: "Too large for GitLab to show: open it in the browser (o) or tuicr (t)." });
+      if (f.too_large) push({ kind: "text", file: fi, text: "Too large to show here: open it in the browser (o) or tuicr (t)." });
       else if (f.generated) push({ kind: "text", file: fi, text: "Generated file." });
       let oi = 0, ni = 0;
       for (const r of parsed) {
@@ -543,16 +543,30 @@ export default class Mrs extends View {
     const mr = this.detail?.mr;
     if (!mr) return;
     if (mr.approved_by_me) { this.act(cx, "Revoking…", ["unapprove", this.folder, String(mr.iid)], "Approval revoked."); return; }
-    if (!mr.can_approve) { this.say(mr.author === this.detail.me ? "You can't approve your own merge request." : "GitLab doesn't let you approve this one.", true); return; }
+    if (!mr.can_approve) { this.say(mr.author === this.detail.me ? "You can't approve your own request." : "You can't approve this one.", true); return; }
+    const n = this.detail.drafts?.length ?? 0;
+    if (this.github() && n) {
+      // GitHub keeps one review in the making: approving submits the drafts too.
+      if (this.confirm?.what !== "approve" || Date.now() - this.confirm.at > CONFIRM_MS) {
+        this.confirm = { what: "approve", at: Date.now() };
+        this.say(`Press a again to approve. GitHub publishes your ${n} draft${n === 1 ? "" : "s"} with the approval.`);
+        return;
+      }
+      this.confirm = null;
+    }
     this.act(cx, "Approving…", ["approve", this.folder, String(mr.iid)], "Approved.");
   }
+
+  github() { return (this.detail?.forge ?? this.list?.forge) === "github"; }
+
+  ref(iid) { return `${this.github() ? "#" : "!"}${iid}`; }
 
   submit(cx) {
     const n = this.detail?.drafts?.length ?? 0;
     if (!n) { this.say("No drafts to publish."); return; }
     if (this.confirm?.what !== "submit" || Date.now() - this.confirm.at > CONFIRM_MS) {
       this.confirm = { what: "submit", at: Date.now() };
-      this.say(`Press S again to publish ${n} draft${n === 1 ? "" : "s"}. Everyone on the merge request will see ${n === 1 ? "it" : "them"}.`);
+      this.say(`Press S again to publish ${n} draft${n === 1 ? "" : "s"}. Everyone on the request will see ${n === 1 ? "it" : "them"}.`);
       return;
     }
     this.confirm = null;
@@ -562,7 +576,7 @@ export default class Mrs extends View {
   tuicr() {
     const mr = this.detail?.mr;
     if (!mr) return;
-    run("tab.new", { name: `!${mr.iid} review`, space: this.space || undefined, folder: this.folder, argv: ["tuicr", "pr", mr.url] });
+    run("tab.new", { name: `${this.ref(mr.iid)} review`, space: this.space || undefined, folder: this.folder, argv: ["tuicr", "pr", mr.url] });
   }
 
   key(e, cx) {
@@ -640,7 +654,7 @@ export default class Mrs extends View {
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { this.pick = i; this.open(cx, m.iid); this.side = "diff"; this.handle.focus(); cx.notify(); })
       .child(h_flex().gap(6).items_center().min_w(0)
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(`!${m.iid}`))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(this.ref(m.iid)))
         .when(m.draft, (el) => el.child(div().flex_none().px(4).rounded(3).border_1().border_color(t.border).text_size(10).text_color(t.dim).child("Draft")))
         .child(div().flex_1().min_w(0).truncate().text_size(12).child(m.title)))
       .child(h_flex().gap(8).items_center().text_size(11).text_color(t.dim).min_w(0)
@@ -690,7 +704,7 @@ export default class Mrs extends View {
     const chip = (text, color) => div().flex_none().px(6).py(1).rounded(4).border_1().border_color(t.border).text_size(11).text_color(color ?? t.dim).child(text);
     return v_flex().flex_none().px(14).py(8).gap(4).border_b(1).border_color(t.border)
       .child(h_flex().gap(8).items_center().min_w(0)
-        .child(div().flex_none().text_color(t.dim).child(`!${mr.iid}`))
+        .child(div().flex_none().text_color(t.dim).child(this.ref(mr.iid)))
         .child(div().flex_1().min_w(0).truncate().font_semibold().child(mr.title)))
       .child(h_flex().gap(6).items_center().min_w(0).text_size(11).text_color(t.dim)
         .child(div().flex_none().child(mr.author_name || mr.author))
