@@ -14,15 +14,33 @@ there in a new tab.
 The list puts the merge requests waiting for my review first, then mine,
 then everyone else's, each with its pipeline, its approvals, how many of its
 threads are still open, its size and when it last moved. It is fetched every
-two minutes, while the window is in front, and at once when the window comes
-back after half a minute away. The merge request on the right is read again
-when the list says it moved on: a push, an approval, a pipeline that finished.
+two minutes, whether the window is in front or not, and at once when the
+window comes back after half a minute away. The merge request on the right is
+read again when the list says it moved on: a push, an approval, a pipeline
+that finished; the cursor stays on its line, and nothing reloads while a
+comment is being written.
+
+A request that comes in, or that starts asking for my review, is announced
+once with a Herdr notification, which shows the tab when clicked, and carries
+a dot in the list until it is opened. A tab's first list only learns what is
+there. The requests panel leaves those announcements to the tab for a
+repository that has one, and opens a request clicked there in the tab rather
+than in a tuicr tab of its own; =t= finds the request's tuicr tab before
+opening another.
 
 The diff is every file in one list, each line's threads under it and my
 drafts under those, and at the end the threads that sit on no line: the
 merge request's conversation, and threads whose line a later push took
 away. Where I was in each merge request is kept per space, so coming back to
-one puts the cursor on the same line.
+one puts the cursor on the same line; it is saved every few seconds as the
+cursor moves.
+
+=m= marks a file read, as GitHub's "Viewed" does: it folds down to its
+header and the cursor goes on to the next unread file, the header counts
+them (=3/16 read=), and the mark is saved at once, with the place. The mark
+holds a digest of the file's diff, so a push that changes the file brings it
+back unread, and one that leaves it alone keeps it folded. =m= on a folded
+file unfolds it.
 
 My comments are GitLab draft notes, as in GitLab's own review: nobody sees
 them until =S=, pressed twice, publishes them all at once. A draft shows in
@@ -37,6 +55,7 @@ the diff where it will land, and =D= on it drops it.
 | =]f= =[f=   | next and previous file                                        |
 | =]c= =[c=   | next and previous change                                      |
 | =]t= =[t=   | next and previous thread or draft                             |
+| =m=         | mark the file read, folding it away, or unfold it again       |
 | =tab=       | next merge request (=shift-tab= the previous one)             |
 | =v=         | select lines, for a comment on all of them                    |
 | =c=         | comment on the line, or on the selection                      |

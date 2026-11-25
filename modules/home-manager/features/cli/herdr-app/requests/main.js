@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, terminals, run, exec, theme, shared, setShared, checking, home, layout } from "herdr";
+import { spaces, terminals, panes, run, exec, theme, shared, setShared, checking, home, layout } from "herdr";
 
 const BLOCK = "requests";
 const FOLDED_PX = 37;
@@ -294,7 +294,7 @@ export default class Requests extends View {
       exec("terminal-notifier", ["-title", repo.name, "-subtitle", subtitle, "-message", message, "-group", `herdr-req-${url}`, "-open", url]).catch(() => {});
     for (const r of now.requests ?? []) {
       const old = was.get(r.url);
-      if (r.review && !old?.review) say("Review requested", `${r.key} ${r.title}`, r.url);
+      if (r.review && !old?.review && !this.mrsTab(repo)) say("Review requested", `${r.key} ${r.title}`, r.url);
       if (r.mine && r.ci?.state === "failed" && old && old.ci?.state !== "failed") say(`CI failed on ${r.key}`, r.ci.failed?.map((j) => j.name).join(", ") || r.title, r.ci.url ?? r.url);
     }
     const d = now.default;
@@ -319,7 +319,26 @@ export default class Requests extends View {
     return { folder: home(), argv: ["ssh", "-t", repo.machine, `cd ${quote(repo.path)} && exec ${argv.map(quote).join(" ")}`] };
   }
 
+  // The MRs tab (mr-review.org) of a space on this repository, which announces
+  // its own new requests and reviews them in place of a tuicr tab.
+  mrsTab(repo) {
+    for (const s of spaces()) {
+      const tab = s.tabs.find((t) => t.name === `MRs · ${repo.name}`);
+      if (tab) return { space: s.id, tab: tab.id };
+    }
+    return null;
+  }
+
   openRequest(repo, r) {
+    const mrs = this.mrsTab(repo);
+    const iid = Number(r.url?.match(/\/(?:-\/merge_requests|pull)\/(\d+)/)?.[1]);
+    if (mrs && iid) {
+      setShared("mrs.open", { space: mrs.space, iid, at: Date.now() });
+      run("tab.select", { id: mrs.tab });
+      const pane = panes().find((p) => p.mod === "mrs" && p.tab === mrs.tab);
+      if (pane) run("pane.focus", { pane: pane.pane });
+      return;
+    }
     const name = `${r.key} · ${r.title}`.slice(0, 70);
     const w = this.where(repo, ["tuicr", "pr", r.url]);
     this.openTab(name, w.folder, w.argv);
@@ -457,7 +476,7 @@ export default class Requests extends View {
     const id = `rq-${r.url}`;
     return h_flex().id(id).pl(18 + depth * 12).pr(8).h(24).flex_none().gap(6).items_center().rounded(5)
       .cursor_pointer().hover((s) => s.bg(t.hover)).on_hover(this.hover(id))
-      .tooltip(`${r.source} → ${r.target} · @${r.author}${r.draft ? " · draft" : ""}. Click: review in tuicr (Global space)`)
+      .tooltip(`${r.source} → ${r.target} · @${r.author}${r.draft ? " · draft" : ""}. Click: review it${this.mrsTab(repo) ? " in its MRs tab" : " in tuicr (Global space)"}`)
       .on_click(() => this.openRequest(repo, r))
       .when(depth > 0, (el) => el.child(div().text_size(10).text_color(t.dim).child("└")))
       .child(this.ciIcon(t, r.ci?.state))

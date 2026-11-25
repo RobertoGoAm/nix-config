@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, TextareaState, Textarea, Scrollbar, v_virtual_list, VirtualListScrollHandle } from "gpui-base";
-import { run, exec, theme, settings, props, checking, nextCommand, window, terminals, shared } from "herdr";
+import { run, exec, theme, settings, props, checking, nextCommand, window, terminals, shared, spaces, notify } from "herdr";
 
 const POLL_MS = 120000;
 const STALE_MS = 30000;
@@ -83,6 +83,14 @@ function colourRuns(raw) {
   return runs;
 }
 
+// What a file's read mark holds: a push that changes the file's diff makes it
+// another digest, and the file reads as unread again.
+function digest(text) {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 function wrap(text, cols) {
   const out = [];
   for (const para of String(text ?? "").replace(/\r/g, "").split("\n")) {
@@ -116,7 +124,7 @@ const GROUPS = [
   { id: "others", label: "Others", test: (m) => !m.mine && !m.review },
 ];
 
-const HINTS = "n e move · ]f [f file · ]c [c change · ]t [t thread · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
+const HINTS = "n e move · ]f [f file · ]c [c change · ]t [t thread · m read · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
 
 export default class Mrs extends View {
   init(_props, cx) {
@@ -155,6 +163,9 @@ export default class Mrs extends View {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(`sel:${this.space}`) ?? "null"); } catch { saved = null; }
     this.iid = Number.isInteger(saved) ? saved : null;
+    this.reads = {};
+    this.known = this.stored(`known:${this.space}`, null);
+    this.seen = this.stored(`seen:${this.space}`, null);
     try { this.handled = Number(localStorage.getItem(`handled:${this.space}`)) || 0; } catch { this.handled = 0; }
     this.loadList(cx);
     this.takeRequest(cx);
@@ -164,6 +175,7 @@ export default class Mrs extends View {
       if (active && !this.activeBefore) this.freshen(cx);
       this.activeBefore = active;
       this.takeRequest(cx);
+      this.saveAnchor();
     });
     cx.spawn(async (cx) => {
       for (;;) {
@@ -180,9 +192,42 @@ export default class Mrs extends View {
   }
 
   poll(cx) {
-    if (window()?.active === false) return;
     this.loadList(cx, true);
   }
+
+  stored(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; } catch { return fallback; }
+  }
+
+  store(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }
+
+  // Requests that came in since the last look, or that now ask for my review,
+  // are announced once; the first list of a tab only learns what is there.
+  announce(list) {
+    const before = this.known;
+    this.known = Object.fromEntries(list.mrs.map((m) => [m.iid, Boolean(m.review)]));
+    this.store(`known:${this.space}`, this.known);
+    if (this.seen == null) {
+      this.seen = list.mrs.map((m) => m.iid);
+      this.store(`seen:${this.space}`, this.seen);
+    }
+    if (!before || checking()) return;
+    const fresh = list.mrs.filter((m) => !m.mine && (!(m.iid in before) || (m.review && !before[m.iid])));
+    if (!fresh.length) return;
+    const project = String(list.project ?? "").split("/").pop();
+    const one = fresh.length === 1 ? fresh[0] : null;
+    const tab = spaces().find((x) => x.id === this.space)?.tabs.find((x) => x.name.startsWith("MRs · "));
+    notify({
+      title: one ? `${project}: ${this.ref(one.iid)} ${one.review ? "waits for your review" : "is new"}` : `${fresh.length} new requests in ${project}`,
+      body: one ? `${one.title} · ${one.author}` : fresh.map((m) => `${this.ref(m.iid)} ${m.title}`).join("\n"),
+      level: "info",
+      action: tab ? { name: "tab.select", args: { id: tab.id } } : undefined,
+    });
+  }
+
+  unseen(m) { return !m.mine && Array.isArray(this.seen) && !this.seen.includes(m.iid); }
 
   freshen(cx) {
     if (Date.now() - this.listAt > STALE_MS) this.loadList(cx, true);
@@ -196,6 +241,7 @@ export default class Mrs extends View {
       try {
         const list = await helper(["list", this.folder]);
         this.list = list;
+        if (Array.isArray(list.mrs)) this.announce(list);
         this.listError = null;
         this.listAt = Date.now();
         const mrs = this.ordered();
@@ -269,6 +315,7 @@ export default class Mrs extends View {
         this.detail = detail;
         this.detailError = null;
         this.detailAt = Date.now();
+        this.reads = this.stored(`read:${this.space}:${iid}`, {});
         this.build();
         this.restore(keep);
       } catch (e) {
@@ -297,6 +344,10 @@ export default class Mrs extends View {
     this.rows = [];
     this.cur = 0;
     try { localStorage.setItem(`sel:${this.space}`, JSON.stringify(iid)); } catch {}
+    if (Array.isArray(this.seen) && !this.seen.includes(iid)) {
+      this.seen = [...this.seen.filter((x) => this.list?.mrs?.some((m) => m.iid === x)), iid];
+      this.store(`seen:${this.space}`, this.seen);
+    }
     this.loadDetail(cx);
   }
 
@@ -335,7 +386,14 @@ export default class Mrs extends View {
     d.files.forEach((f, fi) => {
       const parsed = f.too_large ? [] : parseDiff(f.diff ?? "");
       const add = parsed.filter((r) => r.sign === "+").length, del = parsed.filter((r) => r.sign === "-").length;
-      push({ kind: "file", file: fi, status: f.status, path: f.new_path, from: f.status === "R" ? f.old_path : null, add, del });
+      const read = this.reads[f.new_path] === digest(f.diff ?? "");
+      push({ kind: "file", file: fi, status: f.status, path: f.new_path, from: f.status === "R" ? f.old_path : null, add, del, read });
+      if (read) {
+        const here = (at) => at && (at.path === f.new_path || at.old_path === f.old_path);
+        for (const th of threads) if (here(th.at)) placed.add(th.id);
+        for (const dr of drafts) if (here(dr.at)) placedDrafts.add(dr.id);
+        return;
+      }
       if (f.too_large) push({ kind: "text", file: fi, text: "Too large to show here: open it in the browser (o) or tuicr (t)." });
       else if (f.generated) push({ kind: "text", file: fi, text: "Generated file." });
       let oi = 0, ni = 0;
@@ -389,7 +447,36 @@ export default class Mrs extends View {
 
   saveAnchor() {
     if (!this.detail) return;
-    try { localStorage.setItem(`pos:${this.space}:${this.detail.mr.iid}`, JSON.stringify(this.anchor())); } catch {}
+    const text = JSON.stringify(this.anchor());
+    if (text === this.savedText) return;
+    this.savedText = text;
+    try { localStorage.setItem(`pos:${this.space}:${this.detail.mr.iid}`, text); } catch {}
+  }
+
+  readCount() {
+    return (this.detail?.files ?? []).filter((f) => this.reads[f.new_path] === digest(f.diff ?? "")).length;
+  }
+
+  // Marks the cursor's file read, folding it away and moving on to the next
+  // unread one, or unfolds it again; saved at once, with the place.
+  markRead() {
+    const d = this.detail;
+    const r = this.row();
+    if (!d || r?.file == null) { this.say("Put the cursor in a file to mark it read."); return; }
+    const f = d.files[r.file];
+    const was = this.reads[f.new_path] === digest(f.diff ?? "");
+    if (was) delete this.reads[f.new_path];
+    else this.reads[f.new_path] = digest(f.diff ?? "");
+    this.store(`read:${this.space}:${d.mr.iid}`, this.reads);
+    this.visual = null;
+    this.build();
+    const header = (x) => this.rows.findIndex((y) => y.kind === "file" && y.file === x);
+    const next = this.rows.findIndex((y) => y.kind === "file" && y.file > r.file && !y.read);
+    this.cur = was || next < 0 ? header(r.file) : next;
+    this.scroll.scroll_to_item(this.cur, "center");
+    this.saveAnchor();
+    const n = this.readCount();
+    this.say(was ? `${f.new_path} is unread again.` : n === d.files.length ? `All ${n} files read.` : `Read ${n} of ${d.files.length} files.`);
   }
 
   restore(a) {
@@ -576,7 +663,10 @@ export default class Mrs extends View {
   tuicr() {
     const mr = this.detail?.mr;
     if (!mr) return;
-    run("tab.new", { name: `${this.ref(mr.iid)} review`, space: this.space || undefined, folder: this.folder, argv: ["tuicr", "pr", mr.url] });
+    const name = `${this.ref(mr.iid)} review`;
+    const tab = spaces().find((x) => x.id === this.space)?.tabs.find((x) => x.name === name);
+    if (tab) run("tab.select", { id: tab.id });
+    else run("tab.new", { name, space: this.space || undefined, folder: this.folder, argv: ["tuicr", "pr", mr.url] });
   }
 
   key(e, cx) {
@@ -633,6 +723,7 @@ export default class Mrs extends View {
     else if (k === "C") this.startComment(cx, true);
     else if (k === "r") this.startReply(cx);
     else if (k === "x") this.resolve(cx);
+    else if (k === "m") this.markRead();
     else if (k === "D") this.dropDraft(cx);
     else if (k === "a") this.approve(cx);
     else if (k === "S") this.submit(cx);
@@ -654,6 +745,7 @@ export default class Mrs extends View {
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { this.pick = i; this.open(cx, m.iid); this.side = "diff"; this.handle.focus(); cx.notify(); })
       .child(h_flex().gap(6).items_center().min_w(0)
+        .when(this.unseen(m), (el) => el.child(div().flex_none().size(7).rounded(4).bg(t.accent)))
         .child(div().flex_none().text_size(11).text_color(t.dim).child(this.ref(m.iid)))
         .when(m.draft, (el) => el.child(div().flex_none().px(4).rounded(3).border_1().border_color(t.border).text_size(10).text_color(t.dim).child("Draft")))
         .child(div().flex_1().min_w(0).truncate().text_size(12).child(m.title)))
@@ -715,7 +807,8 @@ export default class Mrs extends View {
           : mr.approved ? chip(`approved${mr.approved_by.length ? ` by ${mr.approved_by.join(", ")}` : ""}`, t.done)
           : chip(mr.approvals_left ? `${mr.approvals_left} approval${mr.approvals_left === 1 ? "" : "s"} to go` : "not approved"))
         .when(open > 0, (el) => el.child(chip(`${open} open thread${open === 1 ? "" : "s"}`, t.working)))
-        .when(drafts > 0, (el) => el.child(chip(`${drafts} draft${drafts === 1 ? "" : "s"} · S publishes`, t.accent))));
+        .when(drafts > 0, (el) => el.child(chip(`${drafts} draft${drafts === 1 ? "" : "s"} · S publishes`, t.accent)))
+        .when(d.files.length > 0, (el) => el.child(chip(`${this.readCount()}/${d.files.length} read`, this.readCount() === d.files.length ? t.done : t.dim))));
   }
 
   diffRow(r, i, t, size) {
@@ -731,7 +824,8 @@ export default class Mrs extends View {
       const color = r.status === "A" ? t.ansi2 : r.status === "D" ? t.ansi1 : t.working;
       return base.bg(selected ? t.accent + "26" : t.raised).px(10).gap(8)
         .child(div().w(12).flex_none().text_color(color).child(r.status))
-        .child(div().min_w(0).truncate().font_semibold().child(r.from ? `${r.from} → ${r.path}` : r.path))
+        .child(div().min_w(0).truncate().font_semibold().when(Boolean(r.read), (el) => el.text_color(t.dim)).child(r.from ? `${r.from} → ${r.path}` : r.path))
+        .when(Boolean(r.read), (el) => el.child(div().flex_none().text_color(t.done).child("✓ read · m to unfold")))
         .child(div().flex_none().text_color(t.ansi2).child(`+${r.add}`))
         .child(div().flex_none().text_color(t.ansi1).child(`−${r.del}`));
     }
