@@ -124,7 +124,7 @@ const GROUPS = [
   { id: "others", label: "Others", test: (m) => !m.mine && !m.review },
 ];
 
-const HINTS = "n e move · ]f [f file · ]c [c change · ]t [t thread · m read · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
+const HINTS = "n e move · ]f [f file · ]c [c change · ]t [t thread · m read · w wrap · < > sideways · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
 
 export default class Mrs extends View {
   init(_props, cx) {
@@ -164,6 +164,8 @@ export default class Mrs extends View {
     try { saved = JSON.parse(localStorage.getItem(`sel:${this.space}`) ?? "null"); } catch { saved = null; }
     this.iid = Number.isInteger(saved) ? saved : null;
     this.reads = {};
+    this.wrap = this.stored("wrap", true);
+    this.hoff = 0;
     this.known = this.stored(`known:${this.space}`, null);
     this.seen = this.stored(`seen:${this.space}`, null);
     try { this.handled = Number(localStorage.getItem(`handled:${this.space}`)) || 0; } catch { this.handled = 0; }
@@ -383,6 +385,7 @@ export default class Mrs extends View {
       push({ kind: "gap" });
     }
     let longest = 0;
+    const width = Math.max(20, cols - 4);
     d.files.forEach((f, fi) => {
       const parsed = f.too_large ? [] : parseDiff(f.diff ?? "");
       const add = parsed.filter((r) => r.sign === "+").length, del = parsed.filter((r) => r.sign === "-").length;
@@ -405,7 +408,17 @@ export default class Mrs extends View {
           if (r.sign !== "-") ni++;
         }
         longest = Math.max(longest, row.text.length);
-        push(row);
+        if (row.kind === "line" && this.wrap && row.text.length > width) {
+          // A long line goes on over rows of its own, without numbers: each
+          // keeps the line's numbers and counters, so it comments as the line.
+          for (let from = 0; from < row.text.length;) {
+            let to = Math.min(row.text.length, from + width);
+            const space = to < row.text.length ? row.text.lastIndexOf(" ", to) : -1;
+            if (space > from + width / 2) to = space + 1;
+            push({ ...row, from, to, cont: from > 0 });
+            from = to;
+          }
+        } else push(row);
         if (row.kind !== "line") continue;
         for (const th of threads) if (!placed.has(th.id) && onLine(th.at, f, row)) thread(th, fi);
         for (const dr of drafts) if (!dr.reply_to && !placedDrafts.has(dr.id) && onLine(dr.at, f, row)) draft(dr, fi);
@@ -451,6 +464,15 @@ export default class Mrs extends View {
     if (text === this.savedText) return;
     this.savedText = text;
     try { localStorage.setItem(`pos:${this.space}:${this.detail.mr.iid}`, text); } catch {}
+  }
+
+  toggleWrap() {
+    const a = this.anchor();
+    this.wrap = !this.wrap;
+    this.hoff = 0;
+    this.store("wrap", this.wrap);
+    if (this.detail) { this.build(); this.restore(a); }
+    this.say(this.wrap ? "Long lines wrap." : "Long lines run on: < and > move them sideways.");
   }
 
   readCount() {
@@ -724,6 +746,11 @@ export default class Mrs extends View {
     else if (k === "r") this.startReply(cx);
     else if (k === "x") this.resolve(cx);
     else if (k === "m") this.markRead();
+    else if (k === "w") this.toggleWrap();
+    else if (k === ">" || k === "<") {
+      if (this.wrap) this.say("Lines wrap: w turns that off to move them sideways.");
+      else this.hoff = Math.max(0, Math.min(Math.max(0, this.longest - 20), this.hoff + (k === ">" ? 16 : -16)));
+    }
     else if (k === "D") this.dropDraft(cx);
     else if (k === "a") this.approve(cx);
     else if (k === "S") this.submit(cx);
@@ -849,9 +876,9 @@ export default class Mrs extends View {
     }
     const tint = r.sign === "+" ? t.ansi2 + "1c" : r.sign === "-" ? t.ansi1 + "1c" : null;
     return base.when(Boolean(tint) && !selected, (el) => el.bg(tint)).gap(0)
-      .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.old == null ? "" : String(r.old)))
-      .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.new == null ? "" : String(r.new)))
-      .child(div().w(Math.ceil(2.5 * cw)).flex_none().text_right().text_color(r.sign === "+" ? t.ansi2 : r.sign === "-" ? t.ansi1 : t.dim).child(r.sign === " " ? "" : r.sign))
+      .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.old == null || r.cont ? "" : String(r.old)))
+      .child(div().w(numW).flex_none().text_right().text_color(t.dim).child(r.new == null || r.cont ? "" : String(r.new)))
+      .child(div().w(Math.ceil(2.5 * cw)).flex_none().text_right().text_color(r.sign === "+" ? t.ansi2 : r.sign === "-" ? t.ansi1 : t.dim).child(r.cont ? "↪" : r.sign === " " ? "" : r.sign))
       .child(this.code(r, t));
   }
 
@@ -860,9 +887,20 @@ export default class Mrs extends View {
       const runs = r.hl ? colourRuns(r.hl) : null;
       r.runs = runs && runs.map((x) => x.text).join("") === r.text ? runs : null;
     }
-    if (!r.runs) return div().pl(8).flex_1().min_w(0).whitespace_nowrap().child(r.text);
-    return h_flex().pl(8).flex_1().min_w(0).whitespace_nowrap()
-      .children(r.runs.map((x) => div().flex_none().whitespace_nowrap()
+    // The part of the line this row shows: its piece of a wrapped line, or
+    // the line from the sideways offset on.
+    const from = r.from ?? (this.wrap ? 0 : this.hoff);
+    const to = r.to ?? Infinity;
+    if (!r.runs) return div().pl(8).flex_1().min_w(0).overflow_hidden().whitespace_nowrap().child(r.text.slice(from, to) || " ");
+    const parts = [];
+    let at = 0;
+    for (const x of r.runs) {
+      const a = Math.max(from, at), b = Math.min(to, at + x.text.length);
+      if (a < b) parts.push({ ...x, text: x.text.slice(a - at, b - at) });
+      at += x.text.length;
+    }
+    return h_flex().pl(8).flex_1().min_w(0).overflow_hidden().whitespace_nowrap()
+      .children(parts.map((x) => div().flex_none().whitespace_nowrap()
         .when(x.colour != null, (el) => el.text_color(t[`ansi${x.colour}`]))
         .when(x.bold, (el) => el.font_bold())
         .child(x.text)));
@@ -891,11 +929,9 @@ export default class Mrs extends View {
         })
         .when(Boolean(message), (el) => el.child(div().p(14).text_size(12).text_color(this.detailError ? t.blocked : t.dim).child(message)))
         .when(Boolean(d), (el) => el
-          .child(div().id("mrs-diff-x").w_full().h(this.height || 0).overflow_x_scrollbar()
-            .child(div().w_full().min_w(Math.max(300, (this.longest + 4) * charWidth(size) + 2 * Math.ceil(5 * charWidth(size)) + 40)).h(this.height || 0)
-              .child(v_virtual_list("mrs-diff", this.rows.length, rowHeight(size), (i) => String(i),
-                (range) => this.rows.slice(range.start, range.end).map((r, k) => this.diffRow(r, range.start + k, t, size))).track_scroll(this.scroll).w_full().h(this.height || 0)
-                .on_item_click((key, cx) => { this.side = "diff"; this.go(Number(key)); this.handle.focus(); cx.notify(); }))))
+          .child(v_virtual_list("mrs-diff", this.rows.length, rowHeight(size), (i) => String(i),
+            (range) => this.rows.slice(range.start, range.end).map((r, k) => this.diffRow(r, range.start + k, t, size))).track_scroll(this.scroll).w_full().h(this.height || 0)
+            .on_item_click((key, cx) => { this.side = "diff"; this.go(Number(key)); this.handle.focus(); cx.notify(); }))
           .child(Scrollbar.vertical("mrs-diff").viewport_from_layout().absolute().inset_0())))
       .when(Boolean(this.editing), (el) => el.child(v_flex().flex_none().p(10).gap(6).border_t(1).border_color(t.border).bg(t.raised)
         .child(h_flex().gap(8).text_size(11)

@@ -35,6 +35,13 @@ away. Where I was in each merge request is kept per space, so coming back to
 one puts the cursor on the same line; it is saved every few seconds as the
 cursor moves.
 
+Long lines wrap, at a space where one is near, onto rows of their own marked
+=↪= and without numbers, each still the line it belongs to, so a comment there
+lands on it. =w= lets them run on instead, and =<= and =>= move the code
+sideways then; the choice is kept. The diff moves sideways by keys rather
+than by a scroller, as the list of rows takes the trackpad's sideways
+scrolling for itself.
+
 =m= marks a file read, as GitHub's "Viewed" does: it folds down to its
 header and the cursor goes on to the next unread file, the header counts
 them (=3/16 read=), and the mark is saved at once, with the place. The mark
@@ -56,6 +63,8 @@ the diff where it will land, and =D= on it drops it.
 | =]c= =[c=   | next and previous change                                      |
 | =]t= =[t=   | next and previous thread or draft                             |
 | =m=         | mark the file read, folding it away, or unfold it again       |
+| =w=         | wrap long lines, or let them run on                          |
+| =<= =>=     | move run-on lines sideways                                    |
 | =tab=       | next merge request (=shift-tab= the previous one)             |
 | =v=         | select lines, for a comment on all of them                    |
 | =c=         | comment on the line, or on the selection                      |
