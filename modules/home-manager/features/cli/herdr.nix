@@ -121,8 +121,10 @@ in
   #   so it leaves the list by itself. Clicking it shows the request
   #   in its space's MRs tab (=mr-review.org=), selected and with the keyboard,
   #   the agents mod telling the tab which one through the shared key
-  #   =mrs.open=; a space without an MRs tab gets the request's tuicr pane, or
-  #   a new one beside the agent.
+  #   =mrs.open=. A request on another repository than the space's (the hook's
+  #   =review.folder=) goes to that repository's own =MRs · <name>= tab, and a
+  #   space without the tab gets one; a review an older hook opened in tuicr is
+  #   still shown while its tab is open.
   # - A search box under the filters, narrowing whichever filter is on (and its
   #   counts) to the agents whose space, tab, session title, program, pull
   #   request (=#123=, =!45=, its URL) or CI state (=ci:fail=) match every word
@@ -287,9 +289,9 @@ in
   #   yours), title, =review= when you are asked to review it, =✓= once
   #   approved; drafts are dimmed, and the branches and author are in the
   #   tooltip. Stacked requests nest in merge order, each under the one whose
-  #   branch it targets, so a chain reads from its base up. Clicking one opens
-  #   tuicr on it in a tab of the Global space, named =!624 · title=, or shows
-  #   that tab when it is already open.
+  #   branch it targets, so a chain reads from its base up. Clicking one shows it
+  #   in its repository's MRs tab, opening one in the Global space when no space
+  #   has it; one on another machine with no checkout here opens in the browser.
   # - CI, per repository: the latest pipeline or workflow run of the default
   #   branch and of every request's branch, with how long ago it ran and, when it
   #   failed, the failing jobs' names. Clicking a failure opens the first failed
@@ -561,7 +563,7 @@ in
   # | =cmd-;=       | leader: which-key panel, jump, model and effort, music |
   # | =cmd-n=       | launcher: new session with machine, agent, model, effort |
   # | =cmd-shift-c= | the focused Claude as a chat, and back to its terminal |
-  # | =cmd-shift-r= | the focused agent's review (MRs tab or tuicr), and back |
+  # | =cmd-shift-r= | the focused agent's review (its MRs tab), and back        |
   # | =cmd-shift-f= | search the agents list (within the current filter)    |
 
   # =keys.json= is the app's and stays writable: any edit marks it as the

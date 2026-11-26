@@ -85,7 +85,12 @@ comment box =⌘↵= saves the draft and =esc= gives up on it.
 An agent's merge request comes here rather than to tuicr: the review hook in
 =tuicr.org= labels the agent's terminal with it, and this space's tab selects
 it the next time it is drawn, without being shown; the agent's PR pill and
-=Cmd+Shift+R= show the tab on it. The agent reads the drafts back with
+=Cmd+Shift+R= show the tab on it. A request on a repository beside the
+space's, which =mr-review where= finds by its origin, gets a tab of its own in
+the space, =MRs · <name>=, opened in the background by the hook: it takes
+only requests that name its folder (=review.folder=, or =folder= in
+=mrs.open=) and keeps its selection, read files and place under its own
+=scope= rather than the space's. The agent reads the drafts back with
 =mr-review show=, and leaves publishing them to me.
 
 =requests= opens the tab with the others, for every space whose folder has an

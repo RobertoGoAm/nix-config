@@ -203,7 +203,7 @@ export default class Agents extends View {
       const url = t.labels?.["review.url"] || (agentSet.has(t.address) ? this.branchUrl[this.branchKey(t)]?.url : null) || null;
       if (t.state !== "live" || (!url && !review)) continue;
       const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
-      out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null, title: t.labels?.["review.title"] ?? null, space: t.labels?.["herdr.space"] ? machine + t.labels["herdr.space"] : null });
+      out.set(t.address, { url, terminal: review ? machine + review : null, cwd: t.cwd ?? null, title: t.labels?.["review.title"] ?? null, view: t.labels?.["review.view"] || null, folder: t.labels?.["review.folder"] || null, space: t.labels?.["herdr.space"] ? machine + t.labels["herdr.space"] : null });
     }
     return out;
   }
@@ -402,22 +402,42 @@ export default class Agents extends View {
     if (owner) return run("pane.focus", { terminal: owner });
     const r = agent && all.get(agent);
     if (!r) return;
-    if (this.showInMrs(r)) return;
-    const live = r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
+    this.showReview(r);
+  }
+
+  // A request's review: the tuicr tab an older review still has open, or its
+  // MRs tab, opened when the space has none. Only the agent's own changes,
+  // with no request, are reviewed in tuicr.
+  showReview(r) {
+    const live = r.view !== "mrs" && r.terminal && terminals().some((t) => t.address === r.terminal && t.state === "live");
     if (live) run("pane.focus", { terminal: r.terminal });
+    else if (this.showInMrs(r)) return;
+    else if (r.url) exec("/usr/bin/open", [r.url]).catch(() => {});
     else this.openReview(r);
   }
 
-  // A merge or pull request is reviewed in its space's MRs tab (mr-review.org)
-  // when the space has one: the tab is shown, given the keyboard, and told
-  // through shared("mrs.open") which request to select. False otherwise.
+  // A merge or pull request is reviewed in an MRs tab (mr-review.org) of its
+  // space: the space's own, or for a request on another repository (the
+  // review hook's review.folder) that repository's "MRs · <name>", with its
+  // own progress. The tab is shown, given the keyboard, and told through
+  // shared("mrs.open") which request to select; it is opened first when the
+  // space has none. False when there is no request or no folder to review it in.
   showInMrs(r) {
     const iid = Number(r.url?.match(/\/(?:-\/merge_requests|pull)\/(\d+)/)?.[1]);
     const space = iid && r.space ? spaces().find((s) => s.id === r.space) : null;
-    const tab = space?.tabs.find((x) => x.name.startsWith("MRs · "));
-    if (!tab) return false;
-    setShared("mrs.open", { space: space.id, iid, at: Date.now() });
+    if (!space) return false;
+    const base = (f) => String(f).split("/").filter(Boolean).pop();
+    const own = (shared("space.repos") ?? {})[space.id];
+    const folder = r.folder || own?.path || space.folder || r.cwd;
+    if (!folder) return false;
+    const name = `MRs · ${r.folder ? base(r.folder) : own?.name ?? base(folder)}`;
+    const tab = space.tabs.find((x) => x.name === name) ?? (r.folder ? null : space.tabs.find((x) => x.name.startsWith("MRs · ")));
+    setShared("mrs.open", { space: space.id, iid, folder: r.folder || undefined, at: Date.now() });
     run("space.select", { id: space.id });
+    if (!tab) {
+      run("tab.new", { space: space.id, name, mod: "mrs", props: r.folder ? { folder, space: space.id, scope: `${space.id}|${folder}` } : { folder, space: space.id } });
+      return true;
+    }
     run("tab.select", { id: tab.id });
     const pane = panes().find((p) => p.mod === "mrs" && p.tab === tab.id);
     if (pane) run("pane.focus", { pane: pane.pane });
@@ -425,9 +445,7 @@ export default class Agents extends View {
   }
 
   openReview(r) {
-    const n = r.url?.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1];
-    const name = r.title || (n ? `${r.url.includes("/pull/") ? "#" : "!"}${n}` : "review");
-    run("tab.new", { name, space: r.space ?? undefined, folder: r.cwd ?? undefined, argv: r.url ? ["tuicr", "pr", r.url] : ["tuicr", "-w"] });
+    run("tab.new", { name: r.title || "review", space: r.space ?? undefined, folder: r.cwd ?? undefined, argv: ["tuicr", "-w"] });
   }
 
   notifyChanges(list) {
@@ -519,11 +537,7 @@ export default class Agents extends View {
       .tooltip(`${r.url}\nCI: ${state}${c?.approved ? ", approved" : ""}. Click to review it.`)
       .on_click((_e, cx) => {
         cx.stop_propagation();
-        if (this.showInMrs(r)) return;
-        run("pane.focus", { pane: a.pane });
-        const live = r.terminal && terminals().some((x) => x.address === r.terminal && x.state === "live");
-        if (live) run("pane.focus", { terminal: r.terminal });
-        else this.openReview(r);
+        this.showReview(r);
       })
       .child(div().text_color(t.muted).child(ref))
       .when(state === "running", (el) => el.child(svg("mods/workspace-chrome/spinner.svg").size(10).flex_none().text_color(color).spin(900)))

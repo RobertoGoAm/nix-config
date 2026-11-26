@@ -131,6 +131,10 @@ export default class Mrs extends View {
     const p = props() ?? {};
     this.folder = p.folder ?? null;
     this.space = p.space ?? "";
+    // The space's own repository's tab keeps its state under the space; a tab
+    // for another repository in the space (the review hook opens one for a
+    // request there) under a scope of its own.
+    this.scope = p.scope ?? this.space;
     this.handle = cx.focus_handle();
     this.scroll = VirtualListScrollHandle.new();
     this.list = null;
@@ -161,14 +165,14 @@ export default class Mrs extends View {
     this.editor.on("submit", (_e, cx) => this.save(cx));
     if (checking()) return;
     let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(`sel:${this.space}`) ?? "null"); } catch { saved = null; }
+    try { saved = JSON.parse(localStorage.getItem(`sel:${this.scope}`) ?? "null"); } catch { saved = null; }
     this.iid = Number.isInteger(saved) ? saved : null;
     this.reads = {};
     this.wrap = this.stored("wrap", true);
     this.hoff = 0;
-    this.known = this.stored(`known:${this.space}`, null);
-    this.seen = this.stored(`seen:${this.space}`, null);
-    try { this.handled = Number(localStorage.getItem(`handled:${this.space}`)) || 0; } catch { this.handled = 0; }
+    this.known = this.stored(`known:${this.scope}`, null);
+    this.seen = this.stored(`seen:${this.scope}`, null);
+    try { this.handled = Number(localStorage.getItem(`handled:${this.scope}`)) || 0; } catch { this.handled = 0; }
     this.loadList(cx);
     this.takeRequest(cx);
     cx.timer.every(POLL_MS, (cx) => this.poll(cx));
@@ -210,23 +214,38 @@ export default class Mrs extends View {
   announce(list) {
     const before = this.known;
     this.known = Object.fromEntries(list.mrs.map((m) => [m.iid, Boolean(m.review)]));
-    this.store(`known:${this.space}`, this.known);
+    this.store(`known:${this.scope}`, this.known);
     if (this.seen == null) {
       this.seen = list.mrs.map((m) => m.iid);
-      this.store(`seen:${this.space}`, this.seen);
+      this.store(`seen:${this.scope}`, this.seen);
     }
     if (!before || checking()) return;
     const fresh = list.mrs.filter((m) => !m.mine && (!(m.iid in before) || (m.review && !before[m.iid])));
     if (!fresh.length) return;
     const project = String(list.project ?? "").split("/").pop();
     const one = fresh.length === 1 ? fresh[0] : null;
-    const tab = spaces().find((x) => x.id === this.space)?.tabs.find((x) => x.name.startsWith("MRs · "));
+    const tab = this.ownTab();
     notify({
       title: one ? `${project}: ${this.ref(one.iid)} ${one.review ? "waits for your review" : "is new"}` : `${fresh.length} new requests in ${project}`,
       body: one ? `${one.title} · ${one.author}` : fresh.map((m) => `${this.ref(m.iid)} ${m.title}`).join("\n"),
       level: "info",
       action: tab ? { name: "tab.select", args: { id: tab.id } } : undefined,
     });
+  }
+
+  // This tab, by the name it was opened with: "MRs · <repository>", or for
+  // the space's own repository the first MRs tab, whatever it is called.
+  ownTab() {
+    const tabs = spaces().find((x) => x.id === this.space)?.tabs ?? [];
+    const name = `MRs · ${String(this.folder ?? "").split("/").filter(Boolean).pop()}`;
+    return tabs.find((x) => x.name === name) ?? (this.scope === this.space ? tabs.find((x) => x.name.startsWith("MRs · ")) : null);
+  }
+
+  // Whether a request names this tab: one for another repository names its
+  // checkout (review.folder, or folder in shared("mrs.open")), one for the
+  // space's own names none.
+  mine(folder) {
+    return this.scope === this.space ? !folder : folder === this.folder;
   }
 
   unseen(m) { return !m.mine && Array.isArray(this.seen) && !this.seen.includes(m.iid); }
@@ -266,20 +285,20 @@ export default class Mrs extends View {
     cx.notify();
   }
 
-  // A merge request to show, asked for after the last one taken: by the review
+  // A request to show, asked for after the last one taken: by the review
   // hook, through the labels of an agent in this space that just opened it
-  // (review.at in seconds), or by the agents mod's pill and Cmd+Shift+R,
-  // through shared("mrs.open") (at in milliseconds).
+  // (review.at in seconds), or by the agents mod's pill, Cmd+Shift+R and the
+  // requests list, through shared("mrs.open") (at in milliseconds).
   requested() {
     let best = null;
     const s = shared("mrs.open");
-    if (s && s.space === this.space && Number.isInteger(s.iid) && s.at > this.handled) best = { iid: s.iid, at: s.at };
+    if (s && s.space === this.space && this.mine(s.folder) && Number.isInteger(s.iid) && s.at > this.handled) best = { iid: s.iid, at: s.at };
     for (const t of terminals()) {
       const l = t.labels;
       if (l?.["review.view"] !== "mrs") continue;
       const machine = t.address.includes("/") ? t.address.split("/")[0] + "/" : "";
-      if (machine + l["herdr.space"] !== this.space) continue;
-      const iid = Number(l["review.url"]?.match(/\/merge_requests\/(\d+)/)?.[1]);
+      if (machine + l["herdr.space"] !== this.space || !this.mine(l["review.folder"] || null)) continue;
+      const iid = Number(l["review.url"]?.match(/\/(?:-\/merge_requests|pull)\/(\d+)/)?.[1]);
       const at = Number(l["review.at"]) * 1000;
       if (iid && at > this.handled && at > (best?.at ?? 0)) best = { iid, at };
     }
@@ -290,7 +309,7 @@ export default class Mrs extends View {
     const r = !this.editing && this.requested();
     if (!r) return;
     this.handled = r.at;
-    try { localStorage.setItem(`handled:${this.space}`, String(r.at)); } catch {}
+    try { localStorage.setItem(`handled:${this.scope}`, String(r.at)); } catch {}
     this.side = "diff";
     this.open(cx, r.iid);
     this.loadList(cx, true);
@@ -317,7 +336,7 @@ export default class Mrs extends View {
         this.detail = detail;
         this.detailError = null;
         this.detailAt = Date.now();
-        this.reads = detail.state?.reads ?? this.stored(`read:${this.space}:${iid}`, {});
+        this.reads = detail.state?.reads ?? this.stored(`read:${this.scope}:${iid}`, {});
         this.savedText = JSON.stringify(detail.state?.pos ?? null);
         this.build();
         this.restore(keep);
@@ -346,10 +365,10 @@ export default class Mrs extends View {
     this.detail = this.detail?.mr.iid === iid ? this.detail : null;
     this.rows = [];
     this.cur = 0;
-    try { localStorage.setItem(`sel:${this.space}`, JSON.stringify(iid)); } catch {}
+    try { localStorage.setItem(`sel:${this.scope}`, JSON.stringify(iid)); } catch {}
     if (Array.isArray(this.seen) && !this.seen.includes(iid)) {
       this.seen = [...this.seen.filter((x) => this.list?.mrs?.some((m) => m.iid === x)), iid];
-      this.store(`seen:${this.space}`, this.seen);
+      this.store(`seen:${this.scope}`, this.seen);
     }
     this.loadDetail(cx);
   }
@@ -456,7 +475,7 @@ export default class Mrs extends View {
   }
 
   savedAnchor(iid) {
-    try { return JSON.parse(localStorage.getItem(`pos:${this.space}:${iid}`) ?? "null"); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem(`pos:${this.scope}:${iid}`) ?? "null"); } catch { return null; }
   }
 
   saveAnchor() {

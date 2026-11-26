@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Claude Code PostToolUse hook: after a Bash call that opened a pull or merge
-# request, open it in tuicr for the owner to review, and tell the agent where
-# the review lives. In the Herdr TUI it splits the agent's pane; in Herdr
-# desktop it opens a background tab in the agent's space; in Orca, a new tab.
+# request, put it up for the owner to review, and tell the agent where the
+# review lives. In the Herdr TUI it splits the agent's pane for tuicr; in Orca
+# it opens a tuicr tab; in Herdr desktop it hands it to an MRs tab.
 # Anywhere else, or when the command did not open a request, it does nothing.
 set -u -o pipefail
 
@@ -57,14 +57,8 @@ open_in_herdr() {
   printf '%s' "$pane"
 }
 
-# Herdr desktop: the review opens as a new tab in the agent's own space, named
-# after the request ("#123 Fix login" or "!45 Fix login") so the picker finds
-# it, in the background: the owner's view never moves. Where the app does not
-# run on the agent's machine (an agent on another Mac), herdr-core starts it as
-# a new tab of that space, which Herdr names on its own. The agent's terminal
-# is labelled with the request's URL and the review's terminal, which the
-# agents-plus mod reads to draw the PR pill with its CI state and to bring the
-# review back.
+# The request's name for its tab and the agent's pill: "#123 Fix login" or
+# "!45 Fix login".
 review_title() {
   local t
   case "$url" in
@@ -83,60 +77,53 @@ review_title() {
   printf '%s' "${t:0:60}"
 }
 
-# The space's MRs tab, by the name the requests mod gives it, or nothing.
+# The MRs tab for the request: the space's own when the request is on the
+# space's repository (the first "MRs · " tab, whatever the requests mod named
+# it), and otherwise "MRs · <repository>", with its own selection and progress
+# (scope). It is opened in the background when the space has none. The agent's
+# terminal is labelled first, so the new tab finds the request when it starts.
 # With no Herdr window on this machine to ask, the window elsewhere that shows
-# the space is trusted to have one.
-mrs_tab() {
-  local layout
-  if ! layout="$(herdr-app ls 2>/dev/null)"; then
-    printf 'MRs'
-    return
-  fi
-  jq -r --arg s "$1" \
-    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty' <<<"$layout"
-}
-
+# the space is trusted to have the tab, or the PR pill opens it.
 open_in_mrs() {
-  local me="$HC_TERMINAL_ID" info space tab title
+  local me="$HC_TERMINAL_ID" info space repo layout home own tab name props title
   [[ "$url" == */-/merge_requests/* || "$url" == */pull/* ]] || return 1
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
-  tab="$(mrs_tab "$space")"
-  [[ -n "$tab" ]] || return 1
+  repo="$(mr-review where "$url" "$cwd" 2>/dev/null | jq -er '.dir')" || return 1
+  layout="$(herdr-app ls 2>/dev/null)" || layout=""
+  home="$(jq -r --arg s "$space" 'first(.. | objects | select(.tabs? and .id == $s) | .folder // empty) // empty' <<<"${layout:-null}")"
+  home="${home:-$cwd}"
+  home="$(git -C "$home" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$home")"
+  own=false
+  [[ "$repo" == "$home" ]] && own=true
+  name="MRs · ${repo##*/}"
   title="$(review_title)"
-  hc label "$me" "review.url=$url" "review.title=$title" "review.view=mrs" "review.at=$(date +%s)" "review.terminal=" >/dev/null || return 1
-  printf '%s' "$tab"
-}
-
-open_in_herdr_app() {
-  local me="$HC_TERMINAL_ID" info space run addr argv title
-  info="$(hc get "$me" --json)" || return 1
-  space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
-  title="$(review_title)"
-  argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
-  if command -v herdr-app >/dev/null \
-    && run="$(herdr-app do tab.new --space "$space" --name "$title" --folder "$cwd" --argv "$argv" --focus false 2>/dev/null)" \
-    && addr="$(jq -er '.terminal' <<<"$run")"; then
-    :
-  else
-    run="$(hc run --bg --json --no-parent --no-notify --rm --cwd "$cwd" \
-      --label "herdr.space=$space" --label "herdr.tab=tbreview$(date +%s)$RANDOM" -- tuicr pr "$url")" || return 1
-    addr="$(jq -er '.address' <<<"$run")" || return 1
+  hc label "$me" "review.url=$url" "review.title=$title" "review.view=mrs" "review.at=$(date +%s)" \
+    "review.folder=$([[ $own == true ]] || printf '%s' "$repo")" "review.terminal=" >/dev/null || return 1
+  if [[ -z "$layout" ]]; then
+    printf '%s\t%s' "$name" "$repo"
+    return
   fi
-  hc label "$me" "review.url=$url" "review.terminal=$addr" "review.title=$title" "review.view=" >/dev/null || true
-  printf '%s\t%s' "$addr" "$title"
+  tab="$(jq -r --arg s "$space" --arg n "$name" --argjson own "$own" '
+    [.. | objects | select(.tabs? and .id == $s) | .tabs[] | .name | select(startswith("MRs · "))] as $t
+    | if ($t | index($n)) != null then $n elif $own and ($t | length) > 0 then $t[0] else "" end' <<<"$layout")"
+  if [[ -z "$tab" ]]; then
+    props="$(jq -cn --arg f "$repo" --arg s "$space" --argjson own "$own" \
+      '{folder: $f, space: $s} + (if $own then {} else {scope: "\($s)|\($f)"} end)')"
+    herdr-app do tab.new --space "$space" --name "$name" --mod mrs --props "$props" --focus false >/dev/null || return 1
+    tab="$name"
+  fi
+  printf '%s\t%s' "$tab" "$repo"
 }
 
 case "$host" in
   herdr-app)
-    if tab="$(open_in_mrs 2>/dev/null)"; then
-      context "$url is open for review in this space's \"$tab\" tab, where the user reviews GitLab merge requests with nvim's keys inside Herdr. It was not shown, so their view did not move; do not open tuicr or anything else for it, and do not focus it. Tell the user it is ready: Cmd+Shift+R from your row, or the PR pill, which also shows its CI state, brings the tab up on it. Their comments are GitLab draft notes, which only they see until they publish them. When they say the review is done, read them with \`mr-review show $cwd ${url##*/} | jq '{drafts, threads}'\`: each draft has its body, \`at\` (path, old_line and new_line; null for one on the whole merge request) and \`reply_to\`, the id of the thread in \`threads\` it answers. Publishing or dropping their drafts is theirs to do, not yours."
-    elif opened="$(open_in_herdr_app 2>&1)"; then
-      term="${opened%%$'\t'*}"
-      title="${opened#*$'\t'}"
-      context "tuicr is now open on $url in a new Herdr tab named \"$title\" in this space (terminal $term), opened in the background so the user's view did not move; do not open another, and do not focus it. Tell the user it is ready: they reach it with Cmd+P by that title, Cmd+Shift+R from your row, or the PR pill, which also shows its CI state. $read_back The tab holds only that terminal, so \`hc kill $term\` closes it once it is no longer needed."
+    if opened="$(open_in_mrs 2>/dev/null)"; then
+      tab="${opened%%$'\t'*}"
+      repo="${opened#*$'\t'}"
+      context "$url is open for review in this space's \"$tab\" tab, where the user reviews merge and pull requests with nvim's keys inside Herdr. It was not shown, so their view did not move; do not open tuicr or anything else for it, and do not focus it. Tell the user it is ready: Cmd+Shift+R from your row, or the PR pill, which also shows its CI state, brings the tab up on it. Their comments are drafts (GitLab draft notes, or GitHub's pending review), which only they see until they publish them. When they say the review is done, read them with \`mr-review show $repo ${url##*/} | jq '{drafts, threads}'\`: each draft has its body, \`at\` (path, old_line and new_line; null for one on the whole request) and \`reply_to\`, the id of the thread in \`threads\` it answers. Publishing or dropping their drafts is theirs to do, not yours."
     else
-      context "Opening tuicr on $url in a Herdr tab failed: $opened. Tell the user they can run \`tuicr pr $url\` themselves."
+      context "$url has no checkout on this machine in or beside $cwd, so it could not be put in an MRs tab for review. Tell the user the request is open at $url; do not open tuicr for it."
     fi
     ;;
   herdr)

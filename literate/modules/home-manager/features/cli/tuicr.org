@@ -60,48 +60,39 @@ let
   '';
 #+end_src
 
-* Pull requests an agent opens land in tuicr by themselves
+* Pull requests an agent opens land in a review by themselves
 
 A PostToolUse hook watches Bash calls made inside Herdr or Orca. When one
 created a pull or merge request (=gh pr create=, =glab mr create=, or
 =df mr-generate=, which wraps the latter) and its output carries the
-request's URL, the hook opens =tuicr pr <url>= beside the agent and hands it
+request's URL, the hook puts the request up for review and hands the agent
 the URL, where the review is and how to read it back, so it waits for the
 owner's comments instead of opening a second review. Inside a Herdr pane
 (=HERDR_ENV=1=, checked first, since Herdr can itself run in an Orca tab) the
-agent's pane is split and tuicr runs in the new half; tuicr's own Herdr
-wrapper waits for the review to end, which would hold the agent up, so the
-hook splits and runs without waiting. Inside Herdr desktop (=HC_TERMINAL_ID=
-set, checked next) the review opens as a new tab in the agent's own space,
-named after the request (=#123 Fix login=, or =!45 Fix login= for a GitLab
-merge request, from =gh= or =glab=) so the picker finds it, and takes the
-focus, through the app's own =tab.new=. For an agent on another machine than
-the window it starts instead as a herdr-core terminal labelled with the
-agent's space and a new tab id, which makes it a new tab there that Herdr
-names on its own. The agent's
-terminal gets =review.url=, =review.terminal= and =review.title= labels, which the agents-plus
-mod in =herdr.org= reads to show the request and its CI beside the agent's row.
-Inside Orca it opens a tab through the Orca wrapper. Anything else, and every
-call outside all three, passes untouched.
-Inside Herdr desktop the review opens as a new tab in the agent's own space,
-named after the request, in the background: Herdr's =tab.new= with =focus:
-false= leaves the shown space, its selected tab and the keyboard where they
-were, so the owner is never moved off what they are doing, and the request is
-there for them in the picker, from the agent's row or its PR pill. Herdr has no
-way to make a tab the selected one of a space without showing it, so the tab is
-not selected either.
+agent's pane is split and =tuicr pr <url>= runs in the new half; tuicr's own
+Herdr wrapper waits for the review to end, which would hold the agent up, so
+the hook splits and runs without waiting. Inside Orca it opens a tuicr tab
+through the Orca wrapper. Inside Herdr desktop (=HC_TERMINAL_ID= set, checked
+next) it goes to an MRs tab, below. Anything else, and every call outside all
+three, passes untouched.
 
-A merge or pull request skips tuicr when the agent's space has an MRs tab
-(=mr-review.org=): it is reviewed there, with GitLab's draft notes or GitHub's
-pending review. The hook only labels the agent's terminal with the request,
-=review.view=mrs= and =review.at=, the time; the MRs tab of that space reads
-the labels and selects the request the next time it is drawn, and the agent is
-told to read the owner's drafts back with =mr-review show=. Nothing is shown or
-focused here either: the pill and =Cmd+Shift+R= show the tab, selected. A space
-whose MRs tab was closed still gets tuicr. On a machine with no Herdr window
-(an agent on vulcan, its space shown by the window on another Mac) the hook
-cannot see the space's tabs, so it labels for the MRs tab all the same: the
-window's MRs tab takes it, and the pill opens tuicr where there is none.
+Inside Herdr desktop a merge or pull request never goes to tuicr: it is
+reviewed in an MRs tab (=mr-review.org=), with GitLab's draft notes or
+GitHub's pending review. The request's checkout comes from =mr-review where=,
+by its origin: the agent's own repository, or one beside it, as when an agent
+in one repository opens requests in the packages next to it. The space's own
+repository is reviewed in the space's MRs tab, whatever the requests mod named
+it; another repository in a tab of its own, =MRs · <name>=, with its own
+selection and progress (=scope=). The hook labels the agent's terminal with
+the request, =review.view=mrs=, =review.at=, the time, and =review.folder=
+for another repository's tab, and opens the tab in the background when the
+space has none; the tab reads the labels and selects the request the next
+time it is drawn, and the agent is told to read the owner's drafts back with
+=mr-review show=. Nothing is shown or focused: the pill and =Cmd+Shift+R= show
+the tab, selected. On a machine with no Herdr window (an agent on vulcan, its
+space shown by the window on another Mac) the hook cannot see or open the
+space's tabs, so it only labels: the window's tab takes it, or the pill opens
+one. A request whose checkout is nowhere near the agent is only named to it.
 
 The script follows. It is tangled to =tuicr-review-hook.sh= beside the module,
 like the Nix around it, so it is edited here and never in that file.
@@ -109,9 +100,9 @@ like the Nix around it, so it is edited here and never in that file.
 #+begin_src bash :tangle (concat (file-name-directory (my/lit-target)) "tuicr-review-hook.sh") :comments no
 #!/usr/bin/env bash
 # Claude Code PostToolUse hook: after a Bash call that opened a pull or merge
-# request, open it in tuicr for the owner to review, and tell the agent where
-# the review lives. In the Herdr TUI it splits the agent's pane; in Herdr
-# desktop it opens a background tab in the agent's space; in Orca, a new tab.
+# request, put it up for the owner to review, and tell the agent where the
+# review lives. In the Herdr TUI it splits the agent's pane for tuicr; in Orca
+# it opens a tuicr tab; in Herdr desktop it hands it to an MRs tab.
 # Anywhere else, or when the command did not open a request, it does nothing.
 set -u -o pipefail
 
@@ -166,14 +157,8 @@ open_in_herdr() {
   printf '%s' "$pane"
 }
 
-# Herdr desktop: the review opens as a new tab in the agent's own space, named
-# after the request ("#123 Fix login" or "!45 Fix login") so the picker finds
-# it, in the background: the owner's view never moves. Where the app does not
-# run on the agent's machine (an agent on another Mac), herdr-core starts it as
-# a new tab of that space, which Herdr names on its own. The agent's terminal
-# is labelled with the request's URL and the review's terminal, which the
-# agents-plus mod reads to draw the PR pill with its CI state and to bring the
-# review back.
+# The request's name for its tab and the agent's pill: "#123 Fix login" or
+# "!45 Fix login".
 review_title() {
   local t
   case "$url" in
@@ -192,60 +177,53 @@ review_title() {
   printf '%s' "${t:0:60}"
 }
 
-# The space's MRs tab, by the name the requests mod gives it, or nothing.
+# The MRs tab for the request: the space's own when the request is on the
+# space's repository (the first "MRs · " tab, whatever the requests mod named
+# it), and otherwise "MRs · <repository>", with its own selection and progress
+# (scope). It is opened in the background when the space has none. The agent's
+# terminal is labelled first, so the new tab finds the request when it starts.
 # With no Herdr window on this machine to ask, the window elsewhere that shows
-# the space is trusted to have one.
-mrs_tab() {
-  local layout
-  if ! layout="$(herdr-app ls 2>/dev/null)"; then
-    printf 'MRs'
-    return
-  fi
-  jq -r --arg s "$1" \
-    'first(.. | objects | select(.tabs? and .id == $s) | .tabs[] | select(.name | startswith("MRs · ")) | .name) // empty' <<<"$layout"
-}
-
+# the space is trusted to have the tab, or the PR pill opens it.
 open_in_mrs() {
-  local me="$HC_TERMINAL_ID" info space tab title
+  local me="$HC_TERMINAL_ID" info space repo layout home own tab name props title
   [[ "$url" == */-/merge_requests/* || "$url" == */pull/* ]] || return 1
   info="$(hc get "$me" --json)" || return 1
   space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
-  tab="$(mrs_tab "$space")"
-  [[ -n "$tab" ]] || return 1
+  repo="$(mr-review where "$url" "$cwd" 2>/dev/null | jq -er '.dir')" || return 1
+  layout="$(herdr-app ls 2>/dev/null)" || layout=""
+  home="$(jq -r --arg s "$space" 'first(.. | objects | select(.tabs? and .id == $s) | .folder // empty) // empty' <<<"${layout:-null}")"
+  home="${home:-$cwd}"
+  home="$(git -C "$home" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$home")"
+  own=false
+  [[ "$repo" == "$home" ]] && own=true
+  name="MRs · ${repo##*/}"
   title="$(review_title)"
-  hc label "$me" "review.url=$url" "review.title=$title" "review.view=mrs" "review.at=$(date +%s)" "review.terminal=" >/dev/null || return 1
-  printf '%s' "$tab"
-}
-
-open_in_herdr_app() {
-  local me="$HC_TERMINAL_ID" info space run addr argv title
-  info="$(hc get "$me" --json)" || return 1
-  space="$(jq -er '.labels["herdr.space"]' <<<"$info")" || return 1
-  title="$(review_title)"
-  argv="$(jq -cn --arg url "$url" '["tuicr", "pr", $url]')"
-  if command -v herdr-app >/dev/null \
-    && run="$(herdr-app do tab.new --space "$space" --name "$title" --folder "$cwd" --argv "$argv" --focus false 2>/dev/null)" \
-    && addr="$(jq -er '.terminal' <<<"$run")"; then
-    :
-  else
-    run="$(hc run --bg --json --no-parent --no-notify --rm --cwd "$cwd" \
-      --label "herdr.space=$space" --label "herdr.tab=tbreview$(date +%s)$RANDOM" -- tuicr pr "$url")" || return 1
-    addr="$(jq -er '.address' <<<"$run")" || return 1
+  hc label "$me" "review.url=$url" "review.title=$title" "review.view=mrs" "review.at=$(date +%s)" \
+    "review.folder=$([[ $own == true ]] || printf '%s' "$repo")" "review.terminal=" >/dev/null || return 1
+  if [[ -z "$layout" ]]; then
+    printf '%s\t%s' "$name" "$repo"
+    return
   fi
-  hc label "$me" "review.url=$url" "review.terminal=$addr" "review.title=$title" "review.view=" >/dev/null || true
-  printf '%s\t%s' "$addr" "$title"
+  tab="$(jq -r --arg s "$space" --arg n "$name" --argjson own "$own" '
+    [.. | objects | select(.tabs? and .id == $s) | .tabs[] | .name | select(startswith("MRs · "))] as $t
+    | if ($t | index($n)) != null then $n elif $own and ($t | length) > 0 then $t[0] else "" end' <<<"$layout")"
+  if [[ -z "$tab" ]]; then
+    props="$(jq -cn --arg f "$repo" --arg s "$space" --argjson own "$own" \
+      '{folder: $f, space: $s} + (if $own then {} else {scope: "\($s)|\($f)"} end)')"
+    herdr-app do tab.new --space "$space" --name "$name" --mod mrs --props "$props" --focus false >/dev/null || return 1
+    tab="$name"
+  fi
+  printf '%s\t%s' "$tab" "$repo"
 }
 
 case "$host" in
   herdr-app)
-    if tab="$(open_in_mrs 2>/dev/null)"; then
-      context "$url is open for review in this space's \"$tab\" tab, where the user reviews GitLab merge requests with nvim's keys inside Herdr. It was not shown, so their view did not move; do not open tuicr or anything else for it, and do not focus it. Tell the user it is ready: Cmd+Shift+R from your row, or the PR pill, which also shows its CI state, brings the tab up on it. Their comments are GitLab draft notes, which only they see until they publish them. When they say the review is done, read them with \`mr-review show $cwd ${url##*/} | jq '{drafts, threads}'\`: each draft has its body, \`at\` (path, old_line and new_line; null for one on the whole merge request) and \`reply_to\`, the id of the thread in \`threads\` it answers. Publishing or dropping their drafts is theirs to do, not yours."
-    elif opened="$(open_in_herdr_app 2>&1)"; then
-      term="${opened%%$'\t'*}"
-      title="${opened#*$'\t'}"
-      context "tuicr is now open on $url in a new Herdr tab named \"$title\" in this space (terminal $term), opened in the background so the user's view did not move; do not open another, and do not focus it. Tell the user it is ready: they reach it with Cmd+P by that title, Cmd+Shift+R from your row, or the PR pill, which also shows its CI state. $read_back The tab holds only that terminal, so \`hc kill $term\` closes it once it is no longer needed."
+    if opened="$(open_in_mrs 2>/dev/null)"; then
+      tab="${opened%%$'\t'*}"
+      repo="${opened#*$'\t'}"
+      context "$url is open for review in this space's \"$tab\" tab, where the user reviews merge and pull requests with nvim's keys inside Herdr. It was not shown, so their view did not move; do not open tuicr or anything else for it, and do not focus it. Tell the user it is ready: Cmd+Shift+R from your row, or the PR pill, which also shows its CI state, brings the tab up on it. Their comments are drafts (GitLab draft notes, or GitHub's pending review), which only they see until they publish them. When they say the review is done, read them with \`mr-review show $repo ${url##*/} | jq '{drafts, threads}'\`: each draft has its body, \`at\` (path, old_line and new_line; null for one on the whole request) and \`reply_to\`, the id of the thread in \`threads\` it answers. Publishing or dropping their drafts is theirs to do, not yours."
     else
-      context "Opening tuicr on $url in a Herdr tab failed: $opened. Tell the user they can run \`tuicr pr $url\` themselves."
+      context "$url has no checkout on this machine in or beside $cwd, so it could not be put in an MRs tab for review. Tell the user the request is open at $url; do not open tuicr for it."
     fi
     ;;
   herdr)
@@ -268,21 +246,20 @@ esac
 
 * The hook is tested when it is built
 
-=tuicr-review-hook-test.sh= runs the hook against stand-in =hc=, =herdr-app=
-and =gh= for the Herdr desktop case and fails the build when it no longer opens
-a background tab named after the request in the agent's space, labels the
-agent's terminal, or tells the agent about a tab and how to close it, or when
-it moves the owner's view; and when a merge request in a space with an MRs
-tab is not handed to that tab through the labels, or opens anything, and when
-a pull request on a machine with no Herdr window opens tuicr rather than being
-handed to the MRs tab.
+=tuicr-review-hook-test.sh= runs the hook against stand-in =hc=, =herdr-app=,
+=mr-review=, =glab= and =gh= for the Herdr desktop case, and fails the build
+when a request opens tuicr or moves the owner's view; when one on the space's
+repository is not handed to the space's MRs tab through the agent's labels, or
+the tab is not opened in the background when the space has none; when one on
+a repository beside it does not get a tab of its own with its own progress;
+when one on a machine with no Herdr window is not left to the window's tab;
+and when the agent is not told where to read the drafts back.
 
 #+begin_src bash :tangle (concat (file-name-directory (my/lit-target)) "tuicr-review-hook-test.sh") :comments no
 #!/usr/bin/env bash
-# Runs the review hook against stand-in hc, herdr-app and gh for the Herdr
-# desktop case, and fails when it stops opening a background tab named after
-# the request in the agent's space, labelling the agent's terminal, or telling
-# the agent about a tab; or when it starts moving the owner's view.
+# Runs the review hook against stand-ins for the Herdr desktop case, and fails
+# when a request opens tuicr or moves the owner's view, or is not handed to the
+# right MRs tab, opened in the background when the space has none.
 set -euo pipefail
 
 hook="$1"
@@ -290,7 +267,6 @@ work="$(mktemp -d)"
 stubs="$work/bin"
 calls="$work/calls"
 mkdir -p "$stubs"
-: > "$calls"
 
 stub() {
   { printf '#!%s\n' "$BASH"; cat; } > "$stubs/$1"
@@ -308,10 +284,17 @@ stub herdr-app <<'EOF'
 echo "herdr-app $*" >> "$CALLS"
 case "$1" in
   ls) [ -n "${NO_WINDOW:-}" ] && exit 1
-      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","tabs":[]}]}'
-      else echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
-  *) echo '{"space":"sp-test","tab":"tb-review","terminal":"t9"}' ;;
+      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","folder":"/tmp/repo","tabs":[]}]}'
+      else echo '{"spaces":[{"id":"sp-test","folder":"/tmp/repo","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
+  *) echo '{"space":"sp-test","tab":"tb-new","pane":"p9"}' ;;
 esac
+EOF
+
+stub mr-review <<'EOF'
+echo "mr-review $*" >> "$CALLS"
+[ "$1" = where ] || exit 1
+[ -n "${NO_CHECKOUT:-}" ] && { echo '{"error":"no checkout"}'; exit 1; }
+echo "{\"dir\":\"${WHERE:-/tmp/repo}\"}"
 EOF
 
 stub glab <<'EOF'
@@ -322,8 +305,14 @@ stub gh <<'EOF'
 echo '#7 Fix the login'
 EOF
 
-input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(NO_MRS=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+mr='{"tool_input":{"command":"glab mr create --fill"},"tool_response":{"stdout":"https://gitlab.example.com/group/repo/-/merge_requests/12\n"},"cwd":"/tmp/repo"}'
+pr='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
+out=""
+
+hook() {
+  : > "$calls"
+  out="$(env CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" "$@" bash "$hook" <<<"$input")"
+}
 
 fail() {
   echo "tuicr review hook test: $1" >&2
@@ -334,40 +323,55 @@ fail() {
   exit 1
 }
 
-grep -qxF 'herdr-app do tab.new --space sp-test --name #7 Fix the login --folder /tmp/repo --argv ["tuicr","pr","https://github.com/owner/repo/pull/7"] --focus false' "$calls" \
-  || fail "no background tab.new named after the request in the agent's space"
-grep -qxF 'hc label t1 review.url=https://github.com/owner/repo/pull/7 review.terminal=t9 review.title=#7 Fix the login review.view=' "$calls" \
-  || fail "the agent's terminal was not labelled with the request and its review"
-if grep -qE 'pane\.focus|tab\.select|space\.select|agent\.focus' "$calls"; then
-  fail "the hook moved the owner's view"
-fi
-jq -e '.hookSpecificOutput.additionalContext
-  | test("new Herdr tab") and test("hc kill t9") and (test("pane") | not)' <<<"$out" >/dev/null \
-  || fail "the context does not describe a tab and how to close it"
-echo "tuicr review hook: Herdr desktop case passes"
+calm() {
+  if grep -qE 'tuicr|pane\.focus|tab\.select|space\.select|agent\.focus' "$calls"; then
+    fail "$1 opened tuicr or moved the owner's view"
+  fi
+}
 
-: > "$calls"
-input='{"tool_input":{"command":"glab mr create --fill"},"tool_response":{"stdout":"https://gitlab.example.com/group/repo/-/merge_requests/12\n"},"cwd":"/tmp/repo"}'
-out="$(CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
-grep -qE '^hc label t1 review\.url=https://gitlab\.example\.com/group/repo/-/merge_requests/12 review\.title=!12 Fix the logout review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+input="$mr"
+hook
+grep -qE '^hc label t1 review\.url=https://gitlab\.example\.com/group/repo/-/merge_requests/12 review\.title=!12 Fix the logout review\.view=mrs review\.at=[0-9]+ review\.folder= review\.terminal=$' "$calls" \
   || fail "a merge request was not handed to the space's MRs tab through the agent's labels"
-if grep -qE 'tab\.new|tuicr|pane\.focus|tab\.select|space\.select' "$calls"; then
-  fail "a merge request with an MRs tab opened a tab or moved the owner's view"
-fi
+grep -q 'tab\.new' "$calls" && fail "a space with an MRs tab got another"
+calm "a merge request with an MRs tab"
 jq -e '.hookSpecificOutput.additionalContext
   | test("MRs · repo") and test("mr-review show /tmp/repo 12") and (test("tuicr pr") | not)' <<<"$out" >/dev/null \
   || fail "the context does not point the agent at the MRs tab and its drafts"
-echo "tuicr review hook: merge request to the MRs tab passes"
+echo "tuicr review hook: merge request to the space's MRs tab passes"
 
-: > "$calls"
-input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(NO_WINDOW=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
-grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+input="$pr"
+hook NO_MRS=1
+grep -qxF 'herdr-app do tab.new --space sp-test --name MRs · repo --mod mrs --props {"folder":"/tmp/repo","space":"sp-test"} --focus false' "$calls" \
+  || fail "a space with no MRs tab did not get one in the background"
+calm "a pull request in a space with no MRs tab"
+echo "tuicr review hook: an MRs tab for a space with none passes"
+
+input="$mr"
+hook WHERE=/tmp/pkg
+grep -qE '^hc label t1 .* review\.folder=/tmp/pkg review\.terminal=$' "$calls" \
+  || fail "a request on the repository beside the space's was not labelled with its checkout"
+grep -qxF 'herdr-app do tab.new --space sp-test --name MRs · pkg --mod mrs --props {"folder":"/tmp/pkg","space":"sp-test","scope":"sp-test|/tmp/pkg"} --focus false' "$calls" \
+  || fail "a request on the repository beside the space's did not get a tab of its own"
+calm "a request on another repository"
+jq -e '.hookSpecificOutput.additionalContext | test("MRs · pkg") and test("mr-review show /tmp/pkg 12")' <<<"$out" >/dev/null \
+  || fail "the context does not point the agent at the other repository's tab"
+echo "tuicr review hook: a request on the repository beside it passes"
+
+input="$pr"
+hook NO_WINDOW=1
+grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.folder= review\.terminal=$' "$calls" \
   || fail "a pull request on a machine with no window was not handed to the MRs tab"
-if grep -qE 'tab\.new|tuicr' "$calls"; then
-  fail "a pull request on a machine with no window opened tuicr"
-fi
+grep -q 'tab\.new' "$calls" && fail "a machine with no window was asked for a tab"
+calm "a pull request with no window here"
 echo "tuicr review hook: pull request with no window here passes"
+
+input="$mr"
+hook NO_CHECKOUT=1
+calm "a request with no checkout near the agent"
+jq -e '.hookSpecificOutput.additionalContext | test("no checkout")' <<<"$out" >/dev/null \
+  || fail "the agent was not told the request has no checkout here"
+echo "tuicr review hook: a request with no checkout here passes"
 #+end_src
 
 

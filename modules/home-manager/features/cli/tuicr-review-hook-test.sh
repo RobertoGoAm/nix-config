@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Runs the review hook against stand-in hc, herdr-app and gh for the Herdr
-# desktop case, and fails when it stops opening a background tab named after
-# the request in the agent's space, labelling the agent's terminal, or telling
-# the agent about a tab; or when it starts moving the owner's view.
+# Runs the review hook against stand-ins for the Herdr desktop case, and fails
+# when a request opens tuicr or moves the owner's view, or is not handed to the
+# right MRs tab, opened in the background when the space has none.
 set -euo pipefail
 
 hook="$1"
@@ -10,7 +9,6 @@ work="$(mktemp -d)"
 stubs="$work/bin"
 calls="$work/calls"
 mkdir -p "$stubs"
-: > "$calls"
 
 stub() {
   { printf '#!%s\n' "$BASH"; cat; } > "$stubs/$1"
@@ -28,10 +26,17 @@ stub herdr-app <<'EOF'
 echo "herdr-app $*" >> "$CALLS"
 case "$1" in
   ls) [ -n "${NO_WINDOW:-}" ] && exit 1
-      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","tabs":[]}]}'
-      else echo '{"spaces":[{"id":"sp-test","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
-  *) echo '{"space":"sp-test","tab":"tb-review","terminal":"t9"}' ;;
+      if [ -n "${NO_MRS:-}" ]; then echo '{"spaces":[{"id":"sp-test","folder":"/tmp/repo","tabs":[]}]}'
+      else echo '{"spaces":[{"id":"sp-test","folder":"/tmp/repo","tabs":[{"id":"tb-mrs","name":"MRs · repo"}]}]}'; fi ;;
+  *) echo '{"space":"sp-test","tab":"tb-new","pane":"p9"}' ;;
 esac
+EOF
+
+stub mr-review <<'EOF'
+echo "mr-review $*" >> "$CALLS"
+[ "$1" = where ] || exit 1
+[ -n "${NO_CHECKOUT:-}" ] && { echo '{"error":"no checkout"}'; exit 1; }
+echo "{\"dir\":\"${WHERE:-/tmp/repo}\"}"
 EOF
 
 stub glab <<'EOF'
@@ -42,8 +47,14 @@ stub gh <<'EOF'
 echo '#7 Fix the login'
 EOF
 
-input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(NO_MRS=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
+mr='{"tool_input":{"command":"glab mr create --fill"},"tool_response":{"stdout":"https://gitlab.example.com/group/repo/-/merge_requests/12\n"},"cwd":"/tmp/repo"}'
+pr='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
+out=""
+
+hook() {
+  : > "$calls"
+  out="$(env CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" "$@" bash "$hook" <<<"$input")"
+}
 
 fail() {
   echo "tuicr review hook test: $1" >&2
@@ -54,37 +65,52 @@ fail() {
   exit 1
 }
 
-grep -qxF 'herdr-app do tab.new --space sp-test --name #7 Fix the login --folder /tmp/repo --argv ["tuicr","pr","https://github.com/owner/repo/pull/7"] --focus false' "$calls" \
-  || fail "no background tab.new named after the request in the agent's space"
-grep -qxF 'hc label t1 review.url=https://github.com/owner/repo/pull/7 review.terminal=t9 review.title=#7 Fix the login review.view=' "$calls" \
-  || fail "the agent's terminal was not labelled with the request and its review"
-if grep -qE 'pane\.focus|tab\.select|space\.select|agent\.focus' "$calls"; then
-  fail "the hook moved the owner's view"
-fi
-jq -e '.hookSpecificOutput.additionalContext
-  | test("new Herdr tab") and test("hc kill t9") and (test("pane") | not)' <<<"$out" >/dev/null \
-  || fail "the context does not describe a tab and how to close it"
-echo "tuicr review hook: Herdr desktop case passes"
+calm() {
+  if grep -qE 'tuicr|pane\.focus|tab\.select|space\.select|agent\.focus' "$calls"; then
+    fail "$1 opened tuicr or moved the owner's view"
+  fi
+}
 
-: > "$calls"
-input='{"tool_input":{"command":"glab mr create --fill"},"tool_response":{"stdout":"https://gitlab.example.com/group/repo/-/merge_requests/12\n"},"cwd":"/tmp/repo"}'
-out="$(CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
-grep -qE '^hc label t1 review\.url=https://gitlab\.example\.com/group/repo/-/merge_requests/12 review\.title=!12 Fix the logout review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+input="$mr"
+hook
+grep -qE '^hc label t1 review\.url=https://gitlab\.example\.com/group/repo/-/merge_requests/12 review\.title=!12 Fix the logout review\.view=mrs review\.at=[0-9]+ review\.folder= review\.terminal=$' "$calls" \
   || fail "a merge request was not handed to the space's MRs tab through the agent's labels"
-if grep -qE 'tab\.new|tuicr|pane\.focus|tab\.select|space\.select' "$calls"; then
-  fail "a merge request with an MRs tab opened a tab or moved the owner's view"
-fi
+grep -q 'tab\.new' "$calls" && fail "a space with an MRs tab got another"
+calm "a merge request with an MRs tab"
 jq -e '.hookSpecificOutput.additionalContext
   | test("MRs · repo") and test("mr-review show /tmp/repo 12") and (test("tuicr pr") | not)' <<<"$out" >/dev/null \
   || fail "the context does not point the agent at the MRs tab and its drafts"
-echo "tuicr review hook: merge request to the MRs tab passes"
+echo "tuicr review hook: merge request to the space's MRs tab passes"
 
-: > "$calls"
-input='{"tool_input":{"command":"gh pr create --fill"},"tool_response":{"stdout":"https://github.com/owner/repo/pull/7\n"},"cwd":"/tmp/repo"}'
-out="$(NO_WINDOW=1 CALLS="$calls" HC_TERMINAL_ID=t1 PATH="$stubs:$PATH" bash "$hook" <<<"$input")"
-grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.terminal=$' "$calls" \
+input="$pr"
+hook NO_MRS=1
+grep -qxF 'herdr-app do tab.new --space sp-test --name MRs · repo --mod mrs --props {"folder":"/tmp/repo","space":"sp-test"} --focus false' "$calls" \
+  || fail "a space with no MRs tab did not get one in the background"
+calm "a pull request in a space with no MRs tab"
+echo "tuicr review hook: an MRs tab for a space with none passes"
+
+input="$mr"
+hook WHERE=/tmp/pkg
+grep -qE '^hc label t1 .* review\.folder=/tmp/pkg review\.terminal=$' "$calls" \
+  || fail "a request on the repository beside the space's was not labelled with its checkout"
+grep -qxF 'herdr-app do tab.new --space sp-test --name MRs · pkg --mod mrs --props {"folder":"/tmp/pkg","space":"sp-test","scope":"sp-test|/tmp/pkg"} --focus false' "$calls" \
+  || fail "a request on the repository beside the space's did not get a tab of its own"
+calm "a request on another repository"
+jq -e '.hookSpecificOutput.additionalContext | test("MRs · pkg") and test("mr-review show /tmp/pkg 12")' <<<"$out" >/dev/null \
+  || fail "the context does not point the agent at the other repository's tab"
+echo "tuicr review hook: a request on the repository beside it passes"
+
+input="$pr"
+hook NO_WINDOW=1
+grep -qE '^hc label t1 review\.url=https://github\.com/owner/repo/pull/7 review\.title=#7 Fix the login review\.view=mrs review\.at=[0-9]+ review\.folder= review\.terminal=$' "$calls" \
   || fail "a pull request on a machine with no window was not handed to the MRs tab"
-if grep -qE 'tab\.new|tuicr' "$calls"; then
-  fail "a pull request on a machine with no window opened tuicr"
-fi
+grep -q 'tab\.new' "$calls" && fail "a machine with no window was asked for a tab"
+calm "a pull request with no window here"
 echo "tuicr review hook: pull request with no window here passes"
+
+input="$mr"
+hook NO_CHECKOUT=1
+calm "a request with no checkout near the agent"
+jq -e '.hookSpecificOutput.additionalContext | test("no checkout")' <<<"$out" >/dev/null \
+  || fail "the agent was not told the request has no checkout here"
+echo "tuicr review hook: a request with no checkout here passes"

@@ -17,6 +17,8 @@
 #   mr-review read DIR IID PATH [DIGEST]   mark a file read at that digest, or
 #                                          unmark it with none
 #   mr-review pos DIR IID POSITION         keep my place: {path, old, new, ...}
+#   mr-review where URL DIR                the checkout of URL's repository: {dir},
+#                                          DIR's own, or one beside or below it
 #
 # DIR is any checkout of the repository; glab takes the host and the project
 # from its origin. A repository on GitHub is handed to mr-review-github, which
@@ -86,6 +88,28 @@ pos)
   # shellcheck disable=SC2016 # jq variables
   change_state --argjson pos "${3:?POSITION}" '.pos = $pos'
   exit 0
+  ;;
+where)
+  # An agent in one repository opens requests in the ones beside it, so the
+  # checkout is found by its origin: DIR's own, then the folder named after
+  # the project beside or below it, then any other there.
+  origin_path() {
+    git -C "$1" remote get-url origin 2>/dev/null \
+      | sed -E 's#^[a-z+]+://[^/]+/##; s#^[^@]+@[^:]+:##; s#\.git$##; s#/$##' | tr '[:upper:]' '[:lower:]'
+  }
+  want=$(printf '%s' "${1:?URL}" | sed -E 's#/(-/merge_requests|pull)/[0-9]+.*$##; s#^[a-z+]+://[^/]+/##' | tr '[:upper:]' '[:lower:]')
+  from=${2:?DIR}
+  own=$(git -C "$from" rev-parse --show-toplevel 2>/dev/null) || own=""
+  parent=$(dirname "${own:-$from}")
+  for d in "$own" "$parent/${want##*/}" "$from/${want##*/}" "$parent"/*/ "$from"/*/; do
+    d=${d%/}
+    [ -n "$d" ] && [ -e "$d/.git" ] || continue
+    if [ "$(origin_path "$d")" = "$want" ]; then
+      jq -nc --arg d "$d" '{dir: $d}'
+      exit 0
+    fi
+  done
+  fail "no checkout of $want in or beside $from"
   ;;
 esac
 

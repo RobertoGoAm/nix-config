@@ -184,7 +184,10 @@ export default class Requests extends View {
         const project = repo?.name ?? where.split("/").filter(Boolean).pop() ?? s.name;
         const jira = this.jiraKey[id].key;
         const open = (kind, title, spec) => {
-          const tab = live.tabs.find((t) => t.name === kind || t.name.startsWith(`${kind} · `));
+          // A space can hold MRs tabs for other repositories too (the review
+          // hook's), so an MRs tab is only ever its own by its exact name.
+          const tab = live.tabs.find((t) => t.name === title)
+            ?? (kind === "MRs" ? null : live.tabs.find((t) => t.name === kind || t.name.startsWith(`${kind} · `)));
           if (tab) {
             if (tab.name !== title) run("tab.rename", { id: tab.id, name: title });
             return;
@@ -320,28 +323,42 @@ export default class Requests extends View {
   }
 
   // The MRs tab (mr-review.org) of a space on this repository, which announces
-  // its own new requests and reviews them in place of a tuicr tab.
+  // its own new requests: the space's own, or one the review hook or a click
+  // here opened for it in another space (scoped: it takes only requests that
+  // name its folder).
   mrsTab(repo) {
     for (const s of spaces()) {
       const tab = s.tabs.find((t) => t.name === `MRs · ${repo.name}`);
-      if (tab) return { space: s.id, tab: tab.id };
+      if (!tab) continue;
+      const own = (shared("space.repos") ?? {})[s.id]?.path ?? (s.machine ? this.remoteFolder(s) : s.folder);
+      return { space: s.id, tab: tab.id, scoped: own !== repo.path };
     }
     return null;
   }
 
+  // A request is reviewed in its repository's MRs tab, opened in the Global
+  // space when no space has one; one on another machine with no checkout here
+  // opens in the browser.
   openRequest(repo, r) {
-    const mrs = this.mrsTab(repo);
     const iid = Number(r.url?.match(/\/(?:-\/merge_requests|pull)\/(\d+)/)?.[1]);
-    if (mrs && iid) {
-      setShared("mrs.open", { space: mrs.space, iid, at: Date.now() });
+    if (!iid) return;
+    const mrs = this.mrsTab(repo);
+    if (mrs) {
+      setShared("mrs.open", { space: mrs.space, iid, folder: mrs.scoped ? repo.path : undefined, at: Date.now() });
       run("tab.select", { id: mrs.tab });
       const pane = panes().find((p) => p.mod === "mrs" && p.tab === mrs.tab);
       if (pane) run("pane.focus", { pane: pane.pane });
       return;
     }
-    const name = `${r.key} · ${r.title}`.slice(0, 70);
-    const w = this.where(repo, ["tuicr", "pr", r.url]);
-    this.openTab(name, w.folder, w.argv);
+    const open = () => {
+      const global = this.ensureGlobal();
+      if (!global) return;
+      setShared("mrs.open", { space: global, iid, folder: repo.path, at: Date.now() });
+      run("space.select", { id: global });
+      run("tab.new", { space: global, name: `MRs · ${repo.name}`, mod: "mrs", props: { folder: repo.path, space: global, scope: `${global}|${repo.path}` } });
+    };
+    if (!repo.machine) return open();
+    this.hasOrigin(repo.path).then((ok) => ok ? open() : exec("/usr/bin/open", [r.url])).catch(() => {});
   }
 
   openCi(repo, host, branch, ci) {
@@ -476,7 +493,7 @@ export default class Requests extends View {
     const id = `rq-${r.url}`;
     return h_flex().id(id).pl(18 + depth * 12).pr(8).h(24).flex_none().gap(6).items_center().rounded(5)
       .cursor_pointer().hover((s) => s.bg(t.hover)).on_hover(this.hover(id))
-      .tooltip(`${r.source} → ${r.target} · @${r.author}${r.draft ? " · draft" : ""}. Click: review it${this.mrsTab(repo) ? " in its MRs tab" : " in tuicr (Global space)"}`)
+      .tooltip(`${r.source} → ${r.target} · @${r.author}${r.draft ? " · draft" : ""}. Click: review it in its MRs tab`)
       .on_click(() => this.openRequest(repo, r))
       .when(depth > 0, (el) => el.child(div().text_size(10).text_color(t.dim).child("└")))
       .child(this.ciIcon(t, r.ci?.state))
