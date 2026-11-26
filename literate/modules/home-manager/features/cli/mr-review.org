@@ -48,7 +48,9 @@ than by a scroller, as the list of rows takes the trackpad's sideways
 scrolling for itself.
 
 =m= marks a file read, as GitHub's "Viewed" does: it folds down to its
-header and the cursor goes on to the next unread file, the header counts
+header and the cursor goes on to the first change of the next unread file
+(after it, or else the first one left), that file's header at the top of the
+diff, the header counts
 them (=3/16 read=), and the mark is saved at once, with the place. The mark
 holds a digest of the file's diff, so a push that changes the file brings it
 back unread, and one that leaves it alone keeps it folded. =m= on a folded

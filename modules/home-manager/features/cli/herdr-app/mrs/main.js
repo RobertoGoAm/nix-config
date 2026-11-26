@@ -574,9 +574,24 @@ export default class Mrs extends View {
     this.visual = null;
     this.build();
     const header = (x) => this.rows.findIndex((y) => y.kind === "file" && y.file === x);
-    const next = this.rows.findIndex((y) => y.kind === "file" && y.file > r.file && !y.read);
-    this.cur = was || next < 0 ? header(r.file) : next;
-    this.scroll.scroll_to_item(this.cur, "center");
+    const unread = (y) => y.kind === "file" && !y.read;
+    // The next file to review: after this one, or else the first one left.
+    let next = this.rows.findIndex((y) => unread(y) && y.file > r.file);
+    if (next < 0) next = this.rows.findIndex(unread);
+    if (was || next < 0) {
+      this.cur = header(r.file);
+      this.scroll.scroll_to_item(this.cur, "center");
+    } else {
+      // On its first change, with the file's header at the top of the diff
+      // when both fit; else the change in the middle.
+      let change = next + 1;
+      while (change < this.rows.length && this.rows[change].file === this.rows[next].file && !this.isChange(this.rows[change], change)) change++;
+      if (change >= this.rows.length || this.rows[change].file !== this.rows[next].file) change = next;
+      this.cur = change;
+      const shown = Math.floor((this.height || 600) / rowHeight(settings().font_size));
+      if (change - next < shown - 3) this.scroll.scroll_to_item(next, "top");
+      else this.scroll.scroll_to_item(change, "center");
+    }
     this.saveAnchor();
     const n = this.readCount();
     this.say(was ? `${f.new_path} is unread again.` : n === d.files.length ? `All ${n} files read.` : `Read ${n} of ${d.files.length} files.`);
