@@ -115,6 +115,7 @@ list)
        approved: (.reviewDecision == "APPROVED"),
        approvals_left: (if .reviewDecision == "REVIEW_REQUIRED" then 1 else null end),
        approved_by_me: ([.latestOpinionatedReviews.nodes[] | select(.state == "APPROVED") | .author.login] | index($me) != null),
+       reviewed: ([.latestOpinionatedReviews.nodes[].author.login] | index($me) != null),
        pipeline: (.commits.nodes[0].commit.statusCheckRollup.state | ci),
        threads: (.reviewThreads.nodes | length),
        unresolved: ([.reviewThreads.nodes[] | select(.isResolved | not)] | length),

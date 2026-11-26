@@ -118,13 +118,17 @@ const pipelineMark = (t, status) => {
   return null;
 };
 
+// Reviewed: approved by me (GitLab), or given my approval or my changes
+// asked for (GitHub, which drops a review request once it is answered).
 const GROUPS = [
-  { id: "review", label: "To review", test: (m) => m.review && !m.mine },
+  { id: "review", label: "To review", test: (m) => m.review && !m.mine && !m.reviewed },
+  { id: "reviewed", label: "Reviewed", test: (m) => !m.mine && m.reviewed },
   { id: "mine", label: "Mine", test: (m) => m.mine },
-  { id: "others", label: "Others", test: (m) => !m.mine && !m.review },
+  { id: "others", label: "Others", test: (m) => !m.mine && !m.review && !m.reviewed },
 ];
 
-const HINTS = "n e move · ]f [f file · ]c [c change · ]t [t thread · m read · w wrap · < > sideways · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
+const HINTS = "n e move · h i sideways · N E request · f files · b sidebar · ]f [f file · ]c [c change · ]t [t thread · m read · w wrap · v select · c comment · C general · r reply · x resolve · D drop draft · a approve · S submit · o browser · t tuicr · R refresh";
+const LIST_HINTS = "n e move · enter or i open · f requests or files · m read · esc back · b hides the sidebar";
 
 export default class Mrs extends View {
   init(_props, cx) {
@@ -170,6 +174,10 @@ export default class Mrs extends View {
     this.reads = {};
     this.wrap = this.stored("wrap", true);
     this.hoff = 0;
+    // The sidebar: shown or not, and its requests or the request's files.
+    this.bar = this.stored("bar", true);
+    this.barView = this.stored("barView", "mrs");
+    this.filePick = 0;
     this.known = this.stored(`known:${this.scope}`, null);
     this.seen = this.stored(`seen:${this.scope}`, null);
     try { this.handled = Number(localStorage.getItem(`handled:${this.scope}`)) || 0; } catch { this.handled = 0; }
@@ -493,21 +501,72 @@ export default class Mrs extends View {
     this.hoff = 0;
     this.store("wrap", this.wrap);
     if (this.detail) { this.build(); this.restore(a); }
-    this.say(this.wrap ? "Long lines wrap." : "Long lines run on: < and > move them sideways.");
+    this.say(this.wrap ? "Long lines wrap." : "Long lines run on: h and i move them sideways.");
+  }
+
+  isRead(f) { return this.reads[f.new_path] === digest(f.diff ?? ""); }
+
+  // The request's files in the sidebar: the ones still to review, then the
+  // ones read, each in the diff's order.
+  fileGroups() {
+    const files = (this.detail?.files ?? []).map((f, fi) => ({ f, fi, read: this.isRead(f) }));
+    return [
+      { id: "todo", label: "To review", items: files.filter((x) => !x.read) },
+      { id: "read", label: "Reviewed", items: files.filter((x) => x.read) },
+    ];
+  }
+
+  orderedFiles() { return this.fileGroups().flatMap((g) => g.items); }
+
+  // Shows a file in the diff: its header, with the cursor on it.
+  showFile(fi) {
+    const i = this.rows.findIndex((y) => y.kind === "file" && y.file === fi);
+    if (i >= 0) this.go(i);
+  }
+
+  showBar(view) {
+    this.bar = true;
+    this.store("bar", true);
+    if (view && view !== this.barView) { this.barView = view; this.store("barView", view); }
+    if (this.barView === "files") {
+      const here = this.row()?.file;
+      const at = this.orderedFiles().findIndex((x) => x.fi === here);
+      if (at >= 0) this.filePick = at;
+    }
+    this.side = "list";
+  }
+
+  toggleBar() {
+    this.bar = !this.bar;
+    this.store("bar", this.bar);
+    if (!this.bar) this.side = "diff";
+  }
+
+  // Sideways, when lines run on rather than wrap; h past the left edge goes
+  // to the sidebar, as h leaves a window in nvim.
+  sideways(dir) {
+    if (this.wrap) {
+      if (dir < 0) this.showBar();
+      else this.say("Lines wrap: w turns that off to move them sideways.");
+      return;
+    }
+    if (dir < 0 && this.hoff === 0) { this.showBar(); return; }
+    this.hoff = Math.max(0, Math.min(Math.max(0, this.longest - 20), this.hoff + dir * 16));
   }
 
   readCount() {
-    return (this.detail?.files ?? []).filter((f) => this.reads[f.new_path] === digest(f.diff ?? "")).length;
+    return (this.detail?.files ?? []).filter((f) => this.isRead(f)).length;
   }
 
-  // Marks the cursor's file read, folding it away and moving on to the next
-  // unread one, or unfolds it again; saved at once, with the place.
-  markRead() {
+  // Marks the cursor's file read (or the one picked in the sidebar's files),
+  // folding it away and moving on to the next unread one, or unfolds it
+  // again; saved at once, with the place.
+  markRead(fi = this.row()?.file) {
     const d = this.detail;
-    const r = this.row();
+    const r = fi == null ? null : { file: fi };
     if (!d || r?.file == null) { this.say("Put the cursor in a file to mark it read."); return; }
     const f = d.files[r.file];
-    const was = this.reads[f.new_path] === digest(f.diff ?? "");
+    const was = this.isRead(f);
     if (was) delete this.reads[f.new_path];
     else this.reads[f.new_path] = digest(f.diff ?? "");
     helper(["read", this.folder, String(d.mr.iid), f.new_path, was ? "" : this.reads[f.new_path]])
@@ -749,15 +808,32 @@ export default class Mrs extends View {
     else if (k === "R") { this.loadList(cx); this.loadDetail(cx, true); this.say("Refreshing…"); }
     else if (k === "o") { const url = this.side === "list" ? mrs[this.pick]?.url : this.detail?.mr.url; if (url) exec("open", [url]).catch(() => {}); }
     else if (k === "t") this.tuicr();
-    else if (k === "h") this.side = "list";
-    else if (k === "escape") { this.visual = null; this.confirm = null; this.flash = null; }
-    else if (this.side === "list") {
+    else if (k === "N") step(1);
+    else if (k === "E") step(-1);
+    else if (k === "b") this.toggleBar();
+    else if (k === "f") this.showBar(this.side === "list" && this.barView === "files" ? "mrs" : "files");
+    else if (k === "escape") { this.visual = null; this.confirm = null; this.flash = null; if (this.side === "list") this.side = "diff"; }
+    else if (this.side === "list" && this.barView === "files") {
+      const files = this.orderedFiles();
+      const picked = files[this.filePick];
+      if (k === "n" || k === "down") this.filePick = Math.min(files.length - 1, this.filePick + 1);
+      else if (k === "e" || k === "up") this.filePick = Math.max(0, this.filePick - 1);
+      else if (k === "G") this.filePick = Math.max(0, files.length - 1);
+      else if (k === "m" && picked) {
+        // The next file to review slides up into its place, so the pick stays.
+        this.markRead(picked.fi);
+      }
+      else if ((k === "i" || k === "enter" || k === "right") && picked) { this.showFile(picked.fi); this.side = "diff"; }
+      else handled = false;
+    } else if (this.side === "list") {
       if (k === "n" || k === "down") this.pick = Math.min(mrs.length - 1, this.pick + 1);
       else if (k === "e" || k === "up") this.pick = Math.max(0, this.pick - 1);
       else if (k === "G") this.pick = Math.max(0, mrs.length - 1);
       else if (k === "i" || k === "enter" || k === "right") { if (mrs[this.pick]) this.open(cx, mrs[this.pick].iid); this.side = "diff"; }
       else handled = false;
-    } else if (k === "n" || k === "down") this.go(this.cur + 1);
+    } else if (k === "h" || k === "left") this.sideways(-1);
+    else if (k === "i" || k === "right") this.sideways(1);
+    else if (k === "n" || k === "down") this.go(this.cur + 1);
     else if (k === "e" || k === "up") this.go(this.cur - 1);
     else if (k === "ctrl-d") this.go(this.cur + this.page());
     else if (k === "ctrl-u") this.go(this.cur - this.page());
@@ -809,30 +885,72 @@ export default class Mrs extends View {
         .child(div().flex_none().child(age(m.updated))));
   }
 
+  fileRow(x, i, t) {
+    const f = x.f;
+    const picked = this.side === "list" && i === this.filePick;
+    const here = this.row()?.file === x.fi;
+    const parsed = this.detail.files[x.fi];
+    const status = parsed.status;
+    const color = status === "A" ? t.ansi2 : status === "D" ? t.ansi1 : t.working;
+    const parts = f.new_path.split("/");
+    const name = parts.pop();
+    return h_flex().id(`f-${x.fi}`).px(10).py(4).gap(8).items_center().rounded(6).cursor_pointer().flex_none().min_w(0)
+      .when(here, (el) => el.bg(t.selected))
+      .when(picked, (el) => el.border_1().border_color(t.accent))
+      .hover((st) => st.bg(t.hover))
+      .on_click((_e, cx) => { this.filePick = i; this.showFile(x.fi); this.side = "diff"; this.handle.focus(); cx.notify(); })
+      .child(div().w(10).flex_none().text_size(11).text_color(x.read ? t.done : color).child(x.read ? "✓" : status))
+      .child(v_flex().flex_1().min_w(0)
+        .child(div().truncate().text_size(12).text_color(x.read ? t.dim : t.foreground).child(name))
+        .when(parts.length > 0, (el) => el.child(div().truncate().text_size(10.5).text_color(t.dim).child(parts.join("/")))));
+  }
+
   listPane(t) {
-    const mrs = this.ordered();
-    let i = 0;
-    const blocks = GROUPS.map((g) => {
-      const items = (this.list?.mrs ?? []).filter(g.test);
-      if (!items.length) return null;
-      return v_flex().gap(2).flex_none()
-        .child(div().px(10).pt(10).pb(4).text_size(11).text_color(t.muted).child(`${g.label} · ${items.length}`))
-        .children(items.map((m) => this.mrRow(m, i++, t)));
-    }).filter(Boolean);
-    const empty = this.listError ? this.listError
-      : !this.list ? (this.folder ? "Loading merge requests…" : "No folder for this tab.")
-      : this.list.unsupported ? "Only GitLab repositories for now."
-      : !mrs.length ? "No open merge requests." : null;
+    const files = this.barView === "files";
+    const chip = (id, label, on) => div().id(`bar-${id}`).px(8).py(2).rounded(5).cursor_pointer().text_size(12)
+      .when(on, (el) => el.bg(t.selected).font_semibold())
+      .when(!on, (el) => el.text_color(t.dim))
+      .hover((st) => st.bg(t.hover))
+      .on_click((_e, cx) => { this.showBar(id); this.handle.focus(); cx.notify(); })
+      .child(label);
+    const d = this.detail;
+    const head = h_flex().h(36).flex_none().px(8).gap(4).items_center().border_b(1).border_color(t.border)
+      .child(chip("mrs", `Requests${this.list ? ` · ${this.list.mrs.length}` : ""}`, !files))
+      .child(chip("files", `Files${d ? ` · ${this.readCount()}/${d.files.length}` : ""}`, files))
+      .child(div().flex_1())
+      .when(this.loadingList, (el) => el.child(div().text_size(11).text_color(t.dim).child("…")))
+      .when(!files && this.listAt > 0, (el) => el.child(div().text_size(11).text_color(t.dim).child(age(new Date(this.listAt).toISOString()))));
+    let blocks, empty;
+    if (files) {
+      let i = 0;
+      blocks = this.fileGroups().map((g) => {
+        if (!g.items.length) return null;
+        return v_flex().gap(1).flex_none()
+          .child(div().px(10).pt(10).pb(4).text_size(11).text_color(t.muted).child(`${g.label} · ${g.items.length}`))
+          .children(g.items.map((x) => this.fileRow(x, i++, t)));
+      }).filter(Boolean);
+      empty = !d ? "Pick a request to see its files." : !d.files.length ? "No files changed." : null;
+    } else {
+      const mrs = this.ordered();
+      let i = 0;
+      blocks = GROUPS.map((g) => {
+        const items = (this.list?.mrs ?? []).filter(g.test);
+        if (!items.length) return null;
+        return v_flex().gap(2).flex_none()
+          .child(div().px(10).pt(10).pb(4).text_size(11).text_color(t.muted).child(`${g.label} · ${items.length}`))
+          .children(items.map((m) => this.mrRow(m, i++, t)));
+      }).filter(Boolean);
+      empty = this.listError ? this.listError
+        : !this.list ? (this.folder ? "Loading merge requests…" : "No folder for this tab.")
+        : this.list.unsupported ? "Only GitLab repositories for now."
+        : !mrs.length ? "No open merge requests." : null;
+    }
     return v_flex().w(320).flex_none().h_full().min_h(0).border_r(1).border_color(t.border)
-      .child(h_flex().h(36).flex_none().px(12).gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().font_semibold().text_size(13).child("Merge requests"))
-        .child(div().flex_1())
-        .when(this.loadingList, (el) => el.child(div().text_size(11).text_color(t.dim).child("…")))
-        .when(this.listAt > 0, (el) => el.child(div().text_size(11).text_color(t.dim).child(age(new Date(this.listAt).toISOString())))))
+      .child(head)
       .child(div().flex_1().min_h(0).relative()
-        .child(v_flex().id("mrs-list").absolute().inset_0().overflow_y_scroll().px(6).pb(8).children(blocks)
-          .when(Boolean(empty), (el) => el.child(div().p(12).text_size(12).text_color(this.listError ? t.blocked : t.dim).child(empty))))
-        .child(Scrollbar.vertical("mrs-list").absolute().inset_0()));
+        .child(v_flex().id(files ? "mrs-files" : "mrs-list").absolute().inset_0().overflow_y_scroll().px(6).pb(8).children(blocks)
+          .when(Boolean(empty), (el) => el.child(div().p(12).text_size(12).text_color(!files && this.listError ? t.blocked : t.dim).child(empty))))
+        .child(Scrollbar.vertical(files ? "mrs-files" : "mrs-list").absolute().inset_0()));
   }
 
   header(t) {
@@ -964,7 +1082,7 @@ export default class Mrs extends View {
           .child(Textarea.new(this.editor).w_full().text_size(12).text_color(t.foreground)))))
       .child(h_flex().flex_none().h(26).px(12).gap(10).items_center().border_t(1).border_color(t.border).text_size(11)
         .child(div().flex_1().min_w(0).truncate().text_color(flash?.error ? t.blocked : flash ? t.foreground : t.dim)
-          .child(flash?.text ?? (this.visual != null ? "Selecting: c comments on the selection, v or esc stops" : this.prefix ? `${this.prefix}…  f file · c change · t thread` : HINTS))));
+          .child(flash?.text ?? (this.visual != null ? "Selecting: c comments on the selection, v or esc stops" : this.prefix ? `${this.prefix}…  f file · c change · t thread` : this.side === "list" ? LIST_HINTS : HINTS))));
   }
 
   render(cx) {
@@ -974,7 +1092,7 @@ export default class Mrs extends View {
       .track_focus(this.handle)
       .on_key_down((e, cx) => this.key(e, cx))
       .on_mouse_down("left", (_e, cx) => { if (!this.editing) this.handle.focus(); if (Date.now() - this.listAt > STALE_MS) this.loadList(cx, true); })
-      .child(this.listPane(t))
+      .when(this.bar, (el) => el.child(this.listPane(t)))
       .child(this.diffPane(t));
   }
 }

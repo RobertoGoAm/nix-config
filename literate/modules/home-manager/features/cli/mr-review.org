@@ -11,8 +11,12 @@ and for seeing them change while the tab stays open. tuicr stays for the
 phone, whose Herdr app shows terminals only: =t= on a merge request opens it
 there in a new tab.
 
-The list puts the merge requests waiting for my review first, then mine,
-then everyone else's, each with its pipeline, its approvals, how many of its
+The sidebar shows the repository's requests or the picked one's files, =f=
+switching between them, and =b= hides it for a wider diff; both choices are
+kept. The requests come in four groups: waiting for my review, reviewed (I
+approved it on GitLab; on GitHub, which drops the review request once it is
+answered, I approved it or asked for changes), mine, and everyone else's, each
+with its pipeline, its approvals, how many of its
 threads are still open, its size and when it last moved. It is fetched every
 two minutes, whether the window is in front or not, and at once when the
 window comes back after half a minute away. The merge request on the right is
@@ -37,8 +41,9 @@ cursor moves.
 
 Long lines wrap, at a space where one is near, onto rows of their own marked
 =↪= and without numbers, each still the line it belongs to, so a comment there
-lands on it. =w= lets them run on instead, and =<= and =>= move the code
-sideways then; the choice is kept. The diff moves sideways by keys rather
+lands on it. =w= lets them run on instead, and =h= and =i= (or =<= and =>=)
+move the code sideways then, =h= at the left edge going on to the sidebar as
+it leaves a window in nvim; the choice is kept. The diff moves sideways by keys rather
 than by a scroller, as the list of rows takes the trackpad's sideways
 scrolling for itself.
 
@@ -47,7 +52,8 @@ header and the cursor goes on to the next unread file, the header counts
 them (=3/16 read=), and the mark is saved at once, with the place. The mark
 holds a digest of the file's diff, so a push that changes the file brings it
 back unread, and one that leaves it alone keeps it folded. =m= on a folded
-file unfolds it.
+file unfolds it. The sidebar's files are split the same way, to review and
+reviewed: =enter= on one goes to it in the diff, and =m= there marks it.
 
 My comments are GitLab draft notes, as in GitLab's own review: nobody sees
 them until =S=, pressed twice, publishes them all at once. A draft shows in
@@ -56,7 +62,12 @@ the diff where it will land, and =D= on it drops it.
 | Keys        | What they do                                                  |
 |-------------+---------------------------------------------------------------|
 | =n= =e=     | down and up: a line in the diff, a merge request in the list  |
-| =h= =i=     | to the list and back to the diff (=i= or =enter= opens one)   |
+| =h= =i=     | sideways (=h= at the left edge: to the sidebar); in the       |
+|             | sidebar =i= or =enter= opens the request or the file          |
+| =N= =E=     | next and previous request (=tab=, =shift-tab= too)            |
+| =f=         | the sidebar's files, or its requests again                    |
+| =b=         | hide the sidebar, or show it                                  |
+| =esc=       | from the sidebar back to the diff                             |
 | =ctrl-d/u=  | half a page                                                   |
 | =gg= =G=    | top and bottom                                                |
 | =]f= =[f=   | next and previous file                                        |
@@ -65,7 +76,6 @@ the diff where it will land, and =D= on it drops it.
 | =m=         | mark the file read, folding it away, or unfold it again       |
 | =w=         | wrap long lines, or let them run on                          |
 | =<= =>=     | move run-on lines sideways                                    |
-| =tab=       | next merge request (=shift-tab= the previous one)             |
 | =v=         | select lines, for a comment on all of them                    |
 | =c=         | comment on the line, or on the selection                      |
 | =C=         | general comment, on the merge request rather than a line      |

@@ -121,6 +121,13 @@ case "$cmd" in
 list)
   enter "${1:?DIR}"
   api graphql -f query="$LIST_QUERY" -f p="$path"
+  # GraphQL finds a project only by its path now; an origin left on the path
+  # it had before a move is followed by REST, which answers with the new one.
+  if [ "$(printf '%s' "$out" | jq -r '.data.project == null')" = true ]; then
+    api projects/:id
+    path=$(printf '%s' "$out" | jq -r '.path_with_namespace')
+    api graphql -f query="$LIST_QUERY" -f p="$path"
+  fi
   printf '%s' "$out" | jq -c 'if .errors then {error: (.errors[0].message)} else
       .data.currentUser.username as $me | .data.project as $p |
       {me: $me, project: $p.fullPath, url: $p.webUrl,
@@ -133,6 +140,7 @@ list)
          review: ([.reviewers.nodes[].username] | index($me) != null),
          approved, approvals_left: .approvalsLeft,
          approved_by_me: ([.approvedBy.nodes[].username] | index($me) != null),
+         reviewed: ([.approvedBy.nodes[].username] | index($me) != null),
          pipeline: ((.headPipeline.status // "none") | ascii_downcase),
          threads: .resolvableDiscussionsCount,
          unresolved: (.resolvableDiscussionsCount - .resolvedDiscussionsCount),
