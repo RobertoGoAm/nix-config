@@ -73,6 +73,10 @@ in
 
         "macmediakeyforwarder"
 
+        # Moonlight streams games from atlas, whose Bazzite runs Sunshine as the host.
+
+        "moonlight"
+
         # Office
 
         "pdf-expert"

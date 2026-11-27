@@ -92,6 +92,12 @@ build, which was stuck at 1.98.9 against a 1.102.x CLI.
         "macmediakeyforwarder"
 #+end_src
 
+Moonlight streams games from atlas, whose Bazzite runs Sunshine as the host.
+
+#+begin_src nix
+        "moonlight"
+#+end_src
+
 * Office
 
 #+begin_src nix
