@@ -40,6 +40,23 @@
         # identityAgent = "~/.bitwarden-ssh-agent.sock";
 
       };
+
+      # atlas, the gaming and CI desktop
+
+      # It is reached by its name on the home network, with its own key and no
+      # agent, so a key the agent happens to hold is never offered to it. Its host
+      # key is pinned in a file of its own rather than learnt on first use, and a
+      # key that doesn't match it is refused.
+
+      atlas = {
+        HostName = "atlas.internal";
+        User = "robertogoam";
+        IdentityFile = "~/.ssh/ci-host";
+        IdentitiesOnly = "yes";
+        IdentityAgent = "none";
+        UserKnownHostsFile = "~/.ssh/known_hosts.d/atlas";
+        StrictHostKeyChecking = "yes";
+      };
     };
 
     extraConfig = ''
@@ -51,4 +68,8 @@
       UseKeychain yes
     '';
   };
+
+  home.file.".ssh/known_hosts.d/atlas".text = ''
+    atlas.internal,192.168.60.10 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINkv/FZeNItkXgPlMF/hF/0DVkf10sCxHlu53yhsSznW
+  '';
 }
